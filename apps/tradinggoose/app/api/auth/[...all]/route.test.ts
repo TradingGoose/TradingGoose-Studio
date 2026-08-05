@@ -12,10 +12,8 @@ const {
   mockGetSession,
   mockAuthorizeSubscriptionReference,
   mockToBillingReference,
-  mockGetActiveSubscriptionForReference,
   mockGetBillingTierById,
   mockUserCanAccessPrivateBillingTier,
-  mockEvaluateSubscriptionTierAvailability,
 } = vi.hoisted(() => ({
   mockAuthHandler: vi.fn(),
   mockLoadSystemOAuthClientCredentials: vi.fn(),
@@ -26,10 +24,8 @@ const {
   mockGetSession: vi.fn(),
   mockAuthorizeSubscriptionReference: vi.fn(),
   mockToBillingReference: vi.fn(),
-  mockGetActiveSubscriptionForReference: vi.fn(),
   mockGetBillingTierById: vi.fn(),
   mockUserCanAccessPrivateBillingTier: vi.fn(),
-  mockEvaluateSubscriptionTierAvailability: vi.fn(),
 }))
 
 vi.mock('better-auth/next-js', () => ({
@@ -51,20 +47,12 @@ vi.mock('@/lib/billing/authorization', () => ({
     mockAuthorizeSubscriptionReference(...args),
   toBillingReference: (...args: unknown[]) => mockToBillingReference(...args),
 }))
-vi.mock('@/lib/billing/core/subscription', () => ({
-  getActiveSubscriptionForReference: (...args: unknown[]) =>
-    mockGetActiveSubscriptionForReference(...args),
-}))
 vi.mock('@/lib/billing/tiers', () => ({
   getBillingTierById: (...args: unknown[]) => mockGetBillingTierById(...args),
-  userCanAccessPrivateBillingTier: (...args: unknown[]) =>
-    mockUserCanAccessPrivateBillingTier(...args),
 }))
-vi.mock('@/lib/billing/tier-availability-policy', () => ({
-  evaluateSubscriptionTierAvailability: (...args: unknown[]) =>
-    mockEvaluateSubscriptionTierAvailability(...args),
+vi.mock('@/lib/billing/private-tier-access', () => ({
+  hasPrivateTierAccessRow: (...args: unknown[]) => mockUserCanAccessPrivateBillingTier(...args),
 }))
-
 vi.mock('@/lib/oauth', () => ({
   isSignInOAuthProviderId: (providerId: string) => mockIsSignInOAuthProviderId(providerId),
 }))
@@ -89,9 +77,7 @@ describe('/api/auth/[...all] route', () => {
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockAuthorizeSubscriptionReference.mockResolvedValue(true)
     mockToBillingReference.mockReturnValue({ referenceType: 'user', referenceId: 'user-1' })
-    mockGetActiveSubscriptionForReference.mockResolvedValue(null)
     mockGetBillingTierById.mockResolvedValue({ id: 'pro', isPublic: true, status: 'active' })
-    mockEvaluateSubscriptionTierAvailability.mockReturnValue({ isSelectable: true })
   })
 
   it('delegates non-system-oauth routes directly to Better Auth', async () => {
@@ -210,7 +196,7 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
-  it.each([null, 1, true, [], {}, ' ', ' padded'])(
+  it.each([null, 1, true, [], {}, '', ' ', ' padded'])(
     'rejects malformed referenceId before authorization: %j',
     async (referenceId) => {
       const { handleAuthRequest } = await import('./route')
@@ -235,7 +221,7 @@ describe('/api/auth/[...all] route', () => {
       new Request('http://localhost/api/auth/subscription/upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'pro', referenceId: '' }),
+        body: JSON.stringify({ plan: 'pro', referenceId: 'user-1' }),
       })
     )
     expect(response.status).toBe(204)
@@ -249,12 +235,9 @@ describe('/api/auth/[...all] route', () => {
     })
   })
 
-  it('bypasses private selectability only for the authorized current Stripe subscription', async () => {
-    mockGetActiveSubscriptionForReference.mockResolvedValue({
-      stripeSubscriptionId: 'sub_stripe',
-      billingTierId: 'private',
-      plan: 'private',
-    })
+  it('requires persisted access for a private tier even with an existing subscription ID', async () => {
+    mockGetBillingTierById.mockResolvedValue({ id: 'private', isPublic: false, status: 'active' })
+    mockUserCanAccessPrivateBillingTier.mockResolvedValue(true)
     mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
@@ -270,14 +253,39 @@ describe('/api/auth/[...all] route', () => {
       })
     )
     expect(response.status).toBe(204)
-    expect(mockGetBillingTierById).not.toHaveBeenCalled()
-    expect(mockUserCanAccessPrivateBillingTier).not.toHaveBeenCalled()
+    expect(mockGetBillingTierById).toHaveBeenCalledWith('private')
+    expect(mockUserCanAccessPrivateBillingTier).toHaveBeenCalledWith('user-1', 'private')
     await expect((mockAuthHandler.mock.calls[0][0] as Request).json()).resolves.toMatchObject({
       plan: 'private',
       referenceId: 'user-1',
       subscriptionId: 'sub_stripe',
       customerType: 'user',
     })
+  })
+
+  it('rejects inactive and inaccessible private tiers directly', async () => {
+    const { handleAuthRequest } = await import('./route')
+    mockGetBillingTierById.mockResolvedValue({ id: 'archived', isPublic: true, status: 'archived' })
+
+    const archivedResponse = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({ plan: 'archived', referenceId: 'user-1' }),
+      })
+    )
+    expect(archivedResponse.status).toBe(403)
+    expect(mockUserCanAccessPrivateBillingTier).not.toHaveBeenCalled()
+
+    mockGetBillingTierById.mockResolvedValue({ id: 'private', isPublic: false, status: 'active' })
+    mockUserCanAccessPrivateBillingTier.mockResolvedValue(false)
+    const privateResponse = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({ plan: 'private', referenceId: 'user-1' }),
+      })
+    )
+    expect(privateResponse.status).toBe(403)
+    expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
   it('delegates an authorized organization with canonical organization identity', async () => {

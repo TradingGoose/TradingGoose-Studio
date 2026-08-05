@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { getModalEnterpriseContactCard } from '@/lib/billing/catalog'
-import { toSubscriptionTierDisplay } from '@/lib/billing/subscription-tier-display'
+import { toBillingTierDisplay } from '@/lib/billing/catalog'
 import {
   getPrivateBillingTiersForUser,
   grantPrivateBillingTierAccessByCode,
@@ -12,15 +11,9 @@ export const dynamic = 'force-dynamic'
 const noStoreHeaders = { 'Cache-Control': 'no-store' }
 
 async function getResponse(userId: string) {
-  const [tiers, enterpriseContactCard] = await Promise.all([
-    getPrivateBillingTiersForUser(userId),
-    getModalEnterpriseContactCard(),
-  ])
+  const tiers = await getPrivateBillingTiersForUser(userId)
   return NextResponse.json(
-    {
-      privateTiers: tiers.map((tier) => toSubscriptionTierDisplay(tier)),
-      enterpriseContactCard,
-    },
+    { privateTiers: tiers.map(toBillingTierDisplay) },
     { headers: noStoreHeaders }
   )
 }

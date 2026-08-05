@@ -51,8 +51,8 @@ vi.mock('@/lib/execution/pending-execution', () => ({
   isPendingExecutionLimitError: vi.fn(() => false),
 }))
 
-vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
-  cancelWorkflowExecutionAtomically: cancelPendingWorkflowExecutionMock,
+vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
+  cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
 }))
 
 vi.mock('@/lib/execution/workflow-execution-stream', () => ({
@@ -314,7 +314,7 @@ describe('/api/workflows/[id]/execute', () => {
       })
       expect(cancelPendingWorkflowExecutionMock).toHaveBeenCalledWith({
         pendingExecutionId: expect.stringMatching(/^workflow_execution_/),
-        actorUserId: 'user-1',
+        userId: 'user-1',
       })
     } finally {
       vi.useRealTimers()

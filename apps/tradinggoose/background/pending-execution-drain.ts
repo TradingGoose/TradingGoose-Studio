@@ -1,10 +1,13 @@
-import { task, timeout } from '@trigger.dev/sdk'
+import { db } from '@tradinggoose/db'
+import { pendingExecution } from '@tradinggoose/db/schema'
+import { schedules, task } from '@trigger.dev/sdk'
 import {
   claimNextPendingExecution,
   completePendingExecution,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   type PendingExecutionClaim,
 } from '@/lib/execution/pending-execution'
+import { wakePendingExecutionDrain } from '@/lib/execution/pending-execution-drain-wake'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   dispatchQueuedDocumentProcessingJob,
@@ -21,10 +24,7 @@ type PendingExecutionDrainPayload = {
   billingScopeId: string
 }
 
-async function dispatchPendingExecution(
-  row: PendingExecutionClaim,
-  drainRunId?: string
-): Promise<boolean> {
+async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boolean> {
   switch (row.executionType) {
     case 'workflow': {
       if (!isWorkflowExecutionPayload(row.payload)) {
@@ -34,8 +34,6 @@ async function dispatchPendingExecution(
       await executeWorkflowJob({
         ...row.payload,
         executionId: row.id,
-        drainRunId,
-        workflowExecutionLifecycle: row.lifecycle,
       })
       break
     }
@@ -48,8 +46,6 @@ async function dispatchPendingExecution(
       await executeWebhookJob({
         ...row.payload,
         executionId: row.id,
-        drainRunId,
-        workflowExecutionLifecycle: row.lifecycle,
       })
       break
     }
@@ -62,8 +58,6 @@ async function dispatchPendingExecution(
       await executeScheduleJob({
         ...row.payload,
         executionId: row.id,
-        drainRunId,
-        workflowExecutionLifecycle: row.lifecycle,
       })
       break
     }
@@ -76,8 +70,6 @@ async function dispatchPendingExecution(
       await executeMonitorJob({
         ...row.payload,
         executionId: row.id,
-        drainRunId,
-        workflowExecutionLifecycle: row.lifecycle,
       })
       break
     }
@@ -100,20 +92,20 @@ async function dispatchPendingExecution(
       throw new Error(`Unsupported pending execution type: ${row.executionType}`)
   }
 
+  await completePendingExecution({
+    pendingExecutionId: row.id,
+  })
   return true
 }
 
-export async function drainPendingExecutionsForBillingScope(
-  payload: PendingExecutionDrainPayload,
-  drainRunId?: string
-) {
+export async function drainPendingExecutionsForBillingScope(payload: PendingExecutionDrainPayload) {
   let claimedAny = false
   let failedAny = false
   let lastPendingExecutionId: string | undefined
 
   // Keep the worker responsible for the current scope until the queue is empty or capacity blocked.
   while (true) {
-    const claim = await claimNextPendingExecution(payload.billingScopeId, drainRunId)
+    const claim = await claimNextPendingExecution(payload.billingScopeId)
 
     if (claim.status === 'empty') {
       if (!claimedAny) {
@@ -137,27 +129,45 @@ export async function drainPendingExecutionsForBillingScope(
     lastPendingExecutionId = row.id
 
     try {
-      const succeeded = await dispatchPendingExecution(row, drainRunId)
+      const succeeded = await dispatchPendingExecution(row)
       failedAny ||= !succeeded
     } catch (error) {
+      failedAny = true
+
       logger.error('Pending execution failed', {
         pendingExecutionId: row.id,
         executionType: row.executionType,
         workflowId: row.workflowId,
         error,
       })
-      throw error
     }
   }
 }
 
 export const pendingExecutionDrain = task({
   id: PENDING_EXECUTION_DRAIN_TASK_ID,
-  maxDuration: timeout.None,
   retry: {
     maxAttempts: 1,
   },
-  run: async (payload: PendingExecutionDrainPayload, { ctx }) => {
-    return drainPendingExecutionsForBillingScope(payload, ctx.run.id)
+  run: async (payload: PendingExecutionDrainPayload) => {
+    return drainPendingExecutionsForBillingScope(payload)
   },
+})
+
+export async function recoverPendingExecutionDrains() {
+  const scopes = await db
+    .selectDistinct({ billingScopeId: pendingExecution.billingScopeId })
+    .from(pendingExecution)
+
+  await Promise.all(
+    scopes.map(({ billingScopeId }) => wakePendingExecutionDrain({ billingScopeId }))
+  )
+
+  return { recoveredScopeCount: scopes.length }
+}
+
+export const pendingExecutionRecoverySweep = schedules.task({
+  id: 'pending-execution-recovery-sweep',
+  cron: '*/5 * * * *',
+  run: recoverPendingExecutionDrains,
 })

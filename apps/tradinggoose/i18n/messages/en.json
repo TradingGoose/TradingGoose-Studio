@@ -1460,12 +1460,6 @@
         "unknownLevel": "unknown",
         "unknownValue": "Unknown",
         "runningMs": "{value} ms",
-        "deadline": {
-          "title": "Workflow execution time limit exceeded",
-          "reason": "This execution was stopped because it reached the time limit configured for its billing tier.",
-          "limit": "Applied limit: {seconds} seconds",
-          "tier": "Applied tier: {tierName}"
-        },
         "traceSpans": {
           "workflowExecution": "Workflow execution",
           "collapseAll": "Collapse all",
@@ -1993,13 +1987,6 @@
           "invalid": "Invalid access code.",
           "success": "Private tier access unlocked."
         },
-        "enterprise": {
-          "name": "Enterprise",
-          "description": "Custom pricing, security, and support for organizations.",
-          "customPricing": "Custom contract pricing",
-          "pooledBilling": "Organization-wide pooled billing",
-          "support": "Dedicated onboarding and support"
-        },
         "titles": {
           "manage": "Manage Subscription",
           "restore": "Restore Subscription",
@@ -2043,7 +2030,6 @@
           "failedToUpdate": "Failed to update billing owner."
         },
         "actions": {
-          "current": "Current",
           "manage": "Manage",
           "contact": "Contact",
           "upgradeTo": "Upgrade to {name}"
@@ -22154,8 +22140,9 @@
         "save": "Save Tier",
         "saving": "Saving…",
         "updated": "Tier updated",
-        "archive": "Archive Tier",
-        "activeSubscriptionsWarning": "This tier has entitled subscriptions. Archiving preserves the current paid period and cancels renewal.",
+        "delete": "Delete Tier",
+        "deleting": "Deleting…",
+        "activeSubscriptionsWarning": "This tier has active subscriptions. Delete is disabled until they are moved off.",
         "loading": "Loading billing tier...",
         "notFoundTitle": "Tier not found",
         "notFoundDescription": "Go back to billing and choose a different tier.",

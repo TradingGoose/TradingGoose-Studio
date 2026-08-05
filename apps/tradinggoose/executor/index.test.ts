@@ -922,6 +922,22 @@ describe('Executor', () => {
       }
     })
 
+    it('should treat an aborted execution signal as cancellation', async () => {
+      const controller = new AbortController()
+      controller.abort()
+      const executor = createTestExecutor(createMinimalWorkflow(), {
+        contextExtensions: { abortSignal: controller.signal },
+      })
+
+      const result = await executor.execute('test-workflow-id', 'trigger')
+
+      expect(result).toMatchObject({
+        success: false,
+        error: 'Workflow execution was cancelled',
+      })
+      expect((executor as any).isCancelled).toBe(true)
+    })
+
     it.concurrent('should return cancelled result when cancellation flag is checked', async () => {
       const workflow = createMinimalWorkflow()
       const executor = createTestExecutor(workflow)

@@ -1,6 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { ExaResearchParams, ExaResearchResponse } from '@/tools/exa/types'
-import { dispatchToolRemote, waitForToolDelay } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('ExaResearchTool')
@@ -14,7 +13,6 @@ export const researchTool: ToolConfig<ExaResearchParams, ExaResearchResponse> = 
   description:
     'Perform comprehensive research using AI to generate detailed reports with citations',
   version: '1.0.0',
-  durableCredentialParam: 'apiKey',
   params: {
     query: {
       type: 'string',
@@ -76,13 +74,8 @@ export const researchTool: ToolConfig<ExaResearchParams, ExaResearchResponse> = 
     },
   },
 
-  transformResponse: async (response: Response, _params, runtime) => {
+  transformResponse: async (response: Response) => {
     const data = await response.json()
-    await runtime?.publishOperationIdentity?.({
-      adapterKind: 'exa_research',
-      capability: 'status_only',
-      remoteOperationId: data.id,
-    })
 
     return {
       success: true,
@@ -92,31 +85,24 @@ export const researchTool: ToolConfig<ExaResearchParams, ExaResearchResponse> = 
       },
     }
   },
-  postProcess: async (result, params, _executeTool, runtime) => {
+  postProcess: async (result, params) => {
     if (!result.success) {
       return result
     }
 
     const taskId = result.output.taskId
-    if (!taskId) return { ...result, success: false, error: 'Missing Exa task ID' }
-    await runtime?.publishOperationIdentity?.({
-      adapterKind: 'exa_research',
-      capability: 'status_only',
-      remoteOperationId: taskId,
-    })
     logger.info(`Exa research task ${taskId} created, polling for completion...`)
 
     let elapsedTime = 0
 
-    while (true) {
+    while (elapsedTime < MAX_POLL_TIME_MS) {
       try {
-        const statusResponse = await dispatchToolRemote(runtime, () =>
-          fetch(`https://api.exa.ai/research/v0/tasks/${taskId}`, {
-            method: 'GET',
-            signal: runtime?.signal,
-            headers: { 'x-api-key': params.apiKey },
-          })
-        )
+        const statusResponse = await fetch(`https://api.exa.ai/research/v0/tasks/${taskId}`, {
+          method: 'GET',
+          headers: {
+            'x-api-key': params.apiKey,
+          },
+        })
 
         if (!statusResponse.ok) {
           throw new Error(`Failed to get task status: ${statusResponse.statusText}`)
@@ -139,35 +125,40 @@ export const researchTool: ToolConfig<ExaResearchParams, ExaResearchResponse> = 
               },
             ],
           }
-          await runtime?.recordTerminalObservation?.('completed', {
-            providerStatus: taskData.status,
-          })
           return result
         }
 
         if (taskData.status === 'failed') {
-          const failure = {
+          return {
             ...result,
             success: false,
             error: `Research task failed: ${taskData.error || 'Unknown error'}`,
           }
-          await runtime?.recordTerminalObservation?.('failed', {
-            providerStatus: taskData.status,
-          })
-          return failure
         }
 
-        await waitForToolDelay(POLL_INTERVAL_MS, runtime?.signal)
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
         elapsedTime += POLL_INTERVAL_MS
       } catch (error: any) {
-        runtime?.signal?.throwIfAborted()
         logger.error('Error polling for research task status:', {
           message: error.message || 'Unknown error',
           taskId,
         })
 
-        await waitForToolDelay(POLL_INTERVAL_MS, runtime?.signal)
+        return {
+          ...result,
+          success: false,
+          error: `Error polling for research task status: ${error.message || 'Unknown error'}`,
+        }
       }
+    }
+
+    logger.warn(
+      `Research task ${taskId} did not complete within the maximum polling time (${MAX_POLL_TIME_MS / 1000}s)`
+    )
+    return {
+      ...result,
+      success: false,
+      error: `Research task did not complete within the maximum polling time (${MAX_POLL_TIME_MS / 1000}s)`,
     }
   },
 

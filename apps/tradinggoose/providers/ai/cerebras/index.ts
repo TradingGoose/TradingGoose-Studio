@@ -9,7 +9,7 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import { prepareToolExecution } from '@/providers/ai/utils'
-import { executeProviderTool } from '@/providers/ai/utils-server'
+import { executeTool } from '@/tools'
 
 const logger = createLogger('CerebrasProvider')
 
@@ -61,6 +61,8 @@ export const cerebrasProvider: ProviderConfig = {
       const client = new Cerebras({
         apiKey: request.apiKey,
       })
+      const createCompletion = (payload: any) =>
+        client.chat.completions.create(payload, { signal: request.abortSignal })
 
       // Start with an empty array for all messages
       const allMessages = []
@@ -147,10 +149,7 @@ export const cerebrasProvider: ProviderConfig = {
       // EARLY STREAMING: if streaming requested and no tools to execute, stream directly
       if (request.stream && (!tools || tools.length === 0)) {
         logger.info('Using streaming response for Cerebras request (no tools)')
-        const streamResponse: any = await client.chat.completions.create(
-          { ...payload, stream: true },
-          request.abortSignal ? { signal: request.abortSignal } : undefined
-        )
+        const streamResponse: any = await createCompletion({ ...payload, stream: true })
 
         // Start collecting token usage
         const tokenUsage = {
@@ -207,10 +206,7 @@ export const cerebrasProvider: ProviderConfig = {
       // Make the initial API request
       const initialCallTime = Date.now()
 
-      let currentResponse = (await client.chat.completions.create(
-        payload,
-        request.abortSignal ? { signal: request.abortSignal } : undefined
-      )) as CerebrasResponse
+      let currentResponse = (await createCompletion(payload)) as CerebrasResponse
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -295,7 +291,7 @@ export const cerebrasProvider: ProviderConfig = {
 
               const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
 
-              const result = await executeProviderTool(request, toolName, executionParams, false)
+              const result = await executeTool(toolName, executionParams)
               const toolCallEndTime = Date.now()
               const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -354,7 +350,6 @@ export const cerebrasProvider: ProviderConfig = {
                 content: JSON.stringify(resultContent),
               })
             } catch (error) {
-              request.abortSignal?.throwIfAborted()
               logger.error('Error processing tool call:', { error })
             }
           }
@@ -377,10 +372,7 @@ export const cerebrasProvider: ProviderConfig = {
             // Use tool_choice: 'none' for the final response to avoid an infinite loop
             finalPayload.tool_choice = 'none'
 
-            const finalResponse = (await client.chat.completions.create(
-              finalPayload,
-              request.abortSignal ? { signal: request.abortSignal } : undefined
-            )) as CerebrasResponse
+            const finalResponse = (await createCompletion(finalPayload)) as CerebrasResponse
 
             const nextModelEndTime = Date.now()
             const thisModelTime = nextModelEndTime - nextModelStartTime
@@ -423,10 +415,7 @@ export const cerebrasProvider: ProviderConfig = {
             const nextModelStartTime = Date.now()
 
             // Make the next request
-            currentResponse = (await client.chat.completions.create(
-              nextPayload,
-              request.abortSignal ? { signal: request.abortSignal } : undefined
-            )) as CerebrasResponse
+            currentResponse = (await createCompletion(nextPayload)) as CerebrasResponse
 
             const nextModelEndTime = Date.now()
             const thisModelTime = nextModelEndTime - nextModelStartTime
@@ -454,7 +443,6 @@ export const cerebrasProvider: ProviderConfig = {
           }
         }
       } catch (error) {
-        request.abortSignal?.throwIfAborted()
         logger.error('Error in Cerebras tool processing:', { error })
       }
 
@@ -476,10 +464,7 @@ export const cerebrasProvider: ProviderConfig = {
           stream: true,
         }
 
-        const streamResponse: any = await client.chat.completions.create(
-          streamingPayload,
-          request.abortSignal ? { signal: request.abortSignal } : undefined
-        )
+        const streamResponse: any = await createCompletion(streamingPayload)
 
         // Create a StreamingExecution response with all collected data
         const streamingResult = {
@@ -549,7 +534,6 @@ export const cerebrasProvider: ProviderConfig = {
         },
       }
     } catch (error) {
-      request.abortSignal?.throwIfAborted()
       // Include timing information even for errors
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()

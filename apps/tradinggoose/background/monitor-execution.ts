@@ -1,4 +1,3 @@
-import { settleIndicatorCalculationPendingExecution } from '@/lib/execution/pending-execution'
 import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import {
   executeIndicatorMonitorJob,
@@ -36,11 +35,5 @@ export function isMonitorExecutionPayload(value: unknown): value is MonitorExecu
 
 export async function executeMonitorJob(payload: MonitorExecutionPayload) {
   const handler = monitorExecutionHandlers[payload.source]
-  try {
-    return await handler.execute(payload as never)
-  } finally {
-    if (payload.source === INDICATOR_MONITOR_PROVIDER && payload.executionId) {
-      await settleIndicatorCalculationPendingExecution(payload.executionId)
-    }
-  }
+  return handler.execute(payload as never)
 }

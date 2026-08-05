@@ -14,7 +14,7 @@ import {
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
-import { executeProviderTool } from '@/providers/ai/utils-server'
+import { executeTool } from '@/tools'
 
 const logger = createLogger('AzureOpenAIProvider')
 
@@ -99,6 +99,7 @@ export const azureOpenAIProvider: ProviderConfig = {
       apiVersion: azureApiVersion,
       endpoint: azureEndpoint,
     })
+    const options = { signal: request.abortSignal }
 
     // Start with an empty array for all messages
     const allMessages = []
@@ -206,7 +207,7 @@ export const azureOpenAIProvider: ProviderConfig = {
         // Create a streaming request with token usage tracking
         const streamResponse = await azureOpenAI.chat.completions.create(
           { ...payload, stream: true, stream_options: { include_usage: true } },
-          request.abortSignal ? { signal: request.abortSignal } : undefined
+          options
         )
 
         // Start collecting token usage from the stream
@@ -321,10 +322,7 @@ export const azureOpenAIProvider: ProviderConfig = {
         }
       }
 
-      let currentResponse = await azureOpenAI.chat.completions.create(
-        payload,
-        request.abortSignal ? { signal: request.abortSignal } : undefined
-      )
+      let currentResponse = await azureOpenAI.chat.completions.create(payload, options)
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -390,7 +388,7 @@ export const azureOpenAIProvider: ProviderConfig = {
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
 
-            const result = await executeProviderTool(request, toolName, executionParams, false)
+            const result = await executeTool(toolName, executionParams)
             const toolCallEndTime = Date.now()
             const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -449,7 +447,6 @@ export const azureOpenAIProvider: ProviderConfig = {
               content: JSON.stringify(resultContent),
             })
           } catch (error) {
-            request.abortSignal?.throwIfAborted()
             logger.error('Error processing tool call:', {
               error,
               toolName: toolCall?.function?.name,
@@ -490,10 +487,7 @@ export const azureOpenAIProvider: ProviderConfig = {
         const nextModelStartTime = Date.now()
 
         // Make the next request
-        currentResponse = await azureOpenAI.chat.completions.create(
-          nextPayload,
-          request.abortSignal ? { signal: request.abortSignal } : undefined
-        )
+        currentResponse = await azureOpenAI.chat.completions.create(nextPayload, options)
 
         // Check if any forced tools were used in this response
         checkForForcedToolUsage(currentResponse, nextPayload.tool_choice)
@@ -542,10 +536,7 @@ export const azureOpenAIProvider: ProviderConfig = {
           stream_options: { include_usage: true },
         }
 
-        const streamResponse = await azureOpenAI.chat.completions.create(
-          streamingPayload,
-          request.abortSignal ? { signal: request.abortSignal } : undefined
-        )
+        const streamResponse = await azureOpenAI.chat.completions.create(streamingPayload, options)
 
         // Create the StreamingExecution object with all collected data
         let _streamContent = ''
@@ -633,7 +624,6 @@ export const azureOpenAIProvider: ProviderConfig = {
         // We're not calculating cost here as it will be handled in logger.ts
       }
     } catch (error) {
-      request.abortSignal?.throwIfAborted()
       // Include timing information even for errors
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()

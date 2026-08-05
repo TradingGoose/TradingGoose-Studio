@@ -1,10 +1,10 @@
-import OpenAI from 'openai'
-import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat/completions'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveVllmServiceConfig } from '@/lib/system-services/runtime'
+import { toError } from '@/providers/ai/error'
+import OpenAI from 'openai'
+import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat/completions'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
-import { toError } from '@/providers/ai/error'
 import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   Message,
@@ -21,9 +21,9 @@ import {
   sumToolCosts,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
-import { executeProviderTool } from '@/providers/ai/utils-server'
 import { createReadableStreamFromVLLMStream } from '@/providers/ai/vllm/utils'
 import { useProvidersStore } from '@/stores/providers/store'
+import { executeTool } from '@/tools'
 
 const logger = createLogger('VLLMProvider')
 const VLLM_VERSION = '1.0.0'
@@ -370,7 +370,7 @@ export const vllmProvider: ProviderConfig = {
             if (!tool) return null
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeProviderTool(request, toolName, executionParams, false)
+            const result = await executeTool(toolName, executionParams)
             const toolCallEndTime = Date.now()
 
             return {
@@ -383,7 +383,6 @@ export const vllmProvider: ProviderConfig = {
               duration: toolCallEndTime - toolCallStartTime,
             }
           } catch (error) {
-            request.abortSignal?.throwIfAborted()
             const toolCallEndTime = Date.now()
             logger.error('Error processing tool call:', { error, toolName })
 
@@ -633,7 +632,6 @@ export const vllmProvider: ProviderConfig = {
         },
       }
     } catch (error) {
-      request.abortSignal?.throwIfAborted()
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()
       const totalDuration = providerEndTime - providerStartTime

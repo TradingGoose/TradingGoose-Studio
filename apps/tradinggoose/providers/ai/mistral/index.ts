@@ -13,7 +13,7 @@ import {
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
-import { executeProviderTool } from '@/providers/ai/utils-server'
+import { executeTool } from '@/tools'
 
 const logger = createLogger('MistralProvider')
 
@@ -83,6 +83,7 @@ export const mistralProvider: ProviderConfig = {
       apiKey: request.apiKey,
       baseURL: 'https://api.mistral.ai/v1',
     })
+    const options = { signal: request.abortSignal }
 
     const allMessages = []
 
@@ -172,7 +173,7 @@ export const mistralProvider: ProviderConfig = {
 
         const streamResponse = await mistral.chat.completions.create(
           { ...payload, stream: true, stream_options: { include_usage: true } },
-          request.abortSignal ? { signal: request.abortSignal } : undefined
+          options
         )
 
         const tokenUsage = {
@@ -274,10 +275,7 @@ export const mistralProvider: ProviderConfig = {
         }
       }
 
-      let currentResponse = await mistral.chat.completions.create(
-        payload,
-        request.abortSignal ? { signal: request.abortSignal } : undefined
-      )
+      let currentResponse = await mistral.chat.completions.create(payload, options)
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -332,7 +330,7 @@ export const mistralProvider: ProviderConfig = {
             const toolCallStartTime = Date.now()
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeProviderTool(request, toolName, executionParams, false)
+            const result = await executeTool(toolName, executionParams)
             const toolCallEndTime = Date.now()
             const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -387,7 +385,6 @@ export const mistralProvider: ProviderConfig = {
               content: JSON.stringify(resultContent),
             })
           } catch (error) {
-            request.abortSignal?.throwIfAborted()
             logger.error('Error processing tool call:', {
               error,
               toolName: toolCall?.function?.name,
@@ -420,10 +417,7 @@ export const mistralProvider: ProviderConfig = {
 
         const nextModelStartTime = Date.now()
 
-        currentResponse = await mistral.chat.completions.create(
-          nextPayload,
-          request.abortSignal ? { signal: request.abortSignal } : undefined
-        )
+        currentResponse = await mistral.chat.completions.create(nextPayload, options)
 
         checkForForcedToolUsage(currentResponse, nextPayload.tool_choice)
 
@@ -464,10 +458,7 @@ export const mistralProvider: ProviderConfig = {
           stream_options: { include_usage: true },
         }
 
-        const streamResponse = await mistral.chat.completions.create(
-          streamingPayload,
-          request.abortSignal ? { signal: request.abortSignal } : undefined
-        )
+        const streamResponse = await mistral.chat.completions.create(streamingPayload, options)
 
         let _streamContent = ''
 
@@ -548,7 +539,6 @@ export const mistralProvider: ProviderConfig = {
         },
       }
     } catch (error) {
-      request.abortSignal?.throwIfAborted()
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()
       const totalDuration = providerEndTime - providerStartTime

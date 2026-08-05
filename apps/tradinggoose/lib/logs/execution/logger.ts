@@ -35,17 +35,6 @@ import type {
   WorkflowState,
 } from '@/lib/logs/types'
 
-export interface ToolCall {
-  name: string
-  duration: number // in milliseconds
-  startTime: string // ISO timestamp
-  endTime: string // ISO timestamp
-  status: 'success' | 'error'
-  input?: Record<string, any>
-  output?: Record<string, any>
-  error?: string
-}
-
 const logger = createLogger('ExecutionLogger')
 
 type OrganizationBillingOwner = {
@@ -235,7 +224,6 @@ export class ExecutionLogger {
     workflowInput?: any
     hasResponseBlock?: boolean
     variables?: Record<string, string>
-    result?: import('@/executor/types').ExecutionResult
   }): Promise<WorkflowExecutionLog> {
     const {
       executionId,
@@ -251,7 +239,6 @@ export class ExecutionLogger {
       workflowInput,
       hasResponseBlock,
       variables,
-      result,
     } = params
 
     logger.debug(`Completing workflow execution ${executionId}`)
@@ -298,7 +285,6 @@ export class ExecutionLogger {
       finalOutput,
       ...(hasResponseBlock ? { hasResponseBlock: true } : {}),
       ...(failureReason ? { errorMessage: failureReason } : {}),
-      ...(result ? { canonicalResult: result } : {}),
       tokenBreakdown: {
         prompt: costSummary.totalPromptTokens,
         completion: costSummary.totalCompletionTokens,
@@ -528,33 +514,6 @@ export class ExecutionLogger {
     }
 
     return completedLog
-  }
-
-  async readWorkflowExecution(executionId: string): Promise<WorkflowExecutionLog | null> {
-    const [workflowLog] = await db
-      .select()
-      .from(workflowExecutionLogs)
-      .where(eq(workflowExecutionLogs.executionId, executionId))
-      .limit(1)
-
-    if (!workflowLog) return null
-
-    return {
-      id: workflowLog.id,
-      workflowId: workflowLog.workflowId,
-      workspaceId: workflowLog.workspaceId,
-      executionId: workflowLog.executionId,
-      stateSnapshotId: workflowLog.stateSnapshotId,
-      workflowSummary: workflowLog.workflowSummary as WorkflowExecutionLog['workflowSummary'],
-      level: workflowLog.level as 'info' | 'error',
-      trigger: workflowLog.trigger as ExecutionTrigger['type'],
-      startedAt: workflowLog.startedAt.toISOString(),
-      endedAt: workflowLog.endedAt?.toISOString() || workflowLog.startedAt.toISOString(),
-      totalDurationMs: workflowLog.totalDurationMs || 0,
-      executionData: workflowLog.executionData as WorkflowExecutionLog['executionData'],
-      cost: workflowLog.cost as any,
-      createdAt: workflowLog.createdAt.toISOString(),
-    }
   }
 
   /**

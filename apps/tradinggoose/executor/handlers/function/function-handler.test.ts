@@ -91,8 +91,7 @@ describe('FunctionBlockHandler', () => {
       'function_execute',
       expectedToolParams,
       false, // skipPostProcess
-      mockContext, // execution context
-      { signal: undefined }
+      mockContext // execution context
     )
     expect(result).toEqual(expectedOutput)
   })
@@ -122,8 +121,7 @@ describe('FunctionBlockHandler', () => {
       'function_execute',
       expectedToolParams,
       false, // skipPostProcess
-      mockContext, // execution context
-      { signal: undefined }
+      mockContext // execution context
     )
     expect(result).toEqual(expectedOutput)
   })
@@ -160,8 +158,7 @@ describe('FunctionBlockHandler', () => {
       'function_execute',
       expectedToolParams,
       false, // skipPostProcess
-      mockContext, // execution context
-      { signal: undefined }
+      mockContext // execution context
     )
   })
 

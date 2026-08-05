@@ -1460,12 +1460,6 @@
         "unknownLevel": "desconocido",
         "unknownValue": "Desconocido",
         "runningMs": "{value} ms",
-        "deadline": {
-          "title": "Se excedió el límite de tiempo de ejecución",
-          "reason": "Esta ejecución se detuvo porque alcanzó el límite de tiempo configurado para su nivel de facturación.",
-          "limit": "Límite aplicado: {seconds} segundos",
-          "tier": "Nivel aplicado: {tierName}"
-        },
         "traceSpans": {
           "workflowExecution": "Ejecución del flujo de trabajo",
           "collapseAll": "Contraer todo",
@@ -1993,13 +1987,6 @@
           "invalid": "Código de acceso no válido.",
           "success": "Acceso al nivel privado desbloqueado."
         },
-        "enterprise": {
-          "name": "Empresa",
-          "description": "Precios, seguridad y soporte personalizados para organizaciones.",
-          "customPricing": "Precios de contrato personalizados",
-          "pooledBilling": "Facturación agrupada para toda la organización",
-          "support": "Incorporación y soporte dedicados"
-        },
         "titles": {
           "manage": "Gestionar suscripción",
           "restore": "Restaurar suscripción",
@@ -2043,7 +2030,6 @@
           "failedToUpdate": "No se pudo actualizar el propietario de facturación."
         },
         "actions": {
-          "current": "Actual",
           "manage": "Gestionar",
           "contact": "Contactar",
           "upgradeTo": "Actualizar a {name}"
@@ -22154,8 +22140,9 @@
         "save": "Guardar nivel",
         "saving": "Guardando…",
         "updated": "Nivel actualizado",
-        "archive": "Archivar nivel",
-        "activeSubscriptionsWarning": "Este nivel tiene suscripciones con derecho. Archivarlo conserva el período pagado actual y cancela la renovación.",
+        "delete": "Eliminar nivel",
+        "deleting": "Eliminando…",
+        "activeSubscriptionsWarning": "Este nivel tiene suscripciones activas. La eliminación se desactiva hasta que se muevan.",
         "loading": "Cargando nivel de facturación...",
         "notFoundTitle": "Nivel no encontrado",
         "notFoundDescription": "Vuelve a facturación y elige un nivel diferente.",

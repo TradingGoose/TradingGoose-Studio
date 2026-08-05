@@ -3,7 +3,6 @@ import {
   type GoogleCalendarInviteParams,
   type GoogleCalendarInviteResponse,
 } from '@/tools/google_calendar/types'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 export const inviteTool: ToolConfig<GoogleCalendarInviteParams, GoogleCalendarInviteResponse> = {
@@ -69,7 +68,7 @@ export const inviteTool: ToolConfig<GoogleCalendarInviteParams, GoogleCalendarIn
     }),
   },
 
-  transformResponse: async (response: Response, params, runtime) => {
+  transformResponse: async (response: Response, params) => {
     const existingEvent = await response.json()
 
     // Validate required fields exist
@@ -171,7 +170,7 @@ export const inviteTool: ToolConfig<GoogleCalendarInviteParams, GoogleCalendarIn
     const putUrl = `${CALENDAR_API_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(params?.eventId || '')}${queryString ? `?${queryString}` : ''}`
 
     // Send PUT request to update the event
-    const putResponse = await dispatchToolFetch(runtime, putUrl, {
+    const putResponse = await fetch(putUrl, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${params?.accessToken}`,

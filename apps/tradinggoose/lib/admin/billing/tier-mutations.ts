@@ -2,24 +2,7 @@ import { z } from 'zod'
 
 const nullableNumberSchema = z.number().finite().nonnegative().nullable()
 const nullableIntegerSchema = z.number().int().nonnegative().nullable()
-const positiveDecimalPattern = /^(?:0*[1-9]\d*(?:\.\d*)?|0*\.\d*[1-9]\d*)$/
-const nullablePositiveDecimalStringSchema = z
-  .union([z.string(), z.null()])
-  .transform((value, context): string | null => {
-    if (value === null) return null
-    const normalized = String(value).trim()
-    if (!positiveDecimalPattern.test(normalized)) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Workflow execution time limit must be a finite positive number of seconds',
-      })
-      return z.NEVER
-    }
-    const [integerPart, fractionalPart] = normalized.split('.')
-    const normalizedInteger = integerPart.replace(/^0+(?=\d)/, '') || '0'
-    const normalizedFraction = fractionalPart?.replace(/0+$/, '')
-    return normalizedFraction ? `${normalizedInteger}.${normalizedFraction}` : normalizedInteger
-  })
+const nullablePositiveIntegerSchema = z.number().int().positive().nullable()
 const nullableTrimmedStringSchema = z
   .string()
   .trim()
@@ -48,12 +31,12 @@ const adminBillingTierMutationShape = {
   stripeYearlyPriceId: nullableTrimmedStringSchema,
   stripeProductId: nullableTrimmedStringSchema,
   accessCode: nullableTrimmedStringSchema,
-  workflowExecutionTimeLimitSeconds: nullablePositiveDecimalStringSchema.optional(),
+  workflowExecutionTimeLimitSeconds: nullablePositiveIntegerSchema,
   syncRateLimitPerMinute: nullableIntegerSchema,
   asyncRateLimitPerMinute: nullableIntegerSchema,
   apiEndpointRateLimitPerMinute: nullableIntegerSchema,
-  maxPendingAgeSeconds: nullableIntegerSchema.optional().default(null),
-  maxPendingCount: nullableIntegerSchema.optional().default(null),
+  maxPendingAgeSeconds: nullableIntegerSchema,
+  maxPendingCount: nullableIntegerSchema,
   canEditUsageLimit: z.boolean(),
   canConfigureSso: z.boolean(),
   logRetentionDays: nullableIntegerSchema,
@@ -67,14 +50,7 @@ const adminBillingTierMutationShape = {
   displayOrder: z.number().int(),
 }
 
-export const adminBillingTierMutationSchema = z
-  .object(adminBillingTierMutationShape)
-  .transform((input) => ({
-    ...input,
-    workflowExecutionTimeLimitSeconds: input.workflowExecutionTimeLimitSeconds ?? null,
-  }))
-
-export const adminBillingTierUpdateSchema = z.object(adminBillingTierMutationShape)
+export const adminBillingTierMutationSchema = z.object(adminBillingTierMutationShape)
 
 export type AdminBillingTierMutationInput = z.infer<typeof adminBillingTierMutationSchema>
 
@@ -83,10 +59,6 @@ export function validateAdminBillingTierInput(input: AdminBillingTierMutationInp
     return 'Public tiers cannot configure an access code'
   }
   if (input.isDefault) {
-    if (input.status === 'archived') {
-      return 'The default tier cannot be archived'
-    }
-
     if (!input.isPublic) {
       return 'The default tier must be visible in the public catalog'
     }
@@ -163,49 +135,11 @@ export function validateAdminBillingTierInput(input: AdminBillingTierMutationInp
   }
 
   if (
-    input.seatMode === 'fixed' &&
-    input.ownerType !== 'organization' &&
-    input.seatCount !== null
-  ) {
-    return 'Seat count is only used for organization tiers'
-  }
-
-  if (input.seatMode === 'adjustable' && input.ownerType !== 'organization') {
-    return 'Adjustable seats are only supported for organization tiers'
-  }
-
-  if (input.seatMode === 'adjustable' && input.seatCount === null) {
-    return 'Adjustable organization tiers must configure a base seat count'
-  }
-
-  if (
     input.seatCount !== null &&
     input.seatMaximum !== null &&
     input.seatMaximum < input.seatCount
   ) {
     return 'Seat maximum cannot be less than the configured seat count'
-  }
-
-  if (
-    input.ownerType === 'organization' &&
-    input.seatMode === 'fixed' &&
-    input.seatCount === null
-  ) {
-    return 'Fixed organization tiers must configure a seat count'
-  }
-
-  if (
-    input.ownerType === 'organization' &&
-    input.seatMode === 'adjustable' &&
-    input.seatCount === null
-  ) {
-    return 'Adjustable organization tiers must configure a seat count'
-  }
-
-  if (input.ownerType !== 'organization') {
-    if (input.seatCount !== null || input.seatMaximum !== null) {
-      return 'Seat count and seat maximum are only used for organization tiers'
-    }
   }
 
   return null

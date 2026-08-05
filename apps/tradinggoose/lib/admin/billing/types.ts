@@ -17,7 +17,7 @@ export interface AdminBillingTierSnapshot {
   stripeYearlyPriceId: string | null
   stripeProductId: string | null
   accessCode: string | null
-  workflowExecutionTimeLimitSeconds: string | null
+  workflowExecutionTimeLimitSeconds: number | null
   syncRateLimitPerMinute: number | null
   asyncRateLimitPerMinute: number | null
   apiEndpointRateLimitPerMinute: number | null
@@ -35,8 +35,6 @@ export interface AdminBillingTierSnapshot {
   isDefault: boolean
   displayOrder: number
   subscriptionCount: number
-  entitledSubscriptionCount: number
-  archiveAction: 'archive' | 'archived' | 'blockedDefault'
 }
 
 export interface AdminBillingSnapshot {

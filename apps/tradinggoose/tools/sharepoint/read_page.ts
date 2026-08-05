@@ -1,5 +1,4 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type {
   GraphApiResponse,
   SharepointPageContent,
@@ -119,7 +118,7 @@ export const readPageTool: ToolConfig<SharepointToolParams, SharepointReadPageRe
     }),
   },
 
-  transformResponse: async (response: Response, params, runtime) => {
+  transformResponse: async (response: Response, params) => {
     const data: GraphApiResponse = await response.json()
 
     logger.info('SharePoint API response', {
@@ -193,7 +192,7 @@ export const readPageTool: ToolConfig<SharepointToolParams, SharepointReadPageRe
         siteId,
       })
 
-      const contentResponse = await dispatchToolFetch(runtime, contentUrl, {
+      const contentResponse = await fetch(contentUrl, {
         headers: {
           Authorization: `Bearer ${params?.accessToken}`,
           Accept: 'application/json',
@@ -244,7 +243,7 @@ export const readPageTool: ToolConfig<SharepointToolParams, SharepointReadPageRe
       const contentUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/pages/${pageInfo.id}/microsoft.graph.sitePage?$expand=canvasLayout`
 
       try {
-        const contentResponse = await dispatchToolFetch(runtime, contentUrl, {
+        const contentResponse = await fetch(contentUrl, {
           headers: {
             Authorization: `Bearer ${params?.accessToken}`,
             Accept: 'application/json',

@@ -1,5 +1,4 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type { TwilioListCallsOutput, TwilioListCallsParams } from '@/tools/twilio_voice/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -98,7 +97,7 @@ export const listCallsTool: ToolConfig<TwilioListCallsParams, TwilioListCallsOut
     },
   },
 
-  transformResponse: async (response, params, runtime) => {
+  transformResponse: async (response, params) => {
     const data = await response.json()
 
     logger.info('Twilio List Calls Response:', { total: data.calls?.length || 0 })
@@ -123,7 +122,7 @@ export const listCallsTool: ToolConfig<TwilioListCallsParams, TwilioListCallsOut
         if (call.subresource_uris?.recordings) {
           try {
             const recordingsUrl = `https://api.twilio.com${call.subresource_uris.recordings}`
-            const recordingsResponse = await dispatchToolFetch(runtime, recordingsUrl, {
+            const recordingsResponse = await fetch(recordingsUrl, {
               method: 'GET',
               headers: { Authorization: `Basic ${authToken}` },
             })

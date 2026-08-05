@@ -79,8 +79,8 @@ vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: checkHybridAuthMock,
 }))
 
-vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
-  cancelWorkflowExecutionAtomically: cancelPendingWorkflowExecutionMock,
+vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
+  cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -367,7 +367,7 @@ describe('DELETE /api/jobs/[jobId]', () => {
 
     expect(cancelPendingWorkflowExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'job-1',
-      actorUserId: 'user-1',
+      userId: 'user-1',
     })
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({

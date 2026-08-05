@@ -1,5 +1,4 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('GoogleVaultDownloadExportFileTool')
@@ -50,7 +49,7 @@ export const downloadExportFileTool: ToolConfig<DownloadParams> = {
     }),
   },
 
-  transformResponse: async (response: Response, params: DownloadParams | undefined, runtime) => {
+  transformResponse: async (response: Response, params?: DownloadParams) => {
     if (!response.ok) {
       let details: any
       try {
@@ -76,7 +75,7 @@ export const downloadExportFileTool: ToolConfig<DownloadParams> = {
     const downloadUrl = `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${object}?alt=media`
 
     // Fetch the actual file content
-    const downloadResponse = await dispatchToolFetch(runtime, downloadUrl, {
+    const downloadResponse = await fetch(downloadUrl, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${params.accessToken}`,

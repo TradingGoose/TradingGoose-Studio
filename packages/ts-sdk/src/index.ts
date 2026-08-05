@@ -9,14 +9,6 @@ export interface WorkflowExecutionResult {
   success: boolean
   output?: any
   error?: string
-  code?: string
-  deadline?: {
-    appliedTierId: string
-    appliedTierName: string
-    limitSeconds: string
-    processingStartedAt: string
-    terminatedAt: string
-  }
   logs?: any[]
   metadata?: {
     duration?: number

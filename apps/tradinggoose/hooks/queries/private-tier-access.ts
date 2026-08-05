@@ -1,13 +1,10 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { EnterprisePlaceholderDisplay } from '@/lib/billing/public-catalog'
-import type { SubscriptionTierDisplay } from '@/lib/billing/subscription-tier-display'
-import { subscriptionKeys } from '@/hooks/queries/subscription'
+import type { BillingTierDisplay } from '@/lib/billing/public-catalog'
 
 export interface PrivateTierAccessResponse {
-  privateTiers: SubscriptionTierDisplay[]
-  enterpriseContactCard: EnterprisePlaceholderDisplay | null
+  privateTiers: BillingTierDisplay[]
 }
 
 export const privateTierAccessKeys = {
@@ -36,12 +33,7 @@ export function usePrivateTierAccess(options: { enabled?: boolean } = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accessCode }),
       }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: privateTierAccessKeys.current() }),
-        queryClient.invalidateQueries({ queryKey: subscriptionKeys.user() }),
-      ])
-    },
+    onSuccess: (response) => queryClient.setQueryData(privateTierAccessKeys.current(), response),
   })
   return { ...query, validateAccessCode }
 }

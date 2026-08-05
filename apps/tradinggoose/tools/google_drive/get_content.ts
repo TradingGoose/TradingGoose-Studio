@@ -4,7 +4,6 @@ import type {
   GoogleDriveToolParams,
 } from '@/tools/google_drive/types'
 import { DEFAULT_EXPORT_FORMATS, GOOGLE_WORKSPACE_MIME_TYPES } from '@/tools/google_drive/utils'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('GoogleDriveGetContentTool')
@@ -54,11 +53,7 @@ export const getContentTool: ToolConfig<GoogleDriveToolParams, GoogleDriveGetCon
       Authorization: `Bearer ${params.accessToken}`,
     }),
   },
-  transformResponse: async (
-    response: Response,
-    params: GoogleDriveToolParams | undefined,
-    runtime
-  ) => {
+  transformResponse: async (response: Response, params?: GoogleDriveToolParams) => {
     try {
       if (!response.ok) {
         const errorDetails = await response.json().catch(() => ({}))
@@ -85,8 +80,7 @@ export const getContentTool: ToolConfig<GoogleDriveToolParams, GoogleDriveGetCon
           exportFormat,
         })
 
-        const exportResponse = await dispatchToolFetch(
-          runtime,
+        const exportResponse = await fetch(
           `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=${encodeURIComponent(exportFormat)}`,
           {
             headers: {
@@ -112,8 +106,7 @@ export const getContentTool: ToolConfig<GoogleDriveToolParams, GoogleDriveGetCon
           mimeType,
         })
 
-        const downloadResponse = await dispatchToolFetch(
-          runtime,
+        const downloadResponse = await fetch(
           `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
           {
             headers: {
@@ -135,8 +128,7 @@ export const getContentTool: ToolConfig<GoogleDriveToolParams, GoogleDriveGetCon
         content = await downloadResponse.text()
       }
 
-      const metadataResponse = await dispatchToolFetch(
-        runtime,
+      const metadataResponse = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,webViewLink,webContentLink,size,createdTime,modifiedTime,parents`,
         {
           headers: {

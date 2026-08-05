@@ -556,6 +556,7 @@ export function Dropdown({
         align='start'
         className='w-[var(--anchor-width)] p-0'
         finalFocus={enableSearch ? false : undefined}
+        portal={false}
       >
         {enableSearch && (
           <div className='border-border border-b p-2'>

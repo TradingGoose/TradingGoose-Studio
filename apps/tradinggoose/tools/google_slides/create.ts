@@ -79,8 +79,7 @@ export const createTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesCreateRe
     },
   },
 
-  postProcess: async (result, params, executeTool, runtime) => {
-    runtime?.signal?.throwIfAborted()
+  postProcess: async (result, params, executeTool) => {
     if (!result.success) {
       return result
     }
@@ -104,7 +103,6 @@ export const createTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesCreateRe
           )
         }
       } catch (error) {
-        runtime?.signal?.throwIfAborted()
         logger.warn('Error adding content to presentation:', { error })
         // Don't fail the overall operation if adding content fails
       }

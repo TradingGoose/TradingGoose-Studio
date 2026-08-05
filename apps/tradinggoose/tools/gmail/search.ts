@@ -5,7 +5,6 @@ import {
   GMAIL_API_BASE,
   processMessageForSummary,
 } from '@/tools/gmail/utils'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('GmailSearchTool')
@@ -59,7 +58,7 @@ export const gmailSearchTool: ToolConfig<GmailSearchParams, GmailToolResponse> =
     }),
   },
 
-  transformResponse: async (response, params, runtime) => {
+  transformResponse: async (response, params) => {
     const data = await response.json()
 
     if (!data.messages || data.messages.length === 0) {
@@ -77,16 +76,12 @@ export const gmailSearchTool: ToolConfig<GmailSearchParams, GmailToolResponse> =
     try {
       // Fetch full message details for each result
       const messagePromises = data.messages.map(async (msg: any) => {
-        const messageResponse = await dispatchToolFetch(
-          runtime,
-          `${GMAIL_API_BASE}/messages/${msg.id}?format=full`,
-          {
-            headers: {
-              Authorization: `Bearer ${params?.accessToken || ''}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        )
+        const messageResponse = await fetch(`${GMAIL_API_BASE}/messages/${msg.id}?format=full`, {
+          headers: {
+            Authorization: `Bearer ${params?.accessToken || ''}`,
+            'Content-Type': 'application/json',
+          },
+        })
 
         if (!messageResponse.ok) {
           throw new Error(`Failed to fetch details for message ${msg.id}`)

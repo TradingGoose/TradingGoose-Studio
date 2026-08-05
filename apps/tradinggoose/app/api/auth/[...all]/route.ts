@@ -1,9 +1,8 @@
 import { toNextJsHandler } from 'better-auth/next-js'
 import { auth, getSession } from '@/lib/auth'
 import { authorizeSubscriptionReference, toBillingReference } from '@/lib/billing/authorization'
-import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
-import { evaluateSubscriptionTierAvailability } from '@/lib/billing/tier-availability-policy'
-import { getBillingTierById, userCanAccessPrivateBillingTier } from '@/lib/billing/tiers'
+import { hasPrivateTierAccessRow } from '@/lib/billing/private-tier-access'
+import { getBillingTierById } from '@/lib/billing/tiers'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
 import {
   loadSystemOAuthClientCredentials,
@@ -92,7 +91,7 @@ export async function guardSubscriptionUpgradeRequest(
     return Response.json({ error: 'Invalid request' }, { status: 400 })
   }
   const plan = 'plan' in body ? body.plan : null
-  if (typeof plan !== 'string' || !plan.trim()) {
+  if (typeof plan !== 'string' || !plan.trim() || plan !== plan.trim()) {
     return Response.json({ error: 'Invalid plan' }, { status: 400 })
   }
   const session = await getSession(request.headers)
@@ -100,18 +99,14 @@ export async function guardSubscriptionUpgradeRequest(
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const rawReferenceId = 'referenceId' in body ? body.referenceId : undefined
-  let requestedReferenceId: string
-  if (rawReferenceId === undefined || rawReferenceId === '') {
-    requestedReferenceId = session.user.id
-  } else if (
+  if (
     typeof rawReferenceId !== 'string' ||
     !rawReferenceId.trim() ||
     rawReferenceId !== rawReferenceId.trim()
   ) {
     return Response.json({ error: 'Forbidden' }, { status: 403 })
-  } else {
-    requestedReferenceId = rawReferenceId
   }
+  const requestedReferenceId = rawReferenceId
   const authorized = await authorizeSubscriptionReference(session.user.id, requestedReferenceId)
   if (!authorized) return Response.json({ error: 'Forbidden' }, { status: 403 })
   const reference = toBillingReference(session.user.id, requestedReferenceId)
@@ -125,23 +120,14 @@ export async function guardSubscriptionUpgradeRequest(
     }),
     headers,
   })
-  const subscriptionId = 'subscriptionId' in body ? body.subscriptionId : undefined
-  if (typeof subscriptionId === 'string' && subscriptionId) {
-    const current = await getActiveSubscriptionForReference(reference)
-    if (
-      current?.stripeSubscriptionId === subscriptionId &&
-      (current.billingTierId ?? current.plan) === plan
-    ) {
-      return canonicalRequest
-    }
-  }
   const tier = await getBillingTierById(plan)
   if (!tier) {
     return Response.json({ error: 'Billing tier is not available' }, { status: 403 })
   }
-  const isVisible =
-    tier.isPublic || (await userCanAccessPrivateBillingTier(session.user.id, tier.id))
-  if (!evaluateSubscriptionTierAvailability({ tier, isVisible }).isSelectable) {
+  if (
+    tier.status !== 'active' ||
+    (!tier.isPublic && !(await hasPrivateTierAccessRow(session.user.id, tier.id)))
+  ) {
     return Response.json({ error: 'Billing tier is not available' }, { status: 403 })
   }
   return canonicalRequest

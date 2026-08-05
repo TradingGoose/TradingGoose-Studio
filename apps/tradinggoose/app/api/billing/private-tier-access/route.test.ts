@@ -6,9 +6,9 @@ describe('private tier access API contract', () => {
 
   it('returns one canonical server-shaped response', () => {
     expect(source).toContain('privateTiers: tiers.map')
-    expect(source).toContain('enterpriseContactCard')
+    expect(source).not.toContain('enterpriseContactCard')
     expect(source).not.toContain('showEnterpriseContact')
-    expect(source).toContain('toSubscriptionTierDisplay')
+    expect(source).toContain('toBillingTierDisplay')
     expect(source).not.toContain('privateTier:')
   })
 

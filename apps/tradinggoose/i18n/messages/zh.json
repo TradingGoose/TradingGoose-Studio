@@ -1447,12 +1447,6 @@
         "unknownLevel": "未知",
         "unknownValue": "未知",
         "runningMs": "{value} 毫秒",
-        "deadline": {
-          "title": "工作流执行时间已超出限制",
-          "reason": "此执行因达到其计费层级配置的时间限制而停止。",
-          "limit": "已应用限制：{seconds} 秒",
-          "tier": "已应用层级：{tierName}"
-        },
         "traceSpans": {
           "workflowExecution": "工作流执行",
           "collapseAll": "全部折叠",
@@ -1980,13 +1974,6 @@
           "invalid": "访问码无效。",
           "success": "已解锁私有层级访问。"
         },
-        "enterprise": {
-          "name": "企业版",
-          "description": "面向组织的定制价格、安全性和支持。",
-          "customPricing": "定制合同价格",
-          "pooledBilling": "组织范围的共享计费",
-          "support": "专属入门和支持"
-        },
         "titles": {
           "manage": "管理订阅",
           "restore": "恢复订阅",
@@ -2030,7 +2017,6 @@
           "failedToUpdate": "更新账单所有者失败。"
         },
         "actions": {
-          "current": "当前",
           "manage": "管理",
           "contact": "联系",
           "upgradeTo": "升级至{name}"
@@ -22141,8 +22127,9 @@
         "save": "保存层级",
         "saving": "正在保存…",
         "updated": "层级已更新",
-        "archive": "归档层级",
-        "activeSubscriptionsWarning": "此层级有享有权益的订阅。归档会保留当前已付费周期并取消续费。",
+        "delete": "删除层级",
+        "deleting": "正在删除…",
+        "activeSubscriptionsWarning": "该层级存在活跃订阅。在它们迁移前无法删除。",
         "loading": "正在加载计费层级...",
         "notFoundTitle": "未找到层级",
         "notFoundDescription": "返回计费页面并选择其他层级。",

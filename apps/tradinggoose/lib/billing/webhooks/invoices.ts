@@ -13,7 +13,6 @@ import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
 import { getSubscriptionByStripeSubscriptionId } from '@/lib/billing/core/subscription'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { evaluateSubscriptionTierRenewalEligibility } from '@/lib/billing/tier-availability-policy'
 import {
   type BillingTierRecord,
   isOrganizationSubscription,
@@ -34,66 +33,12 @@ const OVERAGE_INVOICE_TYPES = new Set<string>([
   'final_overage_billing',
 ])
 
-export async function handleInvoiceCreated(event: Stripe.Event) {
-  const invoice = event.data.object as Stripe.Invoice
-  if (invoice.billing_reason !== 'subscription_cycle') return
-  const subscription = invoice.parent?.subscription_details?.subscription
-  const stripeSubscriptionId = typeof subscription === 'string' ? subscription : subscription?.id
-  if (!stripeSubscriptionId) {
-    logger.info('No subscription found on renewal invoice', { invoiceId: invoice.id })
-    return
-  }
-  const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
-  if (!sub) {
-    logger.info('No local subscription found for renewal invoice', {
-      invoiceId: invoice.id,
-      stripeSubscriptionId,
-    })
-    return
-  }
-  const eligibility = evaluateSubscriptionTierRenewalEligibility({ tier: sub.tier })
-  if (sub.status !== 'canceled' && eligibility.isRenewable) return
-  const stripe = requireStripeClient()
-  if (!invoice.id) throw new Error('Renewal invoice is missing an ID')
-  if (sub.status !== 'canceled') {
-    await stripe.subscriptions.cancel(stripeSubscriptionId, {
-      idempotencyKey: `renewal-rejection:cancel:${stripeSubscriptionId}:${invoice.id}`,
-    })
-  }
-  switch (invoice.status) {
-    case 'draft':
-      await stripe.invoices.finalizeInvoice(
-        invoice.id,
-        { auto_advance: false },
-        { idempotencyKey: `renewal-rejection:finalize:${invoice.id}` }
-      )
-      await stripe.invoices.voidInvoice(invoice.id, {
-        idempotencyKey: `renewal-rejection:void:${invoice.id}`,
-      })
-      return
-    case 'open':
-      await stripe.invoices.voidInvoice(invoice.id, {
-        idempotencyKey: `renewal-rejection:void:${invoice.id}`,
-      })
-      return
-    case 'void':
-      return
-    case 'paid':
-      throw new Error(
-        `Renewal invoice ${invoice.id} was paid before availability enforcement`
-      )
-    default:
-      throw new Error(`Unsupported renewal invoice status: ${invoice.status ?? 'unknown'}`)
-  }
-}
-
 function parseDecimal(value: string | number | null | undefined): number {
   if (value === null || value === undefined) return 0
   return Number.parseFloat(value.toString())
 }
 
 type SubscriptionUsageScope = {
-  referenceType: 'user' | 'organization'
   referenceId: string
   tier?: BillingTierRecord | null
 }
@@ -218,7 +163,7 @@ async function sendPaymentFailureEmails(
     // Get users to notify
     let usersToNotify: Array<{ id: string; email: string; name: string | null }> = []
 
-    if (sub.referenceType === 'organization') {
+    if (isOrganizationSubscription(sub)) {
       // For organization-scoped tiers, notify all owners and admins
       const members = await db
         .select({
@@ -298,10 +243,11 @@ async function sendPaymentFailureEmails(
  * Organization subscriptions sum billed overage from the owner-tracked pooled record.
  * Individual subscriptions read the requesting user's billed overage directly.
  */
-export async function getBilledOverageForSubscription(
-  sub: SubscriptionUsageScope
-): Promise<number> {
-  if (sub.referenceType === 'organization') {
+export async function getBilledOverageForSubscription(sub: {
+  referenceId: string
+  tier?: BillingTierRecord | null
+}): Promise<number> {
+  if (isOrganizationSubscription(sub)) {
     const billingLedger = await getOrganizationBillingLedger(sub.referenceId)
     return billingLedger ? billingLedger.billedOverageThisPeriod : 0
   }
@@ -319,7 +265,7 @@ export async function resetUsageForSubscription(
   sub: SubscriptionUsageScope,
   dbClient: Pick<typeof db, 'select' | 'update'> = db
 ) {
-  if (sub.referenceType === 'organization') {
+  if (isOrganizationSubscription(sub)) {
     const ledgerRows = await dbClient
       .select({ organizationId: organizationBillingLedger.organizationId })
       .from(organizationBillingLedger)
@@ -387,7 +333,6 @@ export async function resetUsageForSubscription(
 export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
   try {
     const invoice = event.data.object as Stripe.Invoice
-    if (invoice.status === 'void') return
 
     const subscription = invoice.parent?.subscription_details?.subscription
     const stripeSubscriptionId = typeof subscription === 'string' ? subscription : subscription?.id
@@ -398,13 +343,7 @@ export async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
       return
     }
     const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
-    if (!sub || !sub.tier || sub.status === 'canceled') return
-    if (
-      invoice.billing_reason === 'subscription_cycle' &&
-      !evaluateSubscriptionTierRenewalEligibility({ tier: sub.tier }).isRenewable
-    ) {
-      return
-    }
+    if (!sub) return
 
     // Only reset usage here if the tenant was previously blocked; otherwise invoice.created already reset it
     let wasBlocked = false
@@ -509,7 +448,7 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
       const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
 
       if (sub) {
-        if (sub.referenceType === 'organization') {
+        if (isOrganizationSubscription(sub)) {
           await db
             .update(organizationBillingLedger)
             .set({ billingBlocked: true, updatedAt: new Date() })
@@ -568,7 +507,6 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
 export async function handleInvoiceFinalized(event: Stripe.Event) {
   try {
     const invoice = event.data.object as Stripe.Invoice
-    if (invoice.status === 'void') return
     // Only run for subscription renewal invoices (cycle boundary)
     const subscription = invoice.parent?.subscription_details?.subscription
     const stripeSubscriptionId = typeof subscription === 'string' ? subscription : subscription?.id
@@ -581,8 +519,7 @@ export async function handleInvoiceFinalized(event: Stripe.Event) {
     if (invoice.billing_reason && invoice.billing_reason !== 'subscription_cycle') return
 
     const sub = await getSubscriptionByStripeSubscriptionId(stripeSubscriptionId)
-    if (!sub || !sub.tier || sub.status === 'canceled') return
-    if (!evaluateSubscriptionTierRenewalEligibility({ tier: sub.tier }).isRenewable) return
+    if (!sub) return
 
     const stripe = requireStripeClient()
     const periodEnd =

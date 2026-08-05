@@ -4,7 +4,7 @@ const originalInternalSecret = process.env.INTERNAL_API_SECRET
 
 afterEach(() => {
   if (originalInternalSecret === undefined) {
-    delete process.env.INTERNAL_API_SECRET
+    process.env.INTERNAL_API_SECRET = undefined
   } else {
     process.env.INTERNAL_API_SECRET = originalInternalSecret
   }
@@ -23,14 +23,6 @@ describe('internal auth tokens', () => {
         parentWorkflowId: 'parent-workflow-1',
         parentExecutionId: 'parent-execution-1',
         parentBlockId: 'workflow-block-1',
-        parentOperationId: 'operation-1',
-        workflowExecutionTimePolicy: {
-          kind: 'unlimited',
-          rootExecutionId: 'parent-execution-1',
-          appliedTierId: 'tier-1',
-          appliedTierName: 'Tier 1',
-          processingStartedAt: '2026-01-01T00:00:00.000Z',
-        },
       },
     })
 
@@ -42,15 +34,23 @@ describe('internal auth tokens', () => {
         parentWorkflowId: 'parent-workflow-1',
         parentExecutionId: 'parent-execution-1',
         parentBlockId: 'workflow-block-1',
-        parentOperationId: 'operation-1',
-        workflowExecutionTimePolicy: {
-          kind: 'unlimited',
-          rootExecutionId: 'parent-execution-1',
-          appliedTierId: 'tier-1',
-          appliedTierName: 'Tier 1',
-          processingStartedAt: '2026-01-01T00:00:00.000Z',
-        },
       },
     })
+  })
+
+  it('rejects internal tokens with incomplete child workflow context', async () => {
+    process.env.INTERNAL_API_SECRET = '12345678901234567890123456789012'
+    vi.resetModules()
+
+    const { generateInternalToken, verifyInternalTokenDetailed } = await import('./internal')
+    const token = await generateInternalToken('user-1', {
+      workflowExecution: {
+        source: 'workflow_block',
+        parentBlockId: 'workflow-block-1',
+        parentExecutionId: 123,
+      } as never,
+    })
+
+    await expect(verifyInternalTokenDetailed(token)).resolves.toEqual({ valid: false })
   })
 })

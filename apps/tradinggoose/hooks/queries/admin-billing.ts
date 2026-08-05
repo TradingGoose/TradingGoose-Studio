@@ -17,6 +17,15 @@ export const adminBillingKeys = {
 
 const ADMIN_SYSTEM_SETTINGS_SNAPSHOT_QUERY_KEY = ['admin-system-settings', 'snapshot'] as const
 
+const invalidateBillingQueries = (queryClient: ReturnType<typeof useQueryClient>) =>
+  Promise.all([
+    queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
+    queryClient.invalidateQueries({ queryKey: ADMIN_SYSTEM_SETTINGS_SNAPSHOT_QUERY_KEY }),
+    queryClient.invalidateQueries({ queryKey: publicBillingCatalogKeys.current() }),
+    queryClient.invalidateQueries({ queryKey: privateTierAccessKeys.current() }),
+    queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
+  ])
+
 async function parseResponse(response: Response) {
   const text = await response.text()
   return text ? JSON.parse(text) : null
@@ -51,7 +60,11 @@ export function useAdminBillingSnapshot() {
   })
 }
 
-async function sendMutationRequest(url: string, method: 'POST' | 'PATCH', body?: unknown) {
+async function sendMutationRequest(
+  url: string,
+  method: 'POST' | 'PATCH' | 'DELETE',
+  body?: unknown
+) {
   const response = await fetch(url, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
@@ -76,17 +89,7 @@ export function useCreateAdminBillingTier() {
   return useMutation({
     mutationFn: (input: AdminBillingTierMutationInput) =>
       sendMutationRequest(ADMIN_BILLING_TIERS_ENDPOINT, 'POST', input),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
-        queryClient.invalidateQueries({
-          queryKey: ADMIN_SYSTEM_SETTINGS_SNAPSHOT_QUERY_KEY,
-        }),
-        queryClient.invalidateQueries({ queryKey: publicBillingCatalogKeys.current() }),
-        queryClient.invalidateQueries({ queryKey: privateTierAccessKeys.current() }),
-        queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
-      ])
-    },
+    onSuccess: () => invalidateBillingQueries(queryClient),
   })
 }
 
@@ -96,14 +99,7 @@ export function useUpdateAdminBillingSettings() {
   return useMutation({
     mutationFn: (input: AdminBillingSettingsMutationInput) =>
       sendMutationRequest(ADMIN_BILLING_SETTINGS_ENDPOINT, 'PATCH', input),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
-        queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
-        queryClient.invalidateQueries({ queryKey: publicBillingCatalogKeys.current() }),
-        queryClient.invalidateQueries({ queryKey: privateTierAccessKeys.current() }),
-      ])
-    },
+    onSuccess: () => invalidateBillingQueries(queryClient),
   })
 }
 
@@ -113,16 +109,16 @@ export function useUpdateAdminBillingTier() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: AdminBillingTierMutationInput }) =>
       sendMutationRequest(`${ADMIN_BILLING_TIERS_ENDPOINT}/${id}`, 'PATCH', input),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
-        queryClient.invalidateQueries({
-          queryKey: ADMIN_SYSTEM_SETTINGS_SNAPSHOT_QUERY_KEY,
-        }),
-        queryClient.invalidateQueries({ queryKey: publicBillingCatalogKeys.current() }),
-        queryClient.invalidateQueries({ queryKey: privateTierAccessKeys.current() }),
-        queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
-      ])
-    },
+    onSuccess: () => invalidateBillingQueries(queryClient),
+  })
+}
+
+export function useDeleteAdminBillingTier() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      sendMutationRequest(`${ADMIN_BILLING_TIERS_ENDPOINT}/${id}`, 'DELETE'),
+    onSuccess: () => invalidateBillingQueries(queryClient),
   })
 }

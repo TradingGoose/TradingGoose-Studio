@@ -2,13 +2,10 @@ import { db } from '@tradinggoose/db'
 import { subscription, systemBillingTier } from '@tradinggoose/db/schema'
 import { count, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
-import {
-  isAccessCodeUniqueViolation,
-  privateTierAccessCodeExists,
-} from '@/lib/admin/billing/access-code'
+import { isAccessCodeUniqueViolation } from '@/lib/admin/billing/access-code'
 import { requireAdminBillingUserId } from '@/lib/admin/billing/authorization'
 import {
-  adminBillingTierUpdateSchema,
+  adminBillingTierMutationSchema,
   validateAdminBillingTierInput,
 } from '@/lib/admin/billing/tier-mutations'
 import {
@@ -35,7 +32,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     const { id } = await params
     const body = await request.json()
-    const parsed = adminBillingTierUpdateSchema.safeParse(body)
+    const parsed = adminBillingTierMutationSchema.safeParse(body)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -44,6 +41,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         },
         { status: 400 }
       )
+    }
+
+    const validationError = validateAdminBillingTierInput(parsed.data)
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
     const [existingTier] = await db
@@ -55,31 +57,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!existingTier) {
       return NextResponse.json({ error: 'Billing tier not found' }, { status: 404 })
     }
-    if (
-      parsed.data.status === 'draft' &&
-      (existingTier.status === 'active' || existingTier.status === 'archived')
-    ) {
-      return NextResponse.json(
-        { error: 'Active or archived tiers cannot move to draft' },
-        { status: 409 }
-      )
-    }
-    if (parsed.data.status === 'archived' && existingTier.isDefault) {
-      return NextResponse.json({ error: 'The default tier cannot be archived' }, { status: 409 })
-    }
-    const validationError = validateAdminBillingTierInput({
-      ...parsed.data,
-      workflowExecutionTimeLimitSeconds:
-        parsed.data.workflowExecutionTimeLimitSeconds ??
-        existingTier.workflowExecutionTimeLimitSeconds,
-    })
-    if (validationError) {
-      return NextResponse.json({ error: validationError }, { status: 400 })
-    }
+
     const accessCode = parsed.data.accessCode
-    if (accessCode && (await privateTierAccessCodeExists(accessCode, id))) {
-      return NextResponse.json({ error: 'Access code is already in use' }, { status: 409 })
-    }
 
     const billingEnabled = await isBillingEnabledForRuntime()
     if (billingEnabled && existingTier.isDefault && !parsed.data.isDefault) {
@@ -200,13 +179,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         await tx.update(systemBillingTier).set({ isDefault: false })
       }
 
-      const workflowLimitUpdate =
-        parsed.data.workflowExecutionTimeLimitSeconds === undefined
-          ? {}
-          : {
-              workflowExecutionTimeLimitSeconds: parsed.data.workflowExecutionTimeLimitSeconds,
-            }
-
       await tx
         .update(systemBillingTier)
         .set({
@@ -227,7 +199,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           stripeYearlyPriceId: parsed.data.stripeYearlyPriceId,
           stripeProductId: parsed.data.stripeProductId,
           accessCode,
-          ...workflowLimitUpdate,
+          workflowExecutionTimeLimitSeconds:
+            parsed.data.workflowExecutionTimeLimitSeconds,
           syncRateLimitPerMinute: parsed.data.syncRateLimitPerMinute,
           asyncRateLimitPerMinute: parsed.data.asyncRateLimitPerMinute,
           apiEndpointRateLimitPerMinute: parsed.data.apiEndpointRateLimitPerMinute,
@@ -253,7 +226,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ success: true })
   } catch (error) {
     if (isAccessCodeUniqueViolation(error)) {
-      return NextResponse.json({ error: 'Access code is already in use' }, { status: 409 })
+      return NextResponse.json(
+        { error: 'Access code is already in use' },
+        { status: 409 },
+      )
     }
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -265,5 +241,62 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     logger.error('Failed to update billing tier', { error })
     return NextResponse.json({ error: 'Failed to update billing tier' }, { status: 500 })
+  }
+}
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await requireAdminBillingUserId()
+    const { stripeConfigured } = await getBillingGateState()
+    if (!stripeConfigured) {
+      return NextResponse.json({ error: ADMIN_BILLING_UNAVAILABLE_ERROR }, { status: 409 })
+    }
+    const { id } = await params
+
+    const [existingTier] = await db
+      .select({
+        id: systemBillingTier.id,
+        isDefault: systemBillingTier.isDefault,
+      })
+      .from(systemBillingTier)
+      .where(eq(systemBillingTier.id, id))
+      .limit(1)
+
+    if (!existingTier) {
+      return NextResponse.json({ error: 'Billing tier not found' }, { status: 404 })
+    }
+
+    if (existingTier.isDefault) {
+      return NextResponse.json({ error: 'The default tier cannot be deleted' }, { status: 409 })
+    }
+
+    const [{ count: subscriptionCount }] = await db
+      .select({ count: count() })
+      .from(subscription)
+      .where(eq(subscription.billingTierId, id))
+
+    if (Number(subscriptionCount) > 0) {
+      return NextResponse.json(
+        {
+          error: 'This tier has subscriptions and cannot be deleted. Archive it instead.',
+        },
+        { status: 409 }
+      )
+    }
+
+    await db.delete(systemBillingTier).where(eq(systemBillingTier.id, id))
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (error instanceof Error && error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    logger.error('Failed to delete billing tier', { error })
+    return NextResponse.json({ error: 'Failed to delete billing tier' }, { status: 500 })
   }
 }

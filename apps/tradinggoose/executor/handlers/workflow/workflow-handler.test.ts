@@ -39,15 +39,6 @@ describe('WorkflowBlockHandler', () => {
       workspaceId: 'test-workspace-id',
       userId: 'user-1',
       executionId: 'execution-1',
-      workflowOperationId: 'operation-1',
-      publishWorkflowOperationIdentity: vi.fn().mockResolvedValue(undefined),
-      workflowExecutionTimePolicy: {
-        kind: 'unlimited',
-        rootExecutionId: 'execution-1',
-        appliedTierId: 'tier-1',
-        appliedTierName: 'Tier 1',
-        processingStartedAt: '2026-01-01T00:00:00.000Z',
-      },
       workflowDepth: 0,
       triggerType: 'manual',
       blockStates: new Map(),
@@ -132,7 +123,6 @@ describe('WorkflowBlockHandler', () => {
 
     const result = await (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
 
-    expect(mockContext.publishWorkflowOperationIdentity).not.toHaveBeenCalled()
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       'http://localhost:3000/api/workflows/child-workflow-id/queue',
@@ -177,8 +167,6 @@ describe('WorkflowBlockHandler', () => {
         parentWorkflowId: 'parent-workflow-id',
         parentExecutionId: 'execution-1',
         parentBlockId: 'workflow-block-1',
-        parentOperationId: 'operation-1',
-        workflowExecutionTimePolicy: mockContext.workflowExecutionTimePolicy,
       },
     })
     expect(generateInternalToken).toHaveBeenCalledTimes(2)
@@ -235,10 +223,6 @@ describe('WorkflowBlockHandler', () => {
           }),
       } as Response)
       .mockResolvedValueOnce({ ok: true } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ status: 'failed', error: 'cancelled' }),
-      } as Response)
 
     const deferred = await handler.execute(
       mockBlock,
@@ -264,39 +248,56 @@ describe('WorkflowBlockHandler', () => {
         }),
       })
     )
-    expect(generateInternalToken).toHaveBeenCalledTimes(3)
+    expect(generateInternalToken).toHaveBeenCalledTimes(2)
   })
 
-  it('does not impose a separate timeout while polling queued child workflows', async () => {
+  it('stops polling child workflows when the execution signal aborts', async () => {
     vi.useFakeTimers()
+    const abortController = new AbortController()
     const fetchMock = vi.mocked(global.fetch)
     fetchMock
       .mockResolvedValueOnce({
         ok: true,
         json: () =>
           Promise.resolve({
-            taskId: 'job-4',
+            taskId: 'job-aborted',
             workflowName: 'Child Workflow',
           }),
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ status: 'completed', output: { success: true } }),
+        json: () => Promise.resolve({ status: 'processing' }),
       } as Response)
+      .mockResolvedValueOnce({ ok: true } as Response)
 
     try {
       const deferred = await handler.execute(
         mockBlock,
         { workflowId: 'child-workflow-id' },
-        mockContext
+        { ...mockContext, abortSignal: abortController.signal }
+      )
+      const waitPromise = (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
+      const errorPromise = waitPromise.catch((error) => error as Error)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('signal')
+
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        'http://localhost:3000/api/jobs/job-aborted',
+        expect.objectContaining({ signal: abortController.signal })
       )
 
-      const waitPromise = (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
+      abortController.abort()
       await vi.advanceTimersByTimeAsync(0)
-      await vi.advanceTimersByTimeAsync(1_000)
 
-      await expect(waitPromise).resolves.toMatchObject({ success: true })
-      expect(fetchMock).toHaveBeenCalledTimes(2)
+      await expect(errorPromise).resolves.toMatchObject({
+        message: expect.stringContaining('aborted'),
+      })
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        3,
+        'http://localhost:3000/api/jobs/job-aborted',
+        expect.objectContaining({ method: 'DELETE' })
+      )
     } finally {
       vi.useRealTimers()
     }

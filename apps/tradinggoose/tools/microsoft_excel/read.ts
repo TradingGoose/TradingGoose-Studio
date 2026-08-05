@@ -7,7 +7,6 @@ import {
   getSpreadsheetWebUrl,
   trimTrailingEmptyRowsAndColumns,
 } from '@/tools/microsoft_excel/utils'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 export const readTool: ToolConfig<MicrosoftExcelToolParams, MicrosoftExcelReadResponse> = {
@@ -90,11 +89,7 @@ export const readTool: ToolConfig<MicrosoftExcelToolParams, MicrosoftExcelReadRe
     },
   },
 
-  transformResponse: async (
-    response: Response,
-    params: MicrosoftExcelToolParams | undefined,
-    runtime
-  ) => {
+  transformResponse: async (response: Response, params?: MicrosoftExcelToolParams) => {
     // If we came from the worksheets listing (no range provided), resolve first sheet name then fetch range
     if (response.url.includes('/workbook/worksheets?')) {
       const listData = await response.json()
@@ -115,7 +110,7 @@ export const readTool: ToolConfig<MicrosoftExcelToolParams, MicrosoftExcelReadRe
         spreadsheetIdFromUrl
       )}/workbook/worksheets('${encodeURIComponent(firstSheetName)}')/usedRange(valuesOnly=true)`
 
-      const rangeResp = await dispatchToolFetch(runtime, rangeUrl, {
+      const rangeResp = await fetch(rangeUrl, {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
 

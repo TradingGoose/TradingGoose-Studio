@@ -5,7 +5,6 @@ import {
   processMessage,
   processMessageForSummary,
 } from '@/tools/gmail/utils'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 export const gmailReadTool: ToolConfig<GmailReadParams, GmailToolResponse> = {
@@ -111,7 +110,7 @@ export const gmailReadTool: ToolConfig<GmailReadParams, GmailToolResponse> = {
     }),
   },
 
-  transformResponse: async (response: Response, params: GmailReadParams | undefined, runtime) => {
+  transformResponse: async (response: Response, params?: GmailReadParams) => {
     const data = await response.json()
 
     // If we're fetching a single message directly (by ID)
@@ -142,8 +141,7 @@ export const gmailReadTool: ToolConfig<GmailReadParams, GmailToolResponse> = {
         try {
           // Get the first message details
           const messageId = data.messages[0].id
-          const messageResponse = await dispatchToolFetch(
-            runtime,
+          const messageResponse = await fetch(
             `${GMAIL_API_BASE}/messages/${messageId}?format=full`,
             {
               headers: {
@@ -178,8 +176,7 @@ export const gmailReadTool: ToolConfig<GmailReadParams, GmailToolResponse> = {
         // If maxResults > 1, fetch details for all messages
         try {
           const messagePromises = data.messages.slice(0, maxResults).map(async (msg: any) => {
-            const messageResponse = await dispatchToolFetch(
-              runtime,
+            const messageResponse = await fetch(
               `${GMAIL_API_BASE}/messages/${msg.id}?format=full`,
               {
                 headers: {

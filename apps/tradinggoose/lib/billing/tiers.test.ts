@@ -8,6 +8,5 @@ describe('billing tier helper contracts', () => {
     expect(source).toContain('stripeYearlyPriceId')
     expect(source).toContain('getPrivateBillingTiersForUser')
     expect(source).toContain('grantPrivateBillingTierAccessByCode')
-    expect(source).toContain('hasPrivateBillingTiers(options:')
   })
 })

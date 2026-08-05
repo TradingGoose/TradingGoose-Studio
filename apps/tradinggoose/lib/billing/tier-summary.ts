@@ -2,7 +2,6 @@ import type { BillingTierSummary } from '@/lib/billing/types'
 
 export const EMPTY_BILLING_TIER_SUMMARY: BillingTierSummary = {
   id: null,
-  status: null,
   displayName: 'Billing tier',
   ownerType: 'user',
   usageScope: 'individual',
@@ -13,7 +12,6 @@ export const EMPTY_BILLING_TIER_SUMMARY: BillingTierSummary = {
   includedUsageLimitUsd: null,
   storageLimitGb: null,
   concurrencyLimit: null,
-  workflowExecutionTimeLimitSeconds: null,
   seatCount: null,
   seatMaximum: null,
   syncRateLimitPerMinute: null,

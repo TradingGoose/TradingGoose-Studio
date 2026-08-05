@@ -1,10 +1,11 @@
 import { db } from '@tradinggoose/db'
-import { webhook } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { pendingExecution, webhook } from '@tradinggoose/db/schema'
+import { and, eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getOAuthAccessTokenForStoredCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { isMonitorProvider } from '@/lib/monitors/sources'
+import { getWebhookRevision, WebhookRevisionConflictError } from '@/lib/webhooks/webhook-helpers'
 
 const logger = createLogger('WebhookUtils')
 
@@ -74,83 +75,14 @@ export function handleSlackChallenge(body: any): NextResponse | null {
 }
 
 /**
- * Validates a Slack webhook request signature using HMAC SHA-256
- * @param signingSecret - Slack signing secret for validation
- * @param signature - X-Slack-Signature header value
- * @param timestamp - X-Slack-Request-Timestamp header value
- * @param body - Raw request body string
- * @returns Whether the signature is valid
- */
-
-export async function validateSlackSignature(
-  signingSecret: string,
-  signature: string,
-  timestamp: string,
-  body: string
-): Promise<boolean> {
-  try {
-    // Basic validation first
-    if (!signingSecret || !signature || !timestamp || !body) {
-      return false
-    }
-
-    // Check if the timestamp is too old (> 5 minutes)
-    const currentTime = Math.floor(Date.now() / 1000)
-    if (Math.abs(currentTime - Number.parseInt(timestamp)) > 300) {
-      return false
-    }
-
-    // Compute the signature
-    const encoder = new TextEncoder()
-    const baseString = `v0:${timestamp}:${body}`
-
-    // Create the HMAC with the signing secret
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(signingSecret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    )
-
-    const signatureBytes = await crypto.subtle.sign('HMAC', key, encoder.encode(baseString))
-
-    // Convert the signature to hex
-    const signatureHex = Array.from(new Uint8Array(signatureBytes))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-
-    // Prepare the expected signature format
-    const computedSignature = `v0=${signatureHex}`
-
-    // Constant-time comparison to prevent timing attacks
-    if (computedSignature.length !== signature.length) {
-      return false
-    }
-
-    let result = 0
-    for (let i = 0; i < computedSignature.length; i++) {
-      result |= computedSignature.charCodeAt(i) ^ signature.charCodeAt(i)
-    }
-
-    return result === 0
-  } catch (error) {
-    logger.error('Error validating Slack signature:', error)
-    return false
-  }
-}
-
-/**
  * Format Microsoft Teams Graph change notification
  */
 async function formatTeamsGraphNotification(
   body: any,
   foundWebhook: any,
   foundWorkflow: any,
-  request: NextRequest,
-  signal?: AbortSignal
+  request: NextRequest
 ): Promise<any> {
-  signal?.throwIfAborted()
   const notification = body.value[0]
   const changeType = notification.changeType || 'created'
   const resource = notification.resource || ''
@@ -221,8 +153,12 @@ async function formatTeamsGraphNotification(
   const includeAttachments = providerConfig.includeAttachments !== false
 
   let message: any = null
-  const rawAttachments: Array<{ name: string; data: Buffer; contentType: string; size: number }> =
-    []
+  const rawAttachments: Array<{
+    name: string
+    data: Buffer
+    contentType: string
+    size: number
+  }> = []
   let accessToken: string | null = null
 
   // Teams chat subscriptions require credentials
@@ -241,13 +177,11 @@ async function formatTeamsGraphNotification(
         workspaceId: foundWorkflow.workspaceId,
         requestId: 'teams-graph-notification',
       })
-      signal?.throwIfAborted()
 
       if (accessToken) {
         const msgUrl = `https://graph.microsoft.com/v1.0/chats/${encodeURIComponent(resolvedChatId)}/messages/${encodeURIComponent(resolvedMessageId)}`
         const res = await fetch(msgUrl, {
           headers: { Authorization: `Bearer ${accessToken}` },
-          signal,
         })
         if (res.ok) {
           message = await res.json()
@@ -255,7 +189,6 @@ async function formatTeamsGraphNotification(
           if (includeAttachments && message?.attachments?.length > 0) {
             const attachments = Array.isArray(message?.attachments) ? message.attachments : []
             for (const att of attachments) {
-              signal?.throwIfAborted()
               try {
                 const contentUrl =
                   typeof att?.contentUrl === 'string' ? (att.contentUrl as string) : undefined
@@ -273,7 +206,6 @@ async function formatTeamsGraphNotification(
                     const directRes = await fetch(contentUrl, {
                       headers: { Authorization: `Bearer ${accessToken}` },
                       redirect: 'follow',
-                      signal,
                     })
 
                     if (directRes.ok) {
@@ -294,7 +226,6 @@ async function formatTeamsGraphNotification(
                       const graphRes = await fetch(graphUrl, {
                         headers: { Authorization: `Bearer ${accessToken}` },
                         redirect: 'follow',
-                        signal,
                       })
 
                       if (graphRes.ok) {
@@ -308,8 +239,7 @@ async function formatTeamsGraphNotification(
                         continue
                       }
                     }
-                  } catch (error) {
-                    if (error === signal?.reason) throw error
+                  } catch {
                     continue
                   }
                 } else if (
@@ -352,7 +282,6 @@ async function formatTeamsGraphNotification(
                         Authorization: `Bearer ${accessToken}`,
                         Accept: 'application/json',
                       },
-                      signal,
                     })
 
                     if (!metadataRes.ok) {
@@ -360,7 +289,6 @@ async function formatTeamsGraphNotification(
                       const directRes = await fetch(directUrl, {
                         headers: { Authorization: `Bearer ${accessToken}` },
                         redirect: 'follow',
-                        signal,
                       })
 
                       if (directRes.ok) {
@@ -378,7 +306,7 @@ async function formatTeamsGraphNotification(
                       const downloadUrl = metadata['@microsoft.graph.downloadUrl']
 
                       if (downloadUrl) {
-                        const downloadRes = await fetch(downloadUrl, { signal })
+                        const downloadRes = await fetch(downloadUrl)
 
                         if (downloadRes.ok) {
                           const arrayBuffer = await downloadRes.arrayBuffer()
@@ -399,15 +327,13 @@ async function formatTeamsGraphNotification(
                         continue
                       }
                     }
-                  } catch (error) {
-                    if (error === signal?.reason) throw error
+                  } catch {
                     continue
                   }
                 } else {
                   try {
                     const ares = await fetch(contentUrl, {
                       headers: { Authorization: `Bearer ${accessToken}` },
-                      signal,
                     })
                     if (ares.ok) {
                       const arrayBuffer = await ares.arrayBuffer()
@@ -417,8 +343,7 @@ async function formatTeamsGraphNotification(
                         contentTypeHint ||
                         'application/octet-stream'
                     }
-                  } catch (error) {
-                    if (error === signal?.reason) throw error
+                  } catch {
                     continue
                   }
                 }
@@ -434,15 +359,12 @@ async function formatTeamsGraphNotification(
                   contentType: mimeType,
                   size,
                 })
-              } catch (error) {
-                if (error === signal?.reason) throw error
-              }
+              } catch {}
             }
           }
         }
       }
     } catch (error) {
-      if (error === signal?.reason) throw error
       logger.error('Failed to fetch Teams message', {
         error,
         chatId: resolvedChatId,
@@ -544,11 +466,15 @@ export async function formatWebhookInput(
   foundWorkflow: any,
   body: any,
   request: NextRequest,
-  signal?: AbortSignal
+  requestId: string,
+  pendingExecutionId: string
 ): Promise<any> {
-  signal?.throwIfAborted()
   if (isMonitorProvider(foundWebhook.provider)) {
     return body
+  }
+
+  if (foundWebhook.provider === 'airtable') {
+    return formatAirtableWebhookInput(foundWebhook, foundWorkflow, requestId, pendingExecutionId)
   }
 
   if (foundWebhook.provider === 'whatsapp') {
@@ -764,7 +690,7 @@ export async function formatWebhookInput(
   if (foundWebhook.provider === 'microsoftteams') {
     // Check if this is a Microsoft Graph change notification
     if (body?.value && Array.isArray(body.value) && body.value.length > 0) {
-      return await formatTeamsGraphNotification(body, foundWebhook, foundWorkflow, request, signal)
+      return await formatTeamsGraphNotification(body, foundWebhook, foundWorkflow, request)
     }
 
     // Microsoft Teams outgoing webhook - Teams sending data to us
@@ -1308,451 +1234,391 @@ export function verifyProviderWebhook(
   return null
 }
 
-/**
- * Process Airtable payloads
- */
-export async function fetchAndProcessAirtablePayloads(
-  webhookData: any,
-  workflowData: any,
-  requestId: string, // Original request ID from the ping, used for the final execution log
-  signal?: AbortSignal
-) {
-  signal?.throwIfAborted()
-  // Logging handles all error logging
-  let currentCursor: number | null = null
-  let mightHaveMore = true
-  let payloadsFetched = 0
-  let apiCallCount = 0
-  // Use a Map to consolidate changes per record ID
-  const consolidatedChangesMap = new Map<string, AirtableChange>()
-  // Capture raw payloads from Airtable for exposure to workflows
-  const allPayloads = []
-  const localProviderConfig = {
-    ...((webhookData.providerConfig as Record<string, any>) || {}),
+const AIRTABLE_POLL_STAGE_KEY = 'airtablePollStage'
+const AIRTABLE_POLL_PAGE_LIMIT = 10
+const AIRTABLE_POLL_RETRY_DELAYS_MS = [1_000, 30_000] as const
+
+type AirtablePollStage = {
+  externalId: string
+  apiCallCount: number
+  payloads: unknown[]
+  cursor: number | null
+  mightHaveMore: boolean
+}
+
+export type AirtablePollResult = {
+  input: Record<string, unknown> | undefined
+  continuation: { externalId: string; cursor: number } | null
+}
+
+export class AirtableStageIntegrityError extends Error {}
+
+async function retryAirtablePoll<T>(operation: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await operation()
+    } catch (error) {
+      if (attempt >= AIRTABLE_POLL_RETRY_DELAYS_MS.length) {
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, AIRTABLE_POLL_RETRY_DELAYS_MS[attempt]))
+    }
   }
+}
 
-  try {
-    // --- Essential IDs & Config from localProviderConfig ---
-    const baseId = localProviderConfig.baseId
-    const airtableWebhookId = localProviderConfig.externalId
+export const getAirtableContinuationExecutionId = (
+  webhookId: string,
+  continuation: NonNullable<AirtablePollResult['continuation']>
+) => `webhook_execution:${webhookId}:airtable:${continuation.externalId}:${continuation.cursor}`
 
-    if (!baseId || !airtableWebhookId) {
-      logger.error(
-        `[${requestId}] Missing baseId or externalId in providerConfig for webhook ${webhookData.id}. Cannot fetch payloads.`
+const toJsonRecord = (value: unknown): Record<string, any> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, any>) : {}
+
+function parseAirtablePollStage(value: unknown): AirtablePollStage | null {
+  const stage = toJsonRecord(value)
+  if (!Object.keys(stage).length) return null
+  if (
+    typeof stage.externalId !== 'string' ||
+    !stage.externalId ||
+    !Number.isInteger(stage.apiCallCount) ||
+    stage.apiCallCount < 0 ||
+    stage.apiCallCount > AIRTABLE_POLL_PAGE_LIMIT ||
+    !Array.isArray(stage.payloads) ||
+    (stage.cursor !== null && !Number.isInteger(stage.cursor)) ||
+    typeof stage.mightHaveMore !== 'boolean'
+  ) {
+    throw new AirtableStageIntegrityError('Invalid durable Airtable poll stage')
+  }
+  return stage as AirtablePollStage
+}
+
+function getAirtablePollStage(payload: unknown) {
+  return parseAirtablePollStage(toJsonRecord(payload)[AIRTABLE_POLL_STAGE_KEY])
+}
+
+function getStageContinuation(stage: AirtablePollStage | null): AirtablePollResult['continuation'] {
+  return stage?.mightHaveMore && Number.isInteger(stage.cursor)
+    ? { externalId: stage.externalId, cursor: stage.cursor as number }
+    : null
+}
+
+export function getAirtablePollContinuation(executionPayload: unknown) {
+  return getStageContinuation(getAirtablePollStage(executionPayload))
+}
+
+function assertAirtablePendingExecution(payload: unknown, webhookId: string, externalId: string) {
+  const executionPayload = toJsonRecord(payload)
+  if (executionPayload.webhookId !== webhookId || executionPayload.provider !== 'airtable') {
+    throw new AirtableStageIntegrityError('Airtable poll does not own this pending execution')
+  }
+  const stage = getAirtablePollStage(executionPayload)
+  if (stage && stage.externalId !== externalId) {
+    throw new AirtableStageIntegrityError('Airtable poll stage belongs to a different subscription')
+  }
+  return { executionPayload, stage }
+}
+
+async function readAirtablePollStage(
+  pendingExecutionId: string,
+  webhookId: string,
+  externalId: string
+) {
+  const [row] = await db
+    .select({ payload: pendingExecution.payload })
+    .from(pendingExecution)
+    .where(
+      and(
+        eq(pendingExecution.id, pendingExecutionId),
+        eq(pendingExecution.executionType, 'webhook'),
+        eq(pendingExecution.status, 'processing')
       )
-      return
+    )
+    .limit(1)
+  if (!row) throw new AirtableStageIntegrityError('Airtable pending execution is not processing')
+  return assertAirtablePendingExecution(row.payload, webhookId, externalId).stage
+}
+
+async function commitAirtablePollPage(params: {
+  pendingExecutionId: string
+  webhookId: string
+  externalId: string
+  currentCursor: number | null
+  nextCursor: number
+  receivedPayloads: unknown[]
+  mightHaveMore: boolean
+}) {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ payload: pendingExecution.payload })
+      .from(pendingExecution)
+      .where(
+        and(
+          eq(pendingExecution.id, params.pendingExecutionId),
+          eq(pendingExecution.executionType, 'webhook'),
+          eq(pendingExecution.status, 'processing')
+        )
+      )
+      .for('update')
+      .limit(1)
+    if (!row)
+      throw new AirtableStageIntegrityError('Airtable pending execution lost processing ownership')
+
+    const { executionPayload, stage: durableStage } = assertAirtablePendingExecution(
+      row.payload,
+      params.webhookId,
+      params.externalId
+    )
+    const stage =
+      durableStage ??
+      ({
+        externalId: params.externalId,
+        apiCallCount: 0,
+        payloads: [],
+        cursor: params.currentCursor,
+        mightHaveMore: true,
+      } satisfies AirtablePollStage)
+
+    if (stage.apiCallCount >= AIRTABLE_POLL_PAGE_LIMIT) {
+      return { stage, committed: false }
     }
 
-    const credentialId: string | undefined = localProviderConfig.credentialId
-    if (!credentialId) {
-      logger.error(
-        `[${requestId}] Missing credentialId in providerConfig for Airtable webhook ${webhookData.id}.`
+    const [updatedWebhook] = await tx
+      .update(webhook)
+      .set({
+        providerConfig: sql`jsonb_set(coalesce(${webhook.providerConfig}::jsonb, '{}'::jsonb), '{externalWebhookCursor}', to_jsonb(${params.nextCursor}::integer))::json`,
+        updatedAt: sql`date_trunc('milliseconds', greatest(clock_timestamp(), ${webhook.updatedAt} + interval '1 millisecond'))`,
+      })
+      .where(
+        and(
+          eq(webhook.id, params.webhookId),
+          eq(webhook.provider, 'airtable'),
+          eq(webhook.isActive, true),
+          sql`${webhook.providerConfig}->>'externalId' = ${params.externalId}`,
+          sql`${webhook.providerConfig}->>'externalWebhookCursor' IS NOT DISTINCT FROM ${params.currentCursor === null ? null : params.currentCursor.toString()}`
+        )
       )
-      return
+      .returning({ id: webhook.id })
+    if (!updatedWebhook) return { stage, committed: false }
+
+    const nextStage: AirtablePollStage = {
+      externalId: params.externalId,
+      apiCallCount: stage.apiCallCount + 1,
+      payloads: [...stage.payloads, ...params.receivedPayloads],
+      cursor: params.nextCursor,
+      mightHaveMore: params.mightHaveMore,
     }
-
-    const storedCursor = localProviderConfig.externalWebhookCursor
-
-    if (storedCursor === undefined || storedCursor === null) {
-      logger.info(
-        `[${requestId}] No cursor found in providerConfig for webhook ${webhookData.id}, initializing...`
+    const [updatedExecution] = await tx
+      .update(pendingExecution)
+      .set({
+        payload: { ...executionPayload, [AIRTABLE_POLL_STAGE_KEY]: nextStage },
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(pendingExecution.id, params.pendingExecutionId),
+          eq(pendingExecution.executionType, 'webhook'),
+          eq(pendingExecution.status, 'processing')
+        )
       )
-      localProviderConfig.externalWebhookCursor = null
+      .returning({ id: pendingExecution.id })
+    if (!updatedExecution)
+      throw new AirtableStageIntegrityError('Failed to persist Airtable poll stage')
+    return { stage: nextStage, committed: true }
+  })
+}
 
-      try {
-        await db
-          .update(webhook)
-          .set({
-            providerConfig: {
-              ...localProviderConfig,
-              externalWebhookCursor: null,
-            },
-            updatedAt: new Date(),
+function buildAirtablePollInput(
+  stage: AirtablePollStage,
+  providerConfig: unknown
+): Record<string, unknown> | undefined {
+  const consolidatedChanges = new Map<string, AirtableChange>()
+  for (const rawPayload of stage.payloads) {
+    const payload = toJsonRecord(rawPayload)
+    for (const [tableId, rawTableChanges] of Object.entries(
+      toJsonRecord(payload.changedTablesById)
+    )) {
+      const tableChanges = toJsonRecord(rawTableChanges)
+      for (const [recordId, rawRecordData] of Object.entries(
+        toJsonRecord(tableChanges.createdRecordsById)
+      )) {
+        const recordData = toJsonRecord(rawRecordData)
+        const existing = consolidatedChanges.get(recordId)
+        if (existing) {
+          existing.changedFields = {
+            ...existing.changedFields,
+            ...toJsonRecord(recordData.cellValuesByFieldId),
+          }
+        } else {
+          consolidatedChanges.set(recordId, {
+            tableId,
+            recordId,
+            changeType: 'created',
+            changedFields: toJsonRecord(recordData.cellValuesByFieldId),
           })
-          .where(eq(webhook.id, webhookData.id))
-
-        localProviderConfig.externalWebhookCursor = null
-        logger.info(`[${requestId}] Successfully initialized cursor for webhook ${webhookData.id}`)
-      } catch (initError: any) {
-        logger.error(`[${requestId}] Failed to initialize cursor in DB`, {
-          webhookId: webhookData.id,
-          error: initError.message,
-          stack: initError.stack,
-        })
+        }
+      }
+      for (const [recordId, rawRecordData] of Object.entries(
+        toJsonRecord(tableChanges.changedRecordsById)
+      )) {
+        const recordData = toJsonRecord(rawRecordData)
+        const currentFields = toJsonRecord(toJsonRecord(recordData.current).cellValuesByFieldId)
+        const existing = consolidatedChanges.get(recordId)
+        if (existing) {
+          existing.changedFields = { ...existing.changedFields, ...currentFields }
+          existing.changeType = 'updated'
+        } else {
+          const previousFields = toJsonRecord(toJsonRecord(recordData.previous).cellValuesByFieldId)
+          consolidatedChanges.set(recordId, {
+            tableId,
+            recordId,
+            changeType: 'updated',
+            changedFields: currentFields,
+            ...(Object.keys(previousFields).length ? { previousFields } : {}),
+          })
+        }
       }
     }
+  }
 
-    if (storedCursor && typeof storedCursor === 'number') {
-      currentCursor = storedCursor
-      logger.debug(
-        `[${requestId}] Using stored cursor: ${currentCursor} for webhook ${webhookData.id}`
-      )
-    } else {
-      currentCursor = null
-      logger.debug(
-        `[${requestId}] No valid stored cursor for webhook ${webhookData.id}, starting from beginning`
-      )
-    }
+  const airtableChanges = Array.from(consolidatedChanges.values())
+  if (!stage.payloads.length && !airtableChanges.length) return
+  const latestPayload = stage.payloads.at(-1) ?? null
+  return {
+    payloads: stage.payloads,
+    latestPayload,
+    airtableChanges,
+    webhook: {
+      data: {
+        provider: 'airtable',
+        providerConfig,
+        payload: latestPayload,
+      },
+    },
+  }
+}
 
-    let accessToken: string | null = null
-    signal?.throwIfAborted()
+async function formatAirtableWebhookInput(
+  webhookData: any,
+  workflowData: any,
+  requestId: string,
+  pendingExecutionId: string
+): Promise<AirtablePollResult> {
+  if (
+    webhookData.provider !== 'airtable' ||
+    webhookData.isActive !== true ||
+    !(webhookData.updatedAt instanceof Date)
+  ) {
+    throw new Error('Airtable webhook is not active')
+  }
+
+  const providerConfig = toJsonRecord(webhookData.providerConfig)
+  const baseId = providerConfig.baseId
+  const externalId = providerConfig.externalId
+  const credentialId = providerConfig.credentialId
+  if (
+    typeof baseId !== 'string' ||
+    !baseId ||
+    typeof externalId !== 'string' ||
+    !externalId ||
+    typeof credentialId !== 'string' ||
+    !credentialId
+  ) {
+    throw new Error('Airtable webhook configuration is incomplete')
+  }
+
+  let stage = await readAirtablePollStage(pendingExecutionId, webhookData.id, externalId)
+  const storedCursor = providerConfig.externalWebhookCursor
+  let currentCursor = Number.isInteger(storedCursor) ? storedCursor : null
+
+  let accessToken: string | null | undefined
+
+  while ((stage?.mightHaveMore ?? true) && (stage?.apiCallCount ?? 0) < AIRTABLE_POLL_PAGE_LIMIT) {
     try {
-      accessToken = await getOAuthAccessTokenForStoredCredential({
+      accessToken ??= await getOAuthAccessTokenForStoredCredential({
         credentialId,
         workspaceId: workflowData.workspaceId,
         requestId,
       })
-      signal?.throwIfAborted()
-      if (!accessToken) {
-        logger.error(
-          `[${requestId}] Failed to obtain valid Airtable access token via credential ${credentialId}.`
-        )
-        throw new Error('Airtable access token not found.')
-      }
+      if (!accessToken) throw new Error('Airtable account connection required')
 
-      logger.info(`[${requestId}] Successfully obtained Airtable access token`)
-    } catch (tokenError: any) {
-      if (tokenError === signal?.reason) throw tokenError
-      logger.error(
-        `[${requestId}] Failed to get Airtable OAuth token for credential ${credentialId}`,
-        {
-          error: tokenError.message,
-          stack: tokenError.stack,
-          credentialId,
-        }
-      )
-      return
-    }
-
-    const airtableApiBase = 'https://api.airtable.com/v0'
-
-    // --- Polling Loop ---
-    while (mightHaveMore) {
-      signal?.throwIfAborted()
-      apiCallCount++
-      // Safety break
-      if (apiCallCount > 10) {
-        logger.warn(`[${requestId}] Reached maximum polling limit (10 calls)`, {
-          webhookId: webhookData.id,
-          consolidatedCount: consolidatedChangesMap.size,
-        })
-        mightHaveMore = false
-        break
-      }
-
-      const apiUrl = `${airtableApiBase}/bases/${baseId}/webhooks/${airtableWebhookId}/payloads`
       const queryParams = new URLSearchParams()
-      if (currentCursor !== null) {
-        queryParams.set('cursor', currentCursor.toString())
-      }
-      const fullUrl = `${apiUrl}?${queryParams.toString()}`
-
-      logger.debug(`[${requestId}] Fetching Airtable payloads (call ${apiCallCount})`, {
-        url: fullUrl,
-        webhookId: webhookData.id,
+      if (currentCursor !== null) queryParams.set('cursor', currentCursor.toString())
+      const { response, responseText } = await retryAirtablePoll(async () => {
+        const response = await fetch(
+          `https://api.airtable.com/v0/bases/${baseId}/webhooks/${externalId}/payloads?${queryParams.toString()}`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+        if (response.status === 429 || response.status >= 500) {
+          throw new Error(`Airtable API error ${response.status}`)
+        }
+        return { response, responseText: await response.text() }
       })
-
+      let responseBody: Record<string, any>
       try {
-        const fetchStartTime = Date.now()
-        const response = await fetch(fullUrl, {
-          method: 'GET',
-          signal,
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        })
-
-        // DEBUG: Log API response time
-        logger.debug(`[${requestId}] TRACE: Airtable API response received`, {
-          status: response.status,
-          duration: `${Date.now() - fetchStartTime}ms`,
-          hasBody: true,
-          apiCall: apiCallCount,
-        })
-
-        const responseBody = await response.json()
-        signal?.throwIfAborted()
-
-        if (!response.ok || responseBody.error) {
-          const errorMessage =
-            responseBody.error?.message ||
-            responseBody.error ||
-            `Airtable API error Status ${response.status}`
-          logger.error(
-            `[${requestId}] Airtable API request to /payloads failed (Call ${apiCallCount})`,
-            {
-              webhookId: webhookData.id,
-              status: response.status,
-              error: errorMessage,
-            }
-          )
-          // Error logging handled by logging session
-          mightHaveMore = false
-          break
+        responseBody = toJsonRecord(JSON.parse(responseText))
+      } catch (error) {
+        throw new Error('Airtable payload response is malformed', { cause: error })
+      }
+      if (!response.ok || responseBody.error) {
+        const detail =
+          toJsonRecord(responseBody.error).message ||
+          responseBody.error ||
+          `Airtable API error Status ${response.status}`
+        throw new Error(String(detail))
+      }
+      if (!Array.isArray(responseBody.payloads) || !Number.isInteger(responseBody.cursor)) {
+        throw new Error('Airtable payload response is malformed')
+      }
+      const nextCursor = responseBody.cursor
+      if (nextCursor === currentCursor) {
+        if (responseBody.payloads.length) {
+          throw new Error('Airtable payload cursor did not advance')
         }
-
-        const receivedPayloads = responseBody.payloads || []
-        logger.debug(
-          `[${requestId}] Received ${receivedPayloads.length} payloads from Airtable (call ${apiCallCount})`
-        )
-
-        // --- Process and Consolidate Changes ---
-        if (receivedPayloads.length > 0) {
-          payloadsFetched += receivedPayloads.length
-          // Keep the raw payloads for later exposure to the workflow
-          for (const p of receivedPayloads) {
-            allPayloads.push(p)
-          }
-          let changeCount = 0
-          for (const payload of receivedPayloads) {
-            if (payload.changedTablesById) {
-              // DEBUG: Log tables being processed
-              const tableIds = Object.keys(payload.changedTablesById)
-              logger.debug(`[${requestId}] TRACE: Processing changes for tables`, {
-                tables: tableIds,
-                payloadTimestamp: payload.timestamp,
-              })
-
-              for (const [tableId, tableChangesUntyped] of Object.entries(
-                payload.changedTablesById
-              )) {
-                const tableChanges = tableChangesUntyped as any // Assert type
-
-                // Handle created records
-                if (tableChanges.createdRecordsById) {
-                  const createdCount = Object.keys(tableChanges.createdRecordsById).length
-                  changeCount += createdCount
-                  // DEBUG: Log created records count
-                  logger.debug(
-                    `[${requestId}] TRACE: Processing ${createdCount} created records for table ${tableId}`
-                  )
-
-                  for (const [recordId, recordDataUntyped] of Object.entries(
-                    tableChanges.createdRecordsById
-                  )) {
-                    const recordData = recordDataUntyped as any // Assert type
-                    const existingChange = consolidatedChangesMap.get(recordId)
-                    if (existingChange) {
-                      // Record was created and possibly updated within the same batch
-                      existingChange.changedFields = {
-                        ...existingChange.changedFields,
-                        ...(recordData.cellValuesByFieldId || {}),
-                      }
-                      // Keep changeType as 'created' if it started as created
-                    } else {
-                      // New creation
-                      consolidatedChangesMap.set(recordId, {
-                        tableId: tableId,
-                        recordId: recordId,
-                        changeType: 'created',
-                        changedFields: recordData.cellValuesByFieldId || {},
-                      })
-                    }
-                  }
-                }
-
-                // Handle updated records
-                if (tableChanges.changedRecordsById) {
-                  const updatedCount = Object.keys(tableChanges.changedRecordsById).length
-                  changeCount += updatedCount
-                  // DEBUG: Log updated records count
-                  logger.debug(
-                    `[${requestId}] TRACE: Processing ${updatedCount} updated records for table ${tableId}`
-                  )
-
-                  for (const [recordId, recordDataUntyped] of Object.entries(
-                    tableChanges.changedRecordsById
-                  )) {
-                    const recordData = recordDataUntyped as any // Assert type
-                    const existingChange = consolidatedChangesMap.get(recordId)
-                    const currentFields = recordData.current?.cellValuesByFieldId || {}
-
-                    if (existingChange) {
-                      // Existing record was updated again
-                      existingChange.changedFields = {
-                        ...existingChange.changedFields,
-                        ...currentFields,
-                      }
-                      // Ensure type is 'updated' if it was previously 'created'
-                      existingChange.changeType = 'updated'
-                      // Do not update previousFields again
-                    } else {
-                      // First update for this record in the batch
-                      const newChange: AirtableChange = {
-                        tableId: tableId,
-                        recordId: recordId,
-                        changeType: 'updated',
-                        changedFields: currentFields,
-                      }
-                      if (recordData.previous?.cellValuesByFieldId) {
-                        newChange.previousFields = recordData.previous.cellValuesByFieldId
-                      }
-                      consolidatedChangesMap.set(recordId, newChange)
-                    }
-                  }
-                }
-                // TODO: Handle deleted records (`destroyedRecordIds`) if needed
-              }
-            }
-          }
-
-          // DEBUG: Log totals for this batch
-          logger.debug(
-            `[${requestId}] TRACE: Processed ${changeCount} changes in API call ${apiCallCount})`,
-            {
-              currentMapSize: consolidatedChangesMap.size,
-            }
-          )
-        }
-
-        const nextCursor = responseBody.cursor
-        mightHaveMore = responseBody.mightHaveMore || false
-
-        if (nextCursor && typeof nextCursor === 'number' && nextCursor !== currentCursor) {
-          logger.debug(`[${requestId}] Updating cursor from ${currentCursor} to ${nextCursor}`)
-          currentCursor = nextCursor
-
-          // Follow exactly the old implementation - use awaited update instead of parallel
-          const updatedConfig = {
-            ...localProviderConfig,
-            externalWebhookCursor: currentCursor,
-          }
-          try {
-            // Force a complete object update to ensure consistency in serverless env
-            await db
-              .update(webhook)
-              .set({
-                providerConfig: updatedConfig, // Use full object
-                updatedAt: new Date(),
-              })
-              .where(eq(webhook.id, webhookData.id))
-
-            localProviderConfig.externalWebhookCursor = currentCursor // Update local copy too
-          } catch (dbError: any) {
-            logger.error(`[${requestId}] Failed to persist Airtable cursor to DB`, {
-              webhookId: webhookData.id,
-              cursor: currentCursor,
-              error: dbError.message,
-            })
-            // Error logging handled by logging session
-            mightHaveMore = false
-            throw new Error('Failed to save Airtable cursor, stopping processing.') // Re-throw to break loop clearly
-          }
-        } else if (!nextCursor || typeof nextCursor !== 'number') {
-          logger.warn(`[${requestId}] Invalid or missing cursor received, stopping poll`, {
-            webhookId: webhookData.id,
-            apiCall: apiCallCount,
-            receivedCursor: nextCursor,
-          })
-          mightHaveMore = false
-        } else if (nextCursor === currentCursor) {
-          logger.debug(`[${requestId}] Cursor hasn't changed (${currentCursor}), stopping poll`)
-          mightHaveMore = false // Explicitly stop if cursor hasn't changed
-        }
-      } catch (fetchError: any) {
-        if (fetchError === signal?.reason) throw fetchError
-        logger.error(
-          `[${requestId}] Network error calling Airtable GET /payloads (Call ${apiCallCount}) for webhook ${webhookData.id}`,
-          fetchError
-        )
-        // Error logging handled by logging session
-        mightHaveMore = false
         break
       }
-    }
-    // --- End Polling Loop ---
 
-    // Convert map values to array for final processing
-    const finalConsolidatedChanges = Array.from(consolidatedChangesMap.values())
-    logger.info(
-      `[${requestId}] Consolidated ${finalConsolidatedChanges.length} Airtable changes across ${apiCallCount} API calls`
-    )
-
-    // --- Execute Workflow if we have changes (simplified - no lock check) ---
-    if (finalConsolidatedChanges.length > 0 || allPayloads.length > 0) {
-      try {
-        // Build input exposing raw payloads and consolidated changes
-        const latestPayload = allPayloads.length > 0 ? allPayloads[allPayloads.length - 1] : null
-        const input: any = {
-          // Raw Airtable payloads as received from the API
-          payloads: allPayloads,
-          latestPayload,
-          // Consolidated, simplified changes for convenience
-          airtableChanges: finalConsolidatedChanges,
-          // Include webhook metadata for resolver fallbacks
-          webhook: {
-            data: {
-              provider: 'airtable',
-              providerConfig: webhookData.providerConfig,
-              payload: latestPayload,
-            },
-          },
-        }
-
-        // CRITICAL EXECUTION TRACE POINT
-        logger.info(
-          `[${requestId}] CRITICAL_TRACE: Beginning workflow execution with ${finalConsolidatedChanges.length} Airtable changes`,
-          {
-            workflowId: workflowData.id,
-            recordCount: finalConsolidatedChanges.length,
-            timestamp: new Date().toISOString(),
-            firstRecordId: finalConsolidatedChanges[0]?.recordId || 'none',
-          }
-        )
-
-        // Return the processed input for the trigger.dev task to handle
-        logger.info(`[${requestId}] CRITICAL_TRACE: Airtable changes processed, returning input`, {
-          workflowId: workflowData.id,
-          recordCount: finalConsolidatedChanges.length,
-          rawPayloadCount: allPayloads.length,
-          timestamp: new Date().toISOString(),
-        })
-
-        return input
-      } catch (processingError: any) {
-        logger.error(`[${requestId}] CRITICAL_TRACE: Error processing Airtable changes`, {
-          workflowId: workflowData.id,
-          error: processingError.message,
-          stack: processingError.stack,
-          timestamp: new Date().toISOString(),
-        })
-
-        throw processingError
-      }
-    } else {
-      // DEBUG: Log when no changes are found
-      logger.info(`[${requestId}] TRACE: No Airtable changes to process`, {
-        workflowId: workflowData.id,
-        apiCallCount,
+      const committed = await commitAirtablePollPage({
+        pendingExecutionId,
         webhookId: webhookData.id,
+        externalId,
+        currentCursor,
+        nextCursor,
+        receivedPayloads: responseBody.payloads,
+        mightHaveMore: responseBody.mightHaveMore === true,
       })
+      stage = committed.stage
+      if (!committed.committed) break
+      currentCursor = nextCursor
+    } catch (error) {
+      if (error instanceof AirtableStageIntegrityError) throw error
+      if (!stage?.payloads.length) throw error
+      logger.warn(`[${requestId}] Airtable polling stopped; executing durable payloads`, error)
+      break
     }
-  } catch (error) {
-    if (error === signal?.reason) throw error
-    // Catch any unexpected errors during the setup/polling logic itself
-    logger.error(
-      `[${requestId}] Unexpected error during asynchronous Airtable payload processing task`,
-      {
-        webhookId: webhookData.id,
-        workflowId: workflowData.id,
-        error: (error as Error).message,
-      }
-    )
-    // Error logging handled by logging session
   }
 
-  // DEBUG: Log function completion
-  logger.debug(`[${requestId}] TRACE: fetchAndProcessAirtablePayloads completed`, {
-    totalFetched: payloadsFetched,
-    totalApiCalls: apiCallCount,
-    totalChanges: consolidatedChangesMap.size,
-    timestamp: new Date().toISOString(),
-  })
+  const durableStage =
+    stage ??
+    ({
+      externalId,
+      apiCallCount: 0,
+      payloads: [],
+      cursor: currentCursor,
+      mightHaveMore: false,
+    } satisfies AirtablePollStage)
+  return {
+    input: buildAirtablePollInput(durableStage, webhookData.providerConfig),
+    continuation: getStageContinuation(durableStage),
+  }
 }
 
-// Define an interface for AirtableChange
-export interface AirtableChange {
+interface AirtableChange {
   tableId: string
   recordId: string
   changeType: 'created' | 'updated'
@@ -1767,7 +1633,7 @@ export async function configureGmailPolling(
   webhookData: any,
   requestId: string,
   workspaceId: string
-): Promise<boolean> {
+): Promise<typeof webhook.$inferSelect | null> {
   const logger = createLogger('GmailWebhookSetup')
   logger.info(`[${requestId}] Setting up Gmail polling for webhook ${webhookData.id}`)
 
@@ -1778,7 +1644,7 @@ export async function configureGmailPolling(
 
     if (!credentialId) {
       logger.error(`[${requestId}] Missing credentialId for Gmail webhook ${webhookData.id}`)
-      return false
+      return null
     }
 
     const accessToken = await getOAuthAccessTokenForStoredCredential({
@@ -1790,7 +1656,7 @@ export async function configureGmailPolling(
       logger.error(
         `[${requestId}] Failed to refresh/access Gmail token for credential ${credentialId}`
       )
-      return false
+      return null
     }
 
     const maxEmailsPerPoll =
@@ -1803,9 +1669,12 @@ export async function configureGmailPolling(
         ? Number.parseInt(providerConfig.pollingInterval, 10) || 5
         : providerConfig.pollingInterval || 5
 
-    const now = new Date()
-
-    await db
+    const revision = getWebhookRevision(
+      webhookData,
+      eq(webhook.provider, 'gmail'),
+      eq(webhook.isActive, true)
+    )
+    const [updated] = await db
       .update(webhook)
       .set({
         providerConfig: {
@@ -1817,24 +1686,27 @@ export async function configureGmailPolling(
           includeRawEmail: providerConfig.includeRawEmail || false,
           labelIds: providerConfig.labelIds || ['INBOX'],
           labelFilterBehavior: providerConfig.labelFilterBehavior || 'INCLUDE',
-          lastCheckedTimestamp: now.toISOString(),
+          lastCheckedTimestamp: revision.updatedAt.toISOString(),
           setupCompleted: true,
         },
-        updatedAt: now,
+        updatedAt: revision.updatedAt,
       })
-      .where(eq(webhook.id, webhookData.id))
+      .where(revision.where)
+      .returning()
+    if (!updated) throw new WebhookRevisionConflictError()
 
     logger.info(
       `[${requestId}] Successfully configured Gmail polling for webhook ${webhookData.id}`
     )
-    return true
+    return updated
   } catch (error: any) {
+    if (error instanceof WebhookRevisionConflictError) throw error
     logger.error(`[${requestId}] Failed to configure Gmail polling`, {
       webhookId: webhookData.id,
       error: error.message,
       stack: error.stack,
     })
-    return false
+    return null
   }
 }
 
@@ -1845,7 +1717,7 @@ export async function configureOutlookPolling(
   webhookData: any,
   requestId: string,
   workspaceId: string
-): Promise<boolean> {
+): Promise<typeof webhook.$inferSelect | null> {
   const logger = createLogger('OutlookWebhookSetup')
   logger.info(`[${requestId}] Setting up Outlook polling for webhook ${webhookData.id}`)
 
@@ -1855,7 +1727,7 @@ export async function configureOutlookPolling(
 
     if (!credentialId) {
       logger.error(`[${requestId}] Missing credentialId for Outlook webhook ${webhookData.id}`)
-      return false
+      return null
     }
 
     const accessToken = await getOAuthAccessTokenForStoredCredential({
@@ -1867,15 +1739,18 @@ export async function configureOutlookPolling(
       logger.error(
         `[${requestId}] Failed to refresh/access Outlook token for credential ${credentialId}`
       )
-      return false
+      return null
     }
 
     const { userId: _outlookUserId, ...providerCfg } =
       (webhookData.providerConfig as Record<string, any>) || {}
 
-    const now = new Date()
-
-    await db
+    const revision = getWebhookRevision(
+      webhookData,
+      eq(webhook.provider, 'outlook'),
+      eq(webhook.isActive, true)
+    )
+    const [updated] = await db
       .update(webhook)
       .set({
         providerConfig: {
@@ -1893,23 +1768,26 @@ export async function configureOutlookPolling(
           includeRawEmail: providerCfg.includeRawEmail || false,
           folderIds: providerCfg.folderIds || ['inbox'],
           folderFilterBehavior: providerCfg.folderFilterBehavior || 'INCLUDE',
-          lastCheckedTimestamp: now.toISOString(),
+          lastCheckedTimestamp: revision.updatedAt.toISOString(),
           setupCompleted: true,
         },
-        updatedAt: now,
+        updatedAt: revision.updatedAt,
       })
-      .where(eq(webhook.id, webhookData.id))
+      .where(revision.where)
+      .returning()
+    if (!updated) throw new WebhookRevisionConflictError()
 
     logger.info(
       `[${requestId}] Successfully configured Outlook polling for webhook ${webhookData.id}`
     )
-    return true
+    return updated
   } catch (error: any) {
+    if (error instanceof WebhookRevisionConflictError) throw error
     logger.error(`[${requestId}] Failed to configure Outlook polling`, {
       webhookId: webhookData.id,
       error: error.message,
       stack: error.stack,
     })
-    return false
+    return null
   }
 }

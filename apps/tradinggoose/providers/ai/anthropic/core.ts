@@ -23,7 +23,7 @@ import {
   prepareToolsWithUsageControl,
   sumToolCosts,
 } from '@/providers/ai/utils'
-import { executeProviderTool } from '@/providers/ai/utils-server'
+import { executeTool } from '@/tools'
 
 /**
  * Configuration for creating an Anthropic provider instance.
@@ -551,7 +551,7 @@ export async function executeAnthropicProviderRequest(
               if (!tool) return null
 
               const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-              const result = await executeProviderTool(request, toolName, executionParams, false)
+              const result = await executeTool(toolName, executionParams)
               const toolCallEndTime = Date.now()
 
               return {
@@ -565,7 +565,6 @@ export async function executeAnthropicProviderRequest(
                 duration: toolCallEndTime - toolCallStartTime,
               }
             } catch (error) {
-              request.abortSignal?.throwIfAborted()
               const toolCallEndTime = Date.now()
               logger.error('Error processing tool call:', { error, toolName })
 
@@ -587,7 +586,6 @@ export async function executeAnthropicProviderRequest(
           })
 
           const executionResults = await Promise.allSettled(toolExecutionPromises)
-          request.abortSignal?.throwIfAborted()
 
           // Collect all tool_use and tool_result blocks for batching
           const toolUseBlocks: Anthropic.Messages.ToolUseBlockParam[] = []
@@ -854,7 +852,6 @@ export async function executeAnthropicProviderRequest(
 
       return streamingResult as StreamingExecution
     } catch (error) {
-      request.abortSignal?.throwIfAborted()
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()
       const totalDuration = providerEndTime - providerStartTime
@@ -970,7 +967,7 @@ export async function executeAnthropicProviderRequest(
             if (!tool) return null
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeProviderTool(request, toolName, executionParams, true)
+            const result = await executeTool(toolName, executionParams, true)
             const toolCallEndTime = Date.now()
 
             return {
@@ -984,7 +981,6 @@ export async function executeAnthropicProviderRequest(
               duration: toolCallEndTime - toolCallStartTime,
             }
           } catch (error) {
-            request.abortSignal?.throwIfAborted()
             const toolCallEndTime = Date.now()
             logger.error('Error processing tool call:', { error, toolName })
 
@@ -1006,7 +1002,6 @@ export async function executeAnthropicProviderRequest(
         })
 
         const executionResults = await Promise.allSettled(toolExecutionPromises)
-        request.abortSignal?.throwIfAborted()
 
         // Collect all tool_use and tool_result blocks for batching
         const toolUseBlocks: Anthropic.Messages.ToolUseBlockParam[] = []
@@ -1314,7 +1309,6 @@ export async function executeAnthropicProviderRequest(
       },
     }
   } catch (error) {
-    request.abortSignal?.throwIfAborted()
     const providerEndTime = Date.now()
     const providerEndTimeISO = new Date(providerEndTime).toISOString()
     const totalDuration = providerEndTime - providerStartTime

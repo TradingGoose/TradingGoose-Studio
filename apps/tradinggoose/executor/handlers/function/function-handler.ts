@@ -66,29 +66,7 @@ export class FunctionBlockHandler implements BlockHandler {
         blockNameMapping: blockNameMapping, // Pass block name to ID mapping
       },
       false, // skipPostProcess
-      context, // execution context for file processing
-      {
-        signal: context.workflowDeadlineSignal,
-        prepareDurableCredential:
-          context.workflowOperationId && context.prepareWorkflowOperationCredential
-            ? (secret) =>
-                context.prepareWorkflowOperationCredential!(context.workflowOperationId!, secret)
-            : undefined,
-        claimRemoteDispatch:
-          context.workflowOperationId && context.claimWorkflowOperationRemoteDispatch
-            ? () => context.claimWorkflowOperationRemoteDispatch!(context.workflowOperationId!)
-            : undefined,
-        publishOperationIdentity:
-          context.workflowOperationId && context.publishWorkflowOperationIdentity
-            ? (identity) =>
-                context.publishWorkflowOperationIdentity!(context.workflowOperationId!, identity)
-            : undefined,
-        recordTerminalObservation:
-          context.workflowOperationId && context.completeWorkflowOperation
-            ? (state, observation) =>
-                context.completeWorkflowOperation!(context.workflowOperationId!, state, observation)
-            : undefined,
-      }
+      context // execution context for file processing
     )
 
     if (!result.success) {

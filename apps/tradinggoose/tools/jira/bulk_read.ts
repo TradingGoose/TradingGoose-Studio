@@ -1,5 +1,4 @@
 import type { JiraRetrieveBulkParams, JiraRetrieveResponseBulk } from '@/tools/jira/types'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 export const jiraBulkRetrieveTool: ToolConfig<JiraRetrieveBulkParams, JiraRetrieveResponseBulk> = {
@@ -62,11 +61,7 @@ export const jiraBulkRetrieveTool: ToolConfig<JiraRetrieveBulkParams, JiraRetrie
         : {},
   },
 
-  transformResponse: async (
-    response: Response,
-    params: JiraRetrieveBulkParams | undefined,
-    runtime
-  ) => {
+  transformResponse: async (response: Response, params?: JiraRetrieveBulkParams) => {
     const MAX_TOTAL = 1000
     const PAGE_SIZE = 100
 
@@ -88,7 +83,7 @@ export const jiraBulkRetrieveTool: ToolConfig<JiraRetrieveBulkParams, JiraRetrie
       const refTrimmed = (ref || '').trim()
       if (!refTrimmed) return refTrimmed
       const url = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/project/${encodeURIComponent(refTrimmed)}`
-      const resp = await dispatchToolFetch(runtime, url, {
+      const resp = await fetch(url, {
         method: 'GET',
         headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
       })
@@ -129,7 +124,7 @@ export const jiraBulkRetrieveTool: ToolConfig<JiraRetrieveBulkParams, JiraRetrie
           queryParams.set('startAt', String(startAt))
         }
         const url = `https://api.atlassian.com/ex/jira/${matchedResource.id}/rest/api/3/search/jql?${queryParams.toString()}`
-        const pageResponse = await dispatchToolFetch(runtime, url, {
+        const pageResponse = await fetch(url, {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${params?.accessToken}`,
@@ -182,7 +177,7 @@ export const jiraBulkRetrieveTool: ToolConfig<JiraRetrieveBulkParams, JiraRetrie
         queryParams.set('startAt', String(startAt))
       }
       const url = `https://api.atlassian.com/ex/jira/${params?.cloudId}/rest/api/3/search/jql?${queryParams.toString()}`
-      const pageResponse = await dispatchToolFetch(runtime, url, {
+      const pageResponse = await fetch(url, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${params?.accessToken}`,

@@ -1,5 +1,4 @@
-import type { EnterprisePlaceholderDisplay } from '@/lib/billing/public-catalog'
-import type { SubscriptionTierDisplay } from '@/lib/billing/subscription-tier-display'
+import type { BillingTierDisplay, EnterprisePlaceholderDisplay } from '@/lib/billing/public-catalog'
 import { canTierEditUsageLimit } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/subscription/types'
 
@@ -14,14 +13,14 @@ export interface UserRole {
 }
 
 export interface SubscriptionSurfaceState {
-  currentTier: SubscriptionTierDisplay | null
+  currentTier: BillingTierDisplay | null
   isOrganizationPlan: boolean
   isAdjustableSeatPlan: boolean
   isCustomOrganizationPlan: boolean
   canManageOrganizationPlan: boolean
   canEditUsageLimit: boolean
   showTeamMemberView: boolean
-  visiblePlanTiers: SubscriptionTierDisplay[]
+  visiblePlanTiers: BillingTierDisplay[]
   showEnterprisePlaceholder: boolean
   enterprisePlaceholder: EnterprisePlaceholderDisplay | null
 }
@@ -29,14 +28,14 @@ export interface SubscriptionSurfaceState {
 interface SubscriptionSurfaceInput {
   subscription: SubscriptionState
   userRole: UserRole
-  subscriptionTiers: SubscriptionTierDisplay[]
-  enterpriseContactCard: EnterprisePlaceholderDisplay | null
+  subscriptionTiers: BillingTierDisplay[]
+  enterprisePlaceholder: EnterprisePlaceholderDisplay | null
 }
 
 function getCurrentTier(
   subscription: SubscriptionState,
-  subscriptionTiers: SubscriptionTierDisplay[]
-): SubscriptionTierDisplay | null {
+  subscriptionTiers: BillingTierDisplay[]
+): BillingTierDisplay | null {
   const matchedTier = subscription.tier.id
     ? subscriptionTiers.find((tier) => tier.id === subscription.tier.id)
     : null
@@ -55,20 +54,38 @@ export function getSubscriptionSurfaceState({
   subscription,
   userRole,
   subscriptionTiers,
-  enterpriseContactCard,
+  enterprisePlaceholder,
 }: SubscriptionSurfaceInput): SubscriptionSurfaceState {
   const currentTier = getCurrentTier(subscription, subscriptionTiers)
   const effectiveTier = currentTier ?? subscription.tier
   const isCurrentOrganizationPlan = effectiveTier.ownerType === 'organization'
   const isCurrentCustomOrganizationPlan =
-    isCurrentOrganizationPlan && !subscription.isFree && (!currentTier || currentTier.isCurrentOnly)
+    isCurrentOrganizationPlan && !currentTier && !subscription.isFree
   const isCurrentAdjustableSeatPlan =
     isCurrentOrganizationPlan && effectiveTier.seatMode === 'adjustable'
   const canEditUsageLimit = canTierEditUsageLimit(effectiveTier)
   const isTeamMemberView = isCurrentOrganizationPlan && !userRole.isTeamAdmin
 
-  const visiblePlanTiers = subscriptionTiers
-  const showEnterprisePlaceholder = Boolean(enterpriseContactCard)
+  let visiblePlanTiers: BillingTierDisplay[] = []
+
+  if (!isTeamMemberView && !isCurrentCustomOrganizationPlan) {
+    const currentDisplayOrder = currentTier?.displayOrder ?? (subscription.isFree ? -1 : null)
+    const upgradableTiers = subscription.isFree
+      ? subscriptionTiers.filter((tier) => !tier.isDefault)
+      : currentDisplayOrder !== null
+        ? subscriptionTiers.filter(
+            (tier) => tier.id !== currentTier?.id && tier.displayOrder > currentDisplayOrder
+          )
+        : []
+
+    visiblePlanTiers = currentTier
+      ? [currentTier, ...upgradableTiers.filter((tier) => tier.id !== currentTier.id)]
+      : upgradableTiers
+  }
+
+  const showEnterprisePlaceholder = Boolean(
+    enterprisePlaceholder && !isCurrentCustomOrganizationPlan && !isTeamMemberView
+  )
 
   return {
     currentTier,
@@ -80,6 +97,6 @@ export function getSubscriptionSurfaceState({
     showTeamMemberView: isTeamMemberView && !isCurrentCustomOrganizationPlan,
     visiblePlanTiers,
     showEnterprisePlaceholder,
-    enterprisePlaceholder: enterpriseContactCard,
+    enterprisePlaceholder,
   }
 }

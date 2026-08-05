@@ -1,5 +1,4 @@
 import type { NotionReadParams, NotionResponse } from '@/tools/notion/types'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 export const notionReadTool: ToolConfig<NotionReadParams, NotionResponse> = {
@@ -52,7 +51,7 @@ export const notionReadTool: ToolConfig<NotionReadParams, NotionResponse> = {
     },
   },
 
-  transformResponse: async (response: Response, params: NotionReadParams | undefined, runtime) => {
+  transformResponse: async (response: Response, params?: NotionReadParams) => {
     const data = await response.json()
     let pageTitle = 'Untitled'
 
@@ -91,8 +90,7 @@ export const notionReadTool: ToolConfig<NotionReadParams, NotionResponse> = {
     const formattedId = pageId.replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5')
 
     // Fetch page content using blocks endpoint
-    const blocksResponse = await dispatchToolFetch(
-      runtime,
+    const blocksResponse = await fetch(
       `https://api.notion.com/v1/blocks/${formattedId}/children?page_size=100`,
       {
         method: 'GET',

@@ -13,15 +13,15 @@ import {
   type ToolUseBlock,
 } from '@aws-sdk/client-bedrock-runtime'
 import { createLogger } from '@/lib/logs/console/logger'
+import { toError } from '@/providers/ai/error'
 import type { StreamingExecution } from '@/executor/types'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import {
   checkForForcedToolUsage,
   createReadableStreamFromBedrockStream,
   generateToolUseId,
   getBedrockInferenceProfileId,
 } from '@/providers/ai/bedrock/utils'
-import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
-import { toError } from '@/providers/ai/error'
 import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   FunctionCallResponse,
@@ -37,7 +37,7 @@ import {
   prepareToolsWithUsageControl,
   sumToolCosts,
 } from '@/providers/ai/utils'
-import { executeProviderTool } from '@/providers/ai/utils-server'
+import { executeTool } from '@/tools'
 
 const logger = createLogger('BedrockProvider')
 
@@ -219,7 +219,6 @@ export const bedrockProvider: ProviderConfig = {
           }
         }
       } catch (error) {
-        request.abortSignal?.throwIfAborted()
         logger.error('Error in prepareToolsWithUsageControl:', { error })
         toolChoice = { auto: {} }
       }
@@ -502,7 +501,7 @@ export const bedrockProvider: ProviderConfig = {
             if (!tool) return null
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeProviderTool(request, toolName, executionParams, false)
+            const result = await executeTool(toolName, executionParams)
             const toolCallEndTime = Date.now()
 
             return {
@@ -516,7 +515,6 @@ export const bedrockProvider: ProviderConfig = {
               duration: toolCallEndTime - toolCallStartTime,
             }
           } catch (error) {
-            request.abortSignal?.throwIfAborted()
             const toolCallEndTime = Date.now()
             logger.error('Error processing tool call:', { error, toolName })
 
@@ -556,8 +554,15 @@ export const bedrockProvider: ProviderConfig = {
         for (const settledResult of executionResults) {
           if (settledResult.status === 'rejected' || !settledResult.value) continue
 
-          const { toolUseId, toolName, toolParams, result, startTime, endTime, duration } =
-            settledResult.value
+          const {
+            toolUseId,
+            toolName,
+            toolParams,
+            result,
+            startTime,
+            endTime,
+            duration,
+          } = settledResult.value
 
           timeSegments.push({
             type: 'tool',
@@ -914,8 +919,6 @@ export const bedrockProvider: ProviderConfig = {
         },
       }
     } catch (error) {
-      request.abortSignal?.throwIfAborted()
-      if (error === request.abortSignal?.reason) throw error
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()
       const totalDuration = providerEndTime - providerStartTime

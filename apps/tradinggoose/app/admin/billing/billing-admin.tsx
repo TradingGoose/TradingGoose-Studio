@@ -337,8 +337,9 @@ function BillingSettingsCard({
         <CardDescription>{copy.settings.description}</CardDescription>
       </CardHeader>
       <CardContent className='space-y-4 bg-muted/10 px-4 py-4 sm:px-5'>
-        <form onSubmit={handleSubmit} className='space-y-4'>
+        <form onSubmit={handleSubmit} aria-busy={updateSettings.isPending} className='space-y-4'>
           <fieldset disabled={updateSettings.isPending} className='space-y-4'>
+            <legend className='sr-only'>{copy.settings.cardTitle}</legend>
             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
               <div className='space-y-1'>
                 <p className='font-medium text-sm'>{copy.settings.thresholds.title}</p>
@@ -357,6 +358,7 @@ function BillingSettingsCard({
                   <Input
                     id='onboardingAllowanceUsd'
                     name='onboardingAllowanceUsd'
+                    aria-labelledby='onboardingAllowanceUsd-label'
                     type='number'
                     step='0.01'
                     defaultValue={defaults.onboardingAllowanceUsd}
@@ -372,6 +374,7 @@ function BillingSettingsCard({
                   <Input
                     id='overageThresholdDollars'
                     name='overageThresholdDollars'
+                    aria-labelledby='overageThresholdDollars-label'
                     type='number'
                     step='0.01'
                     defaultValue={defaults.overageThresholdDollars}
@@ -387,6 +390,7 @@ function BillingSettingsCard({
                   <Input
                     id='usageWarningThresholdPercent'
                     name='usageWarningThresholdPercent'
+                    aria-labelledby='usageWarningThresholdPercent-label'
                     type='number'
                     defaultValue={defaults.usageWarningThresholdPercent}
                   />
@@ -401,6 +405,7 @@ function BillingSettingsCard({
                   <Input
                     id='freeTierUpgradeThresholdPercent'
                     name='freeTierUpgradeThresholdPercent'
+                    aria-labelledby='freeTierUpgradeThresholdPercent-label'
                     type='number'
                     defaultValue={defaults.freeTierUpgradeThresholdPercent}
                   />
@@ -427,6 +432,7 @@ function BillingSettingsCard({
                     <Input
                       id='workflowExecutionChargeUsd'
                       name='workflowExecutionChargeUsd'
+                      aria-labelledby='workflowExecutionChargeUsd-label'
                       type='number'
                       step='0.0001'
                       defaultValue={defaults.workflowExecutionChargeUsd}
@@ -442,6 +448,7 @@ function BillingSettingsCard({
                     <Input
                       id='functionExecutionChargeUsd'
                       name='functionExecutionChargeUsd'
+                      aria-labelledby='functionExecutionChargeUsd-label'
                       type='number'
                       step='0.0001'
                       defaultValue={defaults.functionExecutionChargeUsd}
@@ -469,6 +476,7 @@ function BillingSettingsCard({
                   <Input
                     id='enterpriseContactUrl'
                     name='enterpriseContactUrl'
+                    aria-labelledby='enterpriseContactUrl-label'
                     defaultValue={defaults.enterpriseContactUrl}
                   />
                 </FieldShell>
@@ -479,14 +487,16 @@ function BillingSettingsCard({
             </div>
 
             {error ? (
-              <Alert variant='destructive'>
+              <Alert role='alert' variant='destructive'>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             ) : null}
             {message ? (
-              <Notice variant='success' title={copy.settings.savedTitle}>
-                {message}
-              </Notice>
+              <div role='status'>
+                <Notice variant='success' title={copy.settings.savedTitle}>
+                  {message}
+                </Notice>
+              </div>
             ) : null}
             <PrimaryButton type='submit' disabled={updateSettings.isPending}>
               {updateSettings.isPending ? copy.settings.saving : copy.settings.save}
@@ -536,6 +546,7 @@ export function AdminBilling() {
           value={searchQuery}
           onChange={setSearchQuery}
           placeholder={copy.overview.searchPlaceholder}
+          clearLabel={copy.overview.clearSearch}
           className='w-full'
         />
       </div>
@@ -597,7 +608,7 @@ export function AdminBilling() {
     <AdminPageShell left={headerLeft} center={headerCenter} right={headerRight}>
       <div className='mx-auto flex w-full max-w-6xl flex-col gap-4'>
         {snapshotQuery.isError ? (
-          <Alert variant='destructive'>
+          <Alert role='alert' variant='destructive'>
             <AlertDescription>
               {getErrorMessage(snapshotQuery.error, copy.errors.unknown)}
             </AlertDescription>
@@ -721,7 +732,7 @@ export function AdminBillingCreateTier() {
     <AdminPageShell left={headerLeft} center={headerCenter} right={headerRight}>
       <div className='mx-auto flex w-full max-w-6xl flex-col gap-4'>
         {error ? (
-          <Alert variant='destructive'>
+          <Alert role='alert' variant='destructive'>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
@@ -737,7 +748,7 @@ export function AdminBillingCreateTier() {
             setSectionState((current) => ({ ...current, [sectionId]: open }))
           }
           onAccessFieldChange={handleAccessFieldChange}
-          disabled={createTier.isPending}
+          isPending={createTier.isPending}
           onSubmit={handleSubmit}
           onFormChange={handleFormChange}
         />

@@ -3,7 +3,6 @@ import { processExecutionFiles } from '@/lib/execution/files'
 type WorkflowInputFileContext = {
   executionContext: { workspaceId: string; workflowId: string; executionId: string }
   requestId: string
-  signal?: AbortSignal
 }
 
 type WorkflowInput = Record<string, unknown>
@@ -34,7 +33,6 @@ export async function processWorkflowInputFormatFiles(
   let processedInput = initialInput
 
   for (const field of inputFormat as Array<{ name?: unknown; type?: unknown }>) {
-    params.signal?.throwIfAborted()
     if (field.type !== 'files' || typeof field.name !== 'string') {
       continue
     }
@@ -51,8 +49,7 @@ export async function processWorkflowInputFormatFiles(
     processedInput[field.name] = await processExecutionFiles(
       fieldValue,
       params.executionContext,
-      params.requestId,
-      params.signal
+      params.requestId
     )
   }
 

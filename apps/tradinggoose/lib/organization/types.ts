@@ -147,6 +147,10 @@ export interface OrganizationStore extends OrganizationState {
   removeMember: (memberId: string, shouldReduceSeats?: boolean) => Promise<void>
   cancelInvitation: (invitationId: string) => Promise<void>
 
+  // Seat management
+  addSeats: (newSeatCount: number) => Promise<void>
+  reduceSeats: (newSeatCount: number) => Promise<void>
+
   getUserRole: (userEmail?: string) => string
   isAdminOrOwner: (userEmail?: string) => boolean
   getUsedSeats: () => { used: number; members: number; pending: number }

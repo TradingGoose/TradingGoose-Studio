@@ -1,10 +1,6 @@
 import { jwtVerify, SignJWT } from 'jose'
 import { type NextRequest, NextResponse } from 'next/server'
 import { env } from '@/lib/env'
-import {
-  isWorkflowExecutionTimePolicy,
-  type WorkflowExecutionTimePolicy,
-} from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('CronAuth')
@@ -20,8 +16,6 @@ export type InternalWorkflowExecutionContext = {
   parentWorkflowId?: string
   parentExecutionId?: string
   parentBlockId: string
-  parentOperationId: string
-  workflowExecutionTimePolicy: WorkflowExecutionTimePolicy
 }
 
 type GenerateInternalTokenOptions = {
@@ -31,16 +25,19 @@ type GenerateInternalTokenOptions = {
 function isInternalWorkflowExecutionContext(
   value: unknown
 ): value is InternalWorkflowExecutionContext {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const candidate = value as Record<string, unknown>
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    (value as Record<string, unknown>).source === 'workflow_block' &&
-    typeof (value as Record<string, unknown>).parentBlockId === 'string' &&
-    ((value as Record<string, unknown>).parentBlockId as string).length > 0 &&
-    typeof (value as Record<string, unknown>).parentOperationId === 'string' &&
-    ((value as Record<string, unknown>).parentOperationId as string).length > 0 &&
-    isWorkflowExecutionTimePolicy((value as Record<string, unknown>).workflowExecutionTimePolicy)
+    Object.keys(candidate).every((key) =>
+      ['source', 'parentWorkflowId', 'parentExecutionId', 'parentBlockId'].includes(key)
+    ) &&
+    candidate.source === 'workflow_block' &&
+    (['parentWorkflowId', 'parentExecutionId'] as const).every((key) => {
+      const parentId = candidate[key]
+      return parentId === undefined || (typeof parentId === 'string' && parentId.length > 0)
+    }) &&
+    typeof candidate.parentBlockId === 'string' &&
+    candidate.parentBlockId.length > 0
   )
 }
 
@@ -103,18 +100,17 @@ export async function verifyInternalTokenDetailed(
 
     // Check that it's an internal token
     if (payload.type === 'internal') {
+      const workflowExecution = payload.workflowExecution
       if (
-        payload.workflowExecution !== undefined &&
-        !isInternalWorkflowExecutionContext(payload.workflowExecution)
+        workflowExecution !== undefined &&
+        !isInternalWorkflowExecutionContext(workflowExecution)
       ) {
         return { valid: false }
       }
       return {
         valid: true,
         userId: typeof payload.userId === 'string' ? payload.userId : undefined,
-        workflowExecution: isInternalWorkflowExecutionContext(payload.workflowExecution)
-          ? payload.workflowExecution
-          : undefined,
+        workflowExecution,
       }
     }
 

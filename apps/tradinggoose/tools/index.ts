@@ -14,8 +14,7 @@ import { resolveSkillContent } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
-import { dispatchToolRemote } from '@/tools/runtime'
-import type { ToolConfig, ToolExecutionRuntime, ToolResponse } from '@/tools/types'
+import type { ToolConfig, ToolResponse } from '@/tools/types'
 import {
   createToolConfig,
   formatRequestParams,
@@ -48,8 +47,6 @@ function resolveExecutionScope(
   executionId?: string
   workflowLogId?: string
   toolExecutionId?: string
-  workflowOperationId?: string
-  workflowExecutionTimePolicy?: ExecutionContext['workflowExecutionTimePolicy']
   submissionSource?: string
   isDeployedContext?: boolean
 } {
@@ -62,14 +59,15 @@ function resolveExecutionScope(
     executionId: executionContext?.executionId ?? context.executionId,
     workflowLogId: executionContext?.workflowLogId ?? context.workflowLogId,
     toolExecutionId: context.toolExecutionId,
-    workflowOperationId: executionContext?.workflowOperationId,
-    workflowExecutionTimePolicy: executionContext?.workflowExecutionTimePolicy,
     submissionSource: executionContext?.submissionSource ?? context.submissionSource,
     isDeployedContext: executionContext?.isDeployedContext ?? context.isDeployedContext,
   }
 }
 
 type ExecutionScope = ReturnType<typeof resolveExecutionScope>
+type ToolExecutionOptions = {
+  signal?: AbortSignal
+}
 
 async function assertExecutionWorkspaceAccess(
   toolId: string,
@@ -202,26 +200,18 @@ export async function getToolAsync(
 }
 
 function generateScopedInternalToken(scope: ExecutionScope) {
-  if (
-    !scope.userId &&
-    scope.workflowId &&
-    scope.executionId &&
-    scope.toolExecutionId &&
-    scope.workflowOperationId &&
-    scope.workflowExecutionTimePolicy
-  ) {
-    return generateInternalToken(undefined, {
-      workflowExecution: {
-        source: 'workflow_block',
-        parentWorkflowId: scope.workflowId,
-        parentExecutionId: scope.executionId,
-        parentBlockId: scope.toolExecutionId,
-        parentOperationId: scope.workflowOperationId,
-        workflowExecutionTimePolicy: scope.workflowExecutionTimePolicy,
-      },
-    })
-  }
-  return generateInternalToken(scope.userId)
+  const workflowExecution =
+    !scope.userId && scope.workflowId && scope.toolExecutionId
+      ? {
+          source: 'workflow_block' as const,
+          parentWorkflowId: scope.workflowId,
+          ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
+          parentBlockId: scope.toolExecutionId,
+        }
+      : undefined
+  return workflowExecution
+    ? generateInternalToken(scope.userId, { workflowExecution })
+    : generateInternalToken(scope.userId)
 }
 
 /**
@@ -271,6 +261,14 @@ function handleBodySizeLimitError(error: unknown, requestId: string, context: st
   }
 
   return false
+}
+
+function throwIfToolRequestAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return
+
+  const error = new Error('Aborted')
+  error.name = 'AbortError'
+  throw error
 }
 
 function createToolRequestSignal(
@@ -346,8 +344,7 @@ function createTransformedErrorFromErrorInfo(errorInfo?: ErrorInfo, extractorId?
 async function processFileOutputs(
   result: ToolResponse,
   tool: ToolConfig,
-  executionContext?: ExecutionContext,
-  signal?: AbortSignal
+  executionContext?: ExecutionContext
 ): Promise<ToolResponse> {
   // Skip file processing if no execution context or not successful
   if (!executionContext || !result.success) {
@@ -368,21 +365,17 @@ async function processFileOutputs(
       return result
     }
 
-    signal?.throwIfAborted()
     const processedOutput = await FileToolProcessor.processToolOutputs(
       result.output,
       tool,
-      executionContext,
-      signal
+      executionContext
     )
-    signal?.throwIfAborted()
 
     return {
       ...result,
       output: processedOutput,
     }
   } catch (error) {
-    signal?.throwIfAborted()
     logger.error(`Error processing file outputs for tool ${tool.id}:`, error)
     // Return original result if file processing fails
     return result
@@ -395,17 +388,7 @@ export async function executeTool(
   params: Record<string, any>,
   skipPostProcess = false,
   executionContext?: ExecutionContext,
-  options?: ToolExecutionRuntime
-): Promise<ToolResponse> {
-  return executeToolCore(toolId, params, skipPostProcess, executionContext, options)
-}
-
-async function executeToolCore(
-  toolId: string,
-  params: Record<string, any>,
-  skipPostProcess = false,
-  executionContext?: ExecutionContext,
-  options?: ToolExecutionRuntime
+  options?: ToolExecutionOptions
 ): Promise<ToolResponse> {
   // Capture start time for precise timing
   const startTime = new Date()
@@ -414,7 +397,7 @@ async function executeToolCore(
   const scope = resolveExecutionScope(params, executionContext)
 
   try {
-    options?.signal?.throwIfAborted()
+    throwIfToolRequestAborted(options?.signal)
     let tool: ToolConfig | undefined
     const isMcpTool = toolId.startsWith('mcp-')
 
@@ -457,8 +440,7 @@ async function executeToolCore(
         executionContext,
         requestId,
         startTimeISO,
-        scope.userId,
-        options
+        scope.userId
       )
     } else {
       // For built-in tools, use the synchronous version
@@ -512,13 +494,6 @@ async function executeToolCore(
     }
 
     validateRequiredParametersAfterMerge(toolId, tool, contextParams)
-    if (tool.durableCredentialParam && options?.prepareDurableCredential) {
-      const credential = contextParams[tool.durableCredentialParam]
-      if (typeof credential !== 'string' || !credential) {
-        throw new Error(`Missing durable credential for ${toolId}`)
-      }
-      await options.prepareDurableCredential(credential)
-    }
 
     const selectedCredentialId =
       typeof contextParams.credential === 'string' ? contextParams.credential.trim() : ''
@@ -548,41 +523,39 @@ async function executeToolCore(
         }
 
         const tokenRequestSignal = createToolRequestSignal(undefined, options?.signal)
+        let response: Response
         try {
-          const response = await dispatchToolRemote(options, () =>
-            fetch(new URL('/api/auth/oauth/token', baseUrl).toString(), {
-              method: 'POST',
-              headers: tokenHeaders,
-              body: JSON.stringify(tokenPayload),
-              signal: tokenRequestSignal.signal,
-            })
-          )
-
-          if (!response.ok) {
-            const errorText = await response.text()
-            logger.error(`[${requestId}] Token fetch failed for ${toolId}:`, {
-              status: response.status,
-              error: errorText,
-            })
-            throw new Error(`Failed to fetch access token: ${response.status} ${errorText}`)
-          }
-
-          const data = await response.json()
-          contextParams.accessToken = data.accessToken
-          if (data.apiKey) {
-            contextParams.apiKey = data.apiKey
-          }
-
-          logger.info(
-            `[${requestId}] Successfully got access token for ${toolId}, length: ${data.accessToken?.length || 0}`
-          )
-
-          if (contextParams.workflowId) contextParams.workflowId = undefined
+          response = await fetch(new URL('/api/auth/oauth/token', baseUrl).toString(), {
+            method: 'POST',
+            headers: tokenHeaders,
+            body: JSON.stringify(tokenPayload),
+            signal: tokenRequestSignal.signal,
+          })
         } finally {
           tokenRequestSignal.cleanup()
         }
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          logger.error(`[${requestId}] Token fetch failed for ${toolId}:`, {
+            status: response.status,
+            error: errorText,
+          })
+          throw new Error(`Failed to fetch access token: ${response.status} ${errorText}`)
+        }
+
+        const data = await response.json()
+        contextParams.accessToken = data.accessToken
+        if (data.apiKey) {
+          contextParams.apiKey = data.apiKey
+        }
+
+        logger.info(
+          `[${requestId}] Successfully got access token for ${toolId}, length: ${data.accessToken?.length || 0}`
+        )
+
+        if (contextParams.workflowId) contextParams.workflowId = undefined
       } catch (error: any) {
-        if (error === options?.signal?.reason) throw error
         logger.error(`[${requestId}] Error fetching access token for ${toolId}:`, {
           error: error instanceof Error ? error.message : String(error),
         })
@@ -594,29 +567,26 @@ async function executeToolCore(
 
     // Check for direct execution (no HTTP request needed)
     if (tool.directExecution) {
-      options?.signal?.throwIfAborted()
+      throwIfToolRequestAborted(options?.signal)
       logger.info(`[${requestId}] Using directExecution for ${toolId}`)
-      const result = await tool.directExecution(contextParams, options)
+      const result = await tool.directExecution(contextParams)
+      throwIfToolRequestAborted(options?.signal)
 
       // Apply post-processing if available and not skipped
       let finalResult = result
       if (tool.postProcess && !skipPostProcess && result.success) {
         try {
-          const scopedExecuteTool = (nestedToolId: string, nestedParams: Record<string, any>) =>
-            executeTool(nestedToolId, nestedParams, false, executionContext, options)
-          finalResult = await tool.postProcess(result, contextParams, scopedExecuteTool, options)
+          finalResult = await tool.postProcess(result, contextParams, executeTool)
         } catch (error) {
-          options?.signal?.throwIfAborted()
           logger.error(`[${requestId}] Post-processing error for ${toolId}:`, {
             error: error instanceof Error ? error.message : String(error),
           })
           finalResult = result
         }
       }
-      options?.signal?.throwIfAborted()
 
       // Process file outputs if execution context is available
-      finalResult = await processFileOutputs(finalResult, tool, executionContext, options?.signal)
+      finalResult = await processFileOutputs(finalResult, tool, executionContext)
 
       // Add timing data to the result
       const endTime = new Date()
@@ -633,32 +603,24 @@ async function executeToolCore(
     }
 
     // Execute the tool request directly (internal routes use regular fetch)
-    if (options?.claimRemoteDispatch && !(await options.claimRemoteDispatch())) {
-      options.signal?.throwIfAborted()
-      throw new Error('Tool dispatch is closed')
-    }
     const result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
-    options?.signal?.throwIfAborted()
+    throwIfToolRequestAborted(options?.signal)
 
     // Apply post-processing if available and not skipped
     let finalResult = result
     if (tool.postProcess && !skipPostProcess && result.success) {
       try {
-        const scopedExecuteTool = (nestedToolId: string, nestedParams: Record<string, any>) =>
-          executeTool(nestedToolId, nestedParams, false, executionContext, options)
-        finalResult = await tool.postProcess(result, contextParams, scopedExecuteTool, options)
+        finalResult = await tool.postProcess(result, contextParams, executeTool)
       } catch (error) {
-        options?.signal?.throwIfAborted()
         logger.error(`[${requestId}] Post-processing error for ${toolId}:`, {
           error: error instanceof Error ? error.message : String(error),
         })
         finalResult = result
       }
     }
-    options?.signal?.throwIfAborted()
 
     // Process file outputs if execution context is available
-    finalResult = await processFileOutputs(finalResult, tool, executionContext, options?.signal)
+    finalResult = await processFileOutputs(finalResult, tool, executionContext)
 
     // Add timing data to the result
     const endTime = new Date()
@@ -673,7 +635,6 @@ async function executeToolCore(
       },
     }
   } catch (error: any) {
-    options?.signal?.throwIfAborted()
     logger.error(`[${requestId}] Error executing tool ${toolId}:`, {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
@@ -835,12 +796,10 @@ async function executeToolRequest(
   tool: ToolConfig,
   params: Record<string, any>,
   executionContext?: ExecutionContext,
-  options?: ToolExecutionRuntime
+  options?: ToolExecutionOptions
 ): Promise<ToolResponse> {
   const requestId = generateRequestId()
   const scope = resolveExecutionScope(params, executionContext)
-  let requestSignal: ReturnType<typeof createToolRequestSignal> | undefined
-  let requestTimeout: number | undefined
 
   const requestParams = formatRequestParams(tool, params)
 
@@ -884,35 +843,32 @@ async function executeToolRequest(
 
     const headers = new Headers(requestParams.headers)
     await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId, scope)
-    options?.signal?.throwIfAborted()
+    throwIfToolRequestAborted(options?.signal)
 
     if (typeof requestParams.body === 'string') {
       validateRequestBodySize(requestParams.body, requestId, toolId)
     }
 
     let response: Response
+
     if (isInternalRoute) {
-      const timeout = tool.durableCredentialParam ? 30_000 : requestParams.timeout || 300000
-      requestTimeout = timeout
-      requestSignal = createToolRequestSignal(
-        timeout,
-        tool.durableCredentialParam ? undefined : options?.signal
-      )
+      const timeout = requestParams.timeout || 300000
+      const requestSignal = createToolRequestSignal(timeout, options?.signal)
 
       try {
-        response = await dispatchToolRemote(options, () =>
-          fetch(fullUrl, {
-            method: requestParams.method,
-            headers: headers,
-            body: requestParams.body,
-            signal: requestSignal!.signal,
-          })
-        )
+        response = await fetch(fullUrl, {
+          method: requestParams.method,
+          headers: headers,
+          body: requestParams.body,
+          signal: requestSignal.signal,
+        })
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
           throw new Error(`Request timed out after ${timeout}ms`)
         }
         throw error
+      } finally {
+        requestSignal.cleanup()
       }
     } else {
       const urlValidation = validateExternalUrl(fullUrl, 'toolUrl')
@@ -920,25 +876,21 @@ async function executeToolRequest(
         throw new Error(`Invalid tool URL: ${urlValidation.error}`)
       }
 
-      requestTimeout = tool.durableCredentialParam ? 30_000 : requestParams.timeout
-      requestSignal = createToolRequestSignal(
-        requestTimeout,
-        tool.durableCredentialParam ? undefined : options?.signal
-      )
+      const requestSignal = createToolRequestSignal(requestParams.timeout, options?.signal)
       try {
-        response = await dispatchToolRemote(options, () =>
-          fetch(fullUrl, {
-            method: requestParams.method,
-            headers: headers,
-            body: requestParams.body,
-            signal: requestSignal!.signal,
-          })
-        )
+        response = await fetch(fullUrl, {
+          method: requestParams.method,
+          headers: headers,
+          body: requestParams.body,
+          signal: requestSignal.signal,
+        })
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
           throw new Error(`Request timed out after ${requestParams.timeout}ms`)
         }
         throw error
+      } finally {
+        requestSignal.cleanup()
       }
     }
 
@@ -1024,7 +976,7 @@ async function executeToolRequest(
           blob: () => response.blob(),
         } as Response
 
-        const data = await tool.transformResponse(mockResponse, params, options)
+        const data = await tool.transformResponse(mockResponse, params)
         return data
       } catch (transformError) {
         logger.error(`[${requestId}] Transform response error for ${toolId}:`, {
@@ -1040,9 +992,6 @@ async function executeToolRequest(
       error: undefined,
     }
   } catch (error: any) {
-    if (error instanceof Error && error.name === 'AbortError' && requestSignal?.didTimeout()) {
-      throw new Error(`Request timed out after ${requestTimeout}ms`)
-    }
     handleBodySizeLimitError(error, requestId, toolId)
 
     logger.error(`[${requestId}] Internal request error for ${toolId}:`, {
@@ -1050,8 +999,6 @@ async function executeToolRequest(
     })
 
     throw error
-  } finally {
-    requestSignal?.cleanup()
   }
 }
 
@@ -1136,8 +1083,7 @@ async function executeMcpTool(
   executionContext?: ExecutionContext,
   requestId?: string,
   startTimeISO?: string,
-  userId?: string,
-  options?: ToolExecutionRuntime
+  userId?: string
 ): Promise<ToolResponse> {
   const actualRequestId = requestId || generateRequestId()
   const actualStartTime = startTimeISO || new Date().toISOString()
@@ -1189,7 +1135,6 @@ async function executeMcpTool(
     const workflowId = scope.workflowId
 
     if (!workspaceId) {
-      options?.signal?.throwIfAborted()
       return {
         success: false,
         output: {},
@@ -1218,16 +1163,10 @@ async function executeMcpTool(
       hasWorkflowId: !!workflowId,
     })
 
-    options?.signal?.throwIfAborted()
-    if (options?.claimRemoteDispatch && !(await options.claimRemoteDispatch())) {
-      options.signal?.throwIfAborted()
-      throw new Error('Tool dispatch is closed')
-    }
     const response = await fetch(`${baseUrl}/api/mcp/tools/execute`, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
-      signal: options?.signal,
     })
 
     const endTime = new Date()
@@ -1236,18 +1175,13 @@ async function executeMcpTool(
 
     if (!response.ok) {
       let errorMessage = `MCP tool execution failed: ${response.status} ${response.statusText}`
-      await options?.recordTerminalObservation?.('failed', {
-        providerStatus: response.status,
-      })
 
       try {
         const errorData = await response.json()
         if (errorData.error) {
           errorMessage = errorData.error
         }
-        options?.signal?.throwIfAborted()
       } catch {
-        options?.signal?.throwIfAborted()
         // Failed to parse error response, use default message
       }
 
@@ -1263,22 +1197,9 @@ async function executeMcpTool(
       }
     }
 
-    let result: any
-    try {
-      result = await response.json()
-    } catch (error) {
-      await options?.recordTerminalObservation?.('failed', {
-        providerStatus: response.status,
-      })
-      options?.signal?.throwIfAborted()
-      throw error
-    }
+    const result = await response.json()
 
     if (!result.success) {
-      await options?.recordTerminalObservation?.('failed', {
-        providerStatus: response.status,
-      })
-      options?.signal?.throwIfAborted()
       return {
         success: false,
         output: {},
@@ -1292,10 +1213,6 @@ async function executeMcpTool(
     }
 
     logger.info(`[${actualRequestId}] MCP tool ${toolId} executed successfully`)
-    await options?.recordTerminalObservation?.('completed', {
-      providerStatus: response.status,
-    })
-    options?.signal?.throwIfAborted()
 
     return {
       success: true,
@@ -1307,7 +1224,6 @@ async function executeMcpTool(
       },
     }
   } catch (error) {
-    options?.signal?.throwIfAborted()
     const endTime = new Date()
     const endTimeISO = endTime.toISOString()
     const duration = endTime.getTime() - new Date(actualStartTime).getTime()

@@ -38,7 +38,6 @@ export interface UsageLimitInfo {
 
 export interface BillingTierSummary {
   id: string | null
-  status: 'active' | 'draft' | 'archived' | null
   displayName: string
   ownerType: 'user' | 'organization'
   usageScope: 'individual' | 'pooled'
@@ -49,7 +48,6 @@ export interface BillingTierSummary {
   includedUsageLimitUsd: number | null
   storageLimitGb: number | null
   concurrencyLimit: number | null
-  workflowExecutionTimeLimitSeconds: string | null
   seatCount: number | null
   seatMaximum: number | null
   syncRateLimitPerMinute: number | null

@@ -19,9 +19,6 @@ const {
   deleteReturningMock,
   loggingStartMock,
   loggingCompleteWithErrorMock,
-  recordWorkflowCancellationCandidateMock,
-  cancelWorkflowExecutionAtomicallyMock,
-  captureClaimedWorkflowLifecycleInTransactionMock,
 } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   triggerMock: vi.fn(),
@@ -38,9 +35,6 @@ const {
   deleteReturningMock: vi.fn(),
   loggingStartMock: vi.fn(),
   loggingCompleteWithErrorMock: vi.fn(),
-  recordWorkflowCancellationCandidateMock: vi.fn(),
-  cancelWorkflowExecutionAtomicallyMock: vi.fn(),
-  captureClaimedWorkflowLifecycleInTransactionMock: vi.fn(),
 }))
 
 const txSelectLimitMock = vi.fn()
@@ -54,7 +48,6 @@ const txSelectChain = {
 const txInsertValuesMock = vi.fn()
 const txInsertChain = {
   values: txInsertValuesMock,
-  onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
 }
 
 const selectChain = {
@@ -104,33 +97,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
   workflowExecutionLogs: {
     id: 'workflowExecutionLogs.id',
     executionId: 'workflowExecutionLogs.executionId',
-  },
-  workflowExecutionTerminal: {
-    rootExecutionId: 'workflowExecutionTerminal.rootExecutionId',
-    state: 'workflowExecutionTerminal.state',
-    result: 'workflowExecutionTerminal.result',
-  },
-  workflowExecutionDeadline: {
-    rootExecutionId: 'workflowExecutionDeadline.rootExecutionId',
-  },
-  workflowExecutionAttempt: {
-    id: 'workflowExecutionAttempt.id',
-    rootExecutionId: 'workflowExecutionAttempt.rootExecutionId',
-    pendingExecutionId: 'workflowExecutionAttempt.pendingExecutionId',
-    attemptNumber: 'workflowExecutionAttempt.attemptNumber',
-    processingCompletedAt: 'workflowExecutionAttempt.processingCompletedAt',
-  },
-  workflowExecutionParticipant: {
-    id: 'workflowExecutionParticipant.id',
-    attemptId: 'workflowExecutionParticipant.attemptId',
-  },
-  workflowExecutionOperation: {
-    id: 'workflowExecutionOperation.id',
-    rootExecutionId: 'workflowExecutionOperation.rootExecutionId',
-    state: 'workflowExecutionOperation.state',
-  },
-  workflowExecutionOutbox: {
-    rootExecutionId: 'workflowExecutionOutbox.rootExecutionId',
   },
 }))
 
@@ -187,12 +153,7 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
   }),
 }))
 
-vi.mock('@/lib/execution/workflow-execution-lifecycle-repository', () => ({
-  recordWorkflowCancellationCandidate: recordWorkflowCancellationCandidateMock,
-  cancelWorkflowExecutionAtomically: cancelWorkflowExecutionAtomicallyMock,
-  captureClaimedWorkflowLifecycleInTransaction: captureClaimedWorkflowLifecycleInTransactionMock,
-}))
-
+import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import {
   claimNextPendingExecution,
   completePendingExecution,
@@ -211,18 +172,7 @@ describe('enqueuePendingExecution', () => {
     txSelectLimitMock.mockResolvedValue([])
     selectLimitMock.mockResolvedValue([])
     txExecuteMock.mockResolvedValue(undefined)
-    captureClaimedWorkflowLifecycleInTransactionMock.mockResolvedValue({
-      policy: {
-        kind: 'unlimited',
-        rootExecutionId: 'pending-1',
-        appliedTierId: 'tier-1',
-        appliedTierName: 'Tier 1',
-        processingStartedAt: new Date().toISOString(),
-      },
-      attemptId: 'attempt-1',
-      isRoot: true,
-    })
-    txInsertValuesMock.mockReturnValue(txInsertChain)
+    txInsertValuesMock.mockResolvedValue(undefined)
     updateReturningMock.mockResolvedValue([])
     deleteReturningMock.mockResolvedValue([])
     deleteWhereMock.mockReturnValue(deleteChain)
@@ -469,7 +419,7 @@ describe('claimNextPendingExecution', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     txSelectLimitMock.mockResolvedValue([])
-    txExecuteMock.mockResolvedValue([{ now: '2026-07-29T15:47:39.061Z' }])
+    txExecuteMock.mockResolvedValue(undefined)
     updateChain.set.mockReturnThis()
     updateChain.where.mockReturnThis()
     updateReturningMock.mockResolvedValue([])
@@ -507,28 +457,6 @@ describe('claimNextPendingExecution', () => {
         status: 'processing',
       }),
     })
-    expect(captureClaimedWorkflowLifecycleInTransactionMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        processingStartedAt: new Date('2026-07-29T15:47:39.061Z'),
-      })
-    )
-  })
-
-  it('rejects a malformed database processing-start timestamp', async () => {
-    const { resolveServerExecutionBillingTierForScope } = await import(
-      '@/lib/execution/execution-concurrency-limit'
-    )
-    vi.mocked(resolveServerExecutionBillingTierForScope).mockResolvedValueOnce({
-      concurrencyLimit: 2,
-      displayName: 'Pro',
-    } as any)
-    txSelectLimitMock.mockResolvedValueOnce([pendingRow]).mockResolvedValueOnce([{ count: 1 }])
-    txExecuteMock.mockResolvedValue([{ now: 'not-a-timestamp' }])
-
-    await expect(claimNextPendingExecution('scope-1')).rejects.toThrow(
-      'Database returned an invalid processing-start timestamp'
-    )
-    expect(updateReturningMock).not.toHaveBeenCalled()
   })
 
   it('claims pending rows without a capacity check when local billing tier resolution is unavailable', async () => {
@@ -657,5 +585,76 @@ describe('completePendingExecution', () => {
     expect(triggerMock).toHaveBeenCalledWith('pending-execution-drain', {
       billingScopeId: 'scope-1',
     })
+  })
+})
+
+describe('cancelPendingWorkflowExecution', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    selectChain.from.mockReturnThis()
+    selectChain.where.mockReturnThis()
+    updateChain.set.mockReturnThis()
+    updateChain.where.mockReturnThis()
+    updateReturningMock.mockResolvedValue([])
+    deleteWhereMock.mockReturnValue(deleteChain)
+    deleteReturningMock.mockResolvedValue([])
+    loggingStartMock.mockResolvedValue('log-1')
+    loggingCompleteWithErrorMock.mockResolvedValue(undefined)
+  })
+
+  it('records queued workflow cancellation before completing the pending row', async () => {
+    selectLimitMock.mockResolvedValueOnce([
+      {
+        id: 'pending-1',
+        status: 'pending',
+        payload: { triggerType: 'manual' },
+        workflowId: 'workflow-1',
+      },
+    ])
+    updateReturningMock.mockResolvedValueOnce([
+      {
+        id: 'pending-1',
+        userId: 'user-1',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        payload: { triggerType: 'manual' },
+      },
+    ])
+    deleteReturningMock.mockResolvedValueOnce([{ billingScopeId: 'scope-1' }])
+
+    await expect(
+      cancelPendingWorkflowExecution({
+        pendingExecutionId: 'pending-1',
+        userId: 'user-1',
+      })
+    ).resolves.toEqual({ status: 'cancelling' })
+    expect(loggingStartMock).toHaveBeenCalled()
+    expect(loggingCompleteWithErrorMock).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
+      error: { message: 'Workflow execution was cancelled' },
+      billable: false,
+    })
+    expect(triggerMock).toHaveBeenCalledWith('pending-execution-drain', {
+      billingScopeId: 'scope-1',
+    })
+  })
+
+  it('returns not_found when a worker race removes the pending row', async () => {
+    selectLimitMock.mockResolvedValueOnce([
+      {
+        id: 'pending-1',
+        status: 'pending',
+        payload: {},
+        workflowId: 'workflow-1',
+      },
+    ])
+    updateReturningMock.mockResolvedValueOnce([])
+
+    await expect(
+      cancelPendingWorkflowExecution({
+        pendingExecutionId: 'pending-1',
+        userId: 'user-1',
+      })
+    ).resolves.toEqual({ status: 'not_found' })
   })
 })

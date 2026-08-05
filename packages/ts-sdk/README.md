@@ -66,11 +66,6 @@ const result = await client.executeWorkflow('workflow-id', {
 
 **Returns:** `Promise<WorkflowExecutionResult>`
 
-Failed results may include a top-level `code`. A tier deadline uses
-`WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED` and includes `deadline` with the exact
-`appliedTierId`, captured `appliedTierName`, configured decimal-string `limitSeconds`, `processingStartedAt`,
-and `terminatedAt` values.
-
 ##### getWorkflowStatus(workflowId)
 
 Get the status of a workflow (deployment status, etc.).

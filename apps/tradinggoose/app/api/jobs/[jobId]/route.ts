@@ -9,7 +9,6 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { type AuthResult, AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
 import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
-import { cancelWorkflowExecutionAtomically } from '@/lib/execution/workflow-execution-lifecycle-repository'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -18,6 +17,7 @@ import {
   createPublicExecutionResult,
   isExecutionResult,
 } from '@/lib/workflows/execution-result'
+import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import { createErrorResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('TaskStatusAPI')
@@ -139,9 +139,9 @@ export async function DELETE(
       return createErrorResponse('Authentication required', 401)
     }
 
-    const result = await cancelWorkflowExecutionAtomically({
+    const result = await cancelPendingWorkflowExecution({
       pendingExecutionId: taskId,
-      actorUserId: auth.userId,
+      userId: auth.userId,
     })
 
     if (result.status === 'not_found') {

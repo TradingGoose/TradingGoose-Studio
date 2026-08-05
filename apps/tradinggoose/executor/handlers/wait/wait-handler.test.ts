@@ -22,14 +22,14 @@ describe('WaitBlockHandler', () => {
     vi.useRealTimers()
   })
 
-  it('rejects when the workflow deadline cancels the local wait', async () => {
+  it('rejects when the execution time-limit signal cancels the local wait', async () => {
     vi.useFakeTimers()
     const controller = new AbortController()
     const result = new WaitBlockHandler().execute(block, { timeValue: '10', timeUnit: 'seconds' }, {
-      workflowDeadlineSignal: controller.signal,
+      abortSignal: controller.signal,
     } as ExecutionContext)
     controller.abort()
-    await expect(result).rejects.toThrow('Workflow wait was canceled')
+    await expect(result).rejects.toThrow('aborted')
     expect(vi.getTimerCount()).toBe(0)
     vi.useRealTimers()
   })

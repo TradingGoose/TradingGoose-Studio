@@ -4,22 +4,9 @@ import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
-import { setWorkflowExecutionParticipantState } from '@/lib/execution/workflow-execution-deadline-repository'
-import {
-  claimWorkflowOperationRemoteDispatch,
-  completeWorkflowExecutionAttempt,
-  completeWorkflowOperation,
-  finalizeWorkflowExecution,
-  getWorkflowOperationCapability,
-  publishWorkflowOperationIdentity,
-  registerWorkflowOperation,
-  sealWorkflowOperationCredential,
-  type WorkflowExecutionLifecycle,
-  type WorkflowExecutionOperationHandle,
-} from '@/lib/execution/workflow-execution-lifecycle-repository'
-import type { WorkflowExecutionRuntime } from '@/lib/execution/workflow-execution-runtime'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
+import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret } from '@/lib/utils-server'
 import { loadDeployedWorkflowState, requireWorkflowRealtimeState } from '@/lib/workflows/db-helpers'
 import { TriggerUtils } from '@/lib/workflows/triggers'
@@ -89,6 +76,28 @@ export class WorkflowUsageLimitError extends Error {
 }
 
 class WorkflowTriggerBlockError extends Error {}
+
+function createWorkflowTimeLimitResult(
+  result?: Pick<ExecutionResult, 'output' | 'logs' | 'metadata'>
+): ExecutionResult {
+  return {
+    ...result,
+    success: false,
+    output: result?.output ?? {},
+    error: 'Workflow execution time limit exceeded',
+    logs: result?.logs ?? [],
+  }
+}
+
+function startWorkflowTimeLimit(seconds: number | null) {
+  if (seconds === null) return null
+  const startedAt = Date.now()
+  const signal = AbortSignal.timeout(seconds * 1000)
+  return {
+    signal,
+    exceeded: () => signal.aborted || Date.now() - startedAt >= seconds * 1000,
+  }
+}
 
 async function resolveRequiredWorkflowExecutionContext(
   workflowId: string,
@@ -336,23 +345,10 @@ export async function runPreparedWorkflowExecution(params: {
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
   startupError?: unknown
-  lifecycle?: WorkflowExecutionLifecycle
-  deadlineRuntime: WorkflowExecutionRuntime
-  prepareWorkflowInput?: (context: {
-    blueprint: WorkflowExecutionBlueprint
-    signal?: AbortSignal
-  }) => Promise<
-    { kind: 'execute'; workflowInput: unknown } | { kind: 'skip'; result: ExecutionResult }
-  >
 }): Promise<WorkflowRunnerResult> {
   const executionId = params.executionId ?? uuidv4()
   const requestId = params.requestId ?? executionId.slice(0, 8)
   const workspaceId = params.blueprint.workflowContext.workspaceId
-  if (!params.lifecycle) {
-    throw new Error(`Workflow execution ${executionId} is missing its claimed lifecycle`)
-  }
-  const lifecycle = params.lifecycle
-  const deadlineRuntime = params.deadlineRuntime
   const loggingTriggerType = params.triggerType === 'api-endpoint' ? 'api' : params.triggerType
   const loggingSession = new LoggingSession(
     params.blueprint.workflowId,
@@ -360,19 +356,20 @@ export async function runPreparedWorkflowExecution(params: {
     loggingTriggerType,
     requestId
   )
+
+  // Workflow logs are the durable terminal state for queued and non-stream executions.
+  const workflowLogId = await loggingSession.start({
+    userId: params.actorUserId,
+    workspaceId,
+    workflowState: params.blueprint.workflowData,
+    triggerData: params.triggerData,
+  })
+
   let encryptedEnvVars: Record<string, string> | undefined
   let result: ExecutionResult
-  try {
-    deadlineRuntime.signal?.throwIfAborted()
+  let timeLimit: ReturnType<typeof startWorkflowTimeLimit> = null
 
-    // Workflow logs are the durable terminal state for queued and non-stream executions.
-    const workflowLogId = await loggingSession.start({
-      userId: params.actorUserId,
-      workspaceId,
-      workflowState: params.blueprint.workflowData,
-      triggerData: params.triggerData,
-    })
-    deadlineRuntime.signal?.throwIfAborted()
+  try {
     if (params.startupError) {
       throw params.startupError
     }
@@ -382,29 +379,25 @@ export async function runPreparedWorkflowExecution(params: {
       workflowId: params.blueprint.workflowId,
       workspaceId,
     })
-    deadlineRuntime.signal?.throwIfAborted()
 
     if (usageCheck.isExceeded) {
       throw new WorkflowUsageLimitError(
         usageCheck.message || 'Usage limit exceeded. Please upgrade your billing tier to continue.'
       )
     }
+    timeLimit = startWorkflowTimeLimit(usageCheck.workflowExecutionTimeLimitSeconds)
 
     const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
       params.actorUserId,
       workspaceId
     )
-    deadlineRuntime.signal?.throwIfAborted()
     encryptedEnvVars = {
       ...personalEncrypted,
       ...workspaceEncrypted,
     }
     const decryptedEnvVars = await decryptEnvironmentVariables(encryptedEnvVars)
-    deadlineRuntime.signal?.throwIfAborted()
     const mergedStates = mergeSubblockState(params.blueprint.workflowData.blocks, {})
-    deadlineRuntime.signal?.throwIfAborted()
     const processedBlockStates = buildProcessedBlockStates(mergedStates, decryptedEnvVars)
-    deadlineRuntime.signal?.throwIfAborted()
     const serializedWorkflow = new Serializer().serializeWorkflow(
       mergedStates,
       params.blueprint.workflowData.edges,
@@ -412,46 +405,7 @@ export async function runPreparedWorkflowExecution(params: {
       params.blueprint.workflowData.parallels,
       true
     )
-    deadlineRuntime.signal?.throwIfAborted()
     const workflowVariables = normalizeVariables(params.blueprint.workflowContext.variables)
-    deadlineRuntime.signal?.throwIfAborted()
-
-    const operationWaitStates = new Map<string, 'active' | 'waiting_child'>()
-    const operationHandles = new Map<string, WorkflowExecutionOperationHandle>()
-    const settledOperationIds = new Set<string>()
-    let waitTransitionQueue = Promise.resolve()
-    let participantWaiting = false
-    const updateOperationWaitState = async (
-      operationId: string,
-      state: 'active' | 'waiting_child' | 'completed'
-    ) => {
-      const transition = waitTransitionQueue.then(async () => {
-        if (state === 'completed') operationWaitStates.delete(operationId)
-        else operationWaitStates.set(operationId, state)
-        const nextWaiting =
-          operationWaitStates.size > 0 &&
-          [...operationWaitStates.values()].every((value) => value === 'waiting_child')
-        if (nextWaiting !== participantWaiting && lifecycle.participantId) {
-          const reconciliation = await setWorkflowExecutionParticipantState({
-            rootExecutionId: lifecycle.policy.rootExecutionId,
-            attemptId: lifecycle.attemptId,
-            participantId: lifecycle.participantId,
-            state: nextWaiting ? 'waiting_child' : 'active',
-          })
-          if (
-            !reconciliation ||
-            reconciliation.state === 'closed' ||
-            reconciliation.state === 'exhausted'
-          ) {
-            throw new Error('Workflow participant transition was rejected')
-          }
-          participantWaiting = nextWaiting
-          await deadlineRuntime.rearm()
-        }
-      })
-      waitTransitionQueue = transition.catch(() => undefined)
-      return transition
-    }
     const contextExtensions: ExecutionContextExtensions = {
       ...params.contextExtensions,
       executionId,
@@ -462,66 +416,7 @@ export async function runPreparedWorkflowExecution(params: {
       workflowDepth: params.contextExtensions?.workflowDepth ?? 0,
       submissionSource: 'workflow',
       workflowLogId,
-      workflowExecutionTimePolicy: lifecycle.policy,
-      workflowDeadlineSignal: deadlineRuntime.signal,
-      registerWorkflowOperation: async (blockId, handlerType) => {
-        const operation = await registerWorkflowOperation({
-          rootExecutionId: lifecycle.policy.rootExecutionId,
-          executionId,
-          attemptId: lifecycle.attemptId,
-          participantId: lifecycle.participantId,
-          blockId,
-          handlerType,
-          adapterKind: handlerType,
-          capability: getWorkflowOperationCapability(handlerType),
-        })
-        operationHandles.set(operation.id, {
-          id: operation.id,
-          rootExecutionId: operation.rootExecutionId,
-          attemptId: operation.attemptId,
-          participantId: operation.participantId ?? undefined,
-        })
-        await updateOperationWaitState(operation.id, 'active')
-        return operation.id
-      },
-      completeWorkflowOperation: async (id, state, observation) => {
-        const operation = operationHandles.get(id)
-        if (!operation) {
-          if (settledOperationIds.has(id)) return
-          throw new Error(`Unknown workflow operation ${id}`)
-        }
-        const completed = await completeWorkflowOperation({ operation, state, observation })
-        if (!completed) throw new Error('Workflow operation completion was rejected')
-        await updateOperationWaitState(id, 'completed')
-        operationHandles.delete(id)
-        settledOperationIds.add(id)
-      },
-      publishWorkflowOperationIdentity: async (id, identity) => {
-        const operation = operationHandles.get(id)
-        if (!operation) throw new Error(`Unknown workflow operation ${id}`)
-        const published = await publishWorkflowOperationIdentity({ operation, ...identity })
-        if (!published) throw new Error('Workflow operation identity was rejected')
-      },
-      claimWorkflowOperationRemoteDispatch: async (id) => {
-        const operation = operationHandles.get(id)
-        return operation ? claimWorkflowOperationRemoteDispatch(operation) : false
-      },
-      prepareWorkflowOperationCredential: async (id, secret) => {
-        const operation = operationHandles.get(id)
-        if (!operation) throw new Error(`Unknown workflow operation ${id}`)
-        const { encryptSecret } = await import('@/lib/utils-server')
-        const { encrypted } = await encryptSecret(secret)
-        const sealed = await sealWorkflowOperationCredential(operation, encrypted)
-        if (!sealed) throw new Error('Workflow operation credential was rejected')
-      },
-      setWorkflowParticipantWaiting: lifecycle.participantId
-        ? async (operationId, waiting) => {
-            if (!operationWaitStates.has(operationId)) {
-              throw new Error(`Unknown workflow operation ${operationId}`)
-            }
-            await updateOperationWaitState(operationId, waiting ? 'waiting_child' : 'active')
-          }
-        : undefined,
+      abortSignal: timeLimit?.signal,
     }
 
     if (contextExtensions.stream) {
@@ -531,65 +426,24 @@ export async function runPreparedWorkflowExecution(params: {
       }))
     }
 
-    let workflowInput = params.workflowInput
-    let preparedResult: ExecutionResult | undefined
-    if (params.prepareWorkflowInput) {
-      try {
-        const prepared = await params.prepareWorkflowInput({
-          blueprint: params.blueprint,
-          signal: deadlineRuntime.signal,
-        })
-        deadlineRuntime.signal?.throwIfAborted()
-        if (prepared.kind === 'skip') preparedResult = prepared.result
-        else workflowInput = prepared.workflowInput
-      } catch (error) {
-        preparedResult = {
-          success: false,
-          output: {},
-          error: error instanceof Error ? error.message : String(error),
-          logs: [],
-        }
-      }
-    }
+    const executor = new Executor({
+      workflow: serializedWorkflow,
+      currentBlockStates: processedBlockStates,
+      envVarValues: decryptedEnvVars,
+      workflowInput: params.workflowInput,
+      workflowVariables,
+      contextExtensions,
+    })
 
-    await deadlineRuntime.settleStartup('completed')
-    deadlineRuntime.signal?.throwIfAborted()
+    const triggerBlockId = resolveTriggerBlockId({
+      mergedStates,
+      serializedWorkflow,
+      target: params.triggerTarget,
+      isChildExecution: contextExtensions.isChildExecution === true,
+    })
 
-    if (preparedResult) {
-      result = preparedResult
-    } else {
-      const executor = new Executor({
-        workflow: serializedWorkflow,
-        currentBlockStates: processedBlockStates,
-        envVarValues: decryptedEnvVars,
-        workflowInput,
-        workflowVariables,
-        contextExtensions,
-      })
-      const triggerBlockId = resolveTriggerBlockId({
-        mergedStates,
-        serializedWorkflow,
-        target: params.triggerTarget,
-        isChildExecution: contextExtensions.isChildExecution === true,
-      })
-      result = await executor.execute(params.blueprint.workflowId, triggerBlockId)
-    }
-    if (lifecycle.isRoot) {
-      const storedResult = await finalizeWorkflowExecution({
-        rootExecutionId: executionId,
-        attemptId: lifecycle.attemptId,
-        result,
-      })
-      if (!storedResult) {
-        throw new Error(`Workflow execution ${executionId} is awaiting termination reconciliation`)
-      }
-      result = storedResult
-    } else {
-      await completeWorkflowExecutionAttempt({
-        attemptId: lifecycle.attemptId,
-        result,
-      })
-    }
+    result = await executor.execute(params.blueprint.workflowId, triggerBlockId)
+    if (timeLimit?.exceeded()) result = createWorkflowTimeLimitResult(result)
 
     if (result.success) {
       await updateWorkflowRunCounts(params.blueprint.workflowId).catch((error) =>
@@ -597,53 +451,62 @@ export async function runPreparedWorkflowExecution(params: {
       )
     }
   } catch (error: any) {
-    const deadlineAborted = deadlineRuntime.signal?.aborted === true
-    await deadlineRuntime.settleStartup(deadlineAborted ? 'local_abort' : 'failed')
-    const isApplicationFailure =
-      deadlineAborted ||
-      error instanceof WorkflowUsageLimitError ||
-      error instanceof WorkflowTriggerBlockError ||
-      Boolean(error?.executionResult)
-    if (!isApplicationFailure) throw error
-    const message = error.message || 'Workflow execution failed'
-    const dispatchFailureReason =
-      error instanceof WorkflowUsageLimitError
-        ? 'usage_limit_exceeded'
-        : error instanceof WorkflowTriggerBlockError
-          ? 'missing_trigger_block'
-          : undefined
-    result = (error?.executionResult as ExecutionResult | undefined) || {
-      success: false,
-      output: {},
-      error: message,
-      logs: [],
-    }
-    if (lifecycle.isRoot) {
-      const storedResult = await finalizeWorkflowExecution({
-        rootExecutionId: lifecycle.policy.rootExecutionId,
-        attemptId: lifecycle.attemptId,
-        result,
-      })
-      if (!storedResult) {
-        throw new Error(
-          `Workflow execution ${lifecycle.policy.rootExecutionId} is awaiting termination reconciliation`
-        )
-      }
-      result = storedResult
+    if (timeLimit?.exceeded()) {
+      result = createWorkflowTimeLimitResult(error?.executionResult)
     } else {
-      await completeWorkflowExecutionAttempt({
-        attemptId: lifecycle.attemptId,
-        result,
+      const message = error.message || 'Workflow execution failed'
+      const dispatchFailureReason =
+        error instanceof WorkflowUsageLimitError
+          ? 'usage_limit_exceeded'
+          : error instanceof WorkflowTriggerBlockError
+            ? 'missing_trigger_block'
+            : undefined
+      result = (error?.executionResult as ExecutionResult | undefined) || {
+        success: false,
+        output: {},
+        error: message,
+        logs: [],
+      }
+      const { traceSpans, totalDuration } = buildTraceSpans(result)
+
+      await loggingSession.completeWithError({
+        endedAt: new Date().toISOString(),
+        totalDurationMs: totalDuration || 0,
+        error: {
+          message,
+          stackTrace: error.stack,
+        },
+        traceSpans,
+        workspaceId,
+        actorUserId: params.actorUserId,
+        variables: encryptedEnvVars,
       })
-    }
-    return {
-      executionId,
-      result,
-      workflowData: params.blueprint.workflowData,
-      workspaceId,
-      dispatchFailureReason,
+      return {
+        executionId,
+        result,
+        workflowData: params.blueprint.workflowData,
+        workspaceId,
+        dispatchFailureReason,
+      }
     }
   }
+
+  const { traceSpans, totalDuration } = buildTraceSpans(result)
+
+  await loggingSession.complete({
+    endedAt: new Date().toISOString(),
+    totalDurationMs: totalDuration || 0,
+    finalOutput: result.output === undefined ? {} : result.output,
+    success: result.success,
+    failureReason: result.error,
+    traceSpans: traceSpans || [],
+    workflowInput: params.workflowInput,
+    workspaceId,
+    actorUserId: params.actorUserId,
+    hasResponseBlock:
+      result.logs?.some((log) => log.success && log.blockType === 'response') === true,
+    variables: encryptedEnvVars,
+  })
 
   return {
     executionId,
@@ -666,10 +529,7 @@ export async function runWorkflowExecution(params: {
   executionId?: string
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
-  lifecycle?: WorkflowExecutionLifecycle
-  deadlineRuntime: WorkflowExecutionRuntime
 }): Promise<WorkflowRunnerResult> {
-  params.deadlineRuntime.signal?.throwIfAborted()
   let startupError: unknown
   const blueprint = await loadWorkflowExecutionBlueprint({
     workflowId: params.workflowId,
@@ -677,7 +537,6 @@ export async function runWorkflowExecution(params: {
     workflowContext: params.workflowContext,
     workflowData: params.workflowData,
   }).catch(async (error) => {
-    params.deadlineRuntime.signal?.throwIfAborted()
     startupError = error
     return {
       workflowId: params.workflowId,
@@ -689,7 +548,6 @@ export async function runWorkflowExecution(params: {
       workflowData: params.workflowData ?? { blocks: {}, edges: [], loops: {}, parallels: {} },
     }
   })
-  params.deadlineRuntime.signal?.throwIfAborted()
 
   return runPreparedWorkflowExecution({
     blueprint,
@@ -702,7 +560,5 @@ export async function runWorkflowExecution(params: {
     triggerData: params.triggerData,
     contextExtensions: params.contextExtensions,
     startupError,
-    lifecycle: params.lifecycle,
-    deadlineRuntime: params.deadlineRuntime,
   })
 }

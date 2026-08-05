@@ -132,9 +132,10 @@ export async function checkSessionOrInternalAuth(
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1]
       const verification = await verifyInternalTokenDetailed(token)
-      if (verification.valid) {
-        return resolveInternalAuthResult(verification, options)
+      if (!verification.valid) {
+        return { success: false, error: 'Invalid internal token' }
       }
+      return resolveInternalAuthResult(verification, options)
     }
 
     const session = await getSession()
@@ -178,10 +179,10 @@ export async function checkHybridAuth(
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1]
       const verification = await verifyInternalTokenDetailed(token)
-
-      if (verification.valid) {
-        return resolveInternalAuthResult(verification, options)
+      if (!verification.valid) {
+        return { success: false, error: 'Invalid internal token' }
       }
+      return resolveInternalAuthResult(verification, options)
     }
 
     const session = await getSession()

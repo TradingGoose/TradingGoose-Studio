@@ -102,6 +102,7 @@ describe('checkServerSideUsageLimits', () => {
       currentUsage: 12.5,
       limit: 0,
       message: 'Billing issue detected. Please update your payment method to continue.',
+      workflowExecutionTimeLimitSeconds: null,
     })
   })
 
@@ -113,6 +114,20 @@ describe('checkServerSideUsageLimits', () => {
       currentUsage: 12.5,
       limit: 100,
       message: undefined,
+      workflowExecutionTimeLimitSeconds: null,
     })
+  })
+
+  it('returns the workflow time limit from the resolved tier', async () => {
+    const { resolveWorkflowBillingContext } = await import('@/lib/billing/workspace-billing')
+    vi.mocked(resolveWorkflowBillingContext).mockResolvedValueOnce({
+      scopeType: 'user',
+      tier: { workflowExecutionTimeLimitSeconds: 30 },
+    } as any)
+    const { checkServerSideUsageLimits } = await import('./usage-monitor')
+
+    await expect(
+      checkServerSideUsageLimits({ userId: 'user-1', workflowId: 'workflow-1' })
+    ).resolves.toEqual(expect.objectContaining({ workflowExecutionTimeLimitSeconds: 30 }))
   })
 })

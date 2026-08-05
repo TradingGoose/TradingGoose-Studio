@@ -121,11 +121,6 @@ export async function executeProviderRequest(
   }
 
   // Execute the request using the provider's implementation
-  request.abortSignal?.throwIfAborted()
-  if (request.claimRemoteDispatch && !(await request.claimRemoteDispatch())) {
-    request.abortSignal?.throwIfAborted()
-    throw new Error('Provider dispatch is closed')
-  }
   const response = await provider.executeRequest(sanitizedRequest)
 
   // If we received a StreamingExecution or ReadableStream, just pass it through

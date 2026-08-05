@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { type AdminBillingTierMutationInput, validateAdminBillingTierInput } from './tier-mutations'
+import {
+  type AdminBillingTierMutationInput,
+  adminBillingTierMutationSchema,
+  validateAdminBillingTierInput,
+} from './tier-mutations'
 
 function createTierInput(
   overrides: Partial<AdminBillingTierMutationInput> = {}
@@ -44,6 +48,31 @@ function createTierInput(
 }
 
 describe('validateAdminBillingTierInput', () => {
+  it('requires the complete tier payload and accepts only positive integer execution seconds', () => {
+    const payload = createTierInput()
+    expect(adminBillingTierMutationSchema.safeParse(payload).success).toBe(true)
+    expect(
+      adminBillingTierMutationSchema.safeParse({
+        ...payload,
+        workflowExecutionTimeLimitSeconds: 30,
+      }).success
+    ).toBe(true)
+    expect(
+      adminBillingTierMutationSchema.safeParse({
+        ...payload,
+        workflowExecutionTimeLimitSeconds: 1.5,
+      }).success
+    ).toBe(false)
+    expect(
+      adminBillingTierMutationSchema.safeParse({
+        ...payload,
+        workflowExecutionTimeLimitSeconds: 0,
+      }).success
+    ).toBe(false)
+    const { maxPendingCount: _missing, ...incomplete } = payload
+    expect(adminBillingTierMutationSchema.safeParse(incomplete).success).toBe(false)
+  })
+
   it('allows a default tier to stay in draft while it is being edited', () => {
     expect(validateAdminBillingTierInput(createTierInput())).toBeNull()
   })
@@ -74,12 +103,6 @@ describe('validateAdminBillingTierInput', () => {
   it('still requires default tiers to stay public', () => {
     expect(validateAdminBillingTierInput(createTierInput({ isPublic: false }))).toBe(
       'The default tier must be visible in the public catalog'
-    )
-  })
-
-  it('rejects archived default tiers independently of runtime billing state', () => {
-    expect(validateAdminBillingTierInput(createTierInput({ status: 'archived' }))).toBe(
-      'The default tier cannot be archived'
     )
   })
 

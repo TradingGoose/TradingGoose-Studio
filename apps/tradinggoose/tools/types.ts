@@ -33,24 +33,6 @@ export interface ToolResponse {
   }
 }
 
-export interface ToolExecutionRuntime {
-  signal?: AbortSignal
-  prepareDurableCredential?: (secret: string) => Promise<void>
-  claimRemoteDispatch?: () => Promise<boolean>
-  publishOperationIdentity?: (identity: {
-    adapterKind: string
-    capability: 'native_cancel_status' | 'status_only' | 'uncancelable'
-    remoteOperationId: string
-    observation?: Record<string, unknown>
-    expectedAdapterKind?: string
-    expectedRemoteOperationId?: string
-  }) => Promise<void>
-  recordTerminalObservation?: (
-    state: 'canceled' | 'completed' | 'failed',
-    observation?: Record<string, unknown>
-  ) => Promise<void>
-}
-
 export interface OAuthConfig {
   required: boolean // Whether this tool requires OAuth authentication
   provider: OAuthService // The service that needs to be authorized
@@ -72,7 +54,6 @@ export interface ToolConfig<P = any, R = any> {
   name: string
   description: string
   version: string
-  durableCredentialParam?: keyof P & string
 
   // Parameter schema - what this tool accepts
   params: Record<
@@ -134,18 +115,17 @@ export interface ToolConfig<P = any, R = any> {
   postProcess?: (
     result: R extends ToolResponse ? R : ToolResponse,
     params: P,
-    executeTool: (toolId: string, params: Record<string, any>) => Promise<ToolResponse>,
-    runtime?: ToolExecutionRuntime
+    executeTool: (toolId: string, params: Record<string, any>) => Promise<ToolResponse>
   ) => Promise<R extends ToolResponse ? R : ToolResponse>
 
   // Response handling
-  transformResponse?: (response: Response, params?: P, runtime?: ToolExecutionRuntime) => Promise<R>
+  transformResponse?: (response: Response, params?: P) => Promise<R>
 
   /**
    * Direct execution function for tools that don't need HTTP requests.
    * If provided, this will be called instead of making an HTTP request.
    */
-  directExecution?: (params: P, runtime?: ToolExecutionRuntime) => Promise<ToolResponse>
+  directExecution?: (params: P) => Promise<ToolResponse>
 }
 
 export interface TableRow {

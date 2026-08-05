@@ -97,8 +97,7 @@ describe('GenericBlockHandler', () => {
         _context: { toolExecutionId: 'generic-block-1' },
       },
       false, // skipPostProcess
-      mockContext, // execution context
-      { signal: undefined }
+      mockContext // execution context
     )
     expect(result).toEqual(expectedOutput)
   })
@@ -126,8 +125,7 @@ describe('GenericBlockHandler', () => {
         _context: { toolExecutionId: 'generic-block-1:loop-1:2' },
       }),
       false,
-      mockContext,
-      { signal: undefined }
+      mockContext
     )
   })
 

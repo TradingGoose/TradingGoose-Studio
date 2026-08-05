@@ -471,8 +471,6 @@ describe('AgentBlockHandler', () => {
       expect(typeof autoTool.executeFunction).toBe('function')
       expect(typeof forceTool.executeFunction).toBe('function')
 
-      const deadlineController = new AbortController()
-      mockContext.workflowDeadlineSignal = deadlineController.signal
       await autoTool.executeFunction({ input: 'test input' })
       expect(mockExecuteTool).toHaveBeenCalledWith(
         'function_execute',
@@ -481,8 +479,7 @@ describe('AgentBlockHandler', () => {
           input: 'test input',
         }),
         false, // skipPostProcess
-        expect.any(Object), // execution context
-        { signal: deadlineController.signal }
+        expect.any(Object) // execution context
       )
 
       await forceTool.executeFunction({ input: 'another test' })
@@ -494,8 +491,7 @@ describe('AgentBlockHandler', () => {
           input: 'another test',
         }),
         false, // skipPostProcess
-        expect.any(Object), // execution context
-        { signal: deadlineController.signal }
+        expect.any(Object) // execution context
       )
 
       const fetchCall = mockFetch.mock.calls[0]

@@ -1,6 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { LatestCommitParams, LatestCommitResponse } from '@/tools/github/types'
-import { dispatchToolFetch } from '@/tools/runtime'
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('GitHubLatestCommitTool')
@@ -51,7 +50,7 @@ export const latestCommitTool: ToolConfig<LatestCommitParams, LatestCommitRespon
     }),
   },
 
-  transformResponse: async (response, params, runtime) => {
+  transformResponse: async (response, params) => {
     const data = await response.json()
 
     const content = `Latest commit: "${data.commit.message}" by ${data.commit.author.name} on ${data.commit.author.date}. SHA: ${data.sha}`
@@ -75,7 +74,7 @@ export const latestCommitTool: ToolConfig<LatestCommitParams, LatestCommitRespon
 
         if (file.status !== 'removed' && file.raw_url) {
           try {
-            const contentResponse = await dispatchToolFetch(runtime, file.raw_url, {
+            const contentResponse = await fetch(file.raw_url, {
               headers: {
                 Authorization: `Bearer ${params?.apiKey}`,
                 'X-GitHub-Api-Version': '2022-11-28',

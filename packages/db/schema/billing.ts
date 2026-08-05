@@ -166,14 +166,13 @@ export const privateTierAccess = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     tierId: text('tier_id')
       .notNull()
-      .references(() => systemBillingTier.id, { onDelete: 'restrict' }),
+      .references(() => systemBillingTier.id, { onDelete: 'cascade' }),
   },
   (table) => ({
     userTierPk: primaryKey({
       name: 'private_tier_access_user_tier_pkey',
       columns: [table.userId, table.tierId],
     }),
-    userIdIdx: index('private_tier_access_user_id_idx').on(table.userId),
     tierIdIdx: index('private_tier_access_tier_id_idx').on(table.tierId),
   })
 )

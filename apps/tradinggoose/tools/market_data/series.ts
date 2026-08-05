@@ -1,14 +1,14 @@
-import {
-  LISTING_IDENTITY_VALUE_TYPE,
-  type ListingIdentity,
-  parseListingIdentityValueStrict,
-} from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   coerceMarketProviderParamValue,
   getMarketProviderParamCatalog,
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
+import {
+  LISTING_IDENTITY_VALUE_TYPE,
+  parseListingIdentityValueStrict,
+  type ListingIdentity,
+} from '@/lib/listing/identity'
 import type { MarketSeries, NormalizationMode } from '@/providers/market/types'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
@@ -262,7 +262,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       output: data,
     }
   },
-  postProcess: async (result, params, _executeTool, runtime): Promise<ToolResponse> => {
+  postProcess: async (result, params): Promise<ToolResponse> => {
     if (!result.success) return result
 
     try {
@@ -285,7 +285,6 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
         },
       }
     } catch (error: any) {
-      runtime?.signal?.throwIfAborted()
       logger.error('Error validating market series data', {
         provider: params.provider,
         listing: params.listing,

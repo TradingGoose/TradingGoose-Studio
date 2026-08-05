@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   getPublicBillingTiers: vi.fn(),
   getResolvedBillingSettings: vi.fn(),
-  hasPrivateBillingTiers: vi.fn(),
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -12,7 +11,6 @@ vi.mock('@/lib/billing/settings', () => ({
 
 vi.mock('@/lib/billing/tiers', () => ({
   getPublicBillingTiers: mocks.getPublicBillingTiers,
-  hasPrivateBillingTiers: mocks.hasPrivateBillingTiers,
 }))
 
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
@@ -31,7 +29,6 @@ describe('public billing catalog', () => {
     const catalog = await getPublicBillingCatalog()
 
     expect(catalog.enterprisePlaceholder).toBeNull()
-    expect(mocks.hasPrivateBillingTiers).not.toHaveBeenCalled()
   })
 
   it('shows the public Enterprise card when the contact URL is configured', async () => {
@@ -46,6 +43,5 @@ describe('public billing catalog', () => {
       displayName: 'Enterprise',
       contactUrl: 'https://example.com/contact',
     })
-    expect(mocks.hasPrivateBillingTiers).not.toHaveBeenCalled()
   })
 })

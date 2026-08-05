@@ -1,25 +1,10 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
+import { waitForDelay } from '@/executor/utils/wait-for-delay'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('WaitBlockHandler')
-
-const sleep = async (ms: number, signal?: AbortSignal): Promise<boolean> => {
-  if (signal?.aborted) return false
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      signal?.removeEventListener('abort', cancel)
-      resolve(true)
-    }, ms)
-    const cancel = () => {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', cancel)
-      resolve(false)
-    }
-    signal?.addEventListener('abort', cancel, { once: true })
-  })
-}
 
 /**
  * Handler for Wait blocks that pause workflow execution for a time delay
@@ -60,12 +45,7 @@ export class WaitBlockHandler implements BlockHandler {
 
     logger.info(`Waiting for ${waitMs}ms (${timeValue} ${timeUnit})`)
 
-    const completed = await sleep(waitMs, context.workflowDeadlineSignal)
-
-    if (!completed) {
-      logger.info('Wait was interrupted by cancellation')
-      throw new Error('Workflow wait was canceled')
-    }
+    await waitForDelay(waitMs, context.abortSignal)
 
     logger.info('Wait completed successfully')
     return {

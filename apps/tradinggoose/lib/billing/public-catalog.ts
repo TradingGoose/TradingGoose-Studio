@@ -1,4 +1,4 @@
-export interface PublicBillingTierDisplay {
+export interface BillingTierDisplay {
   id: string
   displayName: string
   description: string
@@ -16,7 +16,7 @@ export interface PublicBillingTierDisplay {
 }
 
 export interface EnterprisePlaceholderDisplay {
-  displayName: string
+  displayName: 'Enterprise'
   description: string
   pricingFeatures: string[]
   contactUrl: string | null
@@ -24,9 +24,19 @@ export interface EnterprisePlaceholderDisplay {
 
 export interface PublicBillingCatalog {
   billingEnabled: boolean
-  publicTiers: PublicBillingTierDisplay[]
+  publicTiers: BillingTierDisplay[]
   enterprisePlaceholder: EnterprisePlaceholderDisplay | null
   enterpriseContactUrl: string | null
+}
+
+export function composeBillingTierDisplays(input: {
+  publicTiers: BillingTierDisplay[]
+  privateTiers: BillingTierDisplay[]
+}): BillingTierDisplay[] {
+  const byId = new Map([...input.publicTiers, ...input.privateTiers].map((tier) => [tier.id, tier]))
+  return [...byId.values()].sort(
+    (left, right) => left.displayOrder - right.displayOrder || left.id.localeCompare(right.id)
+  )
 }
 
 export const GENERIC_ENTERPRISE_PLACEHOLDER_DESCRIPTION =
@@ -71,7 +81,7 @@ function joinWithAnd(values: string[]): string {
 
 function describePrice(
   tier:
-    | Pick<PublicBillingTierDisplay, 'monthlyPriceUsd' | 'yearlyPriceUsd'>
+    | Pick<BillingTierDisplay, 'monthlyPriceUsd' | 'yearlyPriceUsd'>
     | EnterprisePlaceholderDisplay
 ): string {
   if (!('monthlyPriceUsd' in tier)) {

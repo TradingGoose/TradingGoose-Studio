@@ -200,12 +200,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           parentWorkflowId: childWorkflowExecution?.parentWorkflowId ?? null,
           parentExecutionId: childWorkflowExecution?.parentExecutionId ?? null,
           parentBlockId: childWorkflowExecution?.parentBlockId ?? null,
-          parentOperationId: childWorkflowExecution?.parentOperationId ?? null,
-          ...(childWorkflowExecution?.workflowExecutionTimePolicy
-            ? {
-                workflowExecutionTimePolicy: childWorkflowExecution.workflowExecutionTimePolicy,
-              }
-            : {}),
         },
       },
     })

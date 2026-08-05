@@ -97,6 +97,7 @@ function createPayload() {
     stripeYearlyPriceId: 'price_yearly',
     stripeProductId: 'prod_123',
     accessCode: null,
+    workflowExecutionTimeLimitSeconds: null,
     syncRateLimitPerMinute: 120,
     asyncRateLimitPerMinute: 60,
     apiEndpointRateLimitPerMinute: 300,
@@ -164,7 +165,7 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
     expect(data.error).toBe(
       'Tiers with a recurring monthly price must configure a Stripe monthly price ID'
     )
-    expect(mockTierLimit).toHaveBeenCalledWith(1)
+    expect(mockTierLimit).not.toHaveBeenCalled()
     expect(mockTransaction).not.toHaveBeenCalled()
   })
 

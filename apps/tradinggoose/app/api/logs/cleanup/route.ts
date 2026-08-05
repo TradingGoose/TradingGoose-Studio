@@ -1,7 +1,6 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
 import {
   workflowExecutionLogs,
-  workflowExecutionTerminal,
   workflowLogWebhookDelivery,
   workspace,
 } from '@tradinggoose/db/schema'
@@ -239,21 +238,10 @@ export async function GET(request: NextRequest) {
             }
 
             try {
-              const deleteResult = await db.transaction(async (tx) => {
-                await tx.execute(
-                  sql`select ${workflowExecutionTerminal.rootExecutionId}
-                      from ${workflowExecutionTerminal}
-                      where ${workflowExecutionTerminal.rootExecutionId} = ${log.executionId}
-                      for update`
-                )
-                await tx
-                  .delete(workflowExecutionTerminal)
-                  .where(eq(workflowExecutionTerminal.rootExecutionId, log.executionId))
-                return tx
-                  .delete(workflowExecutionLogs)
-                  .where(eq(workflowExecutionLogs.id, log.id))
-                  .returning({ id: workflowExecutionLogs.id })
-              })
+              const deleteResult = await db
+                .delete(workflowExecutionLogs)
+                .where(eq(workflowExecutionLogs.id, log.id))
+                .returning({ id: workflowExecutionLogs.id })
 
               if (deleteResult.length > 0) {
                 results.enhancedLogs.deleted++

@@ -17,5 +17,8 @@ describe('admin tier editor execution throughput layout', () => {
     expect(source).toMatch(
       /<div className='grid gap-4 md:grid-cols-2'>\s*<FieldShell\s+id='concurrencyLimit'[\s\S]*?<\/FieldShell>\s*<FieldShell\s+id='workflowExecutionTimeLimitSeconds'[\s\S]*?<\/FieldShell>\s*<\/div>/
     )
+    expect(source).toContain('workflowExecutionTimeLimitSeconds: readOptionalInteger')
+    expect(source).toContain("min='1'")
+    expect(source).toContain("step='1'")
   })
 })

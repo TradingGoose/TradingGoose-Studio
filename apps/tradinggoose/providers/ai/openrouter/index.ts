@@ -15,7 +15,7 @@ import {
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
 } from '@/providers/ai/utils'
-import { executeProviderTool } from '@/providers/ai/utils-server'
+import { executeTool } from '@/tools'
 
 const logger = createLogger('OpenRouterProvider')
 
@@ -38,6 +38,7 @@ export const openRouterProvider: ProviderConfig = {
       apiKey: request.apiKey,
       baseURL: 'https://openrouter.ai/api/v1',
     })
+    const options = { signal: request.abortSignal }
 
     const apiModel = (request.model || '').replace(/^openrouter\//, '')
 
@@ -113,12 +114,8 @@ export const openRouterProvider: ProviderConfig = {
     try {
       if (request.stream && (!tools || tools.length === 0 || !hasActiveTools)) {
         const streamResponse = await client.chat.completions.create(
-          {
-            ...payload,
-            stream: true,
-            stream_options: { include_usage: true },
-          },
-          request.abortSignal ? { signal: request.abortSignal } : undefined
+          { ...payload, stream: true, stream_options: { include_usage: true } },
+          options
         )
 
         const tokenUsage = { prompt: 0, completion: 0, total: 0 }
@@ -194,10 +191,7 @@ export const openRouterProvider: ProviderConfig = {
       const forcedTools = preparedTools?.forcedTools || []
       let usedForcedTools: string[] = []
 
-      let currentResponse = await client.chat.completions.create(
-        payload,
-        request.abortSignal ? { signal: request.abortSignal } : undefined
-      )
+      let currentResponse = await client.chat.completions.create(payload, options)
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -261,7 +255,7 @@ export const openRouterProvider: ProviderConfig = {
 
             const toolCallStartTime = Date.now()
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeProviderTool(request, toolName, executionParams, false)
+            const result = await executeTool(toolName, executionParams)
             const toolCallEndTime = Date.now()
             const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -316,7 +310,6 @@ export const openRouterProvider: ProviderConfig = {
               content: JSON.stringify(resultContent),
             })
           } catch (error) {
-            request.abortSignal?.throwIfAborted()
             logger.error('Error processing tool call (OpenRouter):', {
               error: error instanceof Error ? error.message : String(error),
               toolName: toolCall?.function?.name,
@@ -342,10 +335,7 @@ export const openRouterProvider: ProviderConfig = {
         }
 
         const nextModelStartTime = Date.now()
-        currentResponse = await client.chat.completions.create(
-          nextPayload,
-          request.abortSignal ? { signal: request.abortSignal } : undefined
-        )
+        currentResponse = await client.chat.completions.create(nextPayload, options)
         checkForForcedToolUsage(currentResponse, nextPayload.tool_choice)
         const nextModelEndTime = Date.now()
         const thisModelTime = nextModelEndTime - nextModelStartTime
@@ -377,10 +367,7 @@ export const openRouterProvider: ProviderConfig = {
           stream_options: { include_usage: true },
         }
 
-        const streamResponse = await client.chat.completions.create(
-          streamingPayload,
-          request.abortSignal ? { signal: request.abortSignal } : undefined
-        )
+        const streamResponse = await client.chat.completions.create(streamingPayload, options)
         const streamingResult = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,
@@ -460,7 +447,6 @@ export const openRouterProvider: ProviderConfig = {
         },
       }
     } catch (error) {
-      request.abortSignal?.throwIfAborted()
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()
       const totalDuration = providerEndTime - providerStartTime

@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
-import { executeProviderTool } from '@/providers/ai/utils-server'
+import { executeTool } from '@/tools'
 import { getProviderDefaultModel, getProviderModels } from '../models'
 import type { ProviderConfig, ProviderRequest, ProviderResponse, TimeSegment } from '../types'
 import { prepareToolExecution, prepareToolsWithUsageControl, trackForcedToolUsage } from '../utils'
@@ -46,6 +46,7 @@ export const anthropicProvider: ProviderConfig = {
     }
 
     const anthropic = new Anthropic({ apiKey: request.apiKey })
+    const options = { signal: request.abortSignal }
 
     // Helper function to generate a simple unique ID for tool uses
     const generateToolUseId = (toolName: string) => {
@@ -164,7 +165,6 @@ export const anthropicProvider: ProviderConfig = {
           }
         }
       } catch (error) {
-        request.abortSignal?.throwIfAborted()
         logger.error('Error in prepareToolsWithUsageControl:', { error })
         // Continue with default settings
         toolChoice = 'auto'
@@ -275,7 +275,7 @@ ${fieldDescriptions}
       // Create a streaming request
       const streamResponse: any = await anthropic.messages.create(
         { ...payload, stream: true },
-        request.abortSignal ? { signal: request.abortSignal } : undefined
+        options
       )
 
       // Start collecting token usage
@@ -349,10 +349,7 @@ ${fieldDescriptions}
         const forcedTools = preparedTools?.forcedTools || []
         let usedForcedTools: string[] = []
 
-        let currentResponse = await anthropic.messages.create(
-          payload,
-          request.abortSignal ? { signal: request.abortSignal } : undefined
-        )
+        let currentResponse = await anthropic.messages.create(payload, options)
         const firstResponseTime = Date.now() - initialCallTime
 
         let content = ''
@@ -467,7 +464,7 @@ ${fieldDescriptions}
                 )
 
                 // Use general tool system for requests
-                const result = await executeProviderTool(request, toolName, executionParams, false)
+                const result = await executeTool(toolName, executionParams)
                 const toolCallEndTime = Date.now()
                 const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -530,7 +527,6 @@ ${fieldDescriptions}
                   ],
                 })
               } catch (error) {
-                request.abortSignal?.throwIfAborted()
                 logger.error('Error processing tool call:', { error })
               }
             }
@@ -578,10 +574,7 @@ ${fieldDescriptions}
             const nextModelStartTime = Date.now()
 
             // Make the next request
-            currentResponse = await anthropic.messages.create(
-              nextPayload,
-              request.abortSignal ? { signal: request.abortSignal } : undefined
-            )
+            currentResponse = await anthropic.messages.create(nextPayload, options)
 
             // Check if any forced tools were used in this response
             checkForForcedToolUsage(currentResponse, nextPayload.tool_choice)
@@ -623,7 +616,6 @@ ${fieldDescriptions}
             iterationCount++
           }
         } catch (error) {
-          request.abortSignal?.throwIfAborted()
           logger.error('Error in Anthropic request:', { error })
           throw error
         }
@@ -674,7 +666,6 @@ ${fieldDescriptions}
           },
         }
       } catch (error) {
-        request.abortSignal?.throwIfAborted()
         // Include timing information even for errors
         const providerEndTime = Date.now()
         const providerEndTimeISO = new Date(providerEndTime).toISOString()
@@ -713,10 +704,7 @@ ${fieldDescriptions}
       const forcedTools = preparedTools?.forcedTools || []
       let usedForcedTools: string[] = []
 
-      let currentResponse = await anthropic.messages.create(
-        payload,
-        request.abortSignal ? { signal: request.abortSignal } : undefined
-      )
+      let currentResponse = await anthropic.messages.create(payload, options)
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = ''
@@ -826,7 +814,7 @@ ${fieldDescriptions}
               const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
 
               // Use general tool system for requests
-              const result = await executeProviderTool(request, toolName, executionParams, false)
+              const result = await executeTool(toolName, executionParams)
               const toolCallEndTime = Date.now()
               const toolCallDuration = toolCallEndTime - toolCallStartTime
 
@@ -889,7 +877,6 @@ ${fieldDescriptions}
                 ],
               })
             } catch (error) {
-              request.abortSignal?.throwIfAborted()
               logger.error('Error processing tool call:', { error })
             }
           }
@@ -937,10 +924,7 @@ ${fieldDescriptions}
           const nextModelStartTime = Date.now()
 
           // Make the next request
-          currentResponse = await anthropic.messages.create(
-            nextPayload,
-            request.abortSignal ? { signal: request.abortSignal } : undefined
-          )
+          currentResponse = await anthropic.messages.create(nextPayload, options)
 
           // Check if any forced tools were used in this response
           checkForForcedToolUsage(currentResponse, nextPayload.tool_choice)
@@ -981,7 +965,6 @@ ${fieldDescriptions}
           iterationCount++
         }
       } catch (error) {
-        request.abortSignal?.throwIfAborted()
         logger.error('Error in Anthropic request:', { error })
         throw error
       }
@@ -1019,10 +1002,7 @@ ${fieldDescriptions}
         // Remove the tool_choice parameter as Anthropic doesn't accept 'none' as a string value
         streamingPayload.tool_choice = undefined
 
-        const streamResponse: any = await anthropic.messages.create(
-          streamingPayload,
-          request.abortSignal ? { signal: request.abortSignal } : undefined
-        )
+        const streamResponse: any = await anthropic.messages.create(streamingPayload, options)
 
         // Create a StreamingExecution response with all collected data
         const streamingResult = {
@@ -1101,7 +1081,6 @@ ${fieldDescriptions}
         },
       }
     } catch (error) {
-      request.abortSignal?.throwIfAborted()
       // Include timing information even for errors
       const providerEndTime = Date.now()
       const providerEndTimeISO = new Date(providerEndTime).toISOString()
