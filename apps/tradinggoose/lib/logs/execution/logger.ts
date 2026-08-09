@@ -224,6 +224,7 @@ export class ExecutionLogger {
     workflowInput?: any
     hasResponseBlock?: boolean
     variables?: Record<string, string>
+    result?: object
   }): Promise<WorkflowExecutionLog> {
     const {
       executionId,
@@ -239,6 +240,7 @@ export class ExecutionLogger {
       workflowInput,
       hasResponseBlock,
       variables,
+      result,
     } = params
 
     logger.debug(`Completing workflow execution ${executionId}`)
@@ -285,6 +287,7 @@ export class ExecutionLogger {
       finalOutput,
       ...(hasResponseBlock ? { hasResponseBlock: true } : {}),
       ...(failureReason ? { errorMessage: failureReason } : {}),
+      ...(result ? { result } : {}),
       tokenBreakdown: {
         prompt: costSummary.totalPromptTokens,
         completion: costSummary.totalCompletionTokens,

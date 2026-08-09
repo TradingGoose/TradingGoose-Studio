@@ -66,7 +66,8 @@ export class FunctionBlockHandler implements BlockHandler {
         blockNameMapping: blockNameMapping, // Pass block name to ID mapping
       },
       false, // skipPostProcess
-      context // execution context for file processing
+      context, // execution context for file processing
+      ...(context.abortSignal ? [{ signal: context.abortSignal }] : [])
     )
 
     if (!result.success) {

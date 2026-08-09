@@ -1,11 +1,7 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
 import { PORTFOLIO_MONITOR_PROVIDER, PORTFOLIO_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
-import { runWorkflowExecution } from '@/lib/workflows/execution-runner'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
-import { disableMonitor } from './monitor-disable'
-
-const logger = createLogger('PortfolioMonitorExecution')
+import { executeWorkflowJob } from './workflow-execution'
 
 type PortfolioMonitorExecutionMonitor = {
   id: string
@@ -51,7 +47,6 @@ export function isPortfolioMonitorExecutionPayload(
 
 export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecutionPayload) {
   const executionId = payload.executionId ?? `portfolio_state:${payload.monitor.id}:${Date.now()}`
-  const requestId = executionId.slice(0, 8)
   const workflowInput = {
     input: `Portfolio state condition matched for ${payload.portfolioIdentity.accountName ?? payload.portfolioIdentity.accountId}`,
     event: 'portfolio_state_condition_matched',
@@ -70,19 +65,15 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     condition: payload.monitor.condition,
   }
 
-  const { result, dispatchFailureReason } = await runWorkflowExecution({
+  const result = await executeWorkflowJob({
     workflowId: payload.monitor.workflowId,
-    actorUserId: payload.monitor.actorUserId,
-    requestId,
+    userId: payload.monitor.actorUserId,
+    workspaceId: payload.monitor.workspaceId,
     executionId,
     triggerType: 'webhook',
-    workflowInput,
+    input: workflowInput,
     executionTarget: 'deployed',
-    workflowContext: { workspaceId: payload.monitor.workspaceId },
-    triggerTarget: {
-      kind: 'block',
-      blockId: payload.monitor.blockId,
-    },
+    triggerBlockId: payload.monitor.blockId,
     triggerData: {
       source: PORTFOLIO_MONITOR_TRIGGER_ID,
       executionTarget: 'deployed',
@@ -97,17 +88,6 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
       },
     },
   })
-  if (dispatchFailureReason) {
-    await disableMonitor({
-      monitorId: payload.monitor.id,
-      provider: PORTFOLIO_MONITOR_PROVIDER,
-      logger,
-      reason: dispatchFailureReason,
-      workflowId: payload.monitor.workflowId,
-      blockId: payload.monitor.blockId,
-    })
-  }
-
   return {
     success: result.success,
     workflowId: payload.monitor.workflowId,

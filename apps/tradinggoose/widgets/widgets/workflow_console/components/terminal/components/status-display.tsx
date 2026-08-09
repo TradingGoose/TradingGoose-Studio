@@ -6,12 +6,14 @@ import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 interface StatusDisplayProps {
   isRunning: boolean
   isCanceled: boolean
+  hasError: boolean
   formattedDuration: string
 }
 
 export function StatusDisplay({
   isRunning,
   isCanceled,
+  hasError,
   formattedDuration,
 }: StatusDisplayProps) {
   const copy = useWorkflowConsoleMessages()
@@ -25,6 +27,10 @@ export function StatusDisplay({
 
   if (isCanceled) {
     return <span className='text-xs text-muted-foreground'>{copy.canceled}</span>
+  }
+
+  if (hasError) {
+    return <span className='text-xs text-destructive'>{copy.failed}</span>
   }
 
   return <span className='text-xs text-muted-foreground'>{formattedDuration}</span>

@@ -77,6 +77,88 @@ describe('Executor', () => {
       expect(executor).toBeInstanceOf(Executor)
     })
 
+    it('aborts active work when the execution deadline is reached', () => {
+      const executor = createTestExecutor(createMinimalWorkflow())
+      const signal = (executor as any).abortController.signal as AbortSignal
+
+      expect(signal.aborted).toBe(false)
+      executor.stopForDeadline()
+      expect(signal.aborted).toBe(true)
+    })
+
+    it('deeply snapshots every active block at the shared deadline', () => {
+      const executor = createTestExecutor(createMinimalWorkflow())
+      const active = {
+        blockId: 'wait-1',
+        blockType: 'wait',
+        startedAt: '2026-01-01T00:00:00.000Z',
+        endedAt: '',
+        durationMs: 0,
+        success: false,
+        input: { nested: { value: 'original' } },
+      }
+      const completed = {
+        ...active,
+        blockId: 'done-1',
+        endedAt: '2026-01-01T00:00:01.000Z',
+        durationMs: 1_000,
+        success: true,
+      }
+      ;(executor as any).executionContext = { blockLogs: [completed, active] }
+
+      const snapshot = executor.snapshotBlockLogsForDeadline('2026-01-01T00:00:02.000Z')
+      active.input.nested.value = 'late mutation'
+
+      expect(snapshot[0]).toMatchObject({
+        blockId: 'done-1',
+        endedAt: '2026-01-01T00:00:01.000Z',
+        success: true,
+        input: { nested: { value: 'original' } },
+      })
+      expect(snapshot[1]).toMatchObject({
+        code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+        endedAt: '2026-01-01T00:00:02.000Z',
+        durationMs: 2_000,
+        success: false,
+        input: { nested: { value: 'original' } },
+      })
+    })
+
+    it('closes parallel active logs in deterministic order with individual durations', () => {
+      const executor = createTestExecutor(createMinimalWorkflow())
+      ;(executor as any).executionContext = {
+        blockLogs: [
+          {
+            blockId: 'parallel-a',
+            blockType: 'api',
+            startedAt: '2026-01-01T00:00:00.000Z',
+            endedAt: '',
+            durationMs: 0,
+            success: false,
+          },
+          {
+            blockId: 'parallel-b',
+            blockType: 'agent',
+            startedAt: '2026-01-01T00:00:00.500Z',
+            endedAt: '',
+            durationMs: 0,
+            success: false,
+          },
+        ],
+      }
+
+      const snapshot = executor.snapshotBlockLogsForDeadline('2026-01-01T00:00:02.000Z')
+      expect(snapshot.map((log) => log.blockId)).toEqual(['parallel-a', 'parallel-b'])
+      expect(snapshot.map((log) => log.endedAt)).toEqual([
+        '2026-01-01T00:00:02.000Z',
+        '2026-01-01T00:00:02.000Z',
+      ])
+      expect(snapshot.map((log) => log.durationMs)).toEqual([2_000, 1_500])
+      expect(snapshot.every((log) => log.code === 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED')).toBe(
+        true
+      )
+    })
+
     it.concurrent('should create an executor instance with explicit executor options', () => {
       const workflow = createMinimalWorkflow()
       const initialStates = {

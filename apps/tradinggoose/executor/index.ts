@@ -4,6 +4,7 @@ import {
   parseListingIdentityValueStrict,
 } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED } from '@/lib/execution/workflow-execution-time-policy'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBlock } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
@@ -124,6 +125,8 @@ export type ExecutorOptions = {
  * Handles block execution, state management, and error handling.
  */
 export class Executor {
+  private readonly abortController = new AbortController()
+  private executionContext?: ExecutionContext
   // Core components are initialized once and remain immutable
   private resolver: InputResolver
   private loopManager: LoopManager
@@ -137,6 +140,7 @@ export class Executor {
   private contextExtensions: ExecutionContextExtensions
   private actualWorkflow: SerializedWorkflow
   private isCancelled = false
+  private deadlineExceeded = false
   private isChildExecution = false
 
   /**
@@ -189,6 +193,7 @@ export class Executor {
   private async emitExecutionEvent(
     event: Parameters<NonNullable<ExecutionContextExtensions['onExecutionEvent']>>[0]
   ) {
+    if (this.deadlineExceeded) return
     await this.contextExtensions.onExecutionEvent?.(event)
   }
 
@@ -247,6 +252,28 @@ export class Executor {
     this.isCancelled = true
   }
 
+  public stopForDeadline(): void {
+    logger.info('Workflow execution stopped at its time limit')
+    this.deadlineExceeded = true
+    this.isCancelled = true
+    this.abortController.abort()
+  }
+
+  public snapshotBlockLogsForDeadline(terminatedAt: string): BlockLog[] {
+    const terminatedAtMs = new Date(terminatedAt).getTime()
+    return structuredClone(this.executionContext?.blockLogs ?? []).map((log) =>
+      log.endedAt
+        ? log
+        : {
+            ...log,
+            success: false,
+            code: WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
+            endedAt: terminatedAt,
+            durationMs: Math.max(0, terminatedAtMs - new Date(log.startedAt).getTime()),
+          }
+    )
+  }
+
   private async shouldStopExecution(): Promise<boolean> {
     if (this.isCancelled) return true
     if (await this.contextExtensions.shouldCancelExecution?.()) {
@@ -278,6 +305,7 @@ export class Executor {
     this.validateWorkflow(triggerBlockId)
 
     const context = this.createExecutionContext(workflowId, startTime, triggerBlockId)
+    this.executionContext = context
 
     try {
       let hasMoreLayers = true
@@ -384,9 +412,14 @@ export class Executor {
       })
 
       return {
+        ...((error as { executionResult?: ExecutionResult } | null)?.executionResult ?? {}),
         success: false,
-        output: finalOutput,
-        error: this.extractErrorMessage(error),
+        output:
+          (error as { executionResult?: ExecutionResult } | null)?.executionResult?.output ??
+          finalOutput,
+        error:
+          (error as { executionResult?: ExecutionResult } | null)?.executionResult?.error ??
+          this.extractErrorMessage(error),
         metadata: {
           duration: Date.now() - startTime.getTime(),
           startTime: context.metadata.startTime!,
@@ -626,7 +659,10 @@ export class Executor {
       selectedOutputs: this.contextExtensions.selectedOutputs || [],
       edges: this.contextExtensions.edges || [],
       onExecutionEvent: this.contextExtensions.onExecutionEvent,
-      shouldCancelExecution: this.contextExtensions.shouldCancelExecution,
+      shouldCancelExecution: async () =>
+        this.isCancelled || (await this.contextExtensions.shouldCancelExecution?.()) === true,
+      abortSignal: this.abortController.signal,
+      workflowExecutionTimeBudget: this.contextExtensions.workflowExecutionTimeBudget,
     }
 
     Object.entries(this.initialBlockStates).forEach(([blockId, output]) => {
@@ -1404,6 +1440,9 @@ export class Executor {
     blockIds: string[],
     context: ExecutionContext
   ): Promise<NormalizedBlockOutput[]> {
+    for (const blockId of blockIds) {
+      context.workflowExecutionTimeBudget?.registerActivity(blockId)
+    }
     const settledResults = await Promise.allSettled(
       blockIds.map((blockId) => this.executeBlock(blockId, context))
     )
@@ -1413,15 +1452,17 @@ export class Executor {
     const errors: Error[] = []
     const deferredResultIndexes: number[] = []
 
-    settledResults.forEach((result) => {
+    settledResults.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         if (isDeferredBlockExecution(result.value)) {
           deferredResultIndexes.push(results.length)
           results.push({ status: 102, result: 'Deferred block execution pending' })
         } else {
           results.push(result.value)
+          context.workflowExecutionTimeBudget?.closeActivity(blockIds[index])
         }
       } else {
+        context.workflowExecutionTimeBudget?.closeActivity(blockIds[index])
         errors.push(result.reason)
         // For failed blocks, we still need to add a placeholder result
         // so the results array matches the blockIds array length
@@ -1486,6 +1527,9 @@ export class Executor {
 
     this.pathTracker.updateExecutionPaths(blockIds, context)
 
+    for (const blockId of blockIds) {
+      context.workflowExecutionTimeBudget?.closeActivity(blockId)
+    }
     return results
   }
 
@@ -1541,6 +1585,7 @@ export class Executor {
         }
       }
     }
+    context.blockLogs.push(blockLog)
 
     const consoleBlockId = parallelInfo ? blockId : block.id
     const blockType = block.metadata?.id || 'unknown'
@@ -1628,6 +1673,7 @@ export class Executor {
         output: NormalizedBlockOutput
         executionTime: number
       }) => {
+        if (this.deadlineExceeded) return
         context.blockStates.set(blockId, {
           output,
           executed: true,
@@ -1662,7 +1708,6 @@ export class Executor {
         blockLog.endedAt = new Date().toISOString()
 
         this.integrateChildWorkflowLogs(block, output)
-        context.blockLogs.push(blockLog)
 
         if (shouldLogToConsole) {
           await this.emitExecutionEvent({
@@ -1697,6 +1742,7 @@ export class Executor {
       }
 
       handleBlockFailure = async (error: any): Promise<NormalizedBlockOutput> => {
+        if (this.deadlineExceeded) return {}
         blockLog.success = false
         blockLog.error =
           error.message ||
@@ -1718,7 +1764,6 @@ export class Executor {
           this.attachChildWorkflowSpansToLog(blockLog, error)
         }
 
-        context.blockLogs.push(blockLog)
 
         if (shouldLogToConsole) {
           await this.emitExecutionEvent({
@@ -1789,6 +1834,7 @@ export class Executor {
         const upstreamExecutionResult = (error as { executionResult?: ExecutionResult } | null)
           ?.executionResult
         const executionResultPayload: ExecutionResult = {
+          ...(upstreamExecutionResult ?? {}),
           success: false,
           output: upstreamExecutionResult?.output ?? errorOutput,
           error: upstreamExecutionResult?.error ?? this.extractErrorMessage(error),

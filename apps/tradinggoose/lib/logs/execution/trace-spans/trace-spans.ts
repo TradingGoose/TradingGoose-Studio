@@ -106,6 +106,7 @@ export function buildTraceSpans(result: ExecutionResult): {
       startTime: log.startedAt,
       endTime: log.endedAt,
       status: log.error ? 'error' : 'success',
+      ...(log.code ? { code: log.code } : {}),
       children: [],
       blockId: log.blockId,
       input: log.input || {},

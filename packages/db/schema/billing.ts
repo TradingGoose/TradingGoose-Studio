@@ -158,6 +158,26 @@ export const subscription = pgTable(
   })
 )
 
+export const privateTierAccess = pgTable(
+  'private_tier_access',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    tierId: text('tier_id')
+      .notNull()
+      .references(() => systemBillingTier.id, { onDelete: 'restrict' }),
+  },
+  (table) => ({
+    userTierPk: primaryKey({
+      name: 'private_tier_access_user_tier_pkey',
+      columns: [table.userId, table.tierId],
+    }),
+    userIdIdx: index('private_tier_access_user_id_idx').on(table.userId),
+    tierIdIdx: index('private_tier_access_tier_id_idx').on(table.tierId),
+  })
+)
+
 export const userRateLimits = pgTable('user_rate_limits', {
   referenceId: text('reference_id').primaryKey(), // Can be userId or organizationId for pooling
   syncApiRequests: integer('sync_api_requests').notNull().default(0), // Sync API requests counter

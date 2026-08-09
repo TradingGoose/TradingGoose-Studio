@@ -77,6 +77,7 @@ const BlockRow = memo(function BlockRow({
         <StatusDisplay
           isRunning={isRunning}
           isCanceled={isCanceled}
+          hasError={hasError}
           formattedDuration={formatDuration(entry.durationMs)}
         />
       </div>
@@ -137,6 +138,7 @@ const IterationNodeRow = memo(function IterationNodeRow({
         <StatusDisplay
           isRunning={hasRunningChild}
           isCanceled={hasCanceledChild}
+          hasError={hasError}
           formattedDuration={formatDuration(entry.durationMs)}
         />
       </div>
@@ -234,6 +236,7 @@ const SubflowNodeRow = memo(function SubflowNodeRow({
         <StatusDisplay
           isRunning={hasRunningDescendant}
           isCanceled={hasCanceledDescendant}
+          hasError={hasError}
           formattedDuration={formatDuration(entry.durationMs)}
         />
       </div>

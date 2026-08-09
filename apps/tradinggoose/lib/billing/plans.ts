@@ -1,5 +1,5 @@
 import {
-  getPublicBillingTiers,
+  getActiveStripeBackedBillingTiers,
   getTierIncludedUsageLimit,
   parseBillingAmount,
 } from '@/lib/billing/tiers'
@@ -20,19 +20,18 @@ export function getBetterAuthPlansConfig(): BillingPlan[] | typeof getPlans {
 }
 
 /**
- * Get the Better Auth Stripe plan configuration from active public billing tiers.
+ * Get Better Auth Stripe plans from active Stripe price-backed billing tiers.
  */
 export async function getPlans(): Promise<BillingPlan[]> {
-  const tiers = await getPublicBillingTiers()
+  const tiers = await getActiveStripeBackedBillingTiers()
 
-  return tiers
-    .filter((tier) => Boolean(tier.stripeMonthlyPriceId))
-    .map((tier) => ({
-      name: tier.id,
-      priceId: tier.stripeMonthlyPriceId || '',
-      annualDiscountPriceId: tier.stripeYearlyPriceId || undefined,
-      limits: {
-        cost: getTierIncludedUsageLimit(tier) || parseBillingAmount(tier.monthlyPriceUsd) || 0,
-      },
-    }))
+  return tiers.map((tier) => ({
+    name: tier.id,
+    priceId: tier.stripeMonthlyPriceId ?? tier.stripeYearlyPriceId!,
+    annualDiscountPriceId:
+      tier.stripeMonthlyPriceId && tier.stripeYearlyPriceId ? tier.stripeYearlyPriceId : undefined,
+    limits: {
+      cost: getTierIncludedUsageLimit(tier) || parseBillingAmount(tier.monthlyPriceUsd) || 0,
+    },
+  }))
 }

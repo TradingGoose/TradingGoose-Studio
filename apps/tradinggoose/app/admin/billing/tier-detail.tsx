@@ -1,26 +1,19 @@
 'use client'
 
 import { type FormEvent, useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Receipt } from 'lucide-react'
 import { useLocale, useMessages } from 'next-intl'
 import { Alert, AlertDescription, Button } from '@/components/ui'
-import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
 import { AdminPageShell } from '@/app/admin/page-shell'
 import { EmptyStateCard, PrimaryButton } from '@/app/workspace/[workspaceId]/knowledge/components'
-import {
-  ADMIN_BILLING_TIERS_ENDPOINT,
-  adminBillingKeys,
-  sendAdminBillingMutationRequest,
-  useAdminBillingSnapshot,
-} from '@/hooks/queries/admin-billing'
-import { adminSystemSettingsKeys } from '@/hooks/queries/admin-system-settings'
+import { useAdminBillingSnapshot, useUpdateAdminBillingTier } from '@/hooks/queries/admin-billing'
 import { useRouter } from '@/i18n/navigation'
 import type { LocaleCode } from '@/i18n/utils'
 import {
   BillingBreadcrumbs,
   buildTierMutationInput,
+  buildTierMutationInputFromDefaults,
   createTierFormDefaults,
   createTierPreviewState,
   DEFAULT_TIER_EDITOR_SECTIONS,
@@ -37,23 +30,7 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
   const locale = useLocale() as LocaleCode
   const copy = useMessages().admin.billing
   const router = useRouter()
-  const queryClient = useQueryClient()
-  const invalidateTierSnapshots = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
-      queryClient.invalidateQueries({ queryKey: adminSystemSettingsKeys.snapshot() }),
-    ])
-  }
-  const updateTier = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: AdminBillingTierMutationInput }) =>
-      sendAdminBillingMutationRequest(`${ADMIN_BILLING_TIERS_ENDPOINT}/${id}`, 'PATCH', input),
-    onSuccess: invalidateTierSnapshots,
-  })
-  const deleteTier = useMutation({
-    mutationFn: (id: string) =>
-      sendAdminBillingMutationRequest(`${ADMIN_BILLING_TIERS_ENDPOINT}/${id}`, 'DELETE'),
-    onSuccess: invalidateTierSnapshots,
-  })
+  const updateTier = useUpdateAdminBillingTier()
   const initialValues = useMemo(() => createTierFormDefaults(tier), [tier])
   const [previewValues, setPreviewValues] = useState<TierFormDefaults>(initialValues)
   const [sectionState, setSectionState] = useState<TierEditorSectionState>({
@@ -88,17 +65,19 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
             ? `${previewValues.workflowExecutionMultiplier}x`
             : copy.tierDetail.workflowExecFallback,
         },
+        {
+          label: copy.editor.limits.workflowExecutionTimeLimit,
+          value: previewValues.workflowExecutionTimeLimitSeconds
+            ? `${previewValues.workflowExecutionTimeLimitSeconds}s`
+            : copy.editor.limits.workflowExecutionTimeLimitUnlimited,
+        },
         { label: copy.tierDetail.tierId, value: tier.id },
       ]}
     />
   )
 
   const headerRight = (
-    <PrimaryButton
-      form={formId}
-      type='submit'
-      disabled={updateTier.isPending || deleteTier.isPending}
-    >
+    <PrimaryButton form={formId} type='submit' disabled={updateTier.isPending}>
       {updateTier.isPending ? copy.tierDetail.saving : copy.tierDetail.save}
     </PrimaryButton>
   )
@@ -134,35 +113,41 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
     }
   }
 
-  async function handleDelete() {
+  async function handleArchive() {
     setError(null)
     setMessage(null)
 
     try {
-      await deleteTier.mutateAsync(tier.id)
-      router.push('/admin/billing')
-    } catch (deleteError) {
-      setError(getErrorMessage(deleteError, copy.errors.unknown))
+      await updateTier.mutateAsync({
+        id: tier.id,
+        input: buildTierMutationInputFromDefaults({
+          ...createTierFormDefaults(tier),
+          status: 'archived',
+        }),
+      })
+      setMessage(copy.tierDetail.updated)
+    } catch (archiveError) {
+      setError(getErrorMessage(archiveError, copy.errors.unknown))
     }
   }
 
   return (
     <AdminPageShell left={headerLeft} center={headerCenter} right={headerRight}>
       <div className='mx-auto flex w-full max-w-6xl flex-col gap-4'>
-        {tier.subscriptionCount > 0 ? (
+        {tier.entitledSubscriptionCount > 0 ? (
           <Alert>
             <AlertDescription>{copy.tierDetail.activeSubscriptionsWarning}</AlertDescription>
           </Alert>
         ) : null}
 
         {error ? (
-          <Alert role='alert' variant='destructive'>
+          <Alert variant='destructive'>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
 
         {message ? (
-          <Alert role='status'>
+          <Alert>
             <AlertDescription>{message}</AlertDescription>
           </Alert>
         ) : null}
@@ -178,8 +163,7 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
             setSectionState((current) => ({ ...current, [sectionId]: open }))
           }
           onAccessFieldChange={handleAccessFieldChange}
-          isPending={updateTier.isPending || deleteTier.isPending}
-          requireStripeMonthlyPriceId={true}
+          disabled={updateTier.isPending}
           onSubmit={handleSubmit}
           onFormChange={handleFormChange}
           footer={
@@ -187,10 +171,10 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
               <Button
                 type='button'
                 variant='outline'
-                onClick={handleDelete}
-                disabled={deleteTier.isPending || tier.subscriptionCount > 0 || tier.isDefault}
+                onClick={handleArchive}
+                disabled={updateTier.isPending || tier.archiveAction !== 'archive'}
               >
-                {deleteTier.isPending ? copy.tierDetail.deleting : copy.tierDetail.delete}
+                {copy.tierDetail.archive}
               </Button>
             </div>
           }
@@ -228,7 +212,7 @@ export function AdminBillingTierDetail({ tierId }: { tierId: string }) {
     <AdminPageShell left={headerLeft}>
       <div className='flex flex-col gap-4'>
         {snapshotQuery.isError ? (
-          <Alert role='alert' variant='destructive'>
+          <Alert variant='destructive'>
             <AlertDescription>
               {getErrorMessage(snapshotQuery.error, copy.errors.unknown)}
             </AlertDescription>

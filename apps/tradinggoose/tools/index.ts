@@ -49,6 +49,9 @@ function resolveExecutionScope(
   toolExecutionId?: string
   submissionSource?: string
   isDeployedContext?: boolean
+  workflowExecutionTimePolicy?: ReturnType<
+    NonNullable<ExecutionContext['workflowExecutionTimeBudget']>['snapshotPolicy']
+  >
 } {
   const context = params._context || {}
 
@@ -61,6 +64,7 @@ function resolveExecutionScope(
     toolExecutionId: context.toolExecutionId,
     submissionSource: executionContext?.submissionSource ?? context.submissionSource,
     isDeployedContext: executionContext?.isDeployedContext ?? context.isDeployedContext,
+    workflowExecutionTimePolicy: executionContext?.workflowExecutionTimeBudget?.snapshotPolicy(),
   }
 }
 
@@ -201,12 +205,13 @@ export async function getToolAsync(
 
 function generateScopedInternalToken(scope: ExecutionScope) {
   const workflowExecution =
-    !scope.userId && scope.workflowId && scope.toolExecutionId
+    !scope.userId && scope.workflowId && scope.toolExecutionId && scope.workflowExecutionTimePolicy
       ? {
           source: 'workflow_block' as const,
           parentWorkflowId: scope.workflowId,
           ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
           parentBlockId: scope.toolExecutionId,
+          timePolicy: scope.workflowExecutionTimePolicy,
         }
       : undefined
   return workflowExecution
@@ -440,7 +445,8 @@ export async function executeTool(
         executionContext,
         requestId,
         startTimeISO,
-        scope.userId
+        scope.userId,
+        options
       )
     } else {
       // For built-in tools, use the synchronous version
@@ -1083,7 +1089,8 @@ async function executeMcpTool(
   executionContext?: ExecutionContext,
   requestId?: string,
   startTimeISO?: string,
-  userId?: string
+  userId?: string,
+  options?: ToolExecutionOptions
 ): Promise<ToolResponse> {
   const actualRequestId = requestId || generateRequestId()
   const actualStartTime = startTimeISO || new Date().toISOString()
@@ -1167,6 +1174,7 @@ async function executeMcpTool(
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
+      signal: options?.signal,
     })
 
     const endTime = new Date()
