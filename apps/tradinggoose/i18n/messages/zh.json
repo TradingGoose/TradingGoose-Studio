@@ -1978,7 +1978,8 @@
           "validate": "验证",
           "required": "必须输入访问码。",
           "invalid": "访问码无效。",
-          "success": "已解锁私有层级访问。"
+          "success": "已解锁私有层级访问。",
+          "tooManyAttempts": "访问码尝试次数过多，请稍后再试。"
         },
         "enterprise": {
           "name": "企业版",

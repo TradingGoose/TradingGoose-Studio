@@ -24,7 +24,10 @@ import {
   patchBillingUsageNotifications,
 } from '@/hooks/queries/general-settings'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
-import { usePrivateTierAccess } from '@/hooks/queries/private-tier-access'
+import {
+  getPrivateTierAccessValidationErrorMessage,
+  usePrivateTierAccess,
+} from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -413,8 +416,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
       await validatePrivateTierCode.mutateAsync(code)
       setAccessCode('')
       setAccessCodeMessage(t('privateAccess.success'))
-    } catch {
-      setAccessCodeError(t('privateAccess.invalid'))
+    } catch (error) {
+      setAccessCodeError(
+        getPrivateTierAccessValidationErrorMessage(error, t('privateAccess.invalid'))
+      )
     }
   }
 

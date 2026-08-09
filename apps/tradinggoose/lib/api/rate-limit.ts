@@ -26,6 +26,10 @@ export type ApiRateLimitEndpoint =
   | 'logs-detail'
   | 'mcp-auth-start'
   | 'mcp-auth-poll'
+  | 'private-tier-access-code'
+
+const PRIVATE_TIER_ACCESS_CODE_LIMIT = 5
+const PRIVATE_TIER_ACCESS_CODE_WINDOW_MS = 10 * 60_000
 
 const PUBLIC_API_ENDPOINT_LIMITS: Partial<Record<ApiRateLimitEndpoint, number>> = {
   'copilot-mcp-public': 300,
@@ -166,4 +170,39 @@ export async function checkPublicApiEndpointRateLimit(
     limit,
     userId: scopeId,
   }
+}
+
+export async function checkPrivateTierAccessCodeRateLimit(
+  userId: string
+): Promise<RateLimitResult> {
+  const scopeId = `${userId}:private-tier-access-code`
+  const limit = PRIVATE_TIER_ACCESS_CODE_LIMIT
+  const result = await rateLimiter.checkRateLimitWithSubscription(
+    userId,
+    {
+      referenceType: 'user',
+      referenceId: userId,
+      tier: {
+        displayName: 'Private tier access code',
+        syncRateLimitPerMinute: 0,
+        asyncRateLimitPerMinute: 0,
+        apiEndpointRateLimitPerMinute: limit,
+      } as BillingTierRecord,
+    },
+    'api-endpoint',
+    false,
+    {
+      scopeType: 'user',
+      scopeId,
+      organizationId: null,
+      userId,
+    },
+    {
+      enforceWithoutBilling: true,
+      failClosedOnError: true,
+      windowMs: PRIVATE_TIER_ACCESS_CODE_WINDOW_MS,
+    }
+  )
+
+  return { ...result, limit, userId }
 }
