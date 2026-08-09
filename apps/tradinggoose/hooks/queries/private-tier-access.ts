@@ -15,10 +15,36 @@ export const privateTierAccessKeys = {
   current: () => [...privateTierAccessKeys.all, 'current'] as const,
 }
 
-async function requestPrivateTierAccess(init?: RequestInit): Promise<PrivateTierAccessResponse> {
+export class PrivateTierAccessRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly retryAfterSeconds: number | null
+  ) {
+    super(message)
+    this.name = 'PrivateTierAccessRequestError'
+  }
+}
+
+export function getPrivateTierAccessValidationErrorMessage(error: unknown, invalidMessage: string) {
+  return error instanceof PrivateTierAccessRequestError && error.status === 429
+    ? error.message
+    : invalidMessage
+}
+
+export async function requestPrivateTierAccess(
+  init?: RequestInit
+): Promise<PrivateTierAccessResponse> {
   const response = await fetch('/api/billing/private-tier-access', init)
   const data = await response.json()
-  if (!response.ok) throw new Error(data.error || 'Private tier access request failed')
+  if (!response.ok) {
+    const retryAfter = Number.parseInt(response.headers.get('Retry-After') ?? '', 10)
+    throw new PrivateTierAccessRequestError(
+      data.error || 'Private tier access request failed',
+      response.status,
+      Number.isFinite(retryAfter) ? retryAfter : null
+    )
+  }
   return data
 }
 

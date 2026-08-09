@@ -8,10 +8,10 @@ import {
   MARKDOWN_RENDER_ROUTE,
   requestAcceptsMarkdown,
 } from '@/lib/markdown/negotiation'
+import { resolveRequestLocale } from '@/i18n/request-locale'
 import { routing } from '@/i18n/routing'
 import {
   CANONICAL_CALLBACK_PATH_HEADER,
-  defaultLocale,
   isLocaleCode,
   LOCALE_COOKIE,
   LOCALE_COOKIE_MAX_AGE,
@@ -38,12 +38,6 @@ interface LocaleRoute {
   locale: LocaleCode
   pathname: string
   hasLocalePrefix: boolean
-}
-
-type AcceptLanguageCandidate = {
-  locale: LocaleCode
-  quality: number
-  index: number
 }
 
 function resolveLocaleRoute(pathname: string, localeOverride?: LocaleCode): LocaleRoute {
@@ -96,56 +90,7 @@ function isMcpInstallScriptPath(pathname: string) {
 
   const target = segments[2]
   return (
-    segments.length === 2 ||
-    (segments.length === 3 && !!target && MCP_INSTALL_TARGETS.has(target))
-  )
-}
-
-function getLocaleCookie(request: NextRequest): LocaleCode | null {
-  const locale = request.cookies.get(LOCALE_COOKIE)?.value
-  return locale && isLocaleCode(locale) ? locale : null
-}
-
-function getAcceptLanguageLocale(header: string | null): LocaleCode | null {
-  if (!header) {
-    return null
-  }
-
-  const candidates: AcceptLanguageCandidate[] = []
-
-  header.split(',').forEach((entry, index) => {
-    const [rawLanguageRange, ...rawParams] = entry
-      .split(';')
-      .map((part) => part.trim())
-      .filter(Boolean)
-
-    if (!rawLanguageRange || rawLanguageRange === '*') {
-      return
-    }
-
-    const locale = rawLanguageRange.toLowerCase().split('-', 1)[0]
-    if (!isLocaleCode(locale)) {
-      return
-    }
-
-    const qualityParam = rawParams.find((param) => param.toLowerCase().startsWith('q='))
-    const quality = qualityParam ? Number.parseFloat(qualityParam.slice(2)) : 1
-    if (!Number.isFinite(quality) || quality <= 0) {
-      return
-    }
-
-    candidates.push({ locale, quality, index })
-  })
-
-  candidates.sort((a, b) => b.quality - a.quality || a.index - b.index)
-  return candidates[0]?.locale ?? null
-}
-
-function resolveRequestLocale(request: NextRequest): LocaleCode {
-  return (
-    getLocaleCookie(request) ??
-    getAcceptLanguageLocale(request.headers.get('accept-language')) ??
-    defaultLocale
+    segments.length === 2 || (segments.length === 3 && !!target && MCP_INSTALL_TARGETS.has(target))
   )
 }
 

@@ -525,6 +525,8 @@ describe('executeTool Function', () => {
   })
 
   it('uses workflow-scoped internal auth for credential token lookup without user context', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:05.000Z'))
     const timePolicy = {
       kind: 'unlimited' as const,
       processingStartedAt: '2026-01-01T00:00:00.000Z',
@@ -576,6 +578,7 @@ describe('executeTool Function', () => {
         parentWorkflowId: 'test-workflow',
         parentBlockId: 'agent-1',
         timePolicy,
+        timePolicyCapturedAt: '2026-01-01T00:00:05.000Z',
       }
       expect(vi.mocked(generateInternalToken)).toHaveBeenNthCalledWith(1, undefined, {
         workflowExecution,
@@ -604,6 +607,7 @@ describe('executeTool Function', () => {
         writable: true,
         configurable: true,
       })
+      vi.useRealTimers()
     }
   })
 

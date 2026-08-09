@@ -1998,7 +1998,8 @@
           "validate": "Validar",
           "required": "El código de acceso es obligatorio.",
           "invalid": "Código de acceso no válido.",
-          "success": "Acceso al nivel privado desbloqueado."
+          "success": "Acceso al nivel privado desbloqueado.",
+          "tooManyAttempts": "Demasiados intentos de código de acceso. Inténtelo de nuevo más tarde."
         },
         "enterprise": {
           "name": "Empresa",
