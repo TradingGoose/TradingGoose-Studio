@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   decimal,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -56,6 +57,8 @@ export interface SystemBillingTierSettings {
   stripeMonthlyPriceId: string | null
   stripeYearlyPriceId: string | null
   stripeProductId: string | null
+  accessCode: string | null
+  workflowExecutionTimeLimitSeconds: number | null
   syncRateLimitPerMinute: number | null
   asyncRateLimitPerMinute: number | null
   apiEndpointRateLimitPerMinute: number | null
@@ -215,6 +218,8 @@ export const systemBillingTier = pgTable(
     stripeMonthlyPriceId: text('stripe_monthly_price_id'),
     stripeYearlyPriceId: text('stripe_yearly_price_id'),
     stripeProductId: text('stripe_product_id'),
+    accessCode: text('access_code'),
+    workflowExecutionTimeLimitSeconds: doublePrecision('workflow_execution_time_limit_seconds'),
     syncRateLimitPerMinute: integer('sync_rate_limit_per_minute'),
     asyncRateLimitPerMinute: integer('async_rate_limit_per_minute'),
     apiEndpointRateLimitPerMinute: integer(
@@ -259,6 +264,21 @@ export const systemBillingTier = pgTable(
     ),
     updatedByUserIdIdx: index('system_billing_tier_updated_by_user_id_idx').on(
       table.updatedByUserId,
+    ),
+    accessCodeUnique: uniqueIndex('system_billing_tier_access_code_unique')
+      .on(table.accessCode)
+      .where(sql`${table.accessCode} is not null`),
+    publicAccessCodeCheck: check(
+      'system_billing_tier_public_access_code_check',
+      sql`not ${table.isPublic} or ${table.accessCode} is null`,
+    ),
+    accessCodeNotBlankCheck: check(
+      'system_billing_tier_access_code_not_blank_check',
+      sql`${table.accessCode} is null or (${table.accessCode} = btrim(${table.accessCode}) and length(${table.accessCode}) > 0)`,
+    ),
+    workflowExecutionTimeLimitCheck: check(
+      'system_billing_tier_workflow_execution_time_limit_check',
+      sql`${table.workflowExecutionTimeLimitSeconds} is null or (${table.workflowExecutionTimeLimitSeconds} > 0 and ${table.workflowExecutionTimeLimitSeconds} < 'Infinity'::double precision)`,
     ),
     statusCheck: check(
       'system_billing_tier_status_check',

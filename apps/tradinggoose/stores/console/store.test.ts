@@ -457,6 +457,115 @@ describe('Console Store', () => {
       expect(entries).toHaveLength(1)
       expect(entries[0]?.output?.content).toBe('after-clear')
     })
+
+    it('terminalizes only running entries from the matching execution after a deadline error', () => {
+      const store = useConsoleStore.getState()
+      const deadlineError =
+        'Workflow execution stopped because it reached the 20-second Workflow Execution Time Limit for the "Pro" tier.'
+      const startBlock = (executionId: string, workflowId: string, blockId: string) =>
+        store.ingestWorkflowExecutionEvent({
+          executionId,
+          workflowId,
+          timestamp: '2026-08-07T15:16:14.200Z',
+          type: 'block:started',
+          data: {
+            blockId,
+            blockName: 'Wait',
+            blockType: 'wait',
+            startedAt: '2026-08-07T15:16:14.200Z',
+          },
+        })
+
+      startBlock('exec-deadline', 'workflow-1', 'wait-1')
+      startBlock('exec-concurrent', 'workflow-1', 'wait-2')
+      startBlock('exec-other', 'workflow-2', 'wait-3')
+
+      store.ingestWorkflowExecutionEvent({
+        executionId: 'exec-deadline',
+        workflowId: 'workflow-1',
+        timestamp: '2026-08-07T15:16:34.200Z',
+        type: 'execution:error',
+        data: {
+          error: deadlineError,
+          result: {
+            success: false,
+            output: {},
+            error: deadlineError,
+            code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+            deadline: {
+              appliedTierId: 'tier-pro',
+              appliedTierName: 'Pro',
+              limitSeconds: 20,
+              processingStartedAt: '2026-08-07T15:16:14.200Z',
+              terminatedAt: '2026-08-07T15:16:34.200Z',
+            },
+          },
+        },
+      })
+
+      const entries = useConsoleStore.getState().entries
+      const expired = entries.find((entry) => entry.executionId === 'exec-deadline')
+      expect(expired).toMatchObject({
+        success: false,
+        error: deadlineError,
+        isRunning: false,
+        isCanceled: false,
+        endedAt: '2026-08-07T15:16:34.200Z',
+        durationMs: 20_000,
+      })
+      expect(entries.find((entry) => entry.executionId === 'exec-concurrent')?.isRunning).toBe(true)
+      expect(entries.find((entry) => entry.executionId === 'exec-other')?.isRunning).toBe(true)
+
+      const persisted = vi.mocked(global.localStorage.setItem).mock.calls.at(-1)?.[1]
+      expect(persisted).toBeDefined()
+      expect(JSON.parse(persisted!)).toMatchObject({
+        state: {
+          entries: expect.arrayContaining([
+            expect.objectContaining({
+              executionId: 'exec-deadline',
+              error: deadlineError,
+              isRunning: false,
+              isCanceled: false,
+            }),
+          ]),
+        },
+      })
+    })
+
+    it.each([
+      ['execution:completed', true, false],
+      ['execution:cancelled', false, true],
+    ] as const)('classifies running entries closed by %s', (type, success, isCanceled) => {
+      const store = useConsoleStore.getState()
+      store.ingestWorkflowExecutionEvent({
+        executionId: 'exec-terminal',
+        workflowId: 'workflow-1',
+        timestamp: '2026-08-07T15:16:14.200Z',
+        type: 'block:started',
+        data: {
+          blockId: 'wait-1',
+          blockName: 'Wait',
+          blockType: 'wait',
+          startedAt: '2026-08-07T15:16:14.200Z',
+        },
+      })
+
+      store.ingestWorkflowExecutionEvent({
+        executionId: 'exec-terminal',
+        workflowId: 'workflow-1',
+        timestamp: '2026-08-07T15:16:15.200Z',
+        type,
+        data: { result: { success, output: {} } },
+      })
+
+      expect(useConsoleStore.getState().entries[0]).toMatchObject({
+        success,
+        isRunning: false,
+        isCanceled,
+        endedAt: '2026-08-07T15:16:15.200Z',
+        durationMs: 1000,
+      })
+    })
   })
 
   describe('cancelRunningEntries', () => {

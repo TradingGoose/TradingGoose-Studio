@@ -1,10 +1,10 @@
-import { createLogger } from '@/lib/logs/console/logger'
-import { resolveVllmServiceConfig } from '@/lib/system-services/runtime'
-import { toError } from '@/providers/ai/error'
 import OpenAI from 'openai'
 import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat/completions'
+import { createLogger } from '@/lib/logs/console/logger'
+import { resolveVllmServiceConfig } from '@/lib/system-services/runtime'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   Message,
@@ -370,7 +370,9 @@ export const vllmProvider: ProviderConfig = {
             if (!tool) return null
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeTool(toolName, executionParams)
+            const result = await executeTool(toolName, executionParams, false, undefined, {
+              signal: request.abortSignal,
+            })
             const toolCallEndTime = Date.now()
 
             return {

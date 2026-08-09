@@ -261,7 +261,9 @@ export const groqProvider: ProviderConfig = {
 
               const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
 
-              const result = await executeTool(toolName, executionParams)
+              const result = await executeTool(toolName, executionParams, false, undefined, {
+                signal: request.abortSignal,
+              })
               const toolCallEndTime = Date.now()
               const toolCallDuration = toolCallEndTime - toolCallStartTime
 

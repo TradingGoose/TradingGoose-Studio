@@ -34,12 +34,25 @@ describe('WorkflowBlockHandler', () => {
       enabled: true,
     }
 
+    const timePolicy = {
+      kind: 'unlimited' as const,
+      processingStartedAt: '2026-01-01T00:00:00.000Z',
+      tier: { source: 'no-tier' as const },
+    }
     mockContext = {
       workflowId: 'parent-workflow-id',
       workspaceId: 'test-workspace-id',
       userId: 'user-1',
       executionId: 'execution-1',
       workflowDepth: 0,
+      workflowExecutionTimeBudget: {
+        registerActivity: vi.fn(),
+        markQueuedChildWait: vi.fn(),
+        closeActivity: vi.fn(),
+        snapshotPolicy: vi.fn(() => timePolicy),
+        mergeChildRemaining: vi.fn(),
+        remainingMilliseconds: vi.fn(() => null),
+      },
       triggerType: 'manual',
       blockStates: new Map(),
       blockLogs: [],
@@ -74,6 +87,14 @@ describe('WorkflowBlockHandler', () => {
         { ...mockContext, workflowDepth: 10 }
       )
     ).rejects.toThrow('Maximum workflow nesting depth of 10 exceeded')
+  })
+
+  it('rejects nested dispatch when the live execution budget is missing', async () => {
+    const { workflowExecutionTimeBudget: _budget, ...contextWithoutBudget } = mockContext
+
+    await expect(
+      handler.execute(mockBlock, { workflowId: 'child-workflow-id' }, contextWithoutBudget)
+    ).rejects.toThrow('Nested workflow execution is missing its time budget')
   })
 
   it('handles the original workflow block type through the queue path', () => {
@@ -167,12 +188,27 @@ describe('WorkflowBlockHandler', () => {
         parentWorkflowId: 'parent-workflow-id',
         parentExecutionId: 'execution-1',
         parentBlockId: 'workflow-block-1',
+        timePolicy: mockContext.workflowExecutionTimeBudget?.snapshotPolicy(),
+        timePolicyCapturedAt: expect.any(String),
       },
     })
     expect(generateInternalToken).toHaveBeenCalledTimes(2)
   })
 
   it('wraps failed child workflow executions', async () => {
+    const mergeChildRemaining = vi.fn()
+    mockContext.workflowExecutionTimeBudget = {
+      registerActivity: vi.fn(),
+      markQueuedChildWait: vi.fn(),
+      closeActivity: vi.fn(),
+      snapshotPolicy: vi.fn(() => ({
+        kind: 'unlimited' as const,
+        processingStartedAt: '2026-01-01T00:00:00.000Z',
+        tier: { source: 'no-tier' as const },
+      })),
+      mergeChildRemaining,
+      remainingMilliseconds: vi.fn(() => 0),
+    }
     const fetchMock = vi.mocked(global.fetch)
     fetchMock
       .mockResolvedValueOnce({
@@ -191,7 +227,17 @@ describe('WorkflowBlockHandler', () => {
             error: 'Child failed',
             output: {
               success: false,
+              output: {},
               error: 'Child failed',
+              code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+              deadline: {
+                appliedTierId: 'tier-1',
+                appliedTierName: 'Pro',
+                limitSeconds: 60,
+                processingStartedAt: '2026-01-01T00:00:00.000Z',
+                terminatedAt: '2026-01-01T00:01:00.000Z',
+              },
+              remainingMilliseconds: 0,
               traceSpans: [],
             },
           }),
@@ -203,9 +249,18 @@ describe('WorkflowBlockHandler', () => {
       mockContext
     )
 
-    await expect(
-      (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
-    ).rejects.toThrow('Error in child workflow "Child Workflow": Child failed')
+    const error = await (deferred as { wait: () => Promise<Record<string, unknown>> })
+      .wait()
+      .catch((caught) => caught)
+
+    expect(error).toMatchObject({
+      message: 'Error in child workflow "Child Workflow": Child failed',
+      executionResult: {
+        code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+        remainingMilliseconds: 0,
+      },
+    })
+    expect(mergeChildRemaining).toHaveBeenCalledWith(0)
   })
 
   it('cancels queued child workflows when the parent is cancelled', async () => {

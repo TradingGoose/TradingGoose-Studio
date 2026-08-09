@@ -34,7 +34,7 @@ type PendingExecutionInsert = {
   userId: string
   source: string
   orderingKey?: string | null
-  payload: PendingExecutionPayload
+  payload: PendingExecutionPayload | ((materializedAt: string) => PendingExecutionPayload)
   requestId?: string
 }
 
@@ -241,6 +241,10 @@ export async function enqueuePendingExecution(
       }
     }
 
+    const payload =
+      typeof params.payload === 'function'
+        ? params.payload(new Date().toISOString())
+        : params.payload
     await tx.insert(pendingExecution).values({
       id: params.pendingExecutionId,
       billingScopeId,
@@ -251,7 +255,7 @@ export async function enqueuePendingExecution(
       userId: params.userId,
       workflowId: params.workflowId ?? null,
       workspaceId: params.workspaceId ?? null,
-      payload: params.payload,
+      payload,
     })
     inserted = true
   })

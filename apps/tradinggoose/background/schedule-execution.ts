@@ -14,9 +14,9 @@ import { resolveTimezoneOffsetMinutes } from '@/lib/timezone/timezone-resolver'
 import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import {
   loadWorkflowExecutionBlueprint,
-  runPreparedWorkflowExecution,
   WorkflowUsageLimitError,
 } from '@/lib/workflows/execution-runner'
+import { executeWorkflowJob } from './workflow-execution'
 
 const logger = createLogger('TriggerScheduleExecution')
 
@@ -193,22 +193,23 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
-    const { result } = await runPreparedWorkflowExecution({
-      blueprint,
-      actorUserId,
-      requestId,
-      executionId,
-      triggerType: 'schedule',
-      workflowInput: {
-        _context: {
-          workflowId: payload.workflowId,
+    const result = await executeWorkflowJob(
+      {
+        workflowId: payload.workflowId,
+        userId: actorUserId,
+        workspaceId: workflowRecord.workspaceId,
+        executionId,
+        triggerType: 'schedule',
+        input: {
+          _context: {
+            workflowId: payload.workflowId,
+          },
         },
+        triggerBlockId: payload.blockId,
+        executionTarget: 'deployed',
       },
-      triggerTarget: {
-        kind: 'block',
-        blockId: payload.blockId,
-      },
-    })
+      { blueprint }
+    )
 
     if (result.success) {
       logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)

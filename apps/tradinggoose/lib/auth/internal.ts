@@ -1,6 +1,10 @@
 import { jwtVerify, SignJWT } from 'jose'
 import { type NextRequest, NextResponse } from 'next/server'
 import { env } from '@/lib/env'
+import {
+  isWorkflowExecutionTimePolicy,
+  type WorkflowExecutionTimePolicy,
+} from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('CronAuth')
@@ -16,6 +20,8 @@ export type InternalWorkflowExecutionContext = {
   parentWorkflowId?: string
   parentExecutionId?: string
   parentBlockId: string
+  timePolicy: WorkflowExecutionTimePolicy
+  timePolicyCapturedAt: string
 }
 
 type GenerateInternalTokenOptions = {
@@ -31,7 +37,12 @@ function isInternalWorkflowExecutionContext(
     !Array.isArray(value) &&
     (value as Record<string, unknown>).source === 'workflow_block' &&
     typeof (value as Record<string, unknown>).parentBlockId === 'string' &&
-    ((value as Record<string, unknown>).parentBlockId as string).length > 0
+    ((value as Record<string, unknown>).parentBlockId as string).length > 0 &&
+    typeof (value as Record<string, unknown>).timePolicyCapturedAt === 'string' &&
+    Number.isFinite(
+      Date.parse((value as Record<string, unknown>).timePolicyCapturedAt as string)
+    ) &&
+    isWorkflowExecutionTimePolicy((value as Record<string, unknown>).timePolicy)
   )
 }
 

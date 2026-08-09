@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('getPlans', () => {
-  const getPublicBillingTiersMock = vi.fn()
+  const getActiveStripeBackedBillingTiersMock = vi.fn()
   const getTierIncludedUsageLimitMock = vi.fn()
   const parseBillingAmountMock = vi.fn()
 
@@ -13,12 +13,12 @@ describe('getPlans', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-    getPublicBillingTiersMock.mockReset()
+    getActiveStripeBackedBillingTiersMock.mockReset()
     getTierIncludedUsageLimitMock.mockReset()
     parseBillingAmountMock.mockReset()
 
     vi.doMock('@/lib/billing/tiers', () => ({
-      getPublicBillingTiers: getPublicBillingTiersMock,
+      getActiveStripeBackedBillingTiers: getActiveStripeBackedBillingTiersMock,
       getTierIncludedUsageLimit: getTierIncludedUsageLimitMock,
       parseBillingAmount: parseBillingAmountMock,
     }))
@@ -26,7 +26,7 @@ describe('getPlans', () => {
 
   afterEach(() => {
     if (originalNextPhase === undefined) {
-      delete process.env.NEXT_PHASE
+      process.env.NEXT_PHASE = undefined
     } else {
       process.env.NEXT_PHASE = originalNextPhase
     }
@@ -38,21 +38,21 @@ describe('getPlans', () => {
     const { getBetterAuthPlansConfig } = await import('./plans')
 
     expect(getBetterAuthPlansConfig()).toEqual([])
-    expect(getPublicBillingTiersMock).not.toHaveBeenCalled()
+    expect(getActiveStripeBackedBillingTiersMock).not.toHaveBeenCalled()
   })
 
   it('returns the runtime DB-backed resolver outside the production build phase', async () => {
-    delete process.env.NEXT_PHASE
+    process.env.NEXT_PHASE = undefined
 
     const { getBetterAuthPlansConfig, getPlans } = await import('./plans')
 
     expect(getBetterAuthPlansConfig()).toBe(getPlans)
   })
 
-  it('maps active public billing tiers into Better Auth plans at runtime', async () => {
-    delete process.env.NEXT_PHASE
+  it('maps active Stripe price-backed tiers into Better Auth plans at runtime', async () => {
+    process.env.NEXT_PHASE = undefined
 
-    getPublicBillingTiersMock.mockResolvedValue([
+    getActiveStripeBackedBillingTiersMock.mockResolvedValue([
       {
         id: 'team',
         stripeMonthlyPriceId: 'price_monthly',
@@ -73,6 +73,27 @@ describe('getPlans', () => {
         limits: {
           cost: 25,
         },
+      },
+    ])
+  })
+
+  it('uses a yearly-only price as the provider priceId', async () => {
+    getActiveStripeBackedBillingTiersMock.mockResolvedValue([
+      {
+        id: 'private-yearly',
+        stripeMonthlyPriceId: null,
+        stripeYearlyPriceId: 'price_yearly',
+        monthlyPriceUsd: null,
+      },
+    ])
+    getTierIncludedUsageLimitMock.mockReturnValue(10)
+    const { getPlans } = await import('./plans')
+    await expect(getPlans()).resolves.toEqual([
+      {
+        name: 'private-yearly',
+        priceId: 'price_yearly',
+        annualDiscountPriceId: undefined,
+        limits: { cost: 10 },
       },
     ])
   })

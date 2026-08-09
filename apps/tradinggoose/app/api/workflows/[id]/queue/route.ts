@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { type NextRequest, NextResponse } from 'next/server'
-import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
 import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
+import { materializeInheritedWorkflowExecutionTimePolicy } from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId, SSE_HEADERS } from '@/lib/utils'
@@ -132,6 +133,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
     const childWorkflowExecution = auth.internalWorkflowExecution
+    if (auth.authType === AuthType.INTERNAL_JWT && !childWorkflowExecution) {
+      return NextResponse.json(
+        { error: 'Internal workflow execution policy is required' },
+        { status: 401 }
+      )
+    }
     const source = childWorkflowExecution ? 'workflow_block' : 'workflow_queue'
 
     if (executionTarget === 'deployed' && !accessContext.workflow.isDeployed) {
@@ -167,6 +174,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         error instanceof Error ? error.message : 'Queued workflow trigger block is not runnable'
       return NextResponse.json({ error: errorMessage }, { status: 400 })
     }
+    const payload = {
+      executionId: pendingExecutionId,
+      workflowId,
+      userId: auth.userId,
+      input: body.input ?? {},
+      triggerType,
+      executionTarget,
+      workspaceId: accessContext.workflow.workspaceId,
+      workflowData: executionTarget === 'live' ? body.workflowData : undefined,
+      workflowVariables: executionTarget === 'live' ? body.workflowVariables : undefined,
+      selectedOutputs: body.selectedOutputs,
+      stream: body.stream === true,
+      triggerBlockId:
+        executionTarget === 'live' &&
+        typeof body.triggerBlockId === 'string' &&
+        body.triggerBlockId.length > 0
+          ? body.triggerBlockId
+          : undefined,
+      ...(triggerData ? { triggerData } : {}),
+      workflowDepth: typeof body.workflowDepth === 'number' ? body.workflowDepth : 0,
+      metadata: {
+        source,
+        parentWorkflowId: childWorkflowExecution?.parentWorkflowId ?? null,
+        parentExecutionId: childWorkflowExecution?.parentExecutionId ?? null,
+        parentBlockId: childWorkflowExecution?.parentBlockId ?? null,
+      },
+    }
     const handle = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId,
@@ -175,33 +209,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       userId: auth.userId,
       source,
       requestId,
-      payload: {
-        executionId: pendingExecutionId,
-        workflowId,
-        userId: auth.userId,
-        input: body.input ?? {},
-        triggerType,
-        executionTarget,
-        workspaceId: accessContext.workflow.workspaceId,
-        workflowData: executionTarget === 'live' ? body.workflowData : undefined,
-        workflowVariables: executionTarget === 'live' ? body.workflowVariables : undefined,
-        selectedOutputs: body.selectedOutputs,
-        stream: body.stream === true,
-        triggerBlockId:
-          executionTarget === 'live' &&
-          typeof body.triggerBlockId === 'string' &&
-          body.triggerBlockId.length > 0
-            ? body.triggerBlockId
-            : undefined,
-        ...(triggerData ? { triggerData } : {}),
-        workflowDepth: typeof body.workflowDepth === 'number' ? body.workflowDepth : 0,
-        metadata: {
-          source,
-          parentWorkflowId: childWorkflowExecution?.parentWorkflowId ?? null,
-          parentExecutionId: childWorkflowExecution?.parentExecutionId ?? null,
-          parentBlockId: childWorkflowExecution?.parentBlockId ?? null,
-        },
-      },
+      payload: childWorkflowExecution
+        ? (materializedAt) => ({
+            ...payload,
+            metadata: {
+              ...payload.metadata,
+              timePolicy: materializeInheritedWorkflowExecutionTimePolicy({
+                policy: childWorkflowExecution.timePolicy,
+                capturedAt: childWorkflowExecution.timePolicyCapturedAt,
+                materializedAt,
+              }),
+            },
+          })
+        : payload,
     })
     if (!handle.inserted) {
       return NextResponse.json({ error: 'Workflow execution already exists' }, { status: 409 })

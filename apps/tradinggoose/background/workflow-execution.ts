@@ -1,11 +1,17 @@
 import { v4 as uuidv4 } from 'uuid'
+import { resolveServerExecutionBillingContext } from '@/lib/execution/execution-concurrency-limit'
 import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution/pending-execution'
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
+import {
+  createWorkflowExecutionTimePolicy,
+  isWorkflowExecutionTimePolicy,
+} from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { getMonitorProviderForTriggerId, isMonitorTriggerId } from '@/lib/monitors/sources'
 import { createWorkflowExecutionTerminalEventInput } from '@/lib/workflows/execution-events'
 import {
+  runPreparedWorkflowExecution,
   runWorkflowExecution,
   type WorkflowExecutionBlueprint,
   type WorkflowTriggerTarget,
@@ -53,7 +59,10 @@ export function isWorkflowExecutionPayload(
   return typeof candidate.workflowId === 'string' && typeof candidate.userId === 'string'
 }
 
-export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
+export async function executeWorkflowJob(
+  payload: WorkflowExecutionPayload,
+  options?: { blueprint?: WorkflowExecutionBlueprint }
+) {
   const workflowId = payload.workflowId
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
@@ -78,6 +87,28 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
         triggerType: resolveWorkflowTriggerTargetType(triggerType),
       }
 
+  const processingStartedAt = new Date().toISOString()
+  const billingContext = isChildExecution
+    ? null
+    : await resolveServerExecutionBillingContext({
+        actorUserId: payload.userId,
+        workflowId,
+        workspaceId: payload.workspaceId,
+        logger,
+        requestId,
+        source: 'workflow execution time policy',
+      })
+  const inheritedPolicy = isChildExecution ? payload.metadata?.timePolicy : undefined
+  if (isChildExecution && !isWorkflowExecutionTimePolicy(inheritedPolicy)) {
+    throw new Error('Nested workflow execution is missing its authenticated time policy')
+  }
+  const timePolicy = isChildExecution
+    ? inheritedPolicy!
+    : createWorkflowExecutionTimePolicy({
+        processingStartedAt,
+        tier: billingContext?.tier ?? null,
+      })
+
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
     userId: payload.userId,
     triggerType,
@@ -96,39 +127,64 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       payload.metadata === undefined
         ? payload.triggerData
         : { ...(payload.triggerData ?? {}), queuedExecution: payload.metadata }
-    const { result, dispatchFailureReason } = await runWorkflowExecution({
-      workflowId,
-      actorUserId: payload.userId,
-      requestId,
-      executionId,
-      executionTarget,
-      triggerType,
-      workflowInput: payload.input ?? {},
-      workflowContext:
-        payload.workspaceId || (isLiveExecution && payload.workflowVariables)
-          ? {
-              workspaceId: payload.workspaceId,
-              variables: isLiveExecution ? payload.workflowVariables : undefined,
-            }
-          : undefined,
-      workflowData: isLiveExecution ? payload.workflowData : undefined,
-      triggerTarget,
-      triggerData,
-      contextExtensions: {
-        workflowDepth: payload.workflowDepth ?? 0,
-        isChildExecution,
-        stream: payload.stream === true,
-        selectedOutputs: payload.selectedOutputs ?? [],
-        shouldCancelExecution: () => isPendingWorkflowExecutionCancellationRequested(executionId),
-        ...(eventWriter
-          ? {
-              onExecutionEvent: async (event) => {
-                await eventWriter.write(event)
-              },
-            }
-          : {}),
-      },
-    })
+    const runner = options?.blueprint
+      ? runPreparedWorkflowExecution({
+          blueprint: options.blueprint,
+          actorUserId: payload.userId,
+          requestId,
+          executionId,
+          triggerType,
+          workflowInput: payload.input ?? {},
+          triggerTarget,
+          triggerData,
+          timePolicy,
+          attemptStartedAt: processingStartedAt,
+          contextExtensions: {
+            workflowDepth: payload.workflowDepth ?? 0,
+            isChildExecution,
+            stream: payload.stream === true,
+            selectedOutputs: payload.selectedOutputs ?? [],
+            shouldCancelExecution: () =>
+              isPendingWorkflowExecutionCancellationRequested(executionId),
+          },
+        })
+      : runWorkflowExecution({
+          workflowId,
+          actorUserId: payload.userId,
+          requestId,
+          executionId,
+          executionTarget,
+          triggerType,
+          workflowInput: payload.input ?? {},
+          workflowContext:
+            payload.workspaceId || (isLiveExecution && payload.workflowVariables)
+              ? {
+                  workspaceId: payload.workspaceId,
+                  variables: isLiveExecution ? payload.workflowVariables : undefined,
+                }
+              : undefined,
+          workflowData: isLiveExecution ? payload.workflowData : undefined,
+          triggerTarget,
+          triggerData,
+          timePolicy,
+          attemptStartedAt: processingStartedAt,
+          contextExtensions: {
+            workflowDepth: payload.workflowDepth ?? 0,
+            isChildExecution,
+            stream: payload.stream === true,
+            selectedOutputs: payload.selectedOutputs ?? [],
+            shouldCancelExecution: () =>
+              isPendingWorkflowExecutionCancellationRequested(executionId),
+            ...(eventWriter
+              ? {
+                  onExecutionEvent: async (event) => {
+                    await eventWriter.write(event)
+                  },
+                }
+              : {}),
+          },
+        })
+    const { result, dispatchFailureReason } = await runner
     if (dispatchFailureReason && isMonitorTriggerId(triggerData?.source)) {
       const monitorId = (triggerData.monitor as { id?: unknown } | null | undefined)?.id
       if (typeof monitorId === 'string') {

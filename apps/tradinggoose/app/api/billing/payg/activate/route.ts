@@ -12,6 +12,7 @@ import {
   getStripeCustomerDefaultPaymentMethodId,
 } from '@/lib/billing/stripe-customers'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
+import { evaluateSubscriptionTierAvailability } from '@/lib/billing/tier-availability-policy'
 import { type BillingTierRecord, isFreeBillingTier } from '@/lib/billing/tiers'
 import { handleSubscriptionCreated } from '@/lib/billing/webhooks/subscription'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -23,7 +24,7 @@ const PAYG_ACTIVATION_ATTEMPT_METADATA_KEY = 'paygActivationAttemptId'
 function isActivatablePersonalPaygTier(tier: BillingTierRecord | null | undefined): boolean {
   return Boolean(
     tier &&
-      tier.status === 'active' &&
+      evaluateSubscriptionTierAvailability({ tier, isVisible: true }).isSelectable &&
       tier.ownerType === 'user' &&
       tier.usageScope === 'individual' &&
       tier.seatMode === 'fixed' &&

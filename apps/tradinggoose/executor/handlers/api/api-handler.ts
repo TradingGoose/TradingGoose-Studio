@@ -98,7 +98,8 @@ export class ApiBlockHandler implements BlockHandler {
         block.config.tool,
         withBlockToolExecutionContext(processedInputs, block, context),
         false, // skipPostProcess
-        context // execution context for file processing
+        context, // execution context for file processing
+        ...(context.abortSignal ? [{ signal: context.abortSignal }] : [])
       )
 
       if (!result.success) {

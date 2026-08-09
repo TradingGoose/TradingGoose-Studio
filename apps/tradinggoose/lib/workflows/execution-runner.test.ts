@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import type { WorkflowExecutionBlueprint } from './execution-runner'
 import { loadWorkflowExecutionBlueprint, runPreparedWorkflowExecution } from './execution-runner'
@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => {
   const checkServerSideUsageLimits = vi.fn()
   const decryptSecret = vi.fn()
   const getPersonalAndWorkspaceEnv = vi.fn()
+  const stopForDeadline = vi.fn()
+  const snapshotBlockLogsForDeadline = vi.fn()
   const dbRowsQueue: unknown[][] = []
   const dbChain: Record<string, any> = {}
   dbChain.from = vi.fn(() => dbChain)
@@ -28,6 +30,8 @@ const mocks = vi.hoisted(() => {
     executorConstructor: vi.fn(),
     getPersonalAndWorkspaceEnv,
     loggingSessionConstructor: vi.fn(),
+    stopForDeadline,
+    snapshotBlockLogsForDeadline,
     updateWorkflowRunCounts: vi.fn(),
   }
 })
@@ -54,10 +58,6 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
       completeWithError: mocks.completeWithError,
     }
   }),
-}))
-
-vi.mock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
-  buildTraceSpans: vi.fn().mockReturnValue({ traceSpans: [], totalDuration: 12 }),
 }))
 
 vi.mock('@/lib/utils-server', () => ({
@@ -106,6 +106,8 @@ vi.mock('@/executor', () => ({
     mocks.executorConstructor(options)
     return {
       execute: mocks.execute,
+      stopForDeadline: mocks.stopForDeadline,
+      snapshotBlockLogsForDeadline: mocks.snapshotBlockLogsForDeadline,
     }
   }),
 }))
@@ -130,6 +132,7 @@ const blueprint: WorkflowExecutionBlueprint = {
 }
 
 describe('runPreparedWorkflowExecution', () => {
+  afterEach(() => vi.useRealTimers())
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.dbRowsQueue.length = 0
@@ -148,6 +151,158 @@ describe('runPreparedWorkflowExecution', () => {
       workspaceEncrypted: {},
     })
     mocks.updateWorkflowRunCounts.mockResolvedValue(undefined)
+    mocks.snapshotBlockLogsForDeadline.mockReturnValue([])
+  })
+
+  const boundedPolicy = {
+    kind: 'bounded' as const,
+    processingStartedAt: '2026-01-01T00:00:00.000Z',
+    tier: {
+      source: 'resolved-tier' as const,
+      appliedTierId: 'tier-1',
+      appliedTierName: 'Pro',
+    },
+    limitSeconds: 1,
+    accounting: { mode: 'remaining' as const, remainingMilliseconds: 1_000 },
+  }
+  const unlimitedPolicy = {
+    kind: 'unlimited' as const,
+    processingStartedAt: '2026-01-01T00:00:00.000Z',
+    tier: { source: 'no-tier' as const },
+  }
+
+  it('stops and terminalizes a bounded execution once while suppressing a late settlement', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    let resolveExecution!: (value: any) => void
+    mocks.execute.mockReturnValue(
+      new Promise((resolve) => {
+        resolveExecution = resolve
+      })
+    )
+    const liveLogs = [
+      {
+        blockId: 'wait-1',
+        blockType: 'wait',
+        startedAt: '2026-01-01T00:00:00.000Z',
+        endedAt: '2026-01-01T00:00:01.000Z',
+        durationMs: 1_000,
+        success: false,
+        code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+        input: { nested: { value: 'captured' } },
+      },
+    ]
+    mocks.snapshotBlockLogsForDeadline.mockImplementation(() => structuredClone(liveLogs))
+    const execution = runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      triggerTarget: { kind: 'block', blockId: 'trigger' },
+      timePolicy: boundedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
+    })
+    await vi.advanceTimersByTimeAsync(1_000)
+    const outcome = await execution
+    expect(outcome.result.code).toBe('WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED')
+    expect(mocks.stopForDeadline).toHaveBeenCalledTimes(1)
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+    expect(mocks.complete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+          logs: [expect.objectContaining({ blockId: 'wait-1', error: expect.any(String) })],
+        }),
+        traceSpans: [
+          expect.objectContaining({
+            blockId: 'wait-1',
+            code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+            status: 'error',
+            startTime: '2026-01-01T00:00:00.000Z',
+            endTime: '2026-01-01T00:00:01.000Z',
+            duration: 1_000,
+            output: expect.objectContaining({ error: expect.any(String) }),
+          }),
+        ],
+      })
+    )
+
+    liveLogs[0]!.input.nested.value = 'late mutation'
+    resolveExecution({ success: true, output: { late: true }, logs: [] })
+    await Promise.resolve()
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+    expect(mocks.complete.mock.calls[0]?.[0].result.logs[0].input.nested.value).toBe('captured')
+  })
+
+  it('expires while startup is pending and never dispatches after startup settles late', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    let resolveUsage!: (value: { isExceeded: boolean }) => void
+    mocks.checkServerSideUsageLimits.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveUsage = resolve
+      })
+    )
+
+    const execution = runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      triggerTarget: { kind: 'block', blockId: 'trigger' },
+      timePolicy: boundedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    const outcome = await execution
+    expect(outcome.result.code).toBe('WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED')
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+    expect(mocks.updateWorkflowRunCounts).not.toHaveBeenCalled()
+
+    resolveUsage({ isExceeded: false })
+    await Promise.resolve()
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not dispatch when startup has exhausted the budget', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:02.000Z'))
+    const outcome = await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      triggerTarget: { kind: 'block', blockId: 'trigger' },
+      timePolicy: boundedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
+    })
+    expect(outcome.result.code).toBe('WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED')
+    expect(mocks.execute).not.toHaveBeenCalled()
+  })
+
+  it('keeps unlimited execution behavior unchanged', async () => {
+    const outcome = await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      triggerTarget: { kind: 'block', blockId: 'trigger' },
+      timePolicy: {
+        kind: 'unlimited',
+        processingStartedAt: '2026-01-01T00:00:00.000Z',
+        tier: { source: 'no-tier' },
+      },
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
+    })
+    expect(outcome.result.success).toBe(true)
+    expect(mocks.stopForDeadline).not.toHaveBeenCalled()
   })
 
   it('threads required workspace and workflow log context into executor runs without resetting workflow depth', async () => {
@@ -157,6 +312,8 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'webhook',
       workflowInput: { symbol: 'AAPL' },
       executionId: 'execution-1',
+      timePolicy: unlimitedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'block',
         blockId: 'trigger',
@@ -197,7 +354,7 @@ describe('runPreparedWorkflowExecution', () => {
     )
     expect(mocks.complete).toHaveBeenCalledWith(
       expect.objectContaining({
-        totalDurationMs: 12,
+        totalDurationMs: 0,
         finalOutput: { result: 'ok' },
         workflowInput: { symbol: 'AAPL' },
       })
@@ -219,6 +376,8 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',
+      timePolicy: unlimitedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'block',
         blockId: 'trigger',
@@ -247,6 +406,8 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',
+      timePolicy: unlimitedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'block',
         blockId: 'trigger',
@@ -278,6 +439,8 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'webhook',
       workflowInput: {},
       executionId: 'execution-1',
+      timePolicy: unlimitedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'block',
         blockId: 'missing',
@@ -299,6 +462,8 @@ describe('runPreparedWorkflowExecution', () => {
         triggerType: 'manual',
         workflowInput: {},
         executionId: 'execution-1',
+        timePolicy: unlimitedPolicy,
+        attemptStartedAt: '2026-01-01T00:00:00.000Z',
         triggerTarget: {
           kind: 'block',
           blockId: 'trigger',
@@ -322,6 +487,8 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: { symbol: 'AAPL' },
       executionId: 'execution-1',
+      timePolicy: unlimitedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'trigger',
         triggerType: 'api',
@@ -349,6 +516,8 @@ describe('runPreparedWorkflowExecution', () => {
         triggerType: 'manual',
         workflowInput: {},
         executionId: 'execution-1',
+        timePolicy: unlimitedPolicy,
+        attemptStartedAt: '2026-01-01T00:00:00.000Z',
         triggerTarget: {
           kind: 'trigger',
           triggerType: 'manual',
@@ -372,6 +541,8 @@ describe('runPreparedWorkflowExecution', () => {
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',
+      timePolicy: unlimitedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'trigger',
         triggerType: 'manual',

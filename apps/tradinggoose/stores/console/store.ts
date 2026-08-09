@@ -467,6 +467,34 @@ export const useConsoleStore = create<ConsoleStore>()(
 
           if (isTerminalWorkflowExecutionEvent(event)) {
             clearExecutionStreamBuffers(event.executionId)
+            set((state) => ({
+              entries: state.entries.map((entry) => {
+                if (
+                  entry.workflowId !== event.workflowId ||
+                  entry.executionId !== event.executionId ||
+                  !entry.isRunning
+                ) {
+                  return entry
+                }
+
+                const terminalTime = new Date(event.timestamp).getTime()
+                const startedAt = entry.startedAt ? new Date(entry.startedAt).getTime() : Number.NaN
+                const durationMs =
+                  Number.isFinite(terminalTime) && Number.isFinite(startedAt)
+                    ? Math.max(0, terminalTime - startedAt)
+                    : entry.durationMs
+
+                return {
+                  ...entry,
+                  success: event.type === 'execution:completed',
+                  error: event.type === 'execution:error' ? event.data.error : entry.error,
+                  isRunning: false,
+                  isCanceled: event.type === 'execution:cancelled',
+                  endedAt: entry.endedAt || event.timestamp,
+                  durationMs,
+                }
+              }),
+            }))
           }
         },
 

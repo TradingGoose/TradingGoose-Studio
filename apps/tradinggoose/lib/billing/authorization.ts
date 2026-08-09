@@ -3,7 +3,7 @@ import * as schema from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import type { BillingReference } from '@/lib/billing/tiers'
 
-function toBillingReference(
+export function toBillingReference(
   userId: string,
   reference: string | BillingReference
 ): BillingReference {

@@ -1,6 +1,10 @@
 import { db } from '@tradinggoose/db'
 import { systemBillingTier } from '@tradinggoose/db/schema'
 import { NextResponse } from 'next/server'
+import {
+  isAccessCodeUniqueViolation,
+  privateTierAccessCodeExists,
+} from '@/lib/admin/billing/access-code'
 import { requireAdminBillingUserId } from '@/lib/admin/billing/authorization'
 import {
   adminBillingTierMutationSchema,
@@ -26,10 +30,7 @@ export async function POST(request: Request) {
     const userId = await requireAdminBillingUserId()
     const { stripeConfigured } = await getBillingGateState()
     if (!stripeConfigured) {
-      return NextResponse.json(
-        { error: ADMIN_BILLING_UNAVAILABLE_ERROR },
-        { status: 409 },
-      )
+      return NextResponse.json({ error: ADMIN_BILLING_UNAVAILABLE_ERROR }, { status: 409 })
     }
     const body = await request.json()
     const parsed = adminBillingTierMutationSchema.safeParse(body)
@@ -37,18 +38,19 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json(
         {
-          error:
-            parsed.error.issues[0]?.message ?? 'Invalid billing tier payload',
+          error: parsed.error.issues[0]?.message ?? 'Invalid billing tier payload',
         },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
-    const validationError = validateAdminBillingTierInput(parsed.data, {
-      requireStripeMonthlyPriceId: true,
-    })
+    const validationError = validateAdminBillingTierInput(parsed.data)
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 })
+    }
+    const accessCode = parsed.data.accessCode
+    if (accessCode && (await privateTierAccessCodeExists(accessCode))) {
+      return NextResponse.json({ error: 'Access code is already in use' }, { status: 409 })
     }
 
     if (
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
         {
           error: 'The default tier must stay active while billing is enabled.',
         },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
@@ -80,9 +82,7 @@ export async function POST(request: Request) {
         seatMode: parsed.data.seatMode,
         monthlyPriceUsd: toDecimalString(parsed.data.monthlyPriceUsd),
         yearlyPriceUsd: toDecimalString(parsed.data.yearlyPriceUsd),
-        includedUsageLimitUsd: toDecimalString(
-          parsed.data.includedUsageLimitUsd,
-        ),
+        includedUsageLimitUsd: toDecimalString(parsed.data.includedUsageLimitUsd),
         storageLimitGb: parsed.data.storageLimitGb,
         concurrencyLimit: parsed.data.concurrencyLimit,
         seatCount: parsed.data.seatCount,
@@ -90,24 +90,19 @@ export async function POST(request: Request) {
         stripeMonthlyPriceId: parsed.data.stripeMonthlyPriceId,
         stripeYearlyPriceId: parsed.data.stripeYearlyPriceId,
         stripeProductId: parsed.data.stripeProductId,
+        accessCode,
+        workflowExecutionTimeLimitSeconds: parsed.data.workflowExecutionTimeLimitSeconds,
         syncRateLimitPerMinute: parsed.data.syncRateLimitPerMinute,
         asyncRateLimitPerMinute: parsed.data.asyncRateLimitPerMinute,
-        apiEndpointRateLimitPerMinute:
-          parsed.data.apiEndpointRateLimitPerMinute,
+        apiEndpointRateLimitPerMinute: parsed.data.apiEndpointRateLimitPerMinute,
         maxPendingAgeSeconds: parsed.data.maxPendingAgeSeconds,
         maxPendingCount: parsed.data.maxPendingCount,
         canEditUsageLimit: parsed.data.canEditUsageLimit,
         canConfigureSso: parsed.data.canConfigureSso,
         logRetentionDays: parsed.data.logRetentionDays,
-        workflowExecutionMultiplier: String(
-          parsed.data.workflowExecutionMultiplier ?? 1,
-        ),
-        workflowModelCostMultiplier: String(
-          parsed.data.workflowModelCostMultiplier ?? 1,
-        ),
-        functionExecutionMultiplier: String(
-          parsed.data.functionExecutionMultiplier ?? 1,
-        ),
+        workflowExecutionMultiplier: String(parsed.data.workflowExecutionMultiplier ?? 1),
+        workflowModelCostMultiplier: String(parsed.data.workflowModelCostMultiplier ?? 1),
+        functionExecutionMultiplier: String(parsed.data.functionExecutionMultiplier ?? 1),
         copilotCostMultiplier: String(parsed.data.copilotCostMultiplier ?? 1),
         pricingFeatures: parsed.data.pricingFeatures,
         isPublic: parsed.data.isPublic,
@@ -120,6 +115,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, id: tierId }, { status: 201 })
   } catch (error) {
+    if (isAccessCodeUniqueViolation(error)) {
+      return NextResponse.json({ error: 'Access code is already in use' }, { status: 409 })
+    }
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -129,9 +127,6 @@ export async function POST(request: Request) {
     }
 
     logger.error('Failed to create billing tier', { error })
-    return NextResponse.json(
-      { error: 'Failed to create billing tier' },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: 'Failed to create billing tier' }, { status: 500 })
   }
 }

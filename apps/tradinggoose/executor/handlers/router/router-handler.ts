@@ -61,6 +61,7 @@ export class RouterBlockHandler implements BlockHandler {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(providerRequest),
+        signal: context.abortSignal,
       })
 
       if (!response.ok) {

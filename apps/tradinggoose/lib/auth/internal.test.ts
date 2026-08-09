@@ -4,7 +4,7 @@ const originalInternalSecret = process.env.INTERNAL_API_SECRET
 
 afterEach(() => {
   if (originalInternalSecret === undefined) {
-    delete process.env.INTERNAL_API_SECRET
+    process.env.INTERNAL_API_SECRET = undefined
   } else {
     process.env.INTERNAL_API_SECRET = originalInternalSecret
   }
@@ -23,6 +23,12 @@ describe('internal auth tokens', () => {
         parentWorkflowId: 'parent-workflow-1',
         parentExecutionId: 'parent-execution-1',
         parentBlockId: 'workflow-block-1',
+        timePolicyCapturedAt: '2026-01-01T00:00:00.000Z',
+        timePolicy: {
+          kind: 'unlimited',
+          processingStartedAt: '2026-01-01T00:00:00.000Z',
+          tier: { source: 'no-tier' },
+        },
       },
     })
 
@@ -34,6 +40,7 @@ describe('internal auth tokens', () => {
         parentWorkflowId: 'parent-workflow-1',
         parentExecutionId: 'parent-execution-1',
         parentBlockId: 'workflow-block-1',
+        timePolicyCapturedAt: '2026-01-01T00:00:00.000Z',
       },
     })
   })

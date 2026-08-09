@@ -1,3 +1,4 @@
+import type { WorkflowExecutionTimeBudget } from '@/lib/execution/workflow-execution-time-policy'
 import type { TraceSpan } from '@/lib/logs/types'
 import type { WorkflowExecutionEventInput } from '@/lib/workflows/execution-events'
 import type { BlockOutput } from '@/blocks/types'
@@ -79,6 +80,7 @@ export interface BlockLog {
   output?: any // Output data from successful execution
   input?: any // Input data for the block execution
   error?: string // Error message if execution failed
+  code?: string // Stable failure classification
 }
 
 /**
@@ -188,6 +190,8 @@ export interface ExecutionContext {
 
   onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
   shouldCancelExecution?: () => Promise<boolean>
+  abortSignal?: AbortSignal
+  workflowExecutionTimeBudget?: WorkflowExecutionTimeBudget
 }
 
 /**
@@ -199,6 +203,7 @@ export interface ExecutionContextExtensions {
   edges?: Array<{ source: string; target: string }> // Workflow edge connections
   onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
   shouldCancelExecution?: () => Promise<boolean>
+  workflowExecutionTimeBudget?: WorkflowExecutionTimeBudget
   executionId?: string
   workspaceId: string
   userId?: string
@@ -218,6 +223,15 @@ export interface ExecutionResult {
   success: boolean // Whether the workflow executed successfully
   output: NormalizedBlockOutput // Final output data from the workflow
   error?: string // Error message if execution failed
+  code?: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED'
+  deadline?: {
+    appliedTierId: string
+    appliedTierName: string
+    limitSeconds: number
+    processingStartedAt: string
+    terminatedAt: string
+  }
+  remainingMilliseconds?: number
   logs?: BlockLog[] // Execution logs for all blocks
   metadata?: ExecutionMetadata
 }

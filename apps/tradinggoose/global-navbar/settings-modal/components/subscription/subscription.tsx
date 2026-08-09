@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Skeleton } from '@/components/ui'
+import { Input, Skeleton, Switch } from '@/components/ui'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { useSession } from '@/lib/auth-client'
 import { openBillingPortal as openBillingPortalSession } from '@/lib/billing/billing-portal'
-import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
+import {
+  composeSubscriptionTierDisplays,
+  type SubscriptionTierDisplay,
+} from '@/lib/billing/subscription-tier-display'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { getUserRole } from '@/lib/organization'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
@@ -22,6 +24,7 @@ import {
   patchBillingUsageNotifications,
 } from '@/hooks/queries/general-settings'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
+import { usePrivateTierAccess } from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -221,7 +224,7 @@ function SubscriptionSkeleton() {
   )
 }
 
-function toUpgradeTarget(tier: PublicBillingTierDisplay): BillingUpgradeTarget {
+function toUpgradeTarget(tier: SubscriptionTierDisplay): BillingUpgradeTarget {
   return {
     billingTierId: tier.id,
     displayName: tier.displayName,
@@ -241,6 +244,7 @@ function openContactUrl(url: string | null) {
 }
 
 export function Subscription({ onOpenChange }: SubscriptionProps) {
+  const t = useTranslations('workspace.settingsModal.subscription')
   const { data: session } = useSession()
   const { handleUpgrade } = useSubscriptionUpgrade()
 
@@ -257,6 +261,11 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   } = useUsageLimitData()
   const { data: organizationsData } = useOrganizations()
   const { data: publicBillingCatalog, isLoading: isCatalogLoading } = usePublicBillingCatalog()
+  const {
+    data: privateTierAccess,
+    isLoading: isPrivateTierAccessLoading,
+    validateAccessCode: validatePrivateTierCode,
+  } = usePrivateTierAccess({ enabled: Boolean(session?.user?.id) })
 
   const activeOrganization = organizationsData?.activeOrganization
   const activeOrgId = activeOrganization?.id
@@ -265,6 +274,9 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   )
 
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
+  const [accessCode, setAccessCode] = useState('')
+  const [accessCodeError, setAccessCodeError] = useState<string | null>(null)
+  const [accessCodeMessage, setAccessCodeMessage] = useState<string | null>(null)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
 
@@ -294,6 +306,12 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const userRole = getUserRole(activeOrganization, session?.user?.email)
   const isTeamAdmin = ['owner', 'admin'].includes(userRole)
 
+  const subscriptionTiers = composeSubscriptionTierDisplays({
+    publicTiers: publicBillingCatalog?.publicTiers ?? [],
+    privateTiers: privateTierAccess?.privateTiers ?? [],
+    currentTier: subscription.tier,
+  })
+  const enterpriseContactCard = privateTierAccess?.enterpriseContactCard ?? null
   const surfaceState = getSubscriptionSurfaceState({
     subscription: {
       isFree: subscription.isFree,
@@ -303,8 +321,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     userRole: {
       isTeamAdmin,
     },
-    publicTiers: publicBillingCatalog?.publicTiers ?? [],
-    enterprisePlaceholder: publicBillingCatalog?.enterprisePlaceholder ?? null,
+    subscriptionTiers,
+    enterpriseContactCard,
   })
 
   const isOrganizationPlan = surfaceState.isOrganizationPlan
@@ -377,14 +395,28 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     !isOrganizationPlan && personalPaygUiState.showBadge
       ? personalPaygUiState.badgeText
       : subscription.isFree
-        ? 'Upgrade'
-        : 'Increase Limit'
+        ? t('titles.upgrade')
+        : t('titles.increaseLimit')
   const hasVisiblePlanCards =
     surfaceState.visiblePlanTiers.length > 0 || surfaceState.showEnterprisePlaceholder
-  const enterpriseContactUrl =
-    surfaceState.enterprisePlaceholder?.contactUrl ??
-    publicBillingCatalog?.enterpriseContactUrl ??
-    null
+  const enterpriseContactUrl = surfaceState.enterprisePlaceholder?.contactUrl ?? null
+
+  const validateAccessCode = async () => {
+    const code = accessCode.trim()
+    if (!code) {
+      setAccessCodeError(t('privateAccess.required'))
+      return
+    }
+    setAccessCodeError(null)
+    setAccessCodeMessage(null)
+    try {
+      await validatePrivateTierCode.mutateAsync(code)
+      setAccessCode('')
+      setAccessCodeMessage(t('privateAccess.success'))
+    } catch {
+      setAccessCodeError(t('privateAccess.invalid'))
+    }
+  }
 
   const handleUpgradeWithErrorHandling = useCallback(
     async (targetTier: BillingUpgradeTarget) => {
@@ -396,7 +428,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         })
       } catch (error) {
         setUpgradeError(targetTier.billingTierId)
-        alert(error instanceof Error ? error.message : 'Unknown error occurred')
+        alert(error instanceof Error ? error.message : t('errors.unknown'))
       }
     },
     [activeOrgId, handleUpgrade]
@@ -405,7 +437,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const openBillingPortal = useCallback(
     async (context: 'user' | 'organization') => {
       if (context === 'organization' && !activeOrgId) {
-        alert('Select an organization to manage billing.')
+        alert(t('errors.selectOrganization'))
         return
       }
 
@@ -434,14 +466,14 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           return
         }
 
-        throw new Error(result?.error || 'Failed to activate PAYG')
+        throw new Error(result?.error || t('errors.activatePayg'))
       }
 
       await Promise.all([refetchSubscription(), refetchUsageLimit()])
     } finally {
       setIsPrimaryActionPending(false)
     }
-  }, [openBillingPortal, refetchSubscription, refetchUsageLimit])
+  }, [openBillingPortal, refetchSubscription, refetchUsageLimit, t])
 
   const handleBadgeClick = () => {
     if (isPrimaryActionPending) {
@@ -454,12 +486,12 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         case 'add_payment_method':
         case 'manage_billing':
           void openBillingPortal('user').catch((error) => {
-            alert(error instanceof Error ? error.message : 'Failed to open billing portal')
+            alert(error instanceof Error ? error.message : t('errors.openBillingPortal'))
           })
           return
         case 'activate_payg':
           void activatePayg().catch((error) => {
-            alert(error instanceof Error ? error.message : 'Failed to activate PAYG')
+            alert(error instanceof Error ? error.message : t('errors.activatePayg'))
           })
           return
         case 'increase_limit':
@@ -486,7 +518,11 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   }
 
   const isLoading =
-    isSubscriptionLoading || isUsageLimitLoading || isOrgBillingLoading || isCatalogLoading
+    isSubscriptionLoading ||
+    isUsageLimitLoading ||
+    isOrgBillingLoading ||
+    isCatalogLoading ||
+    isPrivateTierAccessLoading
 
   if (isLoading) {
     return <SubscriptionSkeleton />
@@ -509,7 +545,9 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             onBadgeClick={handleBadgeClick}
             seatsText={
               surfaceState.canManageOrganizationPlan || surfaceState.isCustomOrganizationPlan
-                ? `${organizationBillingPayload?.totalSeats || subscription.seats || 1} seats`
+                ? t('seatsText', {
+                    count: organizationBillingPayload?.totalSeats || subscription.seats || 1,
+                  })
                 : undefined
             }
             current={aggregatedCurrentUsage}
@@ -527,7 +565,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               try {
                 await openBillingPortal(isOrganizationPlan ? 'organization' : 'user')
               } catch (error) {
-                alert(error instanceof Error ? error.message : 'Failed to open billing portal')
+                alert(error instanceof Error ? error.message : t('errors.openBillingPortal'))
               }
             }}
             rightContent={
@@ -568,11 +606,34 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
         {surfaceState.showTeamMemberView && (
           <div className='text-center'>
-            <p className='text-muted-foreground text-xs'>
-              Contact your team admin to increase limits
-            </p>
+            <p className='text-muted-foreground text-xs'>{t('descriptions.teamMemberView')}</p>
           </div>
         )}
+
+        {session?.user?.id ? (
+          <div className='flex flex-col gap-2 rounded-sm border p-3'>
+            <div className='flex gap-2'>
+              <Input
+                value={accessCode}
+                onChange={(event) => setAccessCode(event.target.value)}
+                placeholder={t('privateAccess.placeholder')}
+                aria-label={t('privateAccess.label')}
+              />
+              <Button
+                type='button'
+                variant='outline'
+                disabled={validatePrivateTierCode.isPending || !accessCode.trim()}
+                onClick={() => void validateAccessCode()}
+              >
+                {t('privateAccess.validate')}
+              </Button>
+            </div>
+            {accessCodeError ? <p className='text-destructive text-xs'>{accessCodeError}</p> : null}
+            {accessCodeMessage ? (
+              <p className='text-muted-foreground text-xs'>{accessCodeMessage}</p>
+            ) : null}
+          </div>
+        ) : null}
 
         {hasVisiblePlanCards && (
           <div className='flex flex-col gap-2'>
@@ -585,6 +646,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               >
                 {surfaceState.visiblePlanTiers.map((tier) => {
                   const isCurrentTier = tier.id === surfaceState.currentTier?.id
+                  const isDisabled = isCurrentTier || tier.isCurrentOnly || tier.status !== 'active'
 
                   return (
                     <PlanCard
@@ -594,18 +656,18 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                       priceSubtext={formatBillingPricePeriod(tier) ?? undefined}
                       features={toPlanFeatures(tier.pricingFeatures)}
                       buttonText={
-                        isCurrentTier
-                          ? 'Current'
+                        isDisabled
+                          ? t('actions.current')
                           : subscription.isFree
-                            ? 'Upgrade'
-                            : `Upgrade to ${tier.displayName}`
+                            ? t('titles.upgrade')
+                            : t('actions.upgradeTo', { name: tier.displayName })
                       }
                       onButtonClick={
-                        isCurrentTier
+                        isDisabled
                           ? () => {}
                           : () => handleUpgradeWithErrorHandling(toUpgradeTarget(tier))
                       }
-                      buttonDisabled={isCurrentTier}
+                      buttonDisabled={isDisabled}
                       isError={!isCurrentTier && upgradeError === tier.id}
                       layout='vertical'
                     />
@@ -617,14 +679,14 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             {surfaceState.showEnterprisePlaceholder && surfaceState.enterprisePlaceholder && (
               <PlanCard
                 name={surfaceState.enterprisePlaceholder.displayName}
-                price='Custom'
+                price={t('titles.custom')}
                 priceSubtext={
                   surfaceState.visiblePlanTiers.length !== 1
                     ? surfaceState.enterprisePlaceholder.description
                     : undefined
                 }
                 features={toPlanFeatures(surfaceState.enterprisePlaceholder.pricingFeatures)}
-                buttonText='Contact'
+                buttonText={t('actions.contact')}
                 onButtonClick={() => openContactUrl(enterpriseContactUrl)}
                 layout={surfaceState.visiblePlanTiers.length === 1 ? 'vertical' : 'horizontal'}
               />
@@ -635,7 +697,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         {(subscription.isPaid || showPersonalSubscriptionManagement) &&
           billingPayload?.periodEnd && (
             <div className='mt-4 flex items-center justify-between'>
-              <span className='font-medium text-sm'>Next Billing Date</span>
+              <span className='font-medium text-sm'>{t('titles.nextBillingDate')}</span>
               <span className='text-muted-foreground text-sm'>
                 {new Date(billingPayload.periodEnd).toLocaleDateString()}
               </span>
@@ -650,9 +712,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
         {surfaceState.isCustomOrganizationPlan && (
           <div className='text-center'>
-            <p className='text-muted-foreground text-xs'>
-              Contact your account team for billing tier and usage limit changes
-            </p>
+            <p className='text-muted-foreground text-xs'>{t('descriptions.customPlan')}</p>
           </div>
         )}
 
@@ -661,13 +721,9 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             <div className='flex items-center justify-between'>
               <div>
                 <span className='font-medium text-sm'>
-                  {billingPayload?.cancelAtPeriodEnd
-                    ? 'Restore Subscription'
-                    : 'Manage Subscription'}
+                  {billingPayload?.cancelAtPeriodEnd ? t('titles.restore') : t('titles.manage')}
                 </span>
-                <p className='mt-1 text-muted-foreground text-xs'>
-                  Open Stripe Billing Portal to cancel, restore, or update your subscription.
-                </p>
+                <p className='mt-1 text-muted-foreground text-xs'>{t('descriptions.manage')}</p>
               </div>
               <Button
                 variant='outline'
@@ -675,14 +731,12 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 onClick={() => {
                   void openBillingPortal(isOrganizationPlan ? 'organization' : 'user').catch(
                     (error) => {
-                      alert(
-                        error instanceof Error ? error.message : 'Failed to open billing portal'
-                      )
+                      alert(error instanceof Error ? error.message : t('errors.openBillingPortal'))
                     }
                   )
                 }}
               >
-                Manage
+                {t('actions.manage')}
               </Button>
             </div>
           </div>

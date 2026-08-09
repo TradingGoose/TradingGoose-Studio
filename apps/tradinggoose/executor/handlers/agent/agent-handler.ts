@@ -260,7 +260,8 @@ export class AgentBlockHandler implements BlockHandler {
             isCustomTool: true,
           },
           false, // skipPostProcess
-          context // execution context for file processing
+          context, // execution context for file processing
+          ...(context.abortSignal ? [{ signal: context.abortSignal }] : [])
         )
 
         if (!result.success) {
@@ -309,6 +310,7 @@ export class AgentBlockHandler implements BlockHandler {
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers,
+      signal: context.abortSignal,
     })
     if (!response.ok) {
       const errorText = await response.text().catch(() => '')
@@ -368,6 +370,7 @@ export class AgentBlockHandler implements BlockHandler {
             workflowId: context.workflowId,
             isDeployedContext: context.isDeployedContext !== false,
           }),
+          signal: context.abortSignal,
         })
 
         if (!execResponse.ok) {
@@ -686,6 +689,7 @@ export class AgentBlockHandler implements BlockHandler {
       ...providerRequest,
       apiKey,
       userId: context.userId,
+      abortSignal: context.abortSignal,
     })
 
     this.logExecutionSuccess(
@@ -739,7 +743,9 @@ export class AgentBlockHandler implements BlockHandler {
       method: 'POST',
       headers,
       body: JSON.stringify(providerRequest),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+      signal: context.abortSignal
+        ? AbortSignal.any([context.abortSignal, AbortSignal.timeout(REQUEST_TIMEOUT)])
+        : AbortSignal.timeout(REQUEST_TIMEOUT),
     })
 
     if (!response.ok) {
