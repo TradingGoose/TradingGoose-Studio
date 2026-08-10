@@ -112,11 +112,14 @@ export const openRouterProvider: ProviderConfig = {
 
     try {
       if (request.stream && (!tools || tools.length === 0 || !hasActiveTools)) {
-        const streamResponse = await client.chat.completions.create({
-          ...payload,
-          stream: true,
-          stream_options: { include_usage: true },
-        })
+        const streamResponse = await client.chat.completions.create(
+          {
+            ...payload,
+            stream: true,
+            stream_options: { include_usage: true },
+          },
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         const tokenUsage = { prompt: 0, completion: 0, total: 0 }
 
@@ -191,7 +194,10 @@ export const openRouterProvider: ProviderConfig = {
       const forcedTools = preparedTools?.forcedTools || []
       let usedForcedTools: string[] = []
 
-      let currentResponse = await client.chat.completions.create(payload)
+      let currentResponse = await client.chat.completions.create(
+        payload,
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -337,7 +343,10 @@ export const openRouterProvider: ProviderConfig = {
         }
 
         const nextModelStartTime = Date.now()
-        currentResponse = await client.chat.completions.create(nextPayload)
+        currentResponse = await client.chat.completions.create(
+          nextPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
         checkForForcedToolUsage(currentResponse, nextPayload.tool_choice)
         const nextModelEndTime = Date.now()
         const thisModelTime = nextModelEndTime - nextModelStartTime
@@ -369,7 +378,10 @@ export const openRouterProvider: ProviderConfig = {
           stream_options: { include_usage: true },
         }
 
-        const streamResponse = await client.chat.completions.create(streamingPayload)
+        const streamResponse = await client.chat.completions.create(
+          streamingPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
         const streamingResult = {
           stream: createOpenAICompatibleStream(
             streamResponse as any,

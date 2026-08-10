@@ -147,10 +147,13 @@ export const cerebrasProvider: ProviderConfig = {
       // EARLY STREAMING: if streaming requested and no tools to execute, stream directly
       if (request.stream && (!tools || tools.length === 0)) {
         logger.info('Using streaming response for Cerebras request (no tools)')
-        const streamResponse: any = await client.chat.completions.create({
-          ...payload,
-          stream: true,
-        })
+        const streamResponse: any = await client.chat.completions.create(
+          {
+            ...payload,
+            stream: true,
+          },
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         // Start collecting token usage
         const tokenUsage = {
@@ -207,7 +210,10 @@ export const cerebrasProvider: ProviderConfig = {
       // Make the initial API request
       const initialCallTime = Date.now()
 
-      let currentResponse = (await client.chat.completions.create(payload)) as CerebrasResponse
+      let currentResponse = (await client.chat.completions.create(
+        payload,
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )) as CerebrasResponse
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -376,7 +382,8 @@ export const cerebrasProvider: ProviderConfig = {
             finalPayload.tool_choice = 'none'
 
             const finalResponse = (await client.chat.completions.create(
-              finalPayload
+              finalPayload,
+              request.abortSignal ? { signal: request.abortSignal } : undefined
             )) as CerebrasResponse
 
             const nextModelEndTime = Date.now()
@@ -421,7 +428,8 @@ export const cerebrasProvider: ProviderConfig = {
 
             // Make the next request
             currentResponse = (await client.chat.completions.create(
-              nextPayload
+              nextPayload,
+              request.abortSignal ? { signal: request.abortSignal } : undefined
             )) as CerebrasResponse
 
             const nextModelEndTime = Date.now()
@@ -471,7 +479,10 @@ export const cerebrasProvider: ProviderConfig = {
           stream: true,
         }
 
-        const streamResponse: any = await client.chat.completions.create(streamingPayload)
+        const streamResponse: any = await client.chat.completions.create(
+          streamingPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         // Create a StreamingExecution response with all collected data
         const streamingResult = {

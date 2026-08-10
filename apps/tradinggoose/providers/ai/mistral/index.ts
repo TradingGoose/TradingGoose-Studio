@@ -170,11 +170,14 @@ export const mistralProvider: ProviderConfig = {
       if (request.stream && (!tools || tools.length === 0)) {
         logger.info('Using streaming response for Mistral request')
 
-        const streamResponse = await mistral.chat.completions.create({
-          ...payload,
-          stream: true,
-          stream_options: { include_usage: true },
-        })
+        const streamResponse = await mistral.chat.completions.create(
+          {
+            ...payload,
+            stream: true,
+            stream_options: { include_usage: true },
+          },
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         const tokenUsage = {
           prompt: 0,
@@ -275,7 +278,10 @@ export const mistralProvider: ProviderConfig = {
         }
       }
 
-      let currentResponse = await mistral.chat.completions.create(payload)
+      let currentResponse = await mistral.chat.completions.create(
+        payload,
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -419,7 +425,10 @@ export const mistralProvider: ProviderConfig = {
 
         const nextModelStartTime = Date.now()
 
-        currentResponse = await mistral.chat.completions.create(nextPayload)
+        currentResponse = await mistral.chat.completions.create(
+          nextPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         checkForForcedToolUsage(currentResponse, nextPayload.tool_choice)
 
@@ -460,7 +469,10 @@ export const mistralProvider: ProviderConfig = {
           stream_options: { include_usage: true },
         }
 
-        const streamResponse = await mistral.chat.completions.create(streamingPayload)
+        const streamResponse = await mistral.chat.completions.create(
+          streamingPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         let _streamContent = ''
 

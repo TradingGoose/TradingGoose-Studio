@@ -163,7 +163,10 @@ export const xAIProvider: ProviderConfig = {
         streamingPayload.stream = true
       }
 
-      const streamResponse = await xai.chat.completions.create(streamingPayload)
+      const streamResponse = await xai.chat.completions.create(
+        streamingPayload,
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )
 
       // Start collecting token usage
       const tokenUsage = {
@@ -247,7 +250,10 @@ export const xAIProvider: ProviderConfig = {
         Object.assign(initialPayload, responseFormatPayload)
       }
 
-      let currentResponse = await xai.chat.completions.create(initialPayload)
+      let currentResponse = await xai.chat.completions.create(
+        initialPayload,
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -462,7 +468,10 @@ export const xAIProvider: ProviderConfig = {
           // Time the next model call
           const nextModelStartTime = Date.now()
 
-          currentResponse = await xai.chat.completions.create(nextPayload)
+          currentResponse = await xai.chat.completions.create(
+            nextPayload,
+            request.abortSignal ? { signal: request.abortSignal } : undefined
+          )
 
           // Check if any forced tools were used in this response
           if (nextPayload.tool_choice && typeof nextPayload.tool_choice === 'object') {
@@ -525,7 +534,10 @@ export const xAIProvider: ProviderConfig = {
           }
         }
 
-        const streamResponse = await xai.chat.completions.create(finalStreamingPayload)
+        const streamResponse = await xai.chat.completions.create(
+          finalStreamingPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         // Create a StreamingExecution response with all collected data
         const streamingResult = {
