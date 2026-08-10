@@ -149,11 +149,14 @@ export const openaiProvider: ProviderConfig = {
         logger.info('Using streaming response for OpenAI request')
 
         // Create a streaming request with token usage tracking
-        const streamResponse = await openai.chat.completions.create({
-          ...payload,
-          stream: true,
-          stream_options: { include_usage: true },
-        })
+        const streamResponse = await openai.chat.completions.create(
+          {
+            ...payload,
+            stream: true,
+            stream_options: { include_usage: true },
+          },
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         // Start collecting token usage from the stream
         const tokenUsage = {
@@ -272,7 +275,10 @@ export const openaiProvider: ProviderConfig = {
         }
       }
 
-      let currentResponse = await openai.chat.completions.create(payload)
+      let currentResponse = await openai.chat.completions.create(
+        payload,
+        request.abortSignal ? { signal: request.abortSignal } : undefined
+      )
       const firstResponseTime = Date.now() - initialCallTime
 
       let content = currentResponse.choices[0]?.message?.content || ''
@@ -438,7 +444,10 @@ export const openaiProvider: ProviderConfig = {
         const nextModelStartTime = Date.now()
 
         // Make the next request
-        currentResponse = await openai.chat.completions.create(nextPayload)
+        currentResponse = await openai.chat.completions.create(
+          nextPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         // Check if any forced tools were used in this response
         checkForForcedToolUsage(currentResponse, nextPayload.tool_choice)
@@ -487,7 +496,10 @@ export const openaiProvider: ProviderConfig = {
           stream_options: { include_usage: true },
         }
 
-        const streamResponse = await openai.chat.completions.create(streamingPayload)
+        const streamResponse = await openai.chat.completions.create(
+          streamingPayload,
+          request.abortSignal ? { signal: request.abortSignal } : undefined
+        )
 
         const streamingResult = {
           stream: createOpenAICompatibleStream(
