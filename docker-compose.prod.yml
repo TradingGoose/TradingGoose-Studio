@@ -7,7 +7,7 @@ services:
       timeout: 3s
       retries: 5
   tradinggoose:
-    image: ghcr.io/tradinggoose/tradinggoose:${IMAGE_TAG:?set IMAGE_TAG in .env}
+    image: ${IMAGE_REGISTRY:-ghcr.io/xiujie2}/tradinggoose:${IMAGE_TAG:?set IMAGE_TAG in .env}
     restart: unless-stopped
     ports:
       - '3000:3000'
@@ -25,6 +25,7 @@ services:
       - COPILOT_API_URL=${COPILOT_API_URL:-}
       - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
       - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:?set NEXT_PUBLIC_SOCKET_URL in .env}
+      - INTERNAL_SOCKET_URL=${INTERNAL_SOCKET_URL:-http://realtime:3002}
     depends_on:
       redis:
         condition: service_healthy
@@ -42,7 +43,7 @@ services:
       start_period: 10s
 
   realtime:
-    image: ghcr.io/tradinggoose/realtime:${IMAGE_TAG:?set IMAGE_TAG in .env}
+    image: ${IMAGE_REGISTRY:-ghcr.io/xiujie2}/realtime:${IMAGE_TAG:?set IMAGE_TAG in .env}
     restart: unless-stopped
     ports:
       - '3002:3002'
@@ -68,7 +69,7 @@ services:
       start_period: 10s
 
   migrations:
-    image: ghcr.io/tradinggoose/migrations:${IMAGE_TAG:?set IMAGE_TAG in .env}
+    image: ${IMAGE_REGISTRY:-ghcr.io/xiujie2}/migrations:${IMAGE_TAG:?set IMAGE_TAG in .env}
     working_dir: /app/packages/db
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-tradinggoose}
@@ -81,6 +82,10 @@ services:
   db:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
+    ports:
+      # Loopback-only by default so a public host does not expose Postgres.
+      # Set POSTGRES_BIND_HOST=0.0.0.0 to reach it from another machine.
+      - '${POSTGRES_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432'
     environment:
       - POSTGRES_USER=${POSTGRES_USER:?set POSTGRES_USER in .env}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}

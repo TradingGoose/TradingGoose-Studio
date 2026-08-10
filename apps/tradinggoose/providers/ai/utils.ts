@@ -83,6 +83,12 @@ export async function updateFireworksProviderModels(models: string[]): Promise<v
   providers.fireworks.models = getProviderModelsFromDefinitions('fireworks')
 }
 
+export async function updateNvidiaProviderModels(models: string[]): Promise<void> {
+  const { updateNvidiaModels } = await import('@/providers/ai/models')
+  updateNvidiaModels(models)
+  providers.nvidia.models = getProviderModelsFromDefinitions('nvidia')
+}
+
 export function getBaseModelProviders(): Record<string, ProviderId> {
   const allProviders = Object.entries(providers)
     .filter(
@@ -90,7 +96,8 @@ export function getBaseModelProviders(): Record<string, ProviderId> {
         providerId !== 'ollama' &&
         providerId !== 'vllm' &&
         providerId !== 'openrouter' &&
-        providerId !== 'fireworks'
+        providerId !== 'fireworks' &&
+        providerId !== 'nvidia'
     )
     .reduce(
       (map, [providerId, config]) => {

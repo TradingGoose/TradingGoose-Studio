@@ -1,5 +1,6 @@
 import { COPILOT_API_URL_DEFAULT } from '@/lib/copilot/agent/constants'
 import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
+import { NVIDIA_API_BASE_URL_DEFAULT } from '@/providers/ai/nvidia/constants'
 
 export type SystemServiceSettingFieldType = 'text' | 'url' | 'number' | 'boolean'
 
@@ -109,6 +110,113 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
         label: 'Embedding Model',
         description: 'Azure deployment name used for knowledge embeddings.',
         type: 'text',
+      },
+    ],
+  },
+  {
+    id: 'deepseek',
+    displayName: 'DeepSeek',
+    description: 'Platform-owned DeepSeek key used when a request does not carry its own key.',
+    credentialFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        description: 'Used for DeepSeek chat completion requests.',
+        required: false,
+      },
+      {
+        key: 'rotationKey1',
+        label: 'Rotation Key 1',
+        description: 'DeepSeek server key slot 1. Takes precedence over the single API Key above.',
+        required: false,
+      },
+      {
+        key: 'rotationKey2',
+        label: 'Rotation Key 2',
+        description: 'DeepSeek server key slot 2.',
+        required: false,
+      },
+      {
+        key: 'rotationKey3',
+        label: 'Rotation Key 3',
+        description: 'DeepSeek server key slot 3.',
+        required: false,
+      },
+    ],
+    settingFields: [],
+  },
+  {
+    id: 'openrouter',
+    displayName: 'OpenRouter',
+    description: 'Platform-owned OpenRouter key used when a request does not carry its own key.',
+    credentialFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        description: 'Used for OpenRouter chat completion requests across all routed models.',
+        required: false,
+      },
+      {
+        key: 'rotationKey1',
+        label: 'Rotation Key 1',
+        description:
+          'OpenRouter server key slot 1. Takes precedence over the single API Key above.',
+        required: false,
+      },
+      {
+        key: 'rotationKey2',
+        label: 'Rotation Key 2',
+        description: 'OpenRouter server key slot 2.',
+        required: false,
+      },
+      {
+        key: 'rotationKey3',
+        label: 'Rotation Key 3',
+        description: 'OpenRouter server key slot 3.',
+        required: false,
+      },
+    ],
+    settingFields: [],
+  },
+  {
+    id: 'nvidia',
+    displayName: 'NVIDIA NIM',
+    description: 'API key and endpoint for NVIDIA-hosted, OpenAI-compatible NIM models.',
+    credentialFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        description: 'NVIDIA API key (starts with nvapi-) used for model discovery and requests.',
+        required: false,
+      },
+      {
+        key: 'rotationKey1',
+        label: 'Rotation Key 1',
+        description: 'NVIDIA server key slot 1. Takes precedence over the single API Key above.',
+        required: false,
+      },
+      {
+        key: 'rotationKey2',
+        label: 'Rotation Key 2',
+        description: 'NVIDIA server key slot 2.',
+        required: false,
+      },
+      {
+        key: 'rotationKey3',
+        label: 'Rotation Key 3',
+        description: 'NVIDIA server key slot 3.',
+        required: false,
+      },
+    ],
+    settingFields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        description:
+          'OpenAI-compatible base URL, including the version suffix. Point it at a self-hosted NIM to use your own deployment.',
+        type: 'url',
+        defaultValue: NVIDIA_API_BASE_URL_DEFAULT,
+        required: false,
       },
     ],
   },

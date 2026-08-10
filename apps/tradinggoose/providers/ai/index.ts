@@ -10,6 +10,7 @@ import { fireworksProvider } from '@/providers/ai/fireworks'
 import { googleProvider } from '@/providers/ai/google'
 import { groqProvider } from '@/providers/ai/groq'
 import { mistralProvider } from '@/providers/ai/mistral'
+import { nvidiaProvider } from '@/providers/ai/nvidia'
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
@@ -40,6 +41,7 @@ const providers: Record<string, ProviderConfig> = {
   bedrock: bedrockProvider,
   fireworks: fireworksProvider,
   openrouter: openRouterProvider,
+  nvidia: nvidiaProvider,
   ollama: ollamaProvider,
   vllm: vllmProvider,
 }

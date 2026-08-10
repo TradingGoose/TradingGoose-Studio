@@ -1,8 +1,10 @@
+import { NVIDIA_API_BASE_URL_DEFAULT } from '@/providers/ai/nvidia/constants'
 import { resolveSystemServiceConfig, resolveSystemServiceSettingsConfig } from './service'
 
 type ServiceConfigRecord = Record<string, unknown>
 type ApiKeyConfig = { apiKey: string | null }
 type ApiKeyAndBaseUrlConfig = { apiKey: string | null; baseUrl: string | null }
+type RotatingApiKeyConfig = ApiKeyConfig & { rotationKeys: string[] }
 type ResendServiceConfig = ApiKeyConfig & { audienceId: string | null }
 
 const ROTATION_KEY_FIELDS = ['rotationKey1', 'rotationKey2', 'rotationKey3'] as const
@@ -39,6 +41,13 @@ function readRotationKeys(config: ServiceConfigRecord) {
 function readApiKeyConfig(config: ServiceConfigRecord): ApiKeyConfig {
   return {
     apiKey: asString(config.apiKey),
+  }
+}
+
+function readRotatingApiKeyConfig(config: ServiceConfigRecord): RotatingApiKeyConfig {
+  return {
+    apiKey: asString(config.apiKey),
+    rotationKeys: readRotationKeys(config),
   }
 }
 
@@ -117,6 +126,22 @@ export const resolveOllamaServiceConfig = createServiceResolver('ollama', (confi
 export const resolveVllmServiceConfig = createServiceResolver('vllm', readApiKeyAndBaseUrlConfig)
 
 export const resolveFireworksServiceConfig = createServiceResolver('fireworks', readApiKeyConfig)
+
+export const resolveDeepseekServiceConfig = createServiceResolver(
+  'deepseek',
+  readRotatingApiKeyConfig
+)
+
+export const resolveOpenRouterServiceConfig = createServiceResolver(
+  'openrouter',
+  readRotatingApiKeyConfig
+)
+
+export const resolveNvidiaServiceConfig = createServiceResolver('nvidia', (config) => ({
+  apiKey: asString(config.apiKey),
+  rotationKeys: readRotationKeys(config),
+  baseUrl: asString(config.baseUrl) ?? NVIDIA_API_BASE_URL_DEFAULT,
+}))
 
 export const resolveElevenLabsServiceConfig = createServiceResolver('elevenlabs', readApiKeyConfig)
 

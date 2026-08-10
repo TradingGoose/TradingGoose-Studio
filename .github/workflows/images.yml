@@ -16,13 +16,17 @@ permissions:
 jobs:
   build-images:
     name: Build Images
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
+          # Only the app image is mirrored to Docker Hub; migrations carries the
+          # database schema and realtime is only ever pulled alongside it, so both
+          # stay on GHCR where private packages are free.
           - dockerfile: ./docker/app.Dockerfile
             repo: tradinggoose
+            dockerhub: true
           - dockerfile: ./docker/db.Dockerfile
             repo: migrations
           - dockerfile: ./docker/realtime.Dockerfile
@@ -32,11 +36,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -45,42 +44,57 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && matrix.dockerhub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: useblacksmith/setup-docker-builder@v1
+        uses: docker/setup-buildx-action@v3
 
       - name: Generate tags
         id: meta
+        env:
+          DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_USERNAME }}
+          PUSH_DOCKERHUB: ${{ matrix.dockerhub }}
         run: |
           set -euo pipefail
 
           repo="${{ matrix.repo }}"
-          ghcr_image="ghcr.io/tradinggoose/${repo}"
+          owner="${{ github.repository_owner }}"
+          # GHCR rejects uppercase in image paths, and the owner may be mixed case.
+          ghcr_image="ghcr.io/${owner,,}/${repo}"
           sha_tag="${{ github.sha }}"
           tags=("${ghcr_image}:${sha_tag}")
 
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            dockerhub_image="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${repo}"
             tags+=("${ghcr_image}:latest")
-            tags+=("${dockerhub_image}:${sha_tag}")
-            tags+=("${dockerhub_image}:latest")
+
+            if [ "${PUSH_DOCKERHUB:-}" = "true" ]; then
+              if [ -z "${DOCKERHUB_NAMESPACE:-}" ]; then
+                echo "::error::DOCKERHUB_USERNAME variable is not set; cannot build Docker Hub tags." >&2
+                exit 1
+              fi
+              dockerhub_image="docker.io/${DOCKERHUB_NAMESPACE}/${repo}"
+              tags+=("${dockerhub_image}:${sha_tag}")
+              tags+=("${dockerhub_image}:latest")
+            fi
           fi
 
           tags_csv=$(IFS=,; printf '%s' "${tags[*]}")
           echo "tags=${tags_csv}" >> "$GITHUB_OUTPUT"
+          printf 'Tagging:\n%s\n' "${tags[*]}"
 
       - name: Build and push images
-        uses: useblacksmith/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha,scope=${{ matrix.repo }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.repo }}
           provenance: true
           sbom: true

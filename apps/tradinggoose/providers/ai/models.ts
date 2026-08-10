@@ -18,6 +18,7 @@ import {
   GeminiIcon,
   GroqIcon,
   MistralIcon,
+  NvidiaIcon,
   OllamaIcon,
   OpenAIIcon,
   OpenRouterIcon,
@@ -104,6 +105,22 @@ export const PROVIDER_DEFINITIONS: Record<string, ProviderDefinition> = {
     defaultModel: '',
     modelPatterns: [/^openrouter\//],
     icon: OpenRouterIcon,
+    isReseller: true,
+    capabilities: {
+      temperature: { min: 0, max: 2 },
+      toolUsageControl: true,
+    },
+    contextInformationAvailable: false,
+    models: [],
+  },
+  nvidia: {
+    id: 'nvidia',
+    name: 'NVIDIA NIM',
+    description: 'NVIDIA-hosted models via the OpenAI-compatible NIM API',
+    defaultModel: '',
+    modelPatterns: [/^nvidia\//],
+    icon: NvidiaIcon,
+    color: '#76B900',
     isReseller: true,
     capabilities: {
       temperature: { min: 0, max: 2 },
@@ -2690,7 +2707,13 @@ export function getProviderModels(providerId: string): string[] {
   return PROVIDER_DEFINITIONS[providerId]?.models.map((m) => m.id) || []
 }
 
-export const DYNAMIC_MODEL_PROVIDERS = ['ollama', 'vllm', 'openrouter', 'fireworks'] as const
+export const DYNAMIC_MODEL_PROVIDERS = [
+  'ollama',
+  'vllm',
+  'openrouter',
+  'fireworks',
+  'nvidia',
+] as const
 
 function normalizeCatalogLookupModelId(modelId: string): string {
   const normalizedModelId = modelId.toLowerCase().trim()
@@ -2767,7 +2790,10 @@ export function suggestModelIdsForUnknownModel(_modelId: string, limit = 5): str
 
 export function getBaseModelProviders(): Record<string, ProviderId> {
   return Object.entries(PROVIDER_DEFINITIONS)
-    .filter(([providerId]) => !['ollama', 'vllm', 'openrouter', 'fireworks'].includes(providerId))
+    .filter(
+      ([providerId]) =>
+        !['ollama', 'vllm', 'openrouter', 'fireworks', 'nvidia'].includes(providerId)
+    )
     .reduce(
       (map, [providerId, provider]) => {
         provider.models.forEach((model) => {
@@ -2949,6 +2975,18 @@ export function updateVLLMModels(models: string[]): void {
 
 export function updateFireworksModels(models: string[]): void {
   PROVIDER_DEFINITIONS.fireworks.models = models.map((modelId) => ({
+    id: modelId,
+    pricing: {
+      input: 0,
+      output: 0,
+      updatedAt: new Date().toISOString().split('T')[0],
+    },
+    capabilities: {},
+  }))
+}
+
+export function updateNvidiaModels(models: string[]): void {
+  PROVIDER_DEFINITIONS.nvidia.models = models.map((modelId) => ({
     id: modelId,
     pricing: {
       input: 0,

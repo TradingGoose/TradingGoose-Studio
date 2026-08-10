@@ -15,6 +15,7 @@ export type ProviderId =
   | 'ollama'
   | 'openrouter'
   | 'fireworks'
+  | 'nvidia'
   | 'vllm'
   | 'bedrock'
 

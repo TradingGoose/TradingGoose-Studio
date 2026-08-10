@@ -3,6 +3,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 import {
   updateFireworksProviderModels,
+  updateNvidiaProviderModels,
   updateOllamaProviderModels,
   updateOpenRouterProviderModels,
   updateVLLMProviderModels,
@@ -35,6 +36,11 @@ const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
     apiEndpoint: '/api/providers/ai/fireworks/models',
     dedupeModels: true,
     updateFunction: updateFireworksProviderModels,
+  },
+  nvidia: {
+    apiEndpoint: '/api/providers/ai/nvidia/models',
+    dedupeModels: true,
+    updateFunction: updateNvidiaProviderModels,
   },
 }
 
@@ -85,6 +91,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     openrouter: { models: [], isLoading: false },
     vllm: { models: [], isLoading: false },
     fireworks: { models: [], isLoading: false },
+    nvidia: { models: [], isLoading: false },
   },
 
   setModels: (provider, models) => {
@@ -175,4 +182,5 @@ export function bootstrapProviderModels() {
   store.fetchModels('openrouter')
   store.fetchModels('vllm')
   store.fetchModels('fireworks')
+  store.fetchModels('nvidia')
 }

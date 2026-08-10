@@ -50,11 +50,15 @@ describe('admin system services', () => {
       required: true,
       defaultValue: 'https://market.tradinggoose.ai',
     })
-    expect(localExecution?.settings.find((setting) => setting.key === 'maxConcurrentExecutions')).toMatchObject({
+    expect(
+      localExecution?.settings.find((setting) => setting.key === 'maxConcurrentExecutions')
+    ).toMatchObject({
       required: true,
       defaultValue: '200',
     })
-    expect(localExecution?.settings.find((setting) => setting.key === 'maxActivePerOwner')).toMatchObject({
+    expect(
+      localExecution?.settings.find((setting) => setting.key === 'maxActivePerOwner')
+    ).toMatchObject({
       required: false,
       hasValue: false,
       defaultValue: '',
@@ -62,6 +66,36 @@ describe('admin system services', () => {
     expect(ollama?.settings.find((setting) => setting.key === 'baseUrl')).toMatchObject({
       required: true,
       defaultValue: 'http://localhost:11434',
+    })
+  })
+
+  it('exposes optional model-provider keys for DeepSeek, OpenRouter and NVIDIA', async () => {
+    const { listAdminSystemServices } = await import('./system-services')
+
+    const snapshot = await listAdminSystemServices()
+
+    for (const serviceId of ['deepseek', 'openrouter', 'nvidia']) {
+      const service = snapshot.services.find((entry) => entry.id === serviceId)
+      expect(service, `${serviceId} should be listed`).toBeDefined()
+      expect(service?.credentials.find((credential) => credential.key === 'apiKey')).toMatchObject({
+        required: false,
+        hasValue: false,
+        value: '',
+      })
+
+      for (const slot of ['rotationKey1', 'rotationKey2', 'rotationKey3']) {
+        expect(
+          service?.credentials.find((credential) => credential.key === slot),
+          `${serviceId} should expose ${slot}`
+        ).toMatchObject({ required: false, hasValue: false, value: '' })
+      }
+    }
+
+    const nvidia = snapshot.services.find((service) => service.id === 'nvidia')
+    expect(nvidia?.settings.find((setting) => setting.key === 'baseUrl')).toMatchObject({
+      required: false,
+      hasValue: false,
+      defaultValue: 'https://integrate.api.nvidia.com/v1',
     })
   })
 })

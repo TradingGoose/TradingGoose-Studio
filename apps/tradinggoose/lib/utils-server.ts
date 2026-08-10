@@ -120,15 +120,28 @@ export async function getRotatingApiKey(provider: string): Promise<string> {
   return pickRotatingApiKey(config.rotationKeys, provider)
 }
 
-function pickRotatingApiKey(keys: string[], provider: string): string {
+/**
+ * Time-sliced pick across the configured rotation slots. All requests inside the
+ * same minute land on the same key, so this spreads rate-limit quota across keys
+ * rather than balancing individual requests.
+ */
+export function pickRotatingKey(keys: string[]): string | null {
   if (keys.length === 0) {
+    return null
+  }
+
+  const currentMinute = new Date().getMinutes()
+
+  return keys[currentMinute % keys.length]
+}
+
+function pickRotatingApiKey(keys: string[], provider: string): string {
+  const key = pickRotatingKey(keys)
+  if (!key) {
     throw new Error(
       `No API keys configured for rotation. Please configure ${provider} service rotation keys 1-3 in admin services.`
     )
   }
 
-  const currentMinute = new Date().getMinutes()
-  const keyIndex = currentMinute % keys.length
-
-  return keys[keyIndex]
+  return key
 }
