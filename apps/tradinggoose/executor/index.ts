@@ -659,8 +659,14 @@ export class Executor {
       selectedOutputs: this.contextExtensions.selectedOutputs || [],
       edges: this.contextExtensions.edges || [],
       onExecutionEvent: this.contextExtensions.onExecutionEvent,
-      shouldCancelExecution: async () =>
-        this.isCancelled || (await this.contextExtensions.shouldCancelExecution?.()) === true,
+      shouldCancelExecution: async () => {
+        const cancelled =
+          this.isCancelled || (await this.contextExtensions.shouldCancelExecution?.()) === true
+        if (cancelled) {
+          this.abortController.abort()
+        }
+        return cancelled
+      },
       abortSignal: this.abortController.signal,
       workflowExecutionTimeBudget: this.contextExtensions.workflowExecutionTimeBudget,
     }

@@ -86,6 +86,27 @@ describe('Executor', () => {
       expect(signal.aborted).toBe(true)
     })
 
+    it.each(['executor', 'external'] as const)(
+      'aborts active work when %s cancellation is observed',
+      async (source) => {
+        const executor = createTestExecutor(createMinimalWorkflow(), {
+          contextExtensions: {
+            shouldCancelExecution: vi.fn().mockResolvedValue(source === 'external'),
+          },
+        })
+        const context = (executor as any).createExecutionContext(
+          'workflow-id',
+          new Date(),
+          'trigger'
+        )
+        expect(context.abortSignal.aborted).toBe(false)
+        if (source === 'executor') executor.cancel()
+
+        await expect(context.shouldCancelExecution()).resolves.toBe(true)
+        expect(context.abortSignal.aborted).toBe(true)
+      }
+    )
+
     it('deeply snapshots every active block at the shared deadline', () => {
       const executor = createTestExecutor(createMinimalWorkflow())
       const active = {
