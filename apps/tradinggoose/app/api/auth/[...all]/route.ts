@@ -83,7 +83,8 @@ export async function guardSubscriptionUpgradeRequest(
   request: Request,
   pathname: string
 ): Promise<Request | Response | null> {
-  if (request.method !== 'POST' || pathname !== SUBSCRIPTION_UPGRADE_PATH) return null
+  const normalizedPathname = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+  if (request.method !== 'POST' || normalizedPathname !== SUBSCRIPTION_UPGRADE_PATH) return null
   const body = await request
     .clone()
     .json()

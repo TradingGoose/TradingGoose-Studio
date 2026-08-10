@@ -228,19 +228,24 @@ describe('/api/auth/[...all] route', () => {
     }
   )
 
-  it('authorizes before target lookup and delegates a canonical user reference', async () => {
+  it.each([
+    '/api/auth/subscription/upgrade',
+    '/api/auth/subscription/upgrade/',
+  ])('authorizes %s before target lookup and delegates a canonical user reference', async (path) => {
     mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/subscription/upgrade', {
+      new Request(`http://localhost${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: 'pro', referenceId: '' }),
       })
     )
     expect(response.status).toBe(204)
+    expect(mockGetSession).toHaveBeenCalledTimes(1)
     expect(mockAuthorizeSubscriptionReference).toHaveBeenCalledWith('user-1', 'user-1')
     expect(mockGetBillingTierById).toHaveBeenCalledWith('pro')
+    expect(mockEvaluateSubscriptionTierAvailability).toHaveBeenCalledTimes(1)
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
     await expect((mockAuthHandler.mock.calls[0][0] as Request).json()).resolves.toEqual({
       plan: 'pro',
