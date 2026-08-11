@@ -141,6 +141,7 @@ describe('subscription modal private access contract', () => {
       .mockRejectedValueOnce(
         new PrivateTierAccessRequestError('server detail must not leak', 404, null)
       )
+      .mockResolvedValueOnce(undefined)
 
     await act(async () => {
       root.render(
@@ -170,6 +171,9 @@ describe('subscription modal private access contract', () => {
     })
     await act(async () => button?.click())
     expect(container.textContent).toContain('服务器本地化的限流消息')
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      '服务器本地化的限流消息'
+    )
 
     await act(async () => button?.click())
     expect(container.textContent).toContain('Access-code validation is temporarily unavailable')
@@ -177,6 +181,10 @@ describe('subscription modal private access contract', () => {
     await act(async () => button?.click())
     expect(container.textContent).toContain('Invalid access code.')
     expect(container.textContent).not.toContain('server detail must not leak')
+    await act(async () => button?.click())
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      'Private tier access unlocked.'
+    )
   })
 })
 beforeAll(() => {

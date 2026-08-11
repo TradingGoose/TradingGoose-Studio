@@ -633,9 +633,15 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 {t('privateAccess.validate')}
               </Button>
             </div>
-            {accessCodeError ? <p className='text-destructive text-xs'>{accessCodeError}</p> : null}
+            {accessCodeError ? (
+              <p role='status' className='text-destructive text-xs'>
+                {accessCodeError}
+              </p>
+            ) : null}
             {accessCodeMessage ? (
-              <p className='text-muted-foreground text-xs'>{accessCodeMessage}</p>
+              <p role='status' className='text-muted-foreground text-xs'>
+                {accessCodeMessage}
+              </p>
             ) : null}
           </div>
         ) : null}

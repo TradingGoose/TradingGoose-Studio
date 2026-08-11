@@ -484,9 +484,11 @@ function BillingSettingsCard({
               </Alert>
             ) : null}
             {message ? (
-              <Notice variant='success' title={copy.settings.savedTitle}>
-                {message}
-              </Notice>
+              <div role='status'>
+                <Notice variant='success' title={copy.settings.savedTitle}>
+                  {message}
+                </Notice>
+              </div>
             ) : null}
             <PrimaryButton type='submit' disabled={updateSettings.isPending}>
               {updateSettings.isPending ? copy.settings.saving : copy.settings.save}

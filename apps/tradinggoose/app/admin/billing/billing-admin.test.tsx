@@ -12,4 +12,14 @@ describe('admin billing overview contract', () => {
     expect(summary).toContain('stripeYearlyPriceId')
     expect(summary).not.toContain('isPublic')
   })
+
+  it('announces saved settings through a polite live region', () => {
+    const source = readFileSync(new URL('./billing-admin.tsx', import.meta.url), 'utf8')
+    const settingsCard = source.slice(
+      source.indexOf('function BillingSettingsCard'),
+      source.indexOf('export function AdminBilling')
+    )
+    expect(settingsCard).toContain("<div role='status'>")
+    expect(settingsCard).toContain("<Notice variant='success'")
+  })
 })
