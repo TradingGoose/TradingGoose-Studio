@@ -4,8 +4,8 @@ import {
   getTierWorkflowModelCostMultiplier,
 } from '@/lib/billing/tiers'
 import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
+import type { WorkflowExecutionResultDiagnostics } from '@/lib/execution/workflow-execution-diagnostics'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { WorkflowExecutionResultDiagnostics } from '@/lib/logs/execution/logger'
 import { executionLogger } from '@/lib/logs/execution/logger'
 import {
   calculateCostSummary,
@@ -27,6 +27,7 @@ export interface SessionStartParams {
   workspaceId: string
   workflowState: WorkflowState
   triggerData?: Record<string, unknown>
+  startedAt?: string
 }
 
 export interface SessionCompleteParams {
@@ -72,7 +73,7 @@ export class LoggingSession {
   ) {}
 
   async start(params: SessionStartParams): Promise<string> {
-    const { userId, workspaceId, workflowState, triggerData } = params
+    const { userId, workspaceId, workflowState, triggerData, startedAt } = params
 
     this.trigger = createTriggerObject(this.triggerType, triggerData)
     this.environment = createEnvironmentObject(
@@ -90,6 +91,7 @@ export class LoggingSession {
       environment: this.environment,
       workflowState,
       workflowSummary,
+      startedAt,
     })
     this.workflowLogId = workflowLog.id
 

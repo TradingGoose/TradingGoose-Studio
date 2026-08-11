@@ -22,6 +22,7 @@ import {
   isFreeBillingTier,
 } from '@/lib/billing/tiers'
 import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
+import type { WorkflowExecutionResultDiagnostics } from '@/lib/execution/workflow-execution-diagnostics'
 import { createLogger } from '@/lib/logs/console/logger'
 import { emitWorkflowExecutionCompleted } from '@/lib/logs/events'
 import { snapshotService } from '@/lib/logs/execution/snapshot/service'
@@ -34,29 +35,8 @@ import type {
   WorkflowExecutionSnapshot,
   WorkflowState,
 } from '@/lib/logs/types'
-import type { BlockLog, ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('ExecutionLogger')
-
-export type WorkflowExecutionResultDiagnostics = Pick<
-  Required<ExecutionResult>,
-  'error' | 'code' | 'deadline'
-> & {
-  logs: Array<
-    Pick<
-      BlockLog,
-      | 'blockId'
-      | 'blockName'
-      | 'blockType'
-      | 'startedAt'
-      | 'endedAt'
-      | 'durationMs'
-      | 'success'
-      | 'error'
-      | 'code'
-    >
-  >
-}
 
 type OrganizationBillingOwner = {
   type: 'organization'
@@ -92,6 +72,7 @@ export class ExecutionLogger {
     environment: ExecutionEnvironment
     workflowState: WorkflowState
     workflowSummary: WorkflowExecutionLog['workflowSummary']
+    startedAt?: string
   }): Promise<{
     workflowLog: WorkflowExecutionLog
     snapshot: WorkflowExecutionSnapshot
@@ -106,7 +87,7 @@ export class ExecutionLogger {
       state: workflowState,
     })
 
-    const startTime = new Date()
+    const startTime = params.startedAt ? new Date(params.startedAt) : new Date()
     const workflowLogValues = {
       workflowId,
       workspaceId: environment.workspaceId,

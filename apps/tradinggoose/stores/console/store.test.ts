@@ -515,6 +515,11 @@ describe('Console Store', () => {
       })
       expect(entries.find((entry) => entry.executionId === 'exec-concurrent')?.isRunning).toBe(true)
       expect(entries.find((entry) => entry.executionId === 'exec-other')?.isRunning).toBe(true)
+      expect(
+        entries.some(
+          (entry) => entry.executionId === 'exec-deadline' && entry.blockId === 'execution'
+        )
+      ).toBe(false)
 
       const persisted = vi.mocked(global.localStorage.setItem).mock.calls.at(-1)?.[1]
       expect(persisted).toBeDefined()
@@ -530,6 +535,126 @@ describe('Console Store', () => {
           ]),
         },
       })
+    })
+
+    it('creates one deadline failure entry when execution ends before a block starts', () => {
+      const store = useConsoleStore.getState()
+      const deadlineError =
+        'Workflow execution stopped because it reached the 20-second Workflow Execution Time Limit for the "Pro" tier.'
+      const event = {
+        executionId: 'exec-before-block',
+        workflowId: 'workflow-1',
+        timestamp: '2026-08-07T15:16:34.200Z',
+        type: 'execution:error' as const,
+        data: {
+          error: deadlineError,
+          result: {
+            success: false,
+            output: {},
+            error: deadlineError,
+            code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+            deadline: {
+              appliedTierId: 'tier-pro',
+              appliedTierName: 'Pro',
+              limitSeconds: 20,
+              processingStartedAt: '2026-08-07T15:16:14.200Z',
+              terminatedAt: '2026-08-07T15:16:34.200Z',
+            },
+          },
+        },
+      }
+
+      store.ingestWorkflowExecutionEvent(event)
+      store.ingestWorkflowExecutionEvent(event)
+
+      const entries = useConsoleStore
+        .getState()
+        .entries.filter((entry) => entry.executionId === 'exec-before-block')
+      expect(entries).toEqual([
+        expect.objectContaining({
+          workflowId: 'workflow-1',
+          executionId: 'exec-before-block',
+          blockId: 'execution',
+          blockName: 'Workflow',
+          blockType: 'workflow',
+          error: deadlineError,
+          success: false,
+          isRunning: false,
+          isCanceled: false,
+          startedAt: '2026-08-07T15:16:14.200Z',
+          endedAt: '2026-08-07T15:16:34.200Z',
+          durationMs: 20_000,
+        }),
+      ])
+      const persisted = vi.mocked(global.localStorage.setItem).mock.calls.at(-1)?.[1]
+      expect(JSON.parse(persisted!)).toMatchObject({
+        state: {
+          entries: expect.arrayContaining([
+            expect.objectContaining({
+              executionId: 'exec-before-block',
+              blockId: 'execution',
+              error: deadlineError,
+            }),
+          ]),
+        },
+      })
+    })
+
+    it('adds a deadline failure entry when prior blocks completed successfully', () => {
+      const store = useConsoleStore.getState()
+      const deadlineError =
+        'Workflow execution stopped because it reached the 20-second Workflow Execution Time Limit for the "Pro" tier.'
+      store.ingestWorkflowExecutionEvent({
+        executionId: 'exec-between-blocks',
+        workflowId: 'workflow-1',
+        timestamp: '2026-08-07T15:16:14.200Z',
+        type: 'block:completed',
+        data: {
+          blockId: 'api-1',
+          blockName: 'API',
+          blockType: 'api',
+          startedAt: '2026-08-07T15:16:14.200Z',
+          endedAt: '2026-08-07T15:16:15.200Z',
+          durationMs: 1_000,
+        },
+      })
+      store.ingestWorkflowExecutionEvent({
+        executionId: 'exec-between-blocks',
+        workflowId: 'workflow-1',
+        timestamp: '2026-08-07T15:16:34.200Z',
+        type: 'execution:error',
+        data: {
+          error: deadlineError,
+          result: {
+            success: false,
+            output: {},
+            error: deadlineError,
+            code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+            deadline: {
+              appliedTierId: 'tier-pro',
+              appliedTierName: 'Pro',
+              limitSeconds: 20,
+              processingStartedAt: '2026-08-07T15:16:14.200Z',
+              terminatedAt: '2026-08-07T15:16:34.200Z',
+            },
+          },
+        },
+      })
+
+      const entries = useConsoleStore
+        .getState()
+        .entries.filter((entry) => entry.executionId === 'exec-between-blocks')
+      expect(entries).toHaveLength(2)
+      expect(entries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ blockId: 'api-1', success: true }),
+          expect.objectContaining({
+            blockId: 'execution',
+            success: false,
+            error: deadlineError,
+          }),
+        ])
+      )
     })
 
     it.each([

@@ -1,4 +1,5 @@
 import type { Edge } from '@xyflow/react'
+import type { WorkflowExecutionResultDiagnostics } from '@/lib/execution/workflow-execution-diagnostics'
 import type { BlockLog, NormalizedBlockOutput } from '@/executor/types'
 import type { DeploymentStatus } from '@/stores/workflows/registry/types'
 import type { Loop, Parallel, WorkflowState } from '@/stores/workflows/workflow/types'
@@ -350,6 +351,8 @@ export interface WorkflowLog {
   cost?: CostMetadata
   executionData?: ToolCallMetadata & {
     traceSpans?: TraceSpan[]
+    errorMessage?: string
+    result?: WorkflowExecutionResultDiagnostics
     blockInput?: Record<string, unknown>
     blockExecutions?: Array<{
       id: string

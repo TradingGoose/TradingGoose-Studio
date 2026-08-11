@@ -48,6 +48,7 @@ describe('WorkflowBlockHandler', () => {
       workflowExecutionTimeBudget: {
         registerActivity: vi.fn(),
         markQueuedChildWait: vi.fn(),
+        observeChildProcessing: vi.fn(),
         closeActivity: vi.fn(),
         snapshotPolicy: vi.fn(() => timePolicy),
         mergeChildRemaining: vi.fn(),
@@ -125,6 +126,10 @@ describe('WorkflowBlockHandler', () => {
         json: () =>
           Promise.resolve({
             status: 'completed',
+            metadata: {
+              startedAt: '2026-01-01T00:00:01.000Z',
+              completedAt: '2026-01-01T00:00:02.000Z',
+            },
             output: {
               success: true,
               output: { value: 42 },
@@ -193,6 +198,11 @@ describe('WorkflowBlockHandler', () => {
       },
     })
     expect(generateInternalToken).toHaveBeenCalledTimes(2)
+    expect(mockContext.workflowExecutionTimeBudget?.observeChildProcessing).toHaveBeenCalledWith(
+      'workflow-block-1',
+      '2026-01-01T00:00:01.000Z',
+      '2026-01-01T00:00:02.000Z'
+    )
   })
 
   it('wraps failed child workflow executions', async () => {
@@ -200,6 +210,7 @@ describe('WorkflowBlockHandler', () => {
     mockContext.workflowExecutionTimeBudget = {
       registerActivity: vi.fn(),
       markQueuedChildWait: vi.fn(),
+      observeChildProcessing: vi.fn(),
       closeActivity: vi.fn(),
       snapshotPolicy: vi.fn(() => ({
         kind: 'unlimited' as const,
@@ -263,6 +274,73 @@ describe('WorkflowBlockHandler', () => {
     expect(mergeChildRemaining).toHaveBeenCalledWith(0)
   })
 
+  it('rejects a fast completed child when reconciliation exhausts the parent budget', async () => {
+    const observeChildProcessing = vi.fn()
+    const mergeChildRemaining = vi.fn()
+    mockContext.workflowExecutionTimeBudget = {
+      registerActivity: vi.fn(),
+      markQueuedChildWait: vi.fn(),
+      observeChildProcessing,
+      closeActivity: vi.fn(),
+      snapshotPolicy: vi.fn(() => ({
+        kind: 'bounded' as const,
+        processingStartedAt: '2026-01-01T00:00:00.000Z',
+        tier: {
+          source: 'resolved-tier' as const,
+          appliedTierId: 'tier-1',
+          appliedTierName: 'Pro',
+        },
+        limitSeconds: 10,
+        accounting: { mode: 'remaining' as const, remainingMilliseconds: 7_000 },
+      })),
+      mergeChildRemaining,
+      remainingMilliseconds: vi.fn(() => 0),
+    }
+    const fetchMock = vi.mocked(global.fetch)
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ taskId: 'job-fast', workflowName: 'Child Workflow' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            status: 'completed',
+            metadata: {
+              startedAt: '2026-01-01T00:00:05.000Z',
+              completedAt: '2026-01-01T00:00:12.000Z',
+            },
+            output: {
+              success: true,
+              output: { late: true },
+              remainingMilliseconds: 3_000,
+            },
+          }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true } as Response)
+
+    const deferred = await handler.execute(
+      mockBlock,
+      { workflowId: 'child-workflow-id' },
+      mockContext
+    )
+
+    await expect(
+      (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
+    ).rejects.toThrow('Aborted')
+    expect(observeChildProcessing).toHaveBeenCalledWith(
+      'workflow-block-1',
+      '2026-01-01T00:00:05.000Z',
+      '2026-01-01T00:00:12.000Z'
+    )
+    expect(mergeChildRemaining).toHaveBeenCalledWith(3_000)
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://localhost:3000/api/jobs/job-fast',
+      expect.objectContaining({ method: 'DELETE' })
+    )
+  })
+
   it('cancels queued child workflows when the parent is cancelled', async () => {
     vi.mocked(generateInternalToken)
       .mockResolvedValueOnce('queue-token')
@@ -304,6 +382,39 @@ describe('WorkflowBlockHandler', () => {
       })
     )
     expect(generateInternalToken).toHaveBeenCalledTimes(2)
+  })
+
+  it('cancels a queued child once when the parent abort signal fires', async () => {
+    const abortController = new AbortController()
+    const fetchMock = vi.mocked(global.fetch)
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            taskId: 'job-abort',
+            workflowName: 'Child Workflow',
+          }),
+      } as Response)
+      .mockImplementationOnce(() => new Promise(() => {}))
+      .mockResolvedValueOnce({ ok: true } as Response)
+
+    const deferred = await handler.execute(
+      mockBlock,
+      { workflowId: 'child-workflow-id' },
+      { ...mockContext, abortSignal: abortController.signal }
+    )
+    const wait = (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+
+    abortController.abort()
+
+    await expect(wait).rejects.toThrow(/aborted/i)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://localhost:3000/api/jobs/job-abort',
+      expect.objectContaining({ method: 'DELETE' })
+    )
   })
 
   it('cancels queued child workflows when child polling reaches its deadline', async () => {

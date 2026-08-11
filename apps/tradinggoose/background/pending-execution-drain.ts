@@ -31,10 +31,13 @@ async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boo
         throw new Error('Invalid workflow pending payload')
       }
 
-      await executeWorkflowJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+      await executeWorkflowJob(
+        {
+          ...row.payload,
+          executionId: row.id,
+        },
+        { attemptStartedAt: row.processingStartedAt.toISOString() }
+      )
       break
     }
 

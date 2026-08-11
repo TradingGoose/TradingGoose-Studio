@@ -572,6 +572,7 @@ describe('executeTool Function', () => {
       workflowExecutionTimeBudget: {
         registerActivity: vi.fn(),
         markQueuedChildWait: vi.fn(),
+        observeChildProcessing: vi.fn(),
         closeActivity: vi.fn(),
         snapshotPolicy: vi.fn(() => timePolicy),
         mergeChildRemaining: vi.fn(),

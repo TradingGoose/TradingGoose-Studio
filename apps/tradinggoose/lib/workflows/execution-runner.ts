@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
+import { createWorkflowExecutionResultDiagnostics } from '@/lib/execution/workflow-execution-diagnostics'
 import { AttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budget'
 import {
   createWorkflowExecutionDeadlineResult,
@@ -11,7 +12,6 @@ import {
   type WorkflowExecutionTimePolicy,
 } from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { WorkflowExecutionResultDiagnostics } from '@/lib/logs/execution/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret } from '@/lib/utils-server'
@@ -26,36 +26,6 @@ import type { TriggerType } from '@/services/queue'
 import { mergeSubblockState } from '@/stores/workflows/server-utils'
 
 const logger = createLogger('WorkflowExecutionRunner')
-
-function createWorkflowExecutionResultDiagnostics(
-  result: ExecutionResult
-): WorkflowExecutionResultDiagnostics | undefined {
-  if (
-    result.success ||
-    result.code !== 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED' ||
-    !result.error ||
-    !result.deadline
-  ) {
-    return undefined
-  }
-
-  return {
-    error: result.error,
-    code: result.code,
-    deadline: result.deadline,
-    logs: (result.logs ?? []).map((log) => ({
-      blockId: log.blockId,
-      ...(log.blockName !== undefined ? { blockName: log.blockName } : {}),
-      ...(log.blockType !== undefined ? { blockType: log.blockType } : {}),
-      startedAt: log.startedAt,
-      endedAt: log.endedAt,
-      durationMs: log.durationMs,
-      success: log.success,
-      ...(log.error !== undefined ? { error: log.error } : {}),
-      ...(log.code !== undefined ? { code: log.code } : {}),
-    })),
-  }
-}
 
 export type WorkflowExecutionTarget = 'deployed' | 'live'
 
@@ -380,6 +350,7 @@ export async function runPreparedWorkflowExecution(params: {
     workspaceId,
     workflowState: params.blueprint.workflowData,
     triggerData: params.triggerData,
+    startedAt: params.attemptStartedAt,
   })
 
   let encryptedEnvVars: Record<string, string> | undefined

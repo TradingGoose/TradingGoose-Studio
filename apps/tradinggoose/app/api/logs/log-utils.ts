@@ -1,3 +1,4 @@
+import { readWorkflowExecutionResultDiagnostics } from '@/lib/execution/workflow-execution-diagnostics'
 import {
   areListingIdentitiesEqual,
   type ListingIdentity,
@@ -269,6 +270,7 @@ const buildPublicWorkflowLogExecutionData = (
   }
 
   const trigger = toPublicMonitorTrigger(row.executionData)
+  const result = readWorkflowExecutionResultDiagnostics(row.executionData.result)
 
   return {
     traceSpans: synthesizeTraceSpans(row.executionData),
@@ -277,6 +279,7 @@ const buildPublicWorkflowLogExecutionData = (
       : undefined,
     finalOutput: row.executionData.finalOutput,
     enhanced: true,
+    ...(result ? { errorMessage: result.error, result } : {}),
     ...(trigger ? { trigger } : {}),
   } as WorkflowLog['executionData']
 }

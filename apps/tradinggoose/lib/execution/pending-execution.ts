@@ -61,8 +61,9 @@ type PendingExecutionRow = {
   updatedAt: Date
 }
 
-export type PendingExecutionClaim = PendingExecutionRow & {
+export type PendingExecutionClaim = Omit<PendingExecutionRow, 'payload' | 'processingStartedAt'> & {
   payload: PendingExecutionPayload
+  processingStartedAt: Date
 }
 
 export type PendingExecutionClaimResult =
@@ -404,18 +405,25 @@ export async function claimNextPendingExecution(
     if (!claimed) {
       throw new Error(`Pending execution ${claimCandidate.id} could not be claimed`)
     }
+    if (!claimed.processingStartedAt) {
+      throw new Error(`Pending execution ${claimCandidate.id} is missing its processing start`)
+    }
+    const claimedRow = { ...claimed, processingStartedAt: claimed.processingStartedAt }
 
     if (!isPendingExecutionPayload(claimed.payload)) {
       return {
         status: 'claimed',
         row: {
-          ...claimed,
+          ...claimedRow,
           payload: {},
         },
       }
     }
 
-    return { status: 'claimed', row: claimed as PendingExecutionClaim }
+    return {
+      status: 'claimed',
+      row: { ...claimedRow, payload: claimed.payload },
+    }
   })
 }
 

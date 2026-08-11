@@ -1,4 +1,5 @@
 import { generateInternalToken, type InternalWorkflowExecutionContext } from '@/lib/auth/internal'
+import { WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED } from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -36,6 +37,10 @@ type JobStatusResponse = {
   status?: 'queued' | 'processing' | 'completed' | 'failed'
   output?: QueuedWorkflowExecutionResult
   error?: string
+  metadata?: {
+    startedAt?: string
+    completedAt?: string
+  }
 }
 
 type ChildWorkflowHeaders = () => Promise<Record<string, string>>
@@ -45,6 +50,8 @@ type ChildWorkflowWaitOptions = {
   childWorkflowName: string
   headers: ChildWorkflowHeaders
   shouldCancelExecution?: () => Promise<boolean>
+  abortSignal?: AbortSignal
+  activitySlotId: string
   timeBudget?: ExecutionContext['workflowExecutionTimeBudget']
 }
 
@@ -127,11 +134,10 @@ export class WorkflowBlockHandler implements BlockHandler {
           childWorkflowName,
           headers,
           shouldCancelExecution: context.shouldCancelExecution,
+          abortSignal: context.abortSignal,
+          activitySlotId,
           timeBudget,
         })
-        if (typeof childResult.remainingMilliseconds === 'number') {
-          timeBudget.mergeChildRemaining(childResult.remainingMilliseconds)
-        }
         const childTraceSpans = this.transformChildWorkflowSpans(
           childResult.traceSpans,
           childWorkflowName
@@ -277,65 +283,129 @@ export class WorkflowBlockHandler implements BlockHandler {
     childWorkflowName,
     headers,
     shouldCancelExecution,
+    abortSignal,
+    activitySlotId,
     timeBudget,
   }: ChildWorkflowWaitOptions): Promise<QueuedWorkflowExecutionResult> {
     const startedAt = Date.now()
-
-    while (Date.now() - startedAt < CHILD_WORKFLOW_WAIT_TIMEOUT_MS) {
-      if (await shouldCancelExecution?.()) {
-        await this.cancelQueuedWorkflowExecution(taskId, headers)
-        throw new Error('Child workflow execution was cancelled')
+    let cancellationRequest: Promise<void> | undefined
+    const cancelOnce = () => {
+      cancellationRequest ??= this.cancelQueuedWorkflowExecution(taskId, headers)
+      return cancellationRequest
+    }
+    const createAbortError = () => {
+      if (abortSignal?.reason instanceof Error) return abortSignal.reason
+      const error = new Error('Aborted')
+      error.name = 'AbortError'
+      return error
+    }
+    const observeChildProcessing = (body: JobStatusResponse) => {
+      const processingStartedAt = body.metadata?.startedAt
+      if (typeof processingStartedAt !== 'string') return
+      timeBudget?.observeChildProcessing(
+        activitySlotId,
+        processingStartedAt,
+        body.metadata?.completedAt
+      )
+    }
+    const reconcileChildResult = async (body: JobStatusResponse) => {
+      observeChildProcessing(body)
+      if (typeof body.output?.remainingMilliseconds === 'number') {
+        timeBudget?.mergeChildRemaining(body.output.remainingMilliseconds)
       }
-
-      const response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
-        headers: await headers(),
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        throw new Error(
-          await readResponseErrorMessage(
-            response,
-            `Failed to fetch child workflow status: ${response.status} ${response.statusText}`
-          )
-        )
+      const childAlreadyReportedDeadline =
+        body.status === 'failed' && body.output?.code === WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED
+      if (timeBudget?.remainingMilliseconds() === 0 && !childAlreadyReportedDeadline) {
+        await cancelOnce()
+        throw createAbortError()
       }
-
-      const body = (await response.json()) as JobStatusResponse
-
-      if (body.status === 'completed') {
-        return body.output ?? {}
-      }
-
-      if (body.status === 'failed') {
-        if (typeof body.output?.remainingMilliseconds === 'number') {
-          timeBudget?.mergeChildRemaining(body.output.remainingMilliseconds)
-        }
-        const error = new Error(
-          body.output?.error || body.error || 'Child workflow execution failed'
-        ) as Error & {
-          childTraceSpans?: WorkflowTraceSpan[]
-          childWorkflowName?: string
-          executionResult?: ExecutionResult
-        }
-        error.childWorkflowName = childWorkflowName
-        if (body.output?.success === false && body.output.output) {
-          error.executionResult = body.output as ExecutionResult
-        }
-        if (Array.isArray(body.output?.traceSpans)) {
-          error.childTraceSpans = this.transformChildWorkflowSpans(
-            body.output.traceSpans,
-            childWorkflowName
-          )
-        }
-        throw error
-      }
-
-      await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS)
     }
 
-    await this.cancelQueuedWorkflowExecution(taskId, headers)
-    throw new Error('Child workflow execution timed out')
+    const poll = async () => {
+      while (Date.now() - startedAt < CHILD_WORKFLOW_WAIT_TIMEOUT_MS) {
+        if (abortSignal?.aborted) {
+          await cancelOnce()
+          throw createAbortError()
+        }
+        if (await shouldCancelExecution?.()) {
+          await cancelOnce()
+          throw new Error('Child workflow execution was cancelled')
+        }
+
+        const response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
+          headers: await headers(),
+          cache: 'no-store',
+        })
+
+        if (!response.ok) {
+          throw new Error(
+            await readResponseErrorMessage(
+              response,
+              `Failed to fetch child workflow status: ${response.status} ${response.statusText}`
+            )
+          )
+        }
+
+        const body = (await response.json()) as JobStatusResponse
+
+        if (body.status === 'processing') {
+          observeChildProcessing(body)
+        }
+
+        if (body.status === 'completed') {
+          await reconcileChildResult(body)
+          return body.output ?? {}
+        }
+
+        if (body.status === 'failed') {
+          await reconcileChildResult(body)
+          const error = new Error(
+            body.output?.error || body.error || 'Child workflow execution failed'
+          ) as Error & {
+            childTraceSpans?: WorkflowTraceSpan[]
+            childWorkflowName?: string
+            executionResult?: ExecutionResult
+          }
+          error.childWorkflowName = childWorkflowName
+          if (body.output?.success === false && body.output.output) {
+            error.executionResult = body.output as ExecutionResult
+          }
+          if (Array.isArray(body.output?.traceSpans)) {
+            error.childTraceSpans = this.transformChildWorkflowSpans(
+              body.output.traceSpans,
+              childWorkflowName
+            )
+          }
+          throw error
+        }
+
+        await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS)
+      }
+
+      await cancelOnce()
+      throw new Error('Child workflow execution timed out')
+    }
+
+    if (!abortSignal) return poll()
+
+    let removeAbortListener = () => {}
+    const aborted = new Promise<never>((_resolve, reject) => {
+      const onAbort = () => {
+        void cancelOnce().then(
+          () => reject(createAbortError()),
+          (error) => reject(error)
+        )
+      }
+      removeAbortListener = () => abortSignal.removeEventListener('abort', onAbort)
+      if (abortSignal.aborted) onAbort()
+      else abortSignal.addEventListener('abort', onAbort, { once: true })
+    })
+
+    try {
+      return await Promise.race([poll(), aborted])
+    } finally {
+      removeAbortListener()
+    }
   }
 
   private transformChildWorkflowSpans(

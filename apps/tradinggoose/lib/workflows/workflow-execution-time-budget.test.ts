@@ -50,6 +50,106 @@ describe('AttemptTimeBudget', () => {
     budget.dispose()
   })
 
+  it('charges child processing only for time the parent budget was paused', async () => {
+    const budget = new AttemptTimeBudget(remainingPolicy, 10_000)
+    budget.registerActivity('child')
+    budget.registerActivity('local-sibling')
+    budget.markQueuedChildWait('child')
+
+    await vi.advanceTimersByTimeAsync(2_000)
+    const childStartedAt = new Date().toISOString()
+    await vi.advanceTimersByTimeAsync(1_000)
+    budget.closeActivity('local-sibling')
+    await vi.advanceTimersByTimeAsync(3_000)
+
+    budget.observeChildProcessing('child', childStartedAt, new Date().toISOString())
+    budget.mergeChildRemaining(6_000)
+
+    expect(budget.remainingMilliseconds()).toBe(4_000)
+    budget.dispose()
+  })
+
+  it('resumes the parent deadline when child processing is observed', async () => {
+    const budget = new AttemptTimeBudget(remainingPolicy, 10_000)
+    budget.registerActivity('child')
+    budget.registerActivity('local-sibling')
+    budget.markQueuedChildWait('child')
+
+    await vi.advanceTimersByTimeAsync(3_000)
+    budget.closeActivity('local-sibling')
+    await vi.advanceTimersByTimeAsync(2_000)
+    const childStartedAt = new Date().toISOString()
+    await vi.advanceTimersByTimeAsync(1_000)
+    budget.observeChildProcessing('child', childStartedAt)
+    await vi.advanceTimersByTimeAsync(4_000)
+
+    expect(budget.remainingMilliseconds()).toBe(2_000)
+    budget.dispose()
+  })
+
+  it('charges overlapping child processing intervals once in reverse observation order', async () => {
+    const budget = new AttemptTimeBudget(remainingPolicy, 10_000)
+    budget.registerActivity('child-a')
+    budget.registerActivity('child-b')
+    budget.markQueuedChildWait('child-a')
+    budget.markQueuedChildWait('child-b')
+    const pauseStartedAt = Date.now()
+    await vi.advanceTimersByTimeAsync(6_000)
+
+    budget.observeChildProcessing(
+      'child-b',
+      new Date(pauseStartedAt + 2_000).toISOString(),
+      new Date(pauseStartedAt + 6_000).toISOString()
+    )
+    budget.observeChildProcessing(
+      'child-a',
+      new Date(pauseStartedAt).toISOString(),
+      new Date(pauseStartedAt + 4_000).toISOString()
+    )
+
+    expect(budget.remainingMilliseconds()).toBe(4_000)
+    budget.dispose()
+  })
+
+  it('charges disjoint child intervals and ignores repeated observations', async () => {
+    const budget = new AttemptTimeBudget(remainingPolicy, 10_000)
+    budget.registerActivity('child-a')
+    budget.registerActivity('child-b')
+    budget.markQueuedChildWait('child-a')
+    budget.markQueuedChildWait('child-b')
+    const pauseStartedAt = Date.now()
+    await vi.advanceTimersByTimeAsync(6_000)
+    const firstInterval = [
+      new Date(pauseStartedAt).toISOString(),
+      new Date(pauseStartedAt + 2_000).toISOString(),
+    ] as const
+
+    budget.observeChildProcessing('child-a', ...firstInterval)
+    budget.observeChildProcessing('child-a', ...firstInterval)
+    budget.observeChildProcessing(
+      'child-b',
+      new Date(pauseStartedAt + 4_000).toISOString(),
+      new Date(pauseStartedAt + 6_000).toISOString()
+    )
+
+    expect(budget.remainingMilliseconds()).toBe(6_000)
+    budget.dispose()
+  })
+
+  it('expires when reconciled child processing consumes the paused allowance', async () => {
+    const budget = new AttemptTimeBudget(remainingPolicy, 5_000)
+    budget.registerActivity('child')
+    budget.markQueuedChildWait('child')
+    const childStartedAt = new Date().toISOString()
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    budget.observeChildProcessing('child', childStartedAt, new Date().toISOString())
+
+    await expect(budget.expired).resolves.toBeUndefined()
+    expect(budget.remainingMilliseconds()).toBe(0)
+    budget.dispose()
+  })
+
   it('snapshots current allowance and merges multiple children monotonically', async () => {
     const budget = new AttemptTimeBudget(remainingPolicy, 10_000)
     await vi.advanceTimersByTimeAsync(1_000)

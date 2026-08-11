@@ -39,6 +39,8 @@ const readWorkflowLogOutputText = (log: WorkflowLog) => {
 }
 
 const readWorkflowLogErrorText = (log: WorkflowLog) => {
+  if (log.executionData?.errorMessage) return log.executionData.errorMessage
+
   const blockExecutions = Array.isArray(log.executionData?.blockExecutions)
     ? log.executionData.blockExecutions
     : []

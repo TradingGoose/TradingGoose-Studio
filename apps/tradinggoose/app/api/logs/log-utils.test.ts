@@ -121,6 +121,67 @@ describe('serializeWorkflowLog executionData', () => {
     expect(executionData).not.toHaveProperty('totalDuration')
   })
 
+  it('projects only durable deadline diagnostics into full log details', () => {
+    const deadlineError =
+      'Workflow execution stopped because it reached the 20-second Workflow Execution Time Limit for the "Pro" tier.'
+    const log = serializeWorkflowLog(
+      buildRow({
+        level: 'error',
+        executionData: {
+          errorMessage: 'untrusted replacement',
+          result: {
+            success: false,
+            output: { secret: 'final-output' },
+            error: deadlineError,
+            code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+            deadline: {
+              appliedTierId: 'tier-pro',
+              appliedTierName: 'Pro',
+              limitSeconds: 20,
+              processingStartedAt: '2026-05-05T00:00:00.000Z',
+              terminatedAt: '2026-05-05T00:00:20.000Z',
+            },
+            logs: [
+              {
+                blockId: 'wait-1',
+                blockName: 'Wait',
+                blockType: 'wait',
+                startedAt: '2026-05-05T00:00:00.500Z',
+                endedAt: '2026-05-05T00:00:20.000Z',
+                durationMs: 19_500,
+                success: false,
+                error: deadlineError,
+                code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+                input: { secret: 'block-input' },
+                output: { secret: 'block-output' },
+              },
+            ],
+            secret: 'arbitrary-result-field',
+          },
+        },
+      }),
+      'full'
+    )
+
+    expect(log.executionData).toMatchObject({
+      errorMessage: deadlineError,
+      result: {
+        error: deadlineError,
+        code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+        deadline: {
+          appliedTierId: 'tier-pro',
+          appliedTierName: 'Pro',
+          limitSeconds: 20,
+        },
+        logs: [expect.objectContaining({ blockId: 'wait-1', error: deadlineError })],
+      },
+    })
+    expect(log.executionData?.result).not.toHaveProperty('output')
+    expect(log.executionData?.result).not.toHaveProperty('secret')
+    expect(log.executionData?.result?.logs[0]).not.toHaveProperty('input')
+    expect(log.executionData?.result?.logs[0]).not.toHaveProperty('output')
+  })
+
   it('keeps only the monitor trigger fields used by the monitor UI', () => {
     const log = serializeWorkflowLog(
       buildRow({

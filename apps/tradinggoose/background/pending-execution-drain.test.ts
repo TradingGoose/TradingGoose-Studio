@@ -105,6 +105,7 @@ describe('pendingExecutionDrain', () => {
     workflowId: 'workflow-1',
     workspaceId: 'workspace-1',
     payload,
+    processingStartedAt: new Date('2026-04-23T00:00:00.000Z'),
   })
   const workflowRow = (id: string) =>
     executionRow(id, 'workflow', { workflowId: 'workflow-1', userId: 'user-1' })
@@ -205,7 +206,8 @@ describe('pendingExecutionDrain', () => {
       1,
       expect.objectContaining({
         executionId: 'pending-workflow-2',
-      })
+      }),
+      { attemptStartedAt: '2026-04-23T00:00:00.000Z' }
     )
     expect(completePendingExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-workflow-3',
@@ -214,7 +216,8 @@ describe('pendingExecutionDrain', () => {
       2,
       expect.objectContaining({
         executionId: 'pending-workflow-3',
-      })
+      }),
+      { attemptStartedAt: '2026-04-23T00:00:00.000Z' }
     )
     expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(3)
     expect(result).toEqual({

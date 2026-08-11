@@ -77,24 +77,28 @@ describe('executeWorkflowJob', () => {
   })
 
   it('marks queued workflow-block executions as child executions', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      metadata: {
-        source: 'workflow_block',
-        parentBlockId: 'block-1',
-        timePolicy: {
-          kind: 'unlimited',
-          processingStartedAt: '2026-01-01T00:00:00.000Z',
-          tier: { source: 'no-tier' },
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        metadata: {
+          source: 'workflow_block',
+          parentBlockId: 'block-1',
+          timePolicy: {
+            kind: 'unlimited',
+            processingStartedAt: '2026-01-01T00:00:00.000Z',
+            tier: { source: 'no-tier' },
+          },
         },
       },
-    })
+      { attemptStartedAt: '2026-01-01T00:00:05.000Z' }
+    )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         workflowId: 'workflow-1',
         actorUserId: 'user-1',
+        attemptStartedAt: '2026-01-01T00:00:05.000Z',
         contextExtensions: expect.objectContaining({
           workflowDepth: 0,
           isChildExecution: true,

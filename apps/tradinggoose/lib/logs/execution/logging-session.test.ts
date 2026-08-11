@@ -147,6 +147,7 @@ describe('LoggingSession', () => {
         userId: 'user-1',
         workspaceId: 'workspace-1',
         workflowState,
+        startedAt: '2026-04-22T23:59:59.000Z',
       })
     ).resolves.toBe('log-1')
 
@@ -168,6 +169,7 @@ describe('LoggingSession', () => {
       },
       workflowId: 'workflow-1',
       workflowState,
+      startedAt: '2026-04-22T23:59:59.000Z',
       workflowSummary: expect.objectContaining({
         id: 'workflow-1',
         workspaceId: 'workspace-1',

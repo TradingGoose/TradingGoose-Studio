@@ -61,7 +61,7 @@ export function isWorkflowExecutionPayload(
 
 export async function executeWorkflowJob(
   payload: WorkflowExecutionPayload,
-  options?: { blueprint?: WorkflowExecutionBlueprint }
+  options?: { blueprint?: WorkflowExecutionBlueprint; attemptStartedAt?: string }
 ) {
   const workflowId = payload.workflowId
   const executionId = payload.executionId ?? uuidv4()
@@ -87,7 +87,7 @@ export async function executeWorkflowJob(
         triggerType: resolveWorkflowTriggerTargetType(triggerType),
       }
 
-  const processingStartedAt = new Date().toISOString()
+  const processingStartedAt = options?.attemptStartedAt ?? new Date().toISOString()
   const billingContext = isChildExecution
     ? null
     : await resolveServerExecutionBillingContext({

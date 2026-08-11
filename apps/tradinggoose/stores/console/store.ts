@@ -1,5 +1,6 @@
 import { devtools, persist } from 'zustand/middleware'
 import { createWithEqualityFn as create } from 'zustand/traditional'
+import { WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED } from '@/lib/execution/workflow-execution-time-policy'
 import { redactApiKeys } from '@/lib/utils'
 import type {
   WorkflowExecutionBlockData,
@@ -34,6 +35,7 @@ type ConsoleEntryPatchFields = Partial<
   >
 >
 
+// biome-ignore format: Keep the existing readable union layout.
 type ConsoleEntryPatch = ConsoleEntryPatchFields &
   (
     | { content: string; output?: never }
@@ -467,8 +469,8 @@ export const useConsoleStore = create<ConsoleStore>()(
 
           if (isTerminalWorkflowExecutionEvent(event)) {
             clearExecutionStreamBuffers(event.executionId)
-            set((state) => ({
-              entries: state.entries.map((entry) => {
+            set((state) => {
+              const entries = state.entries.map((entry) => {
                 if (
                   entry.workflowId !== event.workflowId ||
                   entry.executionId !== event.executionId ||
@@ -493,8 +495,56 @@ export const useConsoleStore = create<ConsoleStore>()(
                   endedAt: entry.endedAt || event.timestamp,
                   durationMs,
                 }
-              }),
-            }))
+              })
+              const hasDeadlineFailureEntry = entries.some(
+                (entry) =>
+                  entry.workflowId === event.workflowId &&
+                  entry.executionId === event.executionId &&
+                  entry.success === false &&
+                  entry.error === (event.type === 'execution:error' ? event.data.error : undefined)
+              )
+
+              if (
+                event.type !== 'execution:error' ||
+                event.data.result.code !== WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED ||
+                hasDeadlineFailureEntry
+              ) {
+                return { entries }
+              }
+
+              const deadline = event.data.result.deadline
+              const startedAt =
+                typeof deadline?.processingStartedAt === 'string'
+                  ? deadline.processingStartedAt
+                  : event.timestamp
+              const endedAt =
+                typeof deadline?.terminatedAt === 'string' ? deadline.terminatedAt : event.timestamp
+              const startedAtMs = Date.parse(startedAt)
+              const endedAtMs = Date.parse(endedAt)
+              const durationMs =
+                Number.isFinite(startedAtMs) && Number.isFinite(endedAtMs)
+                  ? Math.max(0, endedAtMs - startedAtMs)
+                  : 0
+
+              const deadlineEntry: ConsoleEntry = {
+                id: crypto.randomUUID(),
+                timestamp: event.timestamp,
+                workflowId: event.workflowId,
+                executionId: event.executionId,
+                blockId: 'execution',
+                blockName: 'Workflow',
+                blockType: 'workflow',
+                error: event.data.error,
+                success: false,
+                durationMs,
+                startedAt,
+                endedAt,
+                isRunning: false,
+                isCanceled: false,
+              }
+
+              return { entries: [deadlineEntry, ...entries].slice(0, MAX_ENTRIES) }
+            })
           }
         },
 
