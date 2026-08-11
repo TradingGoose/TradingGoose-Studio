@@ -50,12 +50,18 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
+  organizationBillingLedger: {
+    organizationId: 'organizationBillingLedger.organizationId',
+  },
   subscription: {
     referenceType: 'subscription.referenceType',
     referenceId: 'subscription.referenceId',
     stripeSubscriptionId: 'subscription.stripeSubscriptionId',
     status: 'subscription.status',
     id: 'subscription.id',
+  },
+  userStats: {
+    userId: 'userStats.userId',
   },
 }))
 
@@ -329,12 +335,39 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(mockEnsureDefaultUserSubscription.mock.invocationCallOrder[0]).toBeLessThan(
       mockSyncSubscriptionUsageLimits.mock.invocationCallOrder[0]
     )
+    expect(mockDb.update).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'userStats.userId' })
+    )
+    expect(mockEq).toHaveBeenCalledWith('userStats.userId', 'user-1')
+    expect(updateCalls).toContainEqual({ billingBlocked: false })
     expect(updateCalls).toContainEqual(
       expect.objectContaining({
         status: 'canceled',
         stripeSubscriptionId: 'sub_stripe_123',
       })
     )
+  })
+
+  it('restores and unblocks a personal subscription before rethrowing settlement failure', async () => {
+    const stripeBackedSubscription = createDefaultSubscription({
+      status: 'canceled',
+      stripeSubscriptionId: 'sub_stripe_123',
+    })
+    mockGetSubscriptionByStripeSubscriptionId.mockResolvedValue(stripeBackedSubscription)
+    mockEnsureDefaultUserSubscription.mockResolvedValue(createDefaultSubscription())
+    mockCalculateSubscriptionOverage.mockRejectedValue(new Error('Stripe invoice failed'))
+
+    const { handleStripeSubscriptionDeleted } = await import('./subscription')
+
+    await expect(
+      handleStripeSubscriptionDeleted(createDeletedSubscriptionEvent() as any)
+    ).rejects.toThrow('Stripe invoice failed')
+
+    expect(mockEnsureDefaultUserSubscription).toHaveBeenCalledWith('user-1', mockDb)
+    expect(mockDb.update).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'userStats.userId' })
+    )
+    expect(updateCalls).toContainEqual({ billingBlocked: false })
   })
 
   it('skips deleted Stripe subscription events without a local subscription row', async () => {
@@ -438,6 +471,16 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
     expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
     expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
+    expect(mockDb.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: 'organizationBillingLedger.organizationId',
+      })
+    )
+    expect(mockEq).toHaveBeenCalledWith('organizationBillingLedger.organizationId', 'org-1')
+    expect(updateCalls).toContainEqual({
+      billingBlocked: false,
+      updatedAt: expect.any(Date),
+    })
     expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'sub_org',

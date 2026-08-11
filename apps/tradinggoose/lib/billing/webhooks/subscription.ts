@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { subscription } from '@tradinggoose/db/schema'
+import { organizationBillingLedger, subscription, userStats } from '@tradinggoose/db/schema'
 import { and, eq, ne } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
@@ -336,6 +336,11 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
         tx
       )
 
+      await tx
+        .update(userStats)
+        .set({ billingBlocked: false })
+        .where(eq(userStats.userId, subscriptionToSettle.referenceId))
+
       if (nextSubscription.tier?.isDefault && !nextSubscription.stripeSubscriptionId) {
         await resetUserDefaultUsageToOnboardingAllowanceBalance(
           subscriptionToSettle.referenceId,
@@ -352,6 +357,11 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
 
       return nextSubscription
     })
+  } else {
+    await db
+      .update(organizationBillingLedger)
+      .set({ billingBlocked: false, updatedAt: new Date() })
+      .where(eq(organizationBillingLedger.organizationId, subscriptionToSettle.referenceId))
   }
 
   await syncSubscriptionUsageLimits(subscriptionForUsageLimits)
