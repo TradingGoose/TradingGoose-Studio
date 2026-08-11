@@ -652,6 +652,8 @@ export async function executeTool(
       },
     }
   } catch (error: any) {
+    if (options?.signal?.aborted) throw error
+
     logger.error(`[${requestId}] Error executing tool ${toolId}:`, {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,

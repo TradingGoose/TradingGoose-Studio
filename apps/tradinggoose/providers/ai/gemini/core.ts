@@ -146,6 +146,7 @@ async function executeToolCallsBatch(
         duration,
       }
     } catch (error) {
+      if (request.abortSignal?.aborted) throw error
       const toolCallEndTime = Date.now()
       logger.error('Error processing function call:', {
         error: toError(error).message,

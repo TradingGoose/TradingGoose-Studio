@@ -329,6 +329,41 @@ describe('executeTool Function', () => {
     expect(result.timing?.duration).toBeGreaterThanOrEqual(0)
   })
 
+  it('rejects when the caller aborts tool execution', async () => {
+    const abortController = new AbortController()
+    global.fetch = Object.assign(
+      vi.fn().mockImplementation(
+        (_url, options) =>
+          new Promise((_resolve, reject) => {
+            options.signal.addEventListener(
+              'abort',
+              () => {
+                const error = new Error('Aborted')
+                error.name = 'AbortError'
+                reject(error)
+              },
+              { once: true }
+            )
+          })
+      ),
+      { preconnect: vi.fn() }
+    ) as typeof fetch
+
+    const execution = executeTool(
+      'http_request',
+      { url: 'https://api.example.com/data', method: 'GET' },
+      false,
+      undefined,
+      { signal: abortController.signal }
+    )
+    const rejection = expect(execution).rejects.toMatchObject({ name: 'AbortError' })
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+
+    abortController.abort()
+
+    await rejection
+  })
+
   it('should call internal routes directly', async () => {
     // Mock transformResponse for function_execute tool
     const originalFunctionTool = { ...tools.function_execute }
