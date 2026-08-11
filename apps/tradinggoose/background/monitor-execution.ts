@@ -9,31 +9,34 @@ import {
   isPortfolioMonitorExecutionPayload,
   type PortfolioMonitorExecutionPayload,
 } from './portfolio-monitor-execution'
+import type { WorkflowExecutionAttemptOptions } from './workflow-execution'
 
 export type MonitorExecutionPayload =
   | IndicatorMonitorExecutionPayload
   | PortfolioMonitorExecutionPayload
 
 const monitorExecutionHandlers = {
-  [INDICATOR_MONITOR_PROVIDER]: {
-    isPayload: isIndicatorMonitorExecutionPayload,
-    execute: executeIndicatorMonitorJob,
-  },
-  [PORTFOLIO_MONITOR_PROVIDER]: {
-    isPayload: isPortfolioMonitorExecutionPayload,
-    execute: executePortfolioMonitorJob,
-  },
+  [INDICATOR_MONITOR_PROVIDER]: isIndicatorMonitorExecutionPayload,
+  [PORTFOLIO_MONITOR_PROVIDER]: isPortfolioMonitorExecutionPayload,
 } as const
 
 export function isMonitorExecutionPayload(value: unknown): value is MonitorExecutionPayload {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const source = (value as { source?: unknown }).source
   if (typeof source !== 'string') return false
-  const handler = monitorExecutionHandlers[source as keyof typeof monitorExecutionHandlers]
-  return handler ? handler.isPayload(value) : false
+  const isPayload = monitorExecutionHandlers[source as keyof typeof monitorExecutionHandlers]
+  return isPayload ? isPayload(value) : false
 }
 
-export async function executeMonitorJob(payload: MonitorExecutionPayload) {
-  const handler = monitorExecutionHandlers[payload.source]
-  return handler.execute(payload as never)
+export async function executeMonitorJob(
+  payload: MonitorExecutionPayload,
+  options?: WorkflowExecutionAttemptOptions
+) {
+  if (payload.source === INDICATOR_MONITOR_PROVIDER) {
+    return executeIndicatorMonitorJob(payload)
+  }
+  if (!options) {
+    throw new Error('Portfolio monitor execution is missing its captured time policy')
+  }
+  return executePortfolioMonitorJob(payload, options)
 }

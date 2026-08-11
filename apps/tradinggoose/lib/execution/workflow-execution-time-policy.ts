@@ -31,7 +31,6 @@ export type WorkflowExecutionTimePolicy =
 export interface WorkflowExecutionTimeBudget {
   registerActivity(slotId: string): void
   markQueuedChildWait(slotId: string): void
-  observeChildProcessing(slotId: string, startedAt: string, completedAt?: string): void
   closeActivity(slotId: string): void
   snapshotPolicy(): WorkflowExecutionTimePolicy
   mergeChildRemaining(remainingMilliseconds: number): void

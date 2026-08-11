@@ -12,6 +12,7 @@ const {
   andMock,
   orMock,
   limitMock,
+  readWorkflowExecutionTerminalEventMock,
 } = vi.hoisted(() => ({
   checkHybridAuthMock: vi.fn(),
   cancelPendingWorkflowExecutionMock: vi.fn(),
@@ -19,6 +20,12 @@ const {
   andMock: vi.fn((...args) => ({ args })),
   orMock: vi.fn((...args) => ({ args })),
   limitMock: vi.fn(),
+  readWorkflowExecutionTerminalEventMock: vi.fn(),
+}))
+
+vi.mock('@/lib/execution/workflow-execution-events', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/execution/workflow-execution-events')>()),
+  readWorkflowExecutionTerminalEvent: readWorkflowExecutionTerminalEventMock,
 }))
 
 const queryChain = {
@@ -142,6 +149,7 @@ describe('GET /api/jobs/[jobId]', () => {
       success: true,
       userId: 'user-1',
     })
+    readWorkflowExecutionTerminalEventMock.mockResolvedValue(null)
   })
 
   it('requires authentication', async () => {
@@ -265,6 +273,60 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(body.output.executionId).toBeUndefined()
     expect(body.output.executedAt).toBeUndefined()
     expect(body.output.metadata.queuedExecution).toBeUndefined()
+  })
+
+  it('returns the live internal child result with its remaining shared budget', async () => {
+    checkHybridAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+      authType: 'internal_jwt',
+      internalWorkflowExecution: {
+        source: 'workflow_block',
+        parentExecutionId: 'parent-execution-1',
+        parentBlockId: 'workflow-block-1',
+      },
+    })
+    limitMock.mockResolvedValueOnce([])
+    readWorkflowExecutionTerminalEventMock.mockResolvedValueOnce({
+      type: 'execution:completed',
+      executionId: 'job-1',
+      workflowId: 'child-workflow-1',
+      timestamp: '2026-04-16T00:00:02.000Z',
+      data: {
+        result: {
+          success: true,
+          output: { answer: 42 },
+          remainingMilliseconds: 7_500,
+          metadata: {
+            startTime: '2026-04-16T00:00:00.000Z',
+            endTime: '2026-04-16T00:00:02.000Z',
+            queuedExecution: {
+              source: 'workflow_block',
+              parentExecutionId: 'parent-execution-1',
+              parentBlockId: 'workflow-block-1',
+            },
+          },
+        },
+      },
+    })
+
+    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    await expect(response.json()).resolves.toMatchObject({
+      status: 'completed',
+      output: {
+        success: true,
+        output: { answer: 42 },
+        remainingMilliseconds: 7_500,
+      },
+      metadata: {
+        startedAt: '2026-04-16T00:00:00.000Z',
+        completedAt: '2026-04-16T00:00:02.000Z',
+      },
+    })
+    expect(limitMock).toHaveBeenCalledOnce()
   })
 
   it('reports failed workflow jobs without dropping the terminal result', async () => {

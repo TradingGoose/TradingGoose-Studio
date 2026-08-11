@@ -299,17 +299,7 @@ export class WorkflowBlockHandler implements BlockHandler {
       error.name = 'AbortError'
       return error
     }
-    const observeChildProcessing = (body: JobStatusResponse) => {
-      const processingStartedAt = body.metadata?.startedAt
-      if (typeof processingStartedAt !== 'string') return
-      timeBudget?.observeChildProcessing(
-        activitySlotId,
-        processingStartedAt,
-        body.metadata?.completedAt
-      )
-    }
     const reconcileChildResult = async (body: JobStatusResponse) => {
-      observeChildProcessing(body)
       if (typeof body.output?.remainingMilliseconds === 'number') {
         timeBudget?.mergeChildRemaining(body.output.remainingMilliseconds)
       }
@@ -347,10 +337,6 @@ export class WorkflowBlockHandler implements BlockHandler {
         }
 
         const body = (await response.json()) as JobStatusResponse
-
-        if (body.status === 'processing') {
-          observeChildProcessing(body)
-        }
 
         if (body.status === 'completed') {
           await reconcileChildResult(body)

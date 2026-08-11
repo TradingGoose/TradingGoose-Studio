@@ -10,7 +10,6 @@ const {
   writeExecutionEventMock,
   isPendingWorkflowExecutionCancellationRequestedMock,
   disableMonitorMock,
-  resolveServerExecutionBillingContextMock,
 } = vi.hoisted(() => ({
   runWorkflowExecutionMock: vi.fn(),
   buildTraceSpansMock: vi.fn(),
@@ -18,11 +17,6 @@ const {
   writeExecutionEventMock: vi.fn(),
   isPendingWorkflowExecutionCancellationRequestedMock: vi.fn(),
   disableMonitorMock: vi.fn(),
-  resolveServerExecutionBillingContextMock: vi.fn(),
-}))
-
-vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
-  resolveServerExecutionBillingContext: resolveServerExecutionBillingContextMock,
 }))
 
 vi.mock('@/lib/execution/workflow-execution-events', () => ({
@@ -55,6 +49,15 @@ vi.mock('./monitor-disable', () => ({
 
 import { executeWorkflowJob } from './workflow-execution'
 
+const rootAttempt = {
+  attemptStartedAt: '2026-01-01T00:00:05.000Z',
+  timePolicy: {
+    kind: 'unlimited' as const,
+    processingStartedAt: '2026-01-01T00:00:05.000Z',
+    tier: { source: 'no-tier' as const },
+  },
+}
+
 describe('executeWorkflowJob', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -73,10 +76,22 @@ describe('executeWorkflowJob', () => {
     })
     writeExecutionEventMock.mockResolvedValue(undefined)
     isPendingWorkflowExecutionCancellationRequestedMock.mockResolvedValue(false)
-    resolveServerExecutionBillingContextMock.mockResolvedValue(null)
   })
 
   it('marks queued workflow-block executions as child executions', async () => {
+    const inheritedPolicy = {
+      kind: 'unlimited' as const,
+      processingStartedAt: '2026-01-01T00:00:00.000Z',
+      tier: { source: 'no-tier' as const },
+    }
+    runWorkflowExecutionMock.mockResolvedValueOnce({
+      result: {
+        success: true,
+        output: { ok: true },
+        remainingMilliseconds: 7_500,
+        metadata: { duration: 12 },
+      },
+    })
     await executeWorkflowJob(
       {
         workflowId: 'workflow-1',
@@ -84,14 +99,10 @@ describe('executeWorkflowJob', () => {
         metadata: {
           source: 'workflow_block',
           parentBlockId: 'block-1',
-          timePolicy: {
-            kind: 'unlimited',
-            processingStartedAt: '2026-01-01T00:00:00.000Z',
-            tier: { source: 'no-tier' },
-          },
+          timePolicy: inheritedPolicy,
         },
       },
-      { attemptStartedAt: '2026-01-01T00:00:05.000Z' }
+      { attemptStartedAt: '2026-01-01T00:00:05.000Z', timePolicy: inheritedPolicy }
     )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
@@ -106,42 +117,57 @@ describe('executeWorkflowJob', () => {
         }),
       })
     )
+    expect(createWorkflowExecutionEventWriterMock).toHaveBeenCalledWith({
+      pendingExecutionId: expect.any(String),
+      workflowId: 'workflow-1',
+    })
+    expect(writeExecutionEventMock).toHaveBeenLastCalledWith({
+      type: 'execution:completed',
+      data: {
+        result: expect.objectContaining({ remainingMilliseconds: 7_500 }),
+      },
+    })
   })
 
   it('rejects a nested policy that expands the inherited allowance', async () => {
     await expect(
-      executeWorkflowJob({
-        workflowId: 'workflow-1',
-        userId: 'user-1',
-        metadata: {
-          source: 'workflow_block',
-          parentBlockId: 'block-1',
-          timePolicy: {
-            kind: 'bounded',
-            processingStartedAt: '2026-01-01T00:00:00.000Z',
-            tier: {
-              source: 'resolved-tier',
-              appliedTierId: 'tier-1',
-              appliedTierName: 'Pro',
+      executeWorkflowJob(
+        {
+          workflowId: 'workflow-1',
+          userId: 'user-1',
+          metadata: {
+            source: 'workflow_block',
+            parentBlockId: 'block-1',
+            timePolicy: {
+              kind: 'bounded',
+              processingStartedAt: '2026-01-01T00:00:00.000Z',
+              tier: {
+                source: 'resolved-tier',
+                appliedTierId: 'tier-1',
+                appliedTierName: 'Pro',
+              },
+              limitSeconds: 10,
+              accounting: { mode: 'remaining', remainingMilliseconds: 10_001 },
             },
-            limitSeconds: 10,
-            accounting: { mode: 'remaining', remainingMilliseconds: 10_001 },
           },
         },
-      })
+        rootAttempt
+      )
     ).rejects.toThrow('authenticated time policy')
-    expect(resolveServerExecutionBillingContextMock).not.toHaveBeenCalled()
     expect(runWorkflowExecutionMock).not.toHaveBeenCalled()
   })
 
   it('does not mark non-child queued workflow executions as child executions', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      metadata: {
-        source: 'workflow_queue',
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        metadata: {
+          source: 'workflow_queue',
+        },
       },
-    })
+      rootAttempt
+    )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -153,15 +179,19 @@ describe('executeWorkflowJob', () => {
       })
     )
     expect(createWorkflowExecutionEventWriterMock).not.toHaveBeenCalled()
+    expect(runWorkflowExecutionMock.mock.calls[0]?.[0].timePolicy).toBe(rootAttempt.timePolicy)
   })
 
   it('enables chunk streaming only when requested by the queued payload', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      stream: true,
-      selectedOutputs: ['agent-1_content'],
-    })
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        stream: true,
+        selectedOutputs: ['agent-1_content'],
+      },
+      rootAttempt
+    )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -187,20 +217,23 @@ describe('executeWorkflowJob', () => {
       parallels: {},
     }
 
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      workspaceId: 'workspace-1',
-      input: { symbol: 'AAPL' },
-      triggerType: 'manual',
-      executionTarget: 'live',
-      workflowData,
-      workflowVariables: { risk: { value: 1 } },
-      triggerBlockId: 'trigger-1',
-      metadata: {
-        source: 'workflow_queue',
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        input: { symbol: 'AAPL' },
+        triggerType: 'manual',
+        executionTarget: 'live',
+        workflowData,
+        workflowVariables: { risk: { value: 1 } },
+        triggerBlockId: 'trigger-1',
+        metadata: {
+          source: 'workflow_queue',
+        },
       },
-    })
+      rootAttempt
+    )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -222,14 +255,17 @@ describe('executeWorkflowJob', () => {
   })
 
   it('preserves manual queued starts when no explicit trigger block is supplied', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      triggerType: 'manual',
-      metadata: {
-        source: 'workflow_queue',
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        triggerType: 'manual',
+        metadata: {
+          source: 'workflow_queue',
+        },
       },
-    })
+      rootAttempt
+    )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -243,11 +279,10 @@ describe('executeWorkflowJob', () => {
   })
 
   it('checks queued cancellation state through the execution id', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      executionId: 'execution-1',
-    })
+    await executeWorkflowJob(
+      { workflowId: 'workflow-1', userId: 'user-1', executionId: 'execution-1' },
+      rootAttempt
+    )
 
     const call = runWorkflowExecutionMock.mock.calls[0]?.[0] as any
     await call.contextExtensions.shouldCancelExecution()
@@ -266,16 +301,19 @@ describe('executeWorkflowJob', () => {
       },
     })
 
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      triggerType: 'webhook',
-      triggerBlockId: 'trigger-1',
-      triggerData: {
-        source: 'indicator_trigger',
-        monitor: { id: 'monitor-1' },
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        triggerType: 'webhook',
+        triggerBlockId: 'trigger-1',
+        triggerData: {
+          source: 'indicator_trigger',
+          monitor: { id: 'monitor-1' },
+        },
       },
-    })
+      rootAttempt
+    )
 
     expect(disableMonitorMock).toHaveBeenCalledWith(
       expect.objectContaining({

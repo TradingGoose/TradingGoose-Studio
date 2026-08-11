@@ -561,11 +561,21 @@ describe('Airtable payload durability', () => {
       executionId
     )
   const execute = (overrides: Row = {}) =>
-    executeWebhookJob({
-      ...pending('execution-a').payload,
-      executionId: 'execution-a',
-      ...overrides,
-    } as any)
+    executeWebhookJob(
+      {
+        ...pending('execution-a').payload,
+        executionId: 'execution-a',
+        ...overrides,
+      } as any,
+      {
+        attemptStartedAt: '2026-01-01T00:00:00.000Z',
+        timePolicy: {
+          kind: 'unlimited',
+          processingStartedAt: '2026-01-01T00:00:00.000Z',
+          tier: { source: 'no-tier' },
+        },
+      }
+    )
   const queueTenPages = (payloads: unknown[] = [{ id: 'change' }]) => {
     state.pendingExecutions = [pending('execution-a')]
     fetchMock.mockImplementation(() => page(payloads, fetchMock.mock.calls.length, true))
@@ -647,6 +657,13 @@ describe('Airtable payload durability', () => {
     await expect(execution).resolves.toMatchObject({ success: true })
 
     expect(runWorkflowMock.mock.calls[0][0].workflowInput.payloads).toEqual([{ id: 'P1' }])
+    expect(runWorkflowMock.mock.calls[0][0]).toMatchObject({
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
+      timePolicy: {
+        kind: 'unlimited',
+        processingStartedAt: '2026-01-01T00:00:00.000Z',
+      },
+    })
     expect(fetchMock).toHaveBeenCalledTimes(4)
     expect(enqueueExecutionMock.mock.calls[0][0].pendingExecutionId).toBe(
       'webhook_execution:webhook-1:airtable:remote:1'

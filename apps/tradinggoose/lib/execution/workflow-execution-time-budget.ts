@@ -10,10 +10,7 @@ export class AttemptTimeBudget implements WorkflowExecutionTimeBudget {
   private runningSince = Date.now()
   private timer: ReturnType<typeof setTimeout> | undefined
   private readonly activities = new Map<string, 'active' | 'queued-child-wait'>()
-  private readonly pausedIntervals: Array<{ startedAt: number; endedAt: number }> = []
-  private childProcessingIntervals: Array<{ startedAt: number; endedAt: number }> = []
   private paused = false
-  private pausedAt: number | null = null
   readonly expired: Promise<void>
   private resolveExpired!: () => void
 
@@ -60,12 +57,6 @@ export class AttemptTimeBudget implements WorkflowExecutionTimeBudget {
     const transitionAt = Date.now()
     this.commitElapsed()
     this.paused = shouldPause
-    if (shouldPause) {
-      this.pausedAt = transitionAt
-    } else if (this.pausedAt !== null) {
-      this.pausedIntervals.push({ startedAt: this.pausedAt, endedAt: transitionAt })
-      this.pausedAt = null
-    }
     this.runningSince = transitionAt
     this.arm()
   }
@@ -78,82 +69,6 @@ export class AttemptTimeBudget implements WorkflowExecutionTimeBudget {
   markQueuedChildWait(slotId: string) {
     if (this.activities.has(slotId)) this.activities.set(slotId, 'queued-child-wait')
     this.syncPause()
-  }
-
-  observeChildProcessing(slotId: string, startedAt: string, completedAt?: string) {
-    const processingStartedAt = Date.parse(startedAt)
-    const processingEndedAt = completedAt === undefined ? Date.now() : Date.parse(completedAt)
-    if (
-      !Number.isFinite(processingStartedAt) ||
-      !Number.isFinite(processingEndedAt) ||
-      processingEndedAt < processingStartedAt
-    ) {
-      throw new Error('Child workflow returned invalid processing timestamps')
-    }
-
-    const previousPausedOverlap = this.getPausedOverlap(this.childProcessingIntervals)
-    this.childProcessingIntervals = this.mergeInterval(this.childProcessingIntervals, {
-      startedAt: processingStartedAt,
-      endedAt: processingEndedAt,
-    })
-    const pausedOverlap =
-      this.getPausedOverlap(this.childProcessingIntervals) - previousPausedOverlap
-    if (this.remaining !== null && pausedOverlap > 0) {
-      this.remaining = Math.max(0, (this.currentRemaining() ?? 0) - pausedOverlap)
-      this.runningSince = Date.now()
-      if (this.remaining === 0) this.resolveExpired()
-      this.arm()
-    }
-
-    if (completedAt === undefined && this.activities.has(slotId)) {
-      this.activities.set(slotId, 'active')
-      this.syncPause()
-    }
-  }
-
-  private mergeInterval(
-    intervals: Array<{ startedAt: number; endedAt: number }>,
-    addition: { startedAt: number; endedAt: number }
-  ) {
-    const merged: Array<{ startedAt: number; endedAt: number }> = []
-    let current = addition
-    for (const interval of intervals) {
-      if (interval.endedAt < current.startedAt) {
-        merged.push(interval)
-      } else if (current.endedAt < interval.startedAt) {
-        merged.push(current)
-        current = interval
-      } else {
-        current = {
-          startedAt: Math.min(current.startedAt, interval.startedAt),
-          endedAt: Math.max(current.endedAt, interval.endedAt),
-        }
-      }
-    }
-    merged.push(current)
-    return merged
-  }
-
-  private getPausedOverlap(processingIntervals: Array<{ startedAt: number; endedAt: number }>) {
-    const pauseIntervals =
-      this.paused && this.pausedAt !== null
-        ? [...this.pausedIntervals, { startedAt: this.pausedAt, endedAt: Date.now() }]
-        : this.pausedIntervals
-    return processingIntervals.reduce(
-      (total, processingInterval) =>
-        total +
-        pauseIntervals.reduce(
-          (overlap, pauseInterval) =>
-            overlap +
-            Math.max(
-              0,
-              Math.min(processingInterval.endedAt, pauseInterval.endedAt) -
-                Math.max(processingInterval.startedAt, pauseInterval.startedAt)
-            ),
-          0
-        ),
-      0
-    )
   }
 
   closeActivity(slotId: string) {

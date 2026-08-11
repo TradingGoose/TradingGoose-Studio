@@ -16,7 +16,7 @@ import {
   loadWorkflowExecutionBlueprint,
   WorkflowUsageLimitError,
 } from '@/lib/workflows/execution-runner'
-import { executeWorkflowJob } from './workflow-execution'
+import { executeWorkflowJob, type WorkflowExecutionAttemptOptions } from './workflow-execution'
 
 const logger = createLogger('TriggerScheduleExecution')
 
@@ -120,7 +120,10 @@ async function resolveFallbackNextRunAt(params: {
   return new Date(params.now.getTime() + 24 * 60 * 60 * 1000)
 }
 
-export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
+export async function executeScheduleJob(
+  payload: ScheduleExecutionPayload,
+  options: WorkflowExecutionAttemptOptions
+) {
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
   const now = new Date(payload.now)
@@ -208,7 +211,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         triggerBlockId: payload.blockId,
         executionTarget: 'deployed',
       },
-      { blueprint }
+      { ...options, blueprint }
     )
 
     if (result.success) {

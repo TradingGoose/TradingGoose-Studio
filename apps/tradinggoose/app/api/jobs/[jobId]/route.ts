@@ -8,7 +8,10 @@ import {
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { type AuthResult, AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
-import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
+import {
+  createWorkflowExecutionResultFromLog,
+  readWorkflowExecutionTerminalEvent,
+} from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -69,6 +72,29 @@ export async function GET(
           startedAt: pendingRow.processingStartedAt ?? pendingRow.createdAt,
         },
       })
+    }
+
+    if (auth.authType === AuthType.INTERNAL_JWT && auth.internalWorkflowExecution) {
+      const terminalEvent = await readWorkflowExecutionTerminalEvent(taskId)
+      const terminalResult = terminalEvent?.data.result
+      if (
+        terminalEvent &&
+        isExecutionResult(terminalResult) &&
+        shouldIncludeInternalWorkflowTraceSpans(auth, terminalResult)
+      ) {
+        const failed = terminalEvent.type !== 'execution:completed'
+        return NextResponse.json({
+          success: true,
+          taskId,
+          status: failed ? 'failed' : 'completed',
+          output: createInternalWorkflowJobResult(terminalResult),
+          ...(failed ? { error: terminalResult.error ?? 'Execution failed' } : {}),
+          metadata: {
+            startedAt: terminalResult.metadata?.startTime ?? terminalEvent.timestamp,
+            completedAt: terminalResult.metadata?.endTime ?? terminalEvent.timestamp,
+          },
+        })
+      }
     }
 
     const workspaceAccess = buildWorkspaceAccessScope(

@@ -48,7 +48,6 @@ describe('WorkflowBlockHandler', () => {
       workflowExecutionTimeBudget: {
         registerActivity: vi.fn(),
         markQueuedChildWait: vi.fn(),
-        observeChildProcessing: vi.fn(),
         closeActivity: vi.fn(),
         snapshotPolicy: vi.fn(() => timePolicy),
         mergeChildRemaining: vi.fn(),
@@ -133,6 +132,7 @@ describe('WorkflowBlockHandler', () => {
             output: {
               success: true,
               output: { value: 42 },
+              remainingMilliseconds: 9_000,
               traceSpans: [],
             },
           }),
@@ -198,11 +198,7 @@ describe('WorkflowBlockHandler', () => {
       },
     })
     expect(generateInternalToken).toHaveBeenCalledTimes(2)
-    expect(mockContext.workflowExecutionTimeBudget?.observeChildProcessing).toHaveBeenCalledWith(
-      'workflow-block-1',
-      '2026-01-01T00:00:01.000Z',
-      '2026-01-01T00:00:02.000Z'
-    )
+    expect(mockContext.workflowExecutionTimeBudget?.mergeChildRemaining).toHaveBeenCalledWith(9_000)
   })
 
   it('wraps failed child workflow executions', async () => {
@@ -210,7 +206,6 @@ describe('WorkflowBlockHandler', () => {
     mockContext.workflowExecutionTimeBudget = {
       registerActivity: vi.fn(),
       markQueuedChildWait: vi.fn(),
-      observeChildProcessing: vi.fn(),
       closeActivity: vi.fn(),
       snapshotPolicy: vi.fn(() => ({
         kind: 'unlimited' as const,
@@ -275,12 +270,10 @@ describe('WorkflowBlockHandler', () => {
   })
 
   it('rejects a fast completed child when reconciliation exhausts the parent budget', async () => {
-    const observeChildProcessing = vi.fn()
     const mergeChildRemaining = vi.fn()
     mockContext.workflowExecutionTimeBudget = {
       registerActivity: vi.fn(),
       markQueuedChildWait: vi.fn(),
-      observeChildProcessing,
       closeActivity: vi.fn(),
       snapshotPolicy: vi.fn(() => ({
         kind: 'bounded' as const,
@@ -329,11 +322,6 @@ describe('WorkflowBlockHandler', () => {
     await expect(
       (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
     ).rejects.toThrow('Aborted')
-    expect(observeChildProcessing).toHaveBeenCalledWith(
-      'workflow-block-1',
-      '2026-01-01T00:00:05.000Z',
-      '2026-01-01T00:00:12.000Z'
-    )
     expect(mergeChildRemaining).toHaveBeenCalledWith(3_000)
     expect(fetchMock).toHaveBeenLastCalledWith(
       'http://localhost:3000/api/jobs/job-fast',

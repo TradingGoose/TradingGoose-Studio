@@ -1,7 +1,7 @@
 import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
 import { PORTFOLIO_MONITOR_PROVIDER, PORTFOLIO_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
-import { executeWorkflowJob } from './workflow-execution'
+import { executeWorkflowJob, type WorkflowExecutionAttemptOptions } from './workflow-execution'
 
 type PortfolioMonitorExecutionMonitor = {
   id: string
@@ -45,7 +45,10 @@ export function isPortfolioMonitorExecutionPayload(
   )
 }
 
-export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecutionPayload) {
+export async function executePortfolioMonitorJob(
+  payload: PortfolioMonitorExecutionPayload,
+  options: WorkflowExecutionAttemptOptions
+) {
   const executionId = payload.executionId ?? `portfolio_state:${payload.monitor.id}:${Date.now()}`
   const workflowInput = {
     input: `Portfolio state condition matched for ${payload.portfolioIdentity.accountName ?? payload.portfolioIdentity.accountId}`,
@@ -65,29 +68,32 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     condition: payload.monitor.condition,
   }
 
-  const result = await executeWorkflowJob({
-    workflowId: payload.monitor.workflowId,
-    userId: payload.monitor.actorUserId,
-    workspaceId: payload.monitor.workspaceId,
-    executionId,
-    triggerType: 'webhook',
-    input: workflowInput,
-    executionTarget: 'deployed',
-    triggerBlockId: payload.monitor.blockId,
-    triggerData: {
-      source: PORTFOLIO_MONITOR_TRIGGER_ID,
+  const result = await executeWorkflowJob(
+    {
+      workflowId: payload.monitor.workflowId,
+      userId: payload.monitor.actorUserId,
+      workspaceId: payload.monitor.workspaceId,
+      executionId,
+      triggerType: 'webhook',
+      input: workflowInput,
       executionTarget: 'deployed',
-      monitor: {
-        id: payload.monitor.id,
-        workflowId: payload.monitor.workflowId,
-        blockId: payload.monitor.blockId,
-        providerId: payload.monitor.providerId,
-        serviceId: payload.monitor.serviceId,
-        accountId: payload.monitor.accountId,
-        assetType: 'portfolio',
+      triggerBlockId: payload.monitor.blockId,
+      triggerData: {
+        source: PORTFOLIO_MONITOR_TRIGGER_ID,
+        executionTarget: 'deployed',
+        monitor: {
+          id: payload.monitor.id,
+          workflowId: payload.monitor.workflowId,
+          blockId: payload.monitor.blockId,
+          providerId: payload.monitor.providerId,
+          serviceId: payload.monitor.serviceId,
+          accountId: payload.monitor.accountId,
+          assetType: 'portfolio',
+        },
       },
     },
-  })
+    options
+  )
   return {
     success: result.success,
     workflowId: payload.monitor.workflowId,

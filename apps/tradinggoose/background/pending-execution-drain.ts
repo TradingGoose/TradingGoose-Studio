@@ -1,6 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution } from '@tradinggoose/db/schema'
 import { schedules, task, timeout } from '@trigger.dev/sdk'
+import { resolveServerExecutionBillingTierForScope } from '@/lib/execution/execution-concurrency-limit'
 import {
   claimNextPendingExecution,
   completePendingExecution,
@@ -8,7 +9,12 @@ import {
   type PendingExecutionClaim,
 } from '@/lib/execution/pending-execution'
 import { wakePendingExecutionDrain } from '@/lib/execution/pending-execution-drain-wake'
+import {
+  createWorkflowExecutionTimePolicy,
+  isWorkflowExecutionTimePolicy,
+} from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
+import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import {
   dispatchQueuedDocumentProcessingJob,
   failQueuedDocumentProcessingJob,
@@ -16,12 +22,42 @@ import {
 import { executeMonitorJob, isMonitorExecutionPayload } from './monitor-execution'
 import { executeScheduleJob, isScheduleExecutionPayload } from './schedule-execution'
 import { executeWebhookJob, isWebhookExecutionPayload } from './webhook-execution'
-import { executeWorkflowJob, isWorkflowExecutionPayload } from './workflow-execution'
+import {
+  executeWorkflowJob,
+  isWorkflowExecutionPayload,
+  type WorkflowExecutionAttemptOptions,
+} from './workflow-execution'
 
 const logger = createLogger('PendingExecutionDrain')
 
 type PendingExecutionDrainPayload = {
   billingScopeId: string
+}
+
+async function captureWorkflowExecutionAttempt(
+  row: PendingExecutionClaim
+): Promise<WorkflowExecutionAttemptOptions> {
+  const attemptStartedAt = row.processingStartedAt.toISOString()
+  const workflowPayload =
+    row.executionType === 'workflow' && isWorkflowExecutionPayload(row.payload) ? row.payload : null
+  const isNestedWorkflow = workflowPayload?.metadata?.source === 'workflow_block'
+
+  if (isNestedWorkflow) {
+    const inheritedPolicy = workflowPayload.metadata?.timePolicy
+    if (!isWorkflowExecutionTimePolicy(inheritedPolicy)) {
+      throw new Error('Nested workflow execution is missing its authenticated time policy')
+    }
+    return { attemptStartedAt, timePolicy: inheritedPolicy }
+  }
+
+  const tier = await resolveServerExecutionBillingTierForScope({
+    scopeId: row.billingScopeId,
+    scopeType: row.billingScopeType,
+  })
+  return {
+    attemptStartedAt,
+    timePolicy: createWorkflowExecutionTimePolicy({ processingStartedAt: attemptStartedAt, tier }),
+  }
 }
 
 async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boolean> {
@@ -36,7 +72,7 @@ async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boo
           ...row.payload,
           executionId: row.id,
         },
-        { attemptStartedAt: row.processingStartedAt.toISOString() }
+        await captureWorkflowExecutionAttempt(row)
       )
       break
     }
@@ -46,10 +82,10 @@ async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boo
         throw new Error('Invalid webhook pending payload')
       }
 
-      await executeWebhookJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+      await executeWebhookJob(
+        { ...row.payload, executionId: row.id },
+        await captureWorkflowExecutionAttempt(row)
+      )
       break
     }
 
@@ -58,10 +94,10 @@ async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boo
         throw new Error('Invalid schedule pending payload')
       }
 
-      await executeScheduleJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+      await executeScheduleJob(
+        { ...row.payload, executionId: row.id },
+        await captureWorkflowExecutionAttempt(row)
+      )
       break
     }
 
@@ -70,10 +106,13 @@ async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boo
         throw new Error('Invalid monitor pending payload')
       }
 
-      await executeMonitorJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+      const monitorPayload = { ...row.payload, executionId: row.id }
+      await executeMonitorJob(
+        monitorPayload,
+        monitorPayload.source === INDICATOR_MONITOR_PROVIDER
+          ? undefined
+          : await captureWorkflowExecutionAttempt(row)
+      )
       break
     }
 

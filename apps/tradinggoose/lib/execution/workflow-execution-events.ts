@@ -380,6 +380,20 @@ export async function createWorkflowExecutionEventWriter(params: {
   return { write }
 }
 
+export async function readWorkflowExecutionTerminalEvent(
+  pendingExecutionId: string
+): Promise<WorkflowExecutionTerminalEvent | null> {
+  try {
+    return findTerminalEvent(await readBufferedEvents({ pendingExecutionId, afterEventId: 0 }))
+  } catch (error) {
+    logger.error('Failed to read workflow execution terminal event', {
+      executionId: pendingExecutionId,
+      error,
+    })
+    return null
+  }
+}
+
 export async function readWorkflowExecutionEventState(params: {
   pendingExecutionId: string
   workflowId: string

@@ -2,28 +2,36 @@
  * @vitest-environment node
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
+import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 
 const {
   dispatchQueuedDocumentProcessingJobMock,
   executeWorkflowJobMock,
   executeMonitorJobMock,
+  executeScheduleJobMock,
   claimNextPendingExecutionMock,
   completePendingExecutionMock,
   failQueuedDocumentProcessingJobMock,
   executeWebhookJobMock,
   recoveryScopeRowsMock,
   wakePendingExecutionDrainMock,
+  resolveServerExecutionBillingTierForScopeMock,
 } = vi.hoisted(() => ({
   dispatchQueuedDocumentProcessingJobMock: vi.fn(),
   executeWorkflowJobMock: vi.fn(),
   executeMonitorJobMock: vi.fn(),
+  executeScheduleJobMock: vi.fn(),
   claimNextPendingExecutionMock: vi.fn(),
   completePendingExecutionMock: vi.fn(),
   failQueuedDocumentProcessingJobMock: vi.fn(),
   executeWebhookJobMock: vi.fn(),
   recoveryScopeRowsMock: vi.fn(),
   wakePendingExecutionDrainMock: vi.fn(),
+  resolveServerExecutionBillingTierForScopeMock: vi.fn(),
+}))
+
+vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
+  resolveServerExecutionBillingTierForScope: resolveServerExecutionBillingTierForScopeMock,
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
@@ -65,7 +73,7 @@ vi.mock('./monitor-execution', () => ({
 }))
 
 vi.mock('./schedule-execution', () => ({
-  executeScheduleJob: vi.fn(),
+  executeScheduleJob: executeScheduleJobMock,
   isScheduleExecutionPayload: vi.fn(() => false),
 }))
 
@@ -109,6 +117,14 @@ describe('pendingExecutionDrain', () => {
   })
   const workflowRow = (id: string) =>
     executionRow(id, 'workflow', { workflowId: 'workflow-1', userId: 'user-1' })
+  const expectedAttempt = {
+    attemptStartedAt: '2026-04-23T00:00:00.000Z',
+    timePolicy: {
+      kind: 'unlimited',
+      processingStartedAt: '2026-04-23T00:00:00.000Z',
+      tier: { source: 'no-tier' },
+    },
+  }
   const webhookRow = (id: string) =>
     executionRow(id, 'webhook', {
       webhookId: 'webhook-1',
@@ -124,8 +140,10 @@ describe('pendingExecutionDrain', () => {
     dispatchQueuedDocumentProcessingJobMock.mockResolvedValue(undefined)
     executeWorkflowJobMock.mockResolvedValue(undefined)
     executeWebhookJobMock.mockResolvedValue(undefined)
+    executeScheduleJobMock.mockResolvedValue(undefined)
     recoveryScopeRowsMock.mockResolvedValue([])
     wakePendingExecutionDrainMock.mockResolvedValue(undefined)
+    resolveServerExecutionBillingTierForScopeMock.mockResolvedValue(null)
   })
 
   it('recovers a failed continuation admission through the queue heartbeat', async () => {
@@ -164,6 +182,10 @@ describe('pendingExecutionDrain', () => {
       'producer',
       'continuation',
     ])
+    expect(executeWebhookJobMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ executionId: 'continuation' }),
+      expectedAttempt
+    )
     expect(completePendingExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'continuation',
     })
@@ -207,7 +229,7 @@ describe('pendingExecutionDrain', () => {
       expect.objectContaining({
         executionId: 'pending-workflow-2',
       }),
-      { attemptStartedAt: '2026-04-23T00:00:00.000Z' }
+      expectedAttempt
     )
     expect(completePendingExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-workflow-3',
@@ -217,13 +239,46 @@ describe('pendingExecutionDrain', () => {
       expect.objectContaining({
         executionId: 'pending-workflow-3',
       }),
-      { attemptStartedAt: '2026-04-23T00:00:00.000Z' }
+      expectedAttempt
     )
     expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(3)
     expect(result).toEqual({
       success: true,
       pendingExecutionId: 'pending-workflow-3',
     })
+  })
+
+  it('reuses a nested workflow policy without resolving the claimed billing scope', async () => {
+    const inheritedPolicy = {
+      kind: 'bounded' as const,
+      processingStartedAt: '2026-04-23T00:00:00.000Z',
+      tier: {
+        source: 'resolved-tier' as const,
+        appliedTierId: 'tier-1',
+        appliedTierName: 'Pro',
+      },
+      limitSeconds: 60,
+      accounting: { mode: 'remaining' as const, remainingMilliseconds: 30_000 },
+    }
+    claimNextPendingExecutionMock.mockResolvedValueOnce({
+      status: 'claimed',
+      row: executionRow('pending-child-1', 'workflow', {
+        workflowId: 'workflow-child',
+        userId: 'user-1',
+        metadata: { source: 'workflow_block', timePolicy: inheritedPolicy },
+      }),
+    })
+
+    await runPendingExecutionDrain('scope-1')
+
+    expect(resolveServerExecutionBillingTierForScopeMock).not.toHaveBeenCalled()
+    expect(executeWorkflowJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ executionId: 'pending-child-1' }),
+      {
+        attemptStartedAt: '2026-04-23T00:00:00.000Z',
+        timePolicy: inheritedPolicy,
+      }
+    )
   })
 
   it('returns when the scope is at capacity', async () => {
@@ -311,12 +366,57 @@ describe('pendingExecutionDrain', () => {
     expect(executeMonitorJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
         executionId: 'pending-indicator-1',
-      })
+      }),
+      undefined
     )
     expect(completePendingExecutionMock).toHaveBeenCalled()
     expect(result).toEqual({
       success: true,
       pendingExecutionId: 'pending-indicator-1',
     })
+  })
+
+  it('passes the processing-attempt start through schedule dispatch', async () => {
+    claimNextPendingExecutionMock.mockResolvedValueOnce({
+      status: 'claimed',
+      row: executionRow('pending-schedule-1', 'schedule', {
+        scheduleId: 'schedule-1',
+        workflowId: 'workflow-1',
+      }),
+    })
+    const { isScheduleExecutionPayload } = await import('./schedule-execution')
+    vi.mocked(isScheduleExecutionPayload).mockReturnValue(true)
+
+    await runPendingExecutionDrain('scope-1')
+
+    expect(executeScheduleJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ executionId: 'pending-schedule-1' }),
+      expectedAttempt
+    )
+  })
+
+  it('captures portfolio workflow policy before monitor preprocessing', async () => {
+    claimNextPendingExecutionMock.mockResolvedValueOnce({
+      status: 'claimed',
+      row: executionRow('pending-portfolio-1', 'monitor', {
+        source: PORTFOLIO_MONITOR_PROVIDER,
+      }),
+    })
+    const { isMonitorExecutionPayload } = await import('./monitor-execution')
+    vi.mocked(isMonitorExecutionPayload).mockReturnValue(true)
+
+    await runPendingExecutionDrain('scope-1')
+
+    expect(resolveServerExecutionBillingTierForScopeMock).toHaveBeenCalledWith({
+      scopeId: 'scope-1',
+      scopeType: 'user',
+    })
+    expect(resolveServerExecutionBillingTierForScopeMock.mock.invocationCallOrder[0]).toBeLessThan(
+      executeMonitorJobMock.mock.invocationCallOrder[0] ?? 0
+    )
+    expect(executeMonitorJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ executionId: 'pending-portfolio-1' }),
+      expectedAttempt
+    )
   })
 })

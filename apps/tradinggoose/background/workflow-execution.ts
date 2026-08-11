@@ -1,10 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
-import { resolveServerExecutionBillingContext } from '@/lib/execution/execution-concurrency-limit'
 import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution/pending-execution'
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import {
-  createWorkflowExecutionTimePolicy,
   isWorkflowExecutionTimePolicy,
+  type WorkflowExecutionTimePolicy,
 } from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
@@ -41,6 +40,11 @@ export type WorkflowExecutionPayload = {
   metadata?: Record<string, any>
 }
 
+export type WorkflowExecutionAttemptOptions = {
+  attemptStartedAt: string
+  timePolicy: WorkflowExecutionTimePolicy
+}
+
 function resolveWorkflowTriggerTargetType(triggerType: TriggerType): WorkflowTriggerTargetType {
   if (triggerType === 'chat') return 'chat'
   if (triggerType === 'api' || triggerType === 'api-endpoint') return 'api'
@@ -61,13 +65,14 @@ export function isWorkflowExecutionPayload(
 
 export async function executeWorkflowJob(
   payload: WorkflowExecutionPayload,
-  options?: { blueprint?: WorkflowExecutionBlueprint; attemptStartedAt?: string }
+  options: WorkflowExecutionAttemptOptions & { blueprint?: WorkflowExecutionBlueprint }
 ) {
   const workflowId = payload.workflowId
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
+  const isChildExecution = payload.metadata?.source === 'workflow_block'
   const eventWriter =
-    payload.stream === true
+    payload.stream === true || isChildExecution
       ? await createWorkflowExecutionEventWriter({
           pendingExecutionId: executionId,
           workflowId,
@@ -75,7 +80,6 @@ export async function executeWorkflowJob(
       : null
   const executionTarget = payload.executionTarget ?? 'deployed'
   const isLiveExecution = executionTarget === 'live'
-  const isChildExecution = payload.metadata?.source === 'workflow_block'
   const triggerType = payload.triggerType ?? 'manual'
   const triggerTarget: WorkflowTriggerTarget = payload.triggerBlockId
     ? {
@@ -87,27 +91,15 @@ export async function executeWorkflowJob(
         triggerType: resolveWorkflowTriggerTargetType(triggerType),
       }
 
-  const processingStartedAt = options?.attemptStartedAt ?? new Date().toISOString()
-  const billingContext = isChildExecution
-    ? null
-    : await resolveServerExecutionBillingContext({
-        actorUserId: payload.userId,
-        workflowId,
-        workspaceId: payload.workspaceId,
-        logger,
-        requestId,
-        source: 'workflow execution time policy',
-      })
+  const processingStartedAt = options.attemptStartedAt
   const inheritedPolicy = isChildExecution ? payload.metadata?.timePolicy : undefined
   if (isChildExecution && !isWorkflowExecutionTimePolicy(inheritedPolicy)) {
     throw new Error('Nested workflow execution is missing its authenticated time policy')
   }
-  const timePolicy = isChildExecution
-    ? inheritedPolicy!
-    : createWorkflowExecutionTimePolicy({
-        processingStartedAt,
-        tier: billingContext?.tier ?? null,
-      })
+  if (!isWorkflowExecutionTimePolicy(options.timePolicy)) {
+    throw new Error('Workflow execution is missing its captured time policy')
+  }
+  const timePolicy = isChildExecution ? inheritedPolicy! : options.timePolicy
 
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
     userId: payload.userId,
@@ -175,7 +167,7 @@ export async function executeWorkflowJob(
             selectedOutputs: payload.selectedOutputs ?? [],
             shouldCancelExecution: () =>
               isPendingWorkflowExecutionCancellationRequested(executionId),
-            ...(eventWriter
+            ...(payload.stream === true && eventWriter
               ? {
                   onExecutionEvent: async (event) => {
                     await eventWriter.write(event)

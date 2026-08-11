@@ -21,7 +21,7 @@ import {
 import { processWorkflowInputFormatFiles } from '@/lib/workflows/input-format-files'
 import { getTrigger } from '@/triggers'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
-import { executeWorkflowJob } from './workflow-execution'
+import { executeWorkflowJob, type WorkflowExecutionAttemptOptions } from './workflow-execution'
 
 const logger = createLogger('TriggerWebhookExecution')
 
@@ -99,6 +99,7 @@ async function completeSkippedWebhookExecution(params: {
   workflowState: WorkflowExecutionBlueprint['workflowData']
   triggerData: Record<string, unknown>
   message: string
+  attemptStartedAt?: string
 }) {
   const loggingSession = new LoggingSession(
     params.payload.workflowId,
@@ -112,6 +113,7 @@ async function completeSkippedWebhookExecution(params: {
     workspaceId: params.workspaceId,
     workflowState: params.workflowState,
     triggerData: params.triggerData,
+    startedAt: params.attemptStartedAt,
   })
 
   await loggingSession.complete({
@@ -140,6 +142,7 @@ async function logWebhookFailure(params: {
   workflowState: WorkflowExecutionBlueprint['workflowData']
   triggerData: Record<string, unknown>
   error: Error
+  attemptStartedAt?: string
 }) {
   const loggingSession = new LoggingSession(
     params.payload.workflowId,
@@ -153,6 +156,7 @@ async function logWebhookFailure(params: {
     workspaceId: params.workspaceId,
     workflowState: params.workflowState,
     triggerData: params.triggerData,
+    startedAt: params.attemptStartedAt,
   })
 
   await loggingSession.completeWithError({
@@ -166,7 +170,10 @@ async function logWebhookFailure(params: {
   })
 }
 
-export async function executeWebhookJob(payload: WebhookExecutionPayload) {
+export async function executeWebhookJob(
+  payload: WebhookExecutionPayload,
+  options: WorkflowExecutionAttemptOptions
+) {
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
   const executionTarget = payload.executionTarget ?? 'deployed'
@@ -307,6 +314,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
         workflowState: blueprint.workflowData,
         triggerData,
         message,
+        attemptStartedAt: options.attemptStartedAt,
       })
       executionLogOwned = true
       if (airtablePoll?.continuation) {
@@ -370,7 +378,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
         executionTarget: 'deployed',
         triggerData,
       },
-      { blueprint }
+      { ...options, blueprint }
     )
 
     logger.info(`[${requestId}] Webhook execution completed`, {
@@ -415,6 +423,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
           workflowState,
           triggerData,
           error,
+          attemptStartedAt: options.attemptStartedAt,
         })
       } catch (loggingError) {
         logger.error(`[${requestId}] Failed to complete webhook failure logging`, loggingError)
