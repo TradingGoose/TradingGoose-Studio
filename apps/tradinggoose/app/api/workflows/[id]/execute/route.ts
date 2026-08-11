@@ -11,6 +11,7 @@ import {
 } from '@/lib/execution/pending-execution'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
+import { WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED } from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { encodeSSE, generateRequestId, SSE_HEADERS } from '@/lib/utils'
@@ -80,6 +81,12 @@ async function waitForApiWorkflowResult(params: {
     }
 
     if (state.status === 'failed') {
+      if (
+        isExecutionResult(state.result) &&
+        state.result.code === WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED
+      ) {
+        return state.result
+      }
       throw new ApiWorkflowResultFailedError(state.failureReason || 'Workflow execution failed')
     }
 
@@ -90,6 +97,10 @@ async function waitForApiWorkflowResult(params: {
 }
 
 function createApiWorkflowResponse(result: ExecutionResult) {
+  if (!result.success && result.code === WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED) {
+    return NextResponse.json(createPublicExecutionResult(result), { status: 500 })
+  }
+
   if (workflowHasResponseBlock(result)) {
     return createHttpResponseFromBlock(result)
   }

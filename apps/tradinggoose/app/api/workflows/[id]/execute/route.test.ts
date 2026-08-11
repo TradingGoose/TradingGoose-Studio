@@ -347,6 +347,55 @@ describe('/api/workflows/[id]/execute', () => {
     })
   })
 
+  it('preserves deadline diagnostics for non-stream API failures', async () => {
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'failed',
+      failureReason: 'Execution failed',
+      events: [],
+      result: {
+        success: false,
+        output: {},
+        error: 'Workflow execution time limit exceeded for Pro (60 seconds)',
+        code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+        deadline: {
+          appliedTierId: 'tier-pro',
+          appliedTierName: 'Pro',
+          limitSeconds: 60,
+          processingStartedAt: '2026-01-01T00:00:00.000Z',
+          terminatedAt: '2026-01-01T00:01:00.000Z',
+        },
+        logs: [],
+      },
+    })
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
+        },
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      output: {},
+      error: 'Workflow execution time limit exceeded for Pro (60 seconds)',
+      code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+      deadline: {
+        appliedTierId: 'tier-pro',
+        appliedTierName: 'Pro',
+        limitSeconds: 60,
+        processingStartedAt: '2026-01-01T00:00:00.000Z',
+        terminatedAt: '2026-01-01T00:01:00.000Z',
+      },
+    })
+  })
+
   it('accepts empty POST bodies for API triggers without input fields', async () => {
     const { POST } = await import('./route')
     const response = await POST(
