@@ -12,12 +12,21 @@ describe('createWorkflowExecutionResultFromLog', () => {
       totalDurationMs: 20_000,
       executionData: {
         errorMessage: error,
-        finalOutput: {},
+        finalOutput: { partial: 'preserved' },
         result: {
-          success: false,
-          output: {},
           error,
-          logs: [],
+          logs: [
+            {
+              blockId: 'wait-1',
+              blockType: 'wait',
+              startedAt: '2026-08-07T15:16:14.000Z',
+              endedAt: '2026-08-07T15:16:34.000Z',
+              durationMs: 20_000,
+              success: false,
+              error,
+              code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+            },
+          ],
           code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
           deadline: {
             appliedTierId: 'tier-pro',
@@ -35,8 +44,15 @@ describe('createWorkflowExecutionResultFromLog', () => {
       failureReason: error,
       result: {
         success: false,
+        output: { partial: 'preserved' },
         error,
         code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+        logs: [
+          expect.objectContaining({
+            blockId: 'wait-1',
+            code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+          }),
+        ],
         deadline: {
           appliedTierName: 'Pro',
           limitSeconds: 20,

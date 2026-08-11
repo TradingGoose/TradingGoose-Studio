@@ -190,6 +190,8 @@ describe('runPreparedWorkflowExecution', () => {
         success: false,
         code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
         input: { nested: { value: 'captured' } },
+        output: { secret: 'must not persist' },
+        futurePayload: { secret: 'must not persist' },
       },
     ]
     mocks.snapshotBlockLogsForDeadline.mockImplementation(() => structuredClone(liveLogs))
@@ -212,6 +214,7 @@ describe('runPreparedWorkflowExecution', () => {
       expect.objectContaining({
         result: expect.objectContaining({
           code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+          deadline: expect.objectContaining({ appliedTierName: 'Pro', limitSeconds: 1 }),
           logs: [expect.objectContaining({ blockId: 'wait-1', error: expect.any(String) })],
         }),
         traceSpans: [
@@ -232,7 +235,10 @@ describe('runPreparedWorkflowExecution', () => {
     resolveExecution({ success: true, output: { late: true }, logs: [] })
     await Promise.resolve()
     expect(mocks.complete).toHaveBeenCalledTimes(1)
-    expect(mocks.complete.mock.calls[0]?.[0].result.logs[0].input.nested.value).toBe('captured')
+    expect(mocks.complete.mock.calls[0]?.[0].result).not.toHaveProperty('output')
+    expect(mocks.complete.mock.calls[0]?.[0].result.logs[0]).not.toHaveProperty('input')
+    expect(mocks.complete.mock.calls[0]?.[0].result.logs[0]).not.toHaveProperty('output')
+    expect(mocks.complete.mock.calls[0]?.[0].result.logs[0]).not.toHaveProperty('futurePayload')
   })
 
   it('expires while startup is pending and never dispatches after startup settles late', async () => {
@@ -357,6 +363,7 @@ describe('runPreparedWorkflowExecution', () => {
         totalDurationMs: 0,
         finalOutput: { result: 'ok' },
         workflowInput: { symbol: 'AAPL' },
+        result: undefined,
       })
     )
     expect(mocks.completeWithError).not.toHaveBeenCalled()
@@ -421,6 +428,7 @@ describe('runPreparedWorkflowExecution', () => {
         error: expect.objectContaining({
           message: 'Usage limit exceeded',
         }),
+        result: undefined,
       })
     )
     expect(result.result).toEqual(

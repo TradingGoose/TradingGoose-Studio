@@ -10,8 +10,7 @@ import type {
   WorkflowExecutionTerminalEvent,
 } from '@/lib/workflows/execution-events'
 import { isTerminalWorkflowExecutionEvent } from '@/lib/workflows/execution-events'
-import type { ExecutionResult } from '@/executor/types'
-import { isExecutionResult } from '@/lib/workflows/execution-result'
+import type { BlockLog, ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('WorkflowExecutionEvents')
 const BUFFER_KEY_PREFIX = 'workflow:execution:events:'
@@ -38,6 +37,68 @@ type WorkflowExecutionLogStateRow = {
   endedAt: Date | null
   totalDurationMs: number | null
   executionData: unknown
+}
+
+function readStoredDeadline(value: unknown): ExecutionResult['deadline'] | undefined {
+  if (!isRecord(value)) return undefined
+  const { appliedTierId, appliedTierName, limitSeconds, processingStartedAt, terminatedAt } = value
+  if (
+    typeof appliedTierId !== 'string' ||
+    typeof appliedTierName !== 'string' ||
+    typeof limitSeconds !== 'number' ||
+    typeof processingStartedAt !== 'string' ||
+    typeof terminatedAt !== 'string'
+  ) {
+    return undefined
+  }
+  return { appliedTierId, appliedTierName, limitSeconds, processingStartedAt, terminatedAt }
+}
+
+function readStoredDiagnosticLog(value: unknown): BlockLog | null {
+  if (!isRecord(value)) return null
+  const { blockId, blockName, blockType, startedAt, endedAt, durationMs, success, error, code } =
+    value
+  if (
+    typeof blockId !== 'string' ||
+    typeof startedAt !== 'string' ||
+    typeof endedAt !== 'string' ||
+    typeof durationMs !== 'number' ||
+    typeof success !== 'boolean'
+  ) {
+    return null
+  }
+  return {
+    blockId,
+    ...(typeof blockName === 'string' ? { blockName } : {}),
+    ...(typeof blockType === 'string' ? { blockType } : {}),
+    startedAt,
+    endedAt,
+    durationMs,
+    success,
+    ...(typeof error === 'string' ? { error } : {}),
+    ...(typeof code === 'string' ? { code } : {}),
+  }
+}
+
+function readStoredDeadlineDiagnostics(value: unknown) {
+  if (!isRecord(value) || !Array.isArray(value.logs)) return null
+  const deadline = readStoredDeadline(value.deadline)
+  if (
+    typeof value.error !== 'string' ||
+    value.code !== 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED' ||
+    !deadline
+  ) {
+    return null
+  }
+  return {
+    error: value.error,
+    code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED' as const,
+    deadline,
+    logs: value.logs.flatMap((entry) => {
+      const log = readStoredDiagnosticLog(entry)
+      return log ? [log] : []
+    }),
+  }
 }
 
 export type WorkflowExecutionAccessContext = {
@@ -217,12 +278,12 @@ export function createWorkflowExecutionResultFromLog(
   }
 
   const executionData = isRecord(row.executionData) ? row.executionData : {}
-  const storedResult = isRecord(executionData.result) ? executionData.result : null
+  const failed = row.level === 'error'
+  const storedDiagnostics = failed ? readStoredDeadlineDiagnostics(executionData.result) : null
   const finalOutput = readFinalOutput(executionData)
   const queuedExecution = readQueuedExecutionMetadata(executionData)
   const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
   const hasResponseBlock = executionData.hasResponseBlock === true
-  const failed = row.level === 'error'
   const failureReason = failed ? readLogFailureReason(row) : null
   const metadata = {
     duration: row.totalDurationMs ?? 0,
@@ -231,19 +292,17 @@ export function createWorkflowExecutionResultFromLog(
     ...(hasResponseBlock ? { hasResponseBlock } : {}),
     ...(queuedExecution ? { queuedExecution } : {}),
   } as ExecutionResult['metadata'] & { queuedExecution?: Record<string, unknown> }
-  if (isExecutionResult(storedResult)) {
-    return {
-      status: storedResult.success ? 'completed' : 'failed',
-      result: { ...storedResult, metadata: { ...storedResult.metadata, ...metadata } },
-      failureReason: storedResult.success ? null : storedResult.error || 'Workflow execution failed',
-    }
-  }
   const result: ExecutionResult & { traceSpans?: unknown[] } = {
     success: !failed,
     output: finalOutput,
-    ...(failureReason ? { error: failureReason } : {}),
+    ...(storedDiagnostics?.error || failureReason
+      ? { error: storedDiagnostics?.error || failureReason! }
+      : {}),
+    ...(storedDiagnostics
+      ? { code: storedDiagnostics.code, deadline: storedDiagnostics.deadline }
+      : {}),
     ...(traceSpans.length > 0 ? { traceSpans } : {}),
-    logs: [],
+    logs: storedDiagnostics?.logs ?? [],
     metadata,
   }
 

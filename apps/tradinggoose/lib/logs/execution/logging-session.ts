@@ -5,6 +5,7 @@ import {
 } from '@/lib/billing/tiers'
 import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { WorkflowExecutionResultDiagnostics } from '@/lib/logs/execution/logger'
 import { executionLogger } from '@/lib/logs/execution/logger'
 import {
   calculateCostSummary,
@@ -18,7 +19,6 @@ import type {
   TraceSpan,
   WorkflowState,
 } from '@/lib/logs/types'
-import type { ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('LoggingSession')
 
@@ -41,7 +41,7 @@ export interface SessionCompleteParams {
   actorUserId?: string | null
   hasResponseBlock?: boolean
   variables?: Record<string, string>
-  result?: ExecutionResult
+  result?: WorkflowExecutionResultDiagnostics
 }
 
 export interface SessionErrorCompleteParams {
@@ -56,7 +56,7 @@ export interface SessionErrorCompleteParams {
   actorUserId?: string | null
   variables?: Record<string, string>
   billable?: boolean
-  result?: ExecutionResult
+  result?: WorkflowExecutionResultDiagnostics
 }
 
 export class LoggingSession {

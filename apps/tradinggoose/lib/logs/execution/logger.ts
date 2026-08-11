@@ -34,8 +34,29 @@ import type {
   WorkflowExecutionSnapshot,
   WorkflowState,
 } from '@/lib/logs/types'
+import type { BlockLog, ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('ExecutionLogger')
+
+export type WorkflowExecutionResultDiagnostics = Pick<
+  Required<ExecutionResult>,
+  'error' | 'code' | 'deadline'
+> & {
+  logs: Array<
+    Pick<
+      BlockLog,
+      | 'blockId'
+      | 'blockName'
+      | 'blockType'
+      | 'startedAt'
+      | 'endedAt'
+      | 'durationMs'
+      | 'success'
+      | 'error'
+      | 'code'
+    >
+  >
+}
 
 type OrganizationBillingOwner = {
   type: 'organization'
@@ -224,7 +245,7 @@ export class ExecutionLogger {
     workflowInput?: any
     hasResponseBlock?: boolean
     variables?: Record<string, string>
-    result?: object
+    result?: WorkflowExecutionResultDiagnostics
   }): Promise<WorkflowExecutionLog> {
     const {
       executionId,
