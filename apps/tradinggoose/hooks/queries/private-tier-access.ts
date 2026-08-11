@@ -26,11 +26,15 @@ export class PrivateTierAccessRequestError extends Error {
   }
 }
 
-export function getPrivateTierAccessValidationErrorMessage(error: unknown, invalidMessage: string) {
-  return error instanceof PrivateTierAccessRequestError &&
-    (error.status === 429 || error.status === 503)
-    ? error.message
-    : invalidMessage
+export function getPrivateTierAccessValidationErrorMessage(
+  error: unknown,
+  invalidMessage: string,
+  dependencyUnavailableMessage: string
+) {
+  if (!(error instanceof PrivateTierAccessRequestError)) return invalidMessage
+  if (error.status === 429) return error.message
+  if (error.status === 503) return dependencyUnavailableMessage
+  return invalidMessage
 }
 
 export async function requestPrivateTierAccess(

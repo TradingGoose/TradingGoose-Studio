@@ -418,7 +418,11 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
       setAccessCodeMessage(t('privateAccess.success'))
     } catch (error) {
       setAccessCodeError(
-        getPrivateTierAccessValidationErrorMessage(error, t('privateAccess.invalid'))
+        getPrivateTierAccessValidationErrorMessage(
+          error,
+          t('privateAccess.invalid'),
+          t('privateAccess.dependencyUnavailable')
+        )
       )
     }
   }

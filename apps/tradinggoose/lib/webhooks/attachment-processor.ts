@@ -27,7 +27,8 @@ export class WebhookAttachmentProcessor {
       workflowId: string
       executionId: string
       requestId: string
-    }
+    },
+    signal?: AbortSignal
   ): Promise<UserFile[]> {
     if (!attachments || attachments.length === 0) {
       return []
@@ -40,13 +41,17 @@ export class WebhookAttachmentProcessor {
     const processedFiles: UserFile[] = []
 
     for (const attachment of attachments) {
+      signal?.throwIfAborted()
       try {
         const userFile = await WebhookAttachmentProcessor.processAttachment(
           attachment,
-          executionContext
+          executionContext,
+          signal
         )
+        signal?.throwIfAborted()
         processedFiles.push(userFile)
       } catch (error) {
+        if (signal?.aborted) throw error
         logger.error(
           `[${executionContext.requestId}] Error processing attachment '${attachment.name}':`,
           error
@@ -72,8 +77,10 @@ export class WebhookAttachmentProcessor {
       workflowId: string
       executionId: string
       requestId: string
-    }
+    },
+    signal?: AbortSignal
   ): Promise<UserFile> {
+    signal?.throwIfAborted()
     // Convert data to Buffer (handle both raw and serialized formats)
     let buffer: Buffer
     const data = attachment.data as any
@@ -102,12 +109,14 @@ export class WebhookAttachmentProcessor {
     )
 
     // Upload to execution storage
+    signal?.throwIfAborted()
     const userFile = await uploadExecutionFile(
       executionContext,
       buffer,
       attachment.name,
       attachment.contentType
     )
+    signal?.throwIfAborted()
 
     logger.info(
       `[${executionContext.requestId}] Successfully stored attachment '${attachment.name}' with key: ${userFile.key}`

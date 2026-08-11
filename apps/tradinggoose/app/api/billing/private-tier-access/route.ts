@@ -48,21 +48,18 @@ export async function POST(request: NextRequest) {
 
   const rateLimit = await checkPrivateTierAccessCodeRateLimit(session.user.id)
   if (!rateLimit.allowed) {
-    const headers = {
-      ...noStoreHeaders,
-      'Retry-After': getRetryAfterSeconds(rateLimit.resetAt),
-    }
-    if (rateLimit.failureKind === 'dependency') {
-      return NextResponse.json(
-        { error: 'Access-code validation is temporarily unavailable' },
-        { status: 503, headers }
-      )
-    }
     const locale = resolveRequestLocale(request)
     const t = await getTranslations({
       locale,
       namespace: 'workspace.settingsModal.subscription.privateAccess',
     })
+    const headers = {
+      ...noStoreHeaders,
+      'Retry-After': getRetryAfterSeconds(rateLimit.resetAt),
+    }
+    if (rateLimit.failureKind === 'dependency') {
+      return NextResponse.json({ error: t('dependencyUnavailable') }, { status: 503, headers })
+    }
     return NextResponse.json({ error: t('tooManyAttempts') }, { status: 429, headers })
   }
 

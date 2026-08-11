@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { NextRequest } from 'next/server'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budget'
 import { formatWebhookInput } from '@/lib/webhooks/utils'
 import {
   createTeamsSubscription,
@@ -560,8 +561,13 @@ describe('Airtable payload durability', () => {
       executionId,
       executionId
     )
-  const execute = (overrides: Row = {}) =>
-    executeWebhookJob(
+  const execute = (overrides: Row = {}) => {
+    const timePolicy = {
+      kind: 'unlimited' as const,
+      processingStartedAt: '2026-01-01T00:00:00.000Z',
+      tier: { source: 'no-tier' as const },
+    }
+    return executeWebhookJob(
       {
         ...pending('execution-a').payload,
         executionId: 'execution-a',
@@ -569,13 +575,13 @@ describe('Airtable payload durability', () => {
       } as any,
       {
         attemptStartedAt: '2026-01-01T00:00:00.000Z',
-        timePolicy: {
-          kind: 'unlimited',
-          processingStartedAt: '2026-01-01T00:00:00.000Z',
-          tier: { source: 'no-tier' },
-        },
+        timePolicy,
+        timeBudget: new AttemptTimeBudget(timePolicy, null),
+        fallbackActorUserId: 'user-1',
+        fallbackWorkspaceId: 'workspace-1',
       }
     )
+  }
   const queueTenPages = (payloads: unknown[] = [{ id: 'change' }]) => {
     state.pendingExecutions = [pending('execution-a')]
     fetchMock.mockImplementation(() => page(payloads, fetchMock.mock.calls.length, true))
@@ -770,6 +776,50 @@ describe('Airtable payload durability', () => {
     expect(enqueueExecutionMock).toHaveBeenCalledTimes(2)
   })
 
+  it('prioritizes a terminal webhook replay over an already-expired attempt budget', async () => {
+    const replayPayload = pending('execution-a').payload
+    replayPayload.airtablePollStage = {
+      externalId: 'remote',
+      apiCallCount: 10,
+      payloads: [],
+      cursor: 10,
+      mightHaveMore: true,
+    }
+    state.workflowExecutionLogs = [
+      { executionId: 'execution-a', level: 'info', endedAt: new Date('2026-01-01T00:00:01Z') },
+    ]
+    const timePolicy = {
+      kind: 'bounded' as const,
+      processingStartedAt: '2026-01-01T00:00:00.000Z',
+      tier: {
+        source: 'resolved-tier' as const,
+        appliedTierId: 'tier-1',
+        appliedTierName: 'Pro',
+      },
+      limitSeconds: 1,
+      accounting: { mode: 'remaining' as const, remainingMilliseconds: 0 },
+    }
+    const timeBudget = new AttemptTimeBudget(timePolicy, 0)
+
+    await expect(
+      executeWebhookJob(
+        { ...replayPayload, executionId: 'execution-a' },
+        {
+          attemptStartedAt: '2026-01-01T00:00:00.000Z',
+          timePolicy,
+          timeBudget,
+          fallbackActorUserId: 'user-1',
+          fallbackWorkspaceId: 'workspace-1',
+        }
+      )
+    ).resolves.toMatchObject({ success: true })
+
+    expect(loadBlueprintMock).not.toHaveBeenCalled()
+    expect(runWorkflowMock).not.toHaveBeenCalled()
+    expect(enqueueExecutionMock).toHaveBeenCalledOnce()
+    timeBudget.dispose()
+  })
+
   it('does not admit later pages when the producing workflow fails', async () => {
     queueTenPages()
     runWorkflowMock.mockResolvedValue({ result: { success: false, output: {} } })
@@ -779,15 +829,90 @@ describe('Airtable payload durability', () => {
     expect(enqueueExecutionMock).not.toHaveBeenCalled()
   })
 
-  it('logs an empty producing batch before admitting its continuation', async () => {
+  it('canonically logs an empty producing batch before admitting its continuation', async () => {
     queueTenPages([])
+    runWorkflowMock.mockResolvedValue({
+      result: { success: true, output: { message: 'No Airtable changes to process' } },
+    })
 
     await execute()
 
-    expect(runWorkflowMock).not.toHaveBeenCalled()
-    expect(loggingCompleteMock.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(runWorkflowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preparedResult: {
+          success: true,
+          output: { message: 'No Airtable changes to process' },
+          logs: [],
+        },
+      })
+    )
+    expect(runWorkflowMock.mock.invocationCallOrder[0]).toBeLessThan(
       enqueueExecutionMock.mock.invocationCallOrder[0]
     )
+  })
+
+  it('terminalizes an empty Airtable preparation at the attempt deadline without a late continuation', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    let finishPoll!: (response: Response) => void
+    fetchMock.mockReturnValue(
+      new Promise<Response>((resolve) => {
+        finishPoll = resolve
+      })
+    )
+    const timePolicy = {
+      kind: 'bounded' as const,
+      processingStartedAt: '2026-01-01T00:00:00.000Z',
+      tier: {
+        source: 'resolved-tier' as const,
+        appliedTierId: 'tier-1',
+        appliedTierName: 'Pro',
+      },
+      limitSeconds: 1,
+      accounting: { mode: 'remaining' as const, remainingMilliseconds: 1_000 },
+    }
+    const timeBudget = new AttemptTimeBudget(timePolicy, 1_000)
+    runWorkflowMock.mockResolvedValue({
+      result: {
+        success: false,
+        output: {},
+        logs: [],
+        code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+      },
+    })
+
+    const execution = executeWebhookJob(
+      { ...pending('execution-a').payload, executionId: 'execution-a' } as any,
+      {
+        attemptStartedAt: '2026-01-01T00:00:00.000Z',
+        timePolicy,
+        timeBudget,
+        fallbackActorUserId: 'user-1',
+        fallbackWorkspaceId: 'workspace-1',
+      }
+    )
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    await expect(execution).resolves.toMatchObject({ success: false })
+    expect(runWorkflowMock).toHaveBeenCalledOnce()
+    expect(runWorkflowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blueprint: expect.objectContaining({
+          workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
+        }),
+        timeBudget,
+      })
+    )
+    expect(enqueueExecutionMock).not.toHaveBeenCalled()
+
+    finishPoll(page([], 1, false))
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(runWorkflowMock).toHaveBeenCalledOnce()
+    expect(enqueueExecutionMock).not.toHaveBeenCalled()
+    expect(state.webhooks[0].providerConfig).not.toHaveProperty('externalWebhookCursor')
+    expect(state.pendingExecutions[0].payload).not.toHaveProperty('airtablePollStage')
+    timeBudget.dispose()
   })
 })
 

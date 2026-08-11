@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution/pending-execution'
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
+import type { AttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budget'
 import {
   isWorkflowExecutionTimePolicy,
   type WorkflowExecutionTimePolicy,
@@ -15,6 +16,7 @@ import {
   type WorkflowExecutionBlueprint,
   type WorkflowTriggerTarget,
 } from '@/lib/workflows/execution-runner'
+import type { ExecutionResult } from '@/executor/types'
 import type { TriggerType } from '@/services/queue'
 import { disableMonitor } from './monitor-disable'
 
@@ -43,7 +45,26 @@ export type WorkflowExecutionPayload = {
 export type WorkflowExecutionAttemptOptions = {
   attemptStartedAt: string
   timePolicy: WorkflowExecutionTimePolicy
+  timeBudget: AttemptTimeBudget
+  fallbackActorUserId: string
+  fallbackWorkspaceId: string
 }
+
+type WorkflowExecutionJobResult = Pick<ExecutionResult, 'success' | 'output'> &
+  Partial<Pick<ExecutionResult, 'error' | 'code' | 'deadline'>> & {
+    workflowId: string
+    executionId: string
+    executedAt: string
+  }
+
+export type WorkflowExecutionJobPreparation =
+  | {
+      kind: 'execute'
+      payload: WorkflowExecutionPayload
+      blueprint: WorkflowExecutionBlueprint
+      immediateResult?: ExecutionResult
+    }
+  | { kind: 'ignore' }
 
 function resolveWorkflowTriggerTargetType(triggerType: TriggerType): WorkflowTriggerTargetType {
   if (triggerType === 'chat') return 'chat'
@@ -63,21 +84,24 @@ export function isWorkflowExecutionPayload(
   return typeof candidate.workflowId === 'string' && typeof candidate.userId === 'string'
 }
 
-export async function executeWorkflowJob(
+async function executePreparedWorkflowJob(
   payload: WorkflowExecutionPayload,
-  options: WorkflowExecutionAttemptOptions & { blueprint?: WorkflowExecutionBlueprint }
+  options: WorkflowExecutionAttemptOptions & {
+    blueprint?: WorkflowExecutionBlueprint
+    immediateResult?: ExecutionResult
+  }
 ) {
   const workflowId = payload.workflowId
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
   const isChildExecution = payload.metadata?.source === 'workflow_block'
-  const eventWriter =
+  const eventWriterPromise =
     payload.stream === true || isChildExecution
-      ? await createWorkflowExecutionEventWriter({
+      ? createWorkflowExecutionEventWriter({
           pendingExecutionId: executionId,
           workflowId,
         })
-      : null
+      : Promise.resolve(null)
   const executionTarget = payload.executionTarget ?? 'deployed'
   const isLiveExecution = executionTarget === 'live'
   const triggerType = payload.triggerType ?? 'manual'
@@ -100,6 +124,10 @@ export async function executeWorkflowJob(
     throw new Error('Workflow execution is missing its captured time policy')
   }
   const timePolicy = isChildExecution ? inheritedPolicy! : options.timePolicy
+  let eventWriter =
+    timePolicy.kind === 'bounded'
+      ? await Promise.race([eventWriterPromise, options.timeBudget.expired.then(() => null)])
+      : await eventWriterPromise
 
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
     userId: payload.userId,
@@ -107,12 +135,23 @@ export async function executeWorkflowJob(
     executionId,
   })
 
-  await eventWriter?.write({
-    type: 'execution:started',
-    data: {
-      startTime: new Date().toISOString(),
-    },
-  })
+  if (eventWriter) {
+    const started = eventWriter.write({
+      type: 'execution:started',
+      data: {
+        startTime: new Date().toISOString(),
+      },
+    })
+    if (timePolicy.kind === 'bounded') {
+      const completed = await Promise.race([
+        started.then(() => true),
+        options.timeBudget.expired.then(() => false),
+      ])
+      if (!completed) eventWriter = null
+    } else {
+      await started
+    }
+  }
 
   try {
     const triggerData =
@@ -130,7 +169,9 @@ export async function executeWorkflowJob(
           triggerTarget,
           triggerData,
           timePolicy,
+          timeBudget: options.timeBudget,
           attemptStartedAt: processingStartedAt,
+          preparedResult: options.immediateResult,
           contextExtensions: {
             workflowDepth: payload.workflowDepth ?? 0,
             isChildExecution,
@@ -159,6 +200,8 @@ export async function executeWorkflowJob(
           triggerTarget,
           triggerData,
           timePolicy,
+          timeBudget: options.timeBudget,
+          fallbackWorkspaceId: options.fallbackWorkspaceId,
           attemptStartedAt: processingStartedAt,
           contextExtensions: {
             workflowDepth: payload.workflowDepth ?? 0,
@@ -227,4 +270,59 @@ export async function executeWorkflowJob(
     )
     throw error
   }
+}
+
+export function executeWorkflowJob(
+  payload: WorkflowExecutionPayload,
+  options: WorkflowExecutionAttemptOptions & { blueprint?: WorkflowExecutionBlueprint }
+): Promise<WorkflowExecutionJobResult>
+export function executeWorkflowJob(
+  payload: WorkflowExecutionPayload,
+  options: WorkflowExecutionAttemptOptions & { blueprint?: WorkflowExecutionBlueprint },
+  prepare: () => Promise<WorkflowExecutionJobPreparation>
+): Promise<WorkflowExecutionJobResult | undefined>
+export async function executeWorkflowJob(
+  payload: WorkflowExecutionPayload,
+  options: WorkflowExecutionAttemptOptions & { blueprint?: WorkflowExecutionBlueprint },
+  prepare?: () => Promise<WorkflowExecutionJobPreparation>
+) {
+  if (!prepare) return executePreparedWorkflowJob(payload, options)
+
+  let execution: Promise<WorkflowExecutionJobResult | undefined> | undefined
+  const run = (prepared: WorkflowExecutionJobPreparation) => {
+    if (execution) return execution
+    if (prepared.kind === 'ignore') execution = Promise.resolve(undefined)
+    else {
+      execution = executePreparedWorkflowJob(prepared.payload, {
+        ...options,
+        blueprint: prepared.blueprint,
+        immediateResult: prepared.immediateResult,
+      })
+    }
+    return execution
+  }
+
+  const preparation = prepare()
+  if (options.timePolicy.kind === 'unlimited') return run(await preparation)
+
+  const deadline = options.timeBudget.expired.then(() =>
+    run({
+      kind: 'execute',
+      payload: {
+        ...payload,
+        userId: options.fallbackActorUserId,
+        workspaceId: options.fallbackWorkspaceId,
+      },
+      blueprint: {
+        workflowId: payload.workflowId,
+        executionTarget: payload.executionTarget ?? 'deployed',
+        workflowContext: { workspaceId: options.fallbackWorkspaceId, variables: null },
+        workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
+      },
+    })
+  )
+  const prepared = preparation.then((value) =>
+    (options.timeBudget.remainingMilliseconds() ?? 0) <= 0 ? deadline : run(value)
+  )
+  return Promise.race([prepared, deadline])
 }

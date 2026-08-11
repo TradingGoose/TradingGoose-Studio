@@ -29,11 +29,12 @@ describe('private tier access request errors', () => {
     })
   })
 
-  it('uses server copy for throttling and dependency failures only', () => {
+  it('uses server copy for throttling and client-localized dependency failures', () => {
     expect(
       getPrivateTierAccessValidationErrorMessage(
         new PrivateTierAccessRequestError('请稍后再试。', 429, 60),
-        'Invalid access code.'
+        'Invalid access code.',
+        'Dependency unavailable.'
       )
     ).toBe('请稍后再试。')
     expect(
@@ -43,25 +44,29 @@ describe('private tier access request errors', () => {
           503,
           600
         ),
-        'Invalid access code.'
+        'Invalid access code.',
+        'Dependency unavailable.'
       )
-    ).toBe('Access-code validation is temporarily unavailable')
+    ).toBe('Dependency unavailable.')
     expect(
       getPrivateTierAccessValidationErrorMessage(
         new PrivateTierAccessRequestError('required', 400, null),
-        'Invalid access code.'
+        'Invalid access code.',
+        'Dependency unavailable.'
       )
     ).toBe('Invalid access code.')
     expect(
       getPrivateTierAccessValidationErrorMessage(
         new PrivateTierAccessRequestError('server prose', 404, null),
-        'Invalid access code.'
+        'Invalid access code.',
+        'Dependency unavailable.'
       )
     ).toBe('Invalid access code.')
     expect(
       getPrivateTierAccessValidationErrorMessage(
         new Error('unclassified server failure'),
-        'Invalid access code.'
+        'Invalid access code.',
+        'Dependency unavailable.'
       )
     ).toBe('Invalid access code.')
   })

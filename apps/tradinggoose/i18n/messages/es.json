@@ -1992,7 +1992,8 @@
           "required": "El código de acceso es obligatorio.",
           "invalid": "Código de acceso no válido.",
           "success": "Acceso al nivel privado desbloqueado.",
-          "tooManyAttempts": "Demasiados intentos de código de acceso. Inténtelo de nuevo más tarde."
+          "tooManyAttempts": "Demasiados intentos de código de acceso. Inténtelo de nuevo más tarde.",
+          "dependencyUnavailable": "La validación del código de acceso no está disponible temporalmente."
         },
         "enterprise": {
           "name": "Empresa",

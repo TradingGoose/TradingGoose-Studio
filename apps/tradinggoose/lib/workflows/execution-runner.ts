@@ -5,10 +5,9 @@ import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createWorkflowExecutionResultDiagnostics } from '@/lib/execution/workflow-execution-diagnostics'
-import { AttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budget'
+import type { AttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budget'
 import {
   createWorkflowExecutionDeadlineResult,
-  getWorkflowExecutionTimeLimitMilliseconds,
   WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
   type WorkflowExecutionTimePolicy,
 } from '@/lib/execution/workflow-execution-time-policy'
@@ -331,7 +330,9 @@ export async function runPreparedWorkflowExecution(params: {
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
   startupError?: unknown
+  preparedResult?: ExecutionResult
   timePolicy: WorkflowExecutionTimePolicy
+  timeBudget: AttemptTimeBudget
   attemptStartedAt: string
 }): Promise<WorkflowRunnerResult> {
   const executionId = params.executionId ?? uuidv4()
@@ -349,18 +350,7 @@ export async function runPreparedWorkflowExecution(params: {
   let executor: Executor | undefined
   let workflowLogId: string | undefined
   const executionPolicy = params.timePolicy
-  const configuredRemaining = getWorkflowExecutionTimeLimitMilliseconds(executionPolicy)
-  const chargedStartupMilliseconds = Math.max(
-    0,
-    Date.now() - new Date(params.attemptStartedAt).getTime()
-  )
-  const initialRemaining =
-    configuredRemaining !== null &&
-    executionPolicy.kind === 'bounded' &&
-    executionPolicy.accounting.mode === 'remaining'
-      ? Math.max(0, configuredRemaining - chargedStartupMilliseconds)
-      : configuredRemaining
-  const timeBudget = new AttemptTimeBudget(executionPolicy, initialRemaining)
+  const timeBudget = params.timeBudget
   const carriesChildRemainingBudget =
     params.contextExtensions?.isChildExecution === true &&
     executionPolicy.kind === 'bounded' &&
@@ -405,6 +395,7 @@ export async function runPreparedWorkflowExecution(params: {
       workflowLogId = await loggingStart
       const expiredAfterLoggingStart = deadlineResultIfExpired()
       if (expiredAfterLoggingStart) return expiredAfterLoggingStart
+      if (params.preparedResult) return params.preparedResult
       if (params.startupError) throw params.startupError
 
       const usageCheck = await checkServerSideUsageLimits({
@@ -536,8 +527,6 @@ export async function runPreparedWorkflowExecution(params: {
       workspaceId,
       dispatchFailureReason,
     }
-  } finally {
-    timeBudget.dispose()
   }
 
   if (result === deadlineResult) {
@@ -585,39 +574,68 @@ export async function runWorkflowExecution(params: {
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
   timePolicy: WorkflowExecutionTimePolicy
+  timeBudget: AttemptTimeBudget
+  fallbackWorkspaceId: string
   attemptStartedAt: string
 }): Promise<WorkflowRunnerResult> {
-  let startupError: unknown
-  const blueprint = await loadWorkflowExecutionBlueprint({
+  const preparation = loadWorkflowExecutionBlueprint({
     workflowId: params.workflowId,
     executionTarget: params.executionTarget,
     workflowContext: params.workflowContext,
     workflowData: params.workflowData,
-  }).catch(async (error) => {
-    startupError = error
-    return {
-      workflowId: params.workflowId,
-      executionTarget: params.executionTarget ?? 'deployed',
-      workflowContext: await resolveRequiredWorkflowExecutionContext(
-        params.workflowId,
-        params.workflowContext
-      ),
-      workflowData: params.workflowData ?? { blocks: {}, edges: [], loops: {}, parallels: {} },
-    }
   })
+    .then((blueprint) => ({ blueprint, startupError: undefined as unknown }))
+    .catch(async (startupError) => ({
+      startupError,
+      blueprint: {
+        workflowId: params.workflowId,
+        executionTarget: params.executionTarget ?? 'deployed',
+        workflowContext: await resolveRequiredWorkflowExecutionContext(
+          params.workflowId,
+          params.workflowContext
+        ),
+        workflowData: params.workflowData ?? { blocks: {}, edges: [], loops: {}, parallels: {} },
+      },
+    }))
+  let runner: Promise<WorkflowRunnerResult> | undefined
+  const runPrepared = (prepared: {
+    blueprint: WorkflowExecutionBlueprint
+    startupError?: unknown
+  }) => {
+    runner ??= runPreparedWorkflowExecution({
+      blueprint: prepared.blueprint,
+      actorUserId: params.actorUserId,
+      triggerType: params.triggerType,
+      workflowInput: params.workflowInput,
+      triggerTarget: params.triggerTarget,
+      requestId: params.requestId,
+      executionId: params.executionId,
+      triggerData: params.triggerData,
+      contextExtensions: params.contextExtensions,
+      timePolicy: params.timePolicy,
+      timeBudget: params.timeBudget,
+      attemptStartedAt: params.attemptStartedAt,
+      startupError: prepared.startupError,
+    })
+    return runner
+  }
 
-  return runPreparedWorkflowExecution({
-    blueprint,
-    actorUserId: params.actorUserId,
-    triggerType: params.triggerType,
-    workflowInput: params.workflowInput,
-    triggerTarget: params.triggerTarget,
-    requestId: params.requestId,
-    executionId: params.executionId,
-    triggerData: params.triggerData,
-    contextExtensions: params.contextExtensions,
-    timePolicy: params.timePolicy,
-    attemptStartedAt: params.attemptStartedAt,
-    startupError,
-  })
+  if (params.timePolicy.kind === 'unlimited') {
+    return runPrepared(await preparation)
+  }
+
+  const deadline = params.timeBudget.expired.then(() =>
+    runPrepared({
+      blueprint: {
+        workflowId: params.workflowId,
+        executionTarget: params.executionTarget ?? 'deployed',
+        workflowContext: { workspaceId: params.fallbackWorkspaceId, variables: null },
+        workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
+      },
+    })
+  )
+  const prepared = preparation.then((value) =>
+    (params.timeBudget.remainingMilliseconds() ?? 0) <= 0 ? deadline : runPrepared(value)
+  )
+  return Promise.race([prepared, deadline])
 }

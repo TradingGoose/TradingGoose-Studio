@@ -9,6 +9,7 @@ import {
   type PendingExecutionClaim,
 } from '@/lib/execution/pending-execution'
 import { wakePendingExecutionDrain } from '@/lib/execution/pending-execution-drain-wake'
+import { createAttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budget'
 import {
   createWorkflowExecutionTimePolicy,
   isWorkflowExecutionTimePolicy,
@@ -38,6 +39,9 @@ async function captureWorkflowExecutionAttempt(
   row: PendingExecutionClaim
 ): Promise<WorkflowExecutionAttemptOptions> {
   const attemptStartedAt = row.processingStartedAt.toISOString()
+  if (!row.workspaceId) {
+    throw new Error(`Workflow execution ${row.id} is missing its claimed workspace`)
+  }
   const workflowPayload =
     row.executionType === 'workflow' && isWorkflowExecutionPayload(row.payload) ? row.payload : null
   const isNestedWorkflow = workflowPayload?.metadata?.source === 'workflow_block'
@@ -47,97 +51,114 @@ async function captureWorkflowExecutionAttempt(
     if (!isWorkflowExecutionTimePolicy(inheritedPolicy)) {
       throw new Error('Nested workflow execution is missing its authenticated time policy')
     }
-    return { attemptStartedAt, timePolicy: inheritedPolicy }
+    return {
+      attemptStartedAt,
+      timePolicy: inheritedPolicy,
+      timeBudget: createAttemptTimeBudget(inheritedPolicy, attemptStartedAt),
+      fallbackActorUserId: row.userId,
+      fallbackWorkspaceId: row.workspaceId,
+    }
   }
 
   const tier = await resolveServerExecutionBillingTierForScope({
     scopeId: row.billingScopeId,
     scopeType: row.billingScopeType,
   })
+  const timePolicy = createWorkflowExecutionTimePolicy({
+    processingStartedAt: attemptStartedAt,
+    tier,
+  })
   return {
     attemptStartedAt,
-    timePolicy: createWorkflowExecutionTimePolicy({ processingStartedAt: attemptStartedAt, tier }),
+    timePolicy,
+    timeBudget: createAttemptTimeBudget(timePolicy, attemptStartedAt),
+    fallbackActorUserId: row.userId,
+    fallbackWorkspaceId: row.workspaceId,
   }
 }
 
 async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boolean> {
-  switch (row.executionType) {
-    case 'workflow': {
-      if (!isWorkflowExecutionPayload(row.payload)) {
-        throw new Error('Invalid workflow pending payload')
+  const attemptOptions =
+    row.executionType === 'document' ||
+    (row.executionType === 'monitor' &&
+      isMonitorExecutionPayload(row.payload) &&
+      row.payload.source === INDICATOR_MONITOR_PROVIDER)
+      ? undefined
+      : await captureWorkflowExecutionAttempt(row)
+
+  try {
+    switch (row.executionType) {
+      case 'workflow': {
+        if (!isWorkflowExecutionPayload(row.payload)) {
+          throw new Error('Invalid workflow pending payload')
+        }
+
+        await executeWorkflowJob(
+          {
+            ...row.payload,
+            executionId: row.id,
+          },
+          attemptOptions!
+        )
+        break
       }
 
-      await executeWorkflowJob(
-        {
-          ...row.payload,
-          executionId: row.id,
-        },
-        await captureWorkflowExecutionAttempt(row)
-      )
-      break
-    }
+      case 'webhook': {
+        if (!isWebhookExecutionPayload(row.payload)) {
+          throw new Error('Invalid webhook pending payload')
+        }
 
-    case 'webhook': {
-      if (!isWebhookExecutionPayload(row.payload)) {
-        throw new Error('Invalid webhook pending payload')
+        await executeWebhookJob({ ...row.payload, executionId: row.id }, attemptOptions!)
+        break
       }
 
-      await executeWebhookJob(
-        { ...row.payload, executionId: row.id },
-        await captureWorkflowExecutionAttempt(row)
-      )
-      break
-    }
+      case 'schedule': {
+        if (!isScheduleExecutionPayload(row.payload)) {
+          throw new Error('Invalid schedule pending payload')
+        }
 
-    case 'schedule': {
-      if (!isScheduleExecutionPayload(row.payload)) {
-        throw new Error('Invalid schedule pending payload')
+        await executeScheduleJob({ ...row.payload, executionId: row.id }, attemptOptions!)
+        break
       }
 
-      await executeScheduleJob(
-        { ...row.payload, executionId: row.id },
-        await captureWorkflowExecutionAttempt(row)
-      )
-      break
-    }
+      case 'monitor': {
+        if (!isMonitorExecutionPayload(row.payload)) {
+          throw new Error('Invalid monitor pending payload')
+        }
 
-    case 'monitor': {
-      if (!isMonitorExecutionPayload(row.payload)) {
-        throw new Error('Invalid monitor pending payload')
+        const monitorPayload = { ...row.payload, executionId: row.id }
+        await executeMonitorJob(
+          monitorPayload,
+          monitorPayload.source === INDICATOR_MONITOR_PROVIDER ? undefined : attemptOptions!
+        )
+        break
       }
 
-      const monitorPayload = { ...row.payload, executionId: row.id }
-      await executeMonitorJob(
-        monitorPayload,
-        monitorPayload.source === INDICATOR_MONITOR_PROVIDER
-          ? undefined
-          : await captureWorkflowExecutionAttempt(row)
-      )
-      break
-    }
-
-    case 'document': {
-      try {
-        await dispatchQueuedDocumentProcessingJob(row.payload)
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
-        await failQueuedDocumentProcessingJob(row.payload, errorMessage)
-        await completePendingExecution({
-          pendingExecutionId: row.id,
-        })
-        return false
+      case 'document': {
+        try {
+          await dispatchQueuedDocumentProcessingJob(row.payload)
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
+          await failQueuedDocumentProcessingJob(row.payload, errorMessage)
+          await completePendingExecution({
+            pendingExecutionId: row.id,
+          })
+          return false
+        }
+        break
       }
-      break
+
+      default:
+        throw new Error(`Unsupported pending execution type: ${row.executionType}`)
     }
 
-    default:
-      throw new Error(`Unsupported pending execution type: ${row.executionType}`)
+    await completePendingExecution({
+      pendingExecutionId: row.id,
+    })
+    return true
+  } finally {
+    attemptOptions?.timeBudget.dispose()
   }
-
-  await completePendingExecution({
-    pendingExecutionId: row.id,
-  })
-  return true
 }
 
 export async function drainPendingExecutionsForBillingScope(payload: PendingExecutionDrainPayload) {

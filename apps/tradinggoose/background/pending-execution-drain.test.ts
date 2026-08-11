@@ -117,14 +117,17 @@ describe('pendingExecutionDrain', () => {
   })
   const workflowRow = (id: string) =>
     executionRow(id, 'workflow', { workflowId: 'workflow-1', userId: 'user-1' })
-  const expectedAttempt = {
+  const expectedAttempt = expect.objectContaining({
     attemptStartedAt: '2026-04-23T00:00:00.000Z',
+    fallbackActorUserId: 'user-1',
+    fallbackWorkspaceId: 'workspace-1',
+    timeBudget: expect.any(Object),
     timePolicy: {
       kind: 'unlimited',
       processingStartedAt: '2026-04-23T00:00:00.000Z',
       tier: { source: 'no-tier' },
     },
-  }
+  })
   const webhookRow = (id: string) =>
     executionRow(id, 'webhook', {
       webhookId: 'webhook-1',
@@ -274,10 +277,13 @@ describe('pendingExecutionDrain', () => {
     expect(resolveServerExecutionBillingTierForScopeMock).not.toHaveBeenCalled()
     expect(executeWorkflowJobMock).toHaveBeenCalledWith(
       expect.objectContaining({ executionId: 'pending-child-1' }),
-      {
+      expect.objectContaining({
         attemptStartedAt: '2026-04-23T00:00:00.000Z',
+        fallbackActorUserId: 'user-1',
+        fallbackWorkspaceId: 'workspace-1',
+        timeBudget: expect.any(Object),
         timePolicy: inheritedPolicy,
-      }
+      })
     )
   })
 

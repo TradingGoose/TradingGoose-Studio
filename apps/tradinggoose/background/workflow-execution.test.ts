@@ -1,12 +1,14 @@
 /**
  * @vitest-environment node
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budget'
 
 const {
   runWorkflowExecutionMock,
   buildTraceSpansMock,
   createWorkflowExecutionEventWriterMock,
+  runPreparedWorkflowExecutionMock,
   writeExecutionEventMock,
   isPendingWorkflowExecutionCancellationRequestedMock,
   disableMonitorMock,
@@ -14,6 +16,7 @@ const {
   runWorkflowExecutionMock: vi.fn(),
   buildTraceSpansMock: vi.fn(),
   createWorkflowExecutionEventWriterMock: vi.fn(),
+  runPreparedWorkflowExecutionMock: vi.fn(),
   writeExecutionEventMock: vi.fn(),
   isPendingWorkflowExecutionCancellationRequestedMock: vi.fn(),
   disableMonitorMock: vi.fn(),
@@ -30,7 +33,7 @@ vi.mock('@/lib/execution/pending-execution', () => ({
 
 vi.mock('@/lib/workflows/execution-runner', () => ({
   runWorkflowExecution: runWorkflowExecutionMock,
-  runPreparedWorkflowExecution: vi.fn(),
+  runPreparedWorkflowExecution: runPreparedWorkflowExecutionMock,
 }))
 
 vi.mock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
@@ -56,9 +59,16 @@ const rootAttempt = {
     processingStartedAt: '2026-01-01T00:00:05.000Z',
     tier: { source: 'no-tier' as const },
   },
+  timeBudget: {
+    expired: new Promise<void>(() => undefined),
+    remainingMilliseconds: () => null,
+  } as any,
+  fallbackActorUserId: 'user-1',
+  fallbackWorkspaceId: 'workspace-1',
 }
 
 describe('executeWorkflowJob', () => {
+  afterEach(() => vi.useRealTimers())
   beforeEach(() => {
     vi.clearAllMocks()
     runWorkflowExecutionMock.mockResolvedValue({
@@ -68,6 +78,11 @@ describe('executeWorkflowJob', () => {
         metadata: { duration: 12 },
       },
     })
+    runPreparedWorkflowExecutionMock.mockResolvedValue({
+      result: { success: true, output: { ok: true }, logs: [] },
+      workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
+      workspaceId: 'workspace-1',
+    })
     buildTraceSpansMock.mockReturnValue({
       traceSpans: [],
     })
@@ -76,6 +91,72 @@ describe('executeWorkflowJob', () => {
     })
     writeExecutionEventMock.mockResolvedValue(undefined)
     isPendingWorkflowExecutionCancellationRequestedMock.mockResolvedValue(false)
+  })
+
+  it('terminalizes an expired attempt while preparation is still pending and suppresses it later', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    const boundedPolicy = {
+      kind: 'bounded' as const,
+      processingStartedAt: '2026-01-01T00:00:00.000Z',
+      tier: {
+        source: 'resolved-tier' as const,
+        appliedTierId: 'tier-1',
+        appliedTierName: 'Pro',
+      },
+      limitSeconds: 1,
+      accounting: { mode: 'remaining' as const, remainingMilliseconds: 1_000 },
+    }
+    const timeBudget = new AttemptTimeBudget(boundedPolicy, 1_000)
+    let finishPreparation!: (value: any) => void
+    const preparation = new Promise<any>((resolve) => {
+      finishPreparation = resolve
+    })
+    runPreparedWorkflowExecutionMock.mockResolvedValue({
+      result: {
+        success: false,
+        output: {},
+        logs: [],
+        code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+      },
+      workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
+      workspaceId: 'workspace-1',
+    })
+
+    const execution = executeWorkflowJob(
+      { workflowId: 'workflow-1', userId: 'user-1' },
+      { ...rootAttempt, timePolicy: boundedPolicy, timeBudget },
+      () => preparation
+    )
+    await vi.advanceTimersByTimeAsync(1_000)
+
+    await expect(execution).resolves.toMatchObject({
+      code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+      success: false,
+    })
+    expect(runPreparedWorkflowExecutionMock).toHaveBeenCalledOnce()
+    expect(runPreparedWorkflowExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blueprint: expect.objectContaining({
+          workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
+        }),
+        timeBudget,
+      })
+    )
+
+    finishPreparation({
+      kind: 'execute',
+      payload: { workflowId: 'workflow-1', userId: 'user-1' },
+      blueprint: {
+        workflowId: 'workflow-1',
+        executionTarget: 'deployed',
+        workflowContext: { workspaceId: 'workspace-1', variables: null },
+        workflowData: { blocks: { late: {} }, edges: [], loops: {}, parallels: {} },
+      },
+    })
+    await Promise.resolve()
+    expect(runPreparedWorkflowExecutionMock).toHaveBeenCalledOnce()
+    timeBudget.dispose()
   })
 
   it('marks queued workflow-block executions as child executions', async () => {
@@ -102,7 +183,7 @@ describe('executeWorkflowJob', () => {
           timePolicy: inheritedPolicy,
         },
       },
-      { attemptStartedAt: '2026-01-01T00:00:05.000Z', timePolicy: inheritedPolicy }
+      { ...rootAttempt, timePolicy: inheritedPolicy }
     )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(

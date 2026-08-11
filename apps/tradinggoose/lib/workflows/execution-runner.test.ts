@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budget'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import type { WorkflowExecutionBlueprint } from './execution-runner'
 import { loadWorkflowExecutionBlueprint, runPreparedWorkflowExecution } from './execution-runner'
@@ -170,6 +171,12 @@ describe('runPreparedWorkflowExecution', () => {
     processingStartedAt: '2026-01-01T00:00:00.000Z',
     tier: { source: 'no-tier' as const },
   }
+  const createTimeBudget = (
+    policy: typeof boundedPolicy | typeof unlimitedPolicy,
+    remainingMilliseconds = policy.kind === 'bounded'
+      ? policy.accounting.remainingMilliseconds
+      : null
+  ) => new AttemptTimeBudget(policy, remainingMilliseconds)
 
   it('stops and terminalizes a bounded execution once while suppressing a late settlement', async () => {
     vi.useFakeTimers()
@@ -209,6 +216,7 @@ describe('runPreparedWorkflowExecution', () => {
       executionId: 'execution-1',
       triggerTarget: { kind: 'block', blockId: 'trigger' },
       timePolicy: boundedPolicy,
+      timeBudget: createTimeBudget(boundedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
     })
     await vi.advanceTimersByTimeAsync(1_000)
@@ -280,6 +288,7 @@ describe('runPreparedWorkflowExecution', () => {
       executionId: 'execution-1',
       triggerTarget: { kind: 'block', blockId: 'trigger' },
       timePolicy: boundedPolicy,
+      timeBudget: createTimeBudget(boundedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
     })
 
@@ -338,6 +347,7 @@ describe('runPreparedWorkflowExecution', () => {
       executionId: 'execution-1',
       triggerTarget: { kind: 'block', blockId: 'trigger' },
       timePolicy: boundedPolicy,
+      timeBudget: createTimeBudget(boundedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
     })
 
@@ -367,6 +377,7 @@ describe('runPreparedWorkflowExecution', () => {
       executionId: 'execution-1',
       triggerTarget: { kind: 'block', blockId: 'trigger' },
       timePolicy: boundedPolicy,
+      timeBudget: createTimeBudget(boundedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
     })
 
@@ -394,6 +405,7 @@ describe('runPreparedWorkflowExecution', () => {
       executionId: 'execution-1',
       triggerTarget: { kind: 'block', blockId: 'trigger' },
       timePolicy: boundedPolicy,
+      timeBudget: createTimeBudget(boundedPolicy, 0),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
     })
     expect(outcome.result.code).toBe('WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED')
@@ -408,11 +420,8 @@ describe('runPreparedWorkflowExecution', () => {
       workflowInput: {},
       executionId: 'execution-1',
       triggerTarget: { kind: 'block', blockId: 'trigger' },
-      timePolicy: {
-        kind: 'unlimited',
-        processingStartedAt: '2026-01-01T00:00:00.000Z',
-        tier: { source: 'no-tier' },
-      },
+      timePolicy: unlimitedPolicy,
+      timeBudget: createTimeBudget(unlimitedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
     })
     expect(outcome.result.success).toBe(true)
@@ -427,6 +436,7 @@ describe('runPreparedWorkflowExecution', () => {
       workflowInput: { symbol: 'AAPL' },
       executionId: 'execution-1',
       timePolicy: unlimitedPolicy,
+      timeBudget: createTimeBudget(unlimitedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'block',
@@ -492,6 +502,7 @@ describe('runPreparedWorkflowExecution', () => {
       workflowInput: {},
       executionId: 'execution-1',
       timePolicy: unlimitedPolicy,
+      timeBudget: createTimeBudget(unlimitedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'block',
@@ -522,6 +533,7 @@ describe('runPreparedWorkflowExecution', () => {
       workflowInput: {},
       executionId: 'execution-1',
       timePolicy: unlimitedPolicy,
+      timeBudget: createTimeBudget(unlimitedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'block',
@@ -556,6 +568,7 @@ describe('runPreparedWorkflowExecution', () => {
       workflowInput: {},
       executionId: 'execution-1',
       timePolicy: unlimitedPolicy,
+      timeBudget: createTimeBudget(unlimitedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'block',
@@ -579,6 +592,7 @@ describe('runPreparedWorkflowExecution', () => {
         workflowInput: {},
         executionId: 'execution-1',
         timePolicy: unlimitedPolicy,
+        timeBudget: createTimeBudget(unlimitedPolicy),
         attemptStartedAt: '2026-01-01T00:00:00.000Z',
         triggerTarget: {
           kind: 'block',
@@ -604,6 +618,7 @@ describe('runPreparedWorkflowExecution', () => {
       workflowInput: { symbol: 'AAPL' },
       executionId: 'execution-1',
       timePolicy: unlimitedPolicy,
+      timeBudget: createTimeBudget(unlimitedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'trigger',
@@ -633,6 +648,7 @@ describe('runPreparedWorkflowExecution', () => {
         workflowInput: {},
         executionId: 'execution-1',
         timePolicy: unlimitedPolicy,
+        timeBudget: createTimeBudget(unlimitedPolicy),
         attemptStartedAt: '2026-01-01T00:00:00.000Z',
         triggerTarget: {
           kind: 'trigger',
@@ -658,6 +674,7 @@ describe('runPreparedWorkflowExecution', () => {
       workflowInput: {},
       executionId: 'execution-1',
       timePolicy: unlimitedPolicy,
+      timeBudget: createTimeBudget(unlimitedPolicy),
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
       triggerTarget: {
         kind: 'trigger',

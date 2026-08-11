@@ -156,63 +156,84 @@ export async function executeScheduleJob(
   }
 
   try {
-    const [workflowRecord] = await db
-      .select()
-      .from(workflow)
-      .where(eq(workflow.id, payload.workflowId))
-      .limit(1)
-
-    if (!workflowRecord) {
-      logger.warn(`[${requestId}] Workflow ${payload.workflowId} not found`)
-      return
-    }
-
-    if (!workflowRecord.workspaceId) {
-      logger.warn(`[${requestId}] Workflow ${payload.workflowId} is missing workspaceId`)
-      return
-    }
-
-    const actorUserId = await getApiKeyOwnerUserId(workflowRecord.pinnedApiKeyId)
-
-    if (!actorUserId) {
-      logger.warn(
-        `[${requestId}] Skipping schedule ${payload.scheduleId}: pinned API key required to attribute usage.`
-      )
-      return
-    }
-
-    const blueprint = await loadWorkflowExecutionBlueprint({
-      workflowId: payload.workflowId,
-      workflowContext: workflowRecord,
-      executionTarget: 'deployed',
-    })
-    const scheduleBlocks = blueprint.workflowData.blocks as Record<string, BlockState>
-
-    if (!scheduleBlocks[payload.blockId]) {
-      logger.warn(
-        `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Removing schedule.`
-      )
-      await db.delete(workflowSchedule).where(eq(workflowSchedule.id, payload.scheduleId))
-      return
-    }
-
+    let scheduleBlocks: Record<string, BlockState> = {}
     const result = await executeWorkflowJob(
       {
         workflowId: payload.workflowId,
-        userId: actorUserId,
-        workspaceId: workflowRecord.workspaceId,
+        userId: options.fallbackActorUserId,
+        workspaceId: options.fallbackWorkspaceId,
         executionId,
         triggerType: 'schedule',
-        input: {
-          _context: {
-            workflowId: payload.workflowId,
-          },
-        },
         triggerBlockId: payload.blockId,
         executionTarget: 'deployed',
       },
-      { ...options, blueprint }
+      options,
+      async () => {
+        try {
+          options.timeBudget.signal.throwIfAborted()
+          const [workflowRecord] = await db
+            .select()
+            .from(workflow)
+            .where(eq(workflow.id, payload.workflowId))
+            .limit(1)
+          options.timeBudget.signal.throwIfAborted()
+
+          if (!workflowRecord) {
+            logger.warn(`[${requestId}] Workflow ${payload.workflowId} not found`)
+            return { kind: 'ignore' as const }
+          }
+          if (!workflowRecord.workspaceId) {
+            logger.warn(`[${requestId}] Workflow ${payload.workflowId} is missing workspaceId`)
+            return { kind: 'ignore' as const }
+          }
+
+          const actorUserId = await getApiKeyOwnerUserId(workflowRecord.pinnedApiKeyId)
+          options.timeBudget.signal.throwIfAborted()
+          if (!actorUserId) {
+            logger.warn(
+              `[${requestId}] Skipping schedule ${payload.scheduleId}: pinned API key required to attribute usage.`
+            )
+            return { kind: 'ignore' as const }
+          }
+
+          const blueprint = await loadWorkflowExecutionBlueprint({
+            workflowId: payload.workflowId,
+            workflowContext: workflowRecord,
+            executionTarget: 'deployed',
+          })
+          options.timeBudget.signal.throwIfAborted()
+          scheduleBlocks = blueprint.workflowData.blocks as Record<string, BlockState>
+          if (!scheduleBlocks[payload.blockId]) {
+            logger.warn(
+              `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Removing schedule.`
+            )
+            options.timeBudget.signal.throwIfAborted()
+            await db.delete(workflowSchedule).where(eq(workflowSchedule.id, payload.scheduleId))
+            return { kind: 'ignore' as const }
+          }
+
+          options.timeBudget.signal.throwIfAborted()
+          return {
+            kind: 'execute' as const,
+            payload: {
+              workflowId: payload.workflowId,
+              userId: actorUserId,
+              workspaceId: workflowRecord.workspaceId,
+              executionId,
+              triggerType: 'schedule' as const,
+              input: { _context: { workflowId: payload.workflowId } },
+              triggerBlockId: payload.blockId,
+              executionTarget: 'deployed' as const,
+            },
+            blueprint,
+          }
+        } catch (error) {
+          if (options.timeBudget.signal.aborted) return { kind: 'ignore' as const }
+          throw error
+        }
+      }
     )
+    if (!result) return
 
     if (result.success) {
       logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)

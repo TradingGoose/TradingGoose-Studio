@@ -2,16 +2,19 @@ import type {
   WorkflowExecutionTimeBudget,
   WorkflowExecutionTimePolicy,
 } from './workflow-execution-time-policy'
+import { getWorkflowExecutionTimeLimitMilliseconds } from './workflow-execution-time-policy'
 
 const MAX_TIMER_DELAY_MS = 2_147_483_647
 
 export class AttemptTimeBudget implements WorkflowExecutionTimeBudget {
+  private readonly abortController = new AbortController()
   private remaining: number | null
   private runningSince = Date.now()
   private timer: ReturnType<typeof setTimeout> | undefined
   private readonly activities = new Map<string, 'active' | 'queued-child-wait'>()
   private paused = false
   readonly expired: Promise<void>
+  readonly signal = this.abortController.signal
   private resolveExpired!: () => void
 
   constructor(
@@ -41,6 +44,7 @@ export class AttemptTimeBudget implements WorkflowExecutionTimeBudget {
     const remaining = this.currentRemaining()
     if (remaining === null || this.paused) return
     if (remaining <= 0) {
+      this.abortController.abort()
       this.resolveExpired()
       return
     }
@@ -104,4 +108,20 @@ export class AttemptTimeBudget implements WorkflowExecutionTimeBudget {
   dispose() {
     if (this.timer) clearTimeout(this.timer)
   }
+}
+
+export function createAttemptTimeBudget(
+  policy: WorkflowExecutionTimePolicy,
+  attemptStartedAt: string
+) {
+  const configuredRemaining = getWorkflowExecutionTimeLimitMilliseconds(policy)
+  const chargedStartupMilliseconds = Math.max(0, Date.now() - new Date(attemptStartedAt).getTime())
+  const initialRemaining =
+    configuredRemaining !== null &&
+    policy.kind === 'bounded' &&
+    policy.accounting.mode === 'remaining'
+      ? Math.max(0, configuredRemaining - chargedStartupMilliseconds)
+      : configuredRemaining
+
+  return new AttemptTimeBudget(policy, initialRemaining)
 }

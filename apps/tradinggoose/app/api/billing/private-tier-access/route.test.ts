@@ -27,11 +27,19 @@ vi.mock('@/lib/billing/tiers', () => ({
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(async ({ locale }: { locale: string }) => (key: string) => {
     const messages = {
-      en: 'Too many access-code attempts. Please try again later.',
-      es: 'Demasiados intentos de código de acceso. Inténtelo de nuevo más tarde.',
-      zh: '访问码尝试次数过多，请稍后再试。',
+      tooManyAttempts: {
+        en: 'Too many access-code attempts. Please try again later.',
+        es: 'Demasiados intentos de código de acceso. Inténtelo de nuevo más tarde.',
+        zh: '访问码尝试次数过多，请稍后再试。',
+      },
+      dependencyUnavailable: {
+        en: 'Access-code validation is temporarily unavailable.',
+        es: 'La validación del código de acceso no está disponible temporalmente.',
+        zh: '访问码验证暂时不可用。',
+      },
     }
-    return key === 'tooManyAttempts' ? messages[locale as keyof typeof messages] : key
+    const localized = messages[key as keyof typeof messages]
+    return localized?.[locale as keyof typeof localized] ?? key
   }),
 }))
 
@@ -104,17 +112,25 @@ describe('private tier access POST', () => {
     expect(mocks.grantAccess).not.toHaveBeenCalled()
   })
 
-  it('fails closed before parsing or granting when limiter storage is unavailable', async () => {
-    mocks.checkRateLimit.mockResolvedValue({
-      allowed: false,
-      remaining: 0,
-      resetAt: new Date(Date.now() + 600_000),
-      failureKind: 'dependency',
-    })
-    const response = await POST(request('{'))
+  it.each([
+    ['en', 'Access-code validation is temporarily unavailable.'],
+    ['es', 'La validación del código de acceso no está disponible temporalmente.'],
+    ['zh', '访问码验证暂时不可用。'],
+  ])(
+    'fails closed with localized copy before parsing or granting for %s',
+    async (locale, message) => {
+      mocks.checkRateLimit.mockResolvedValue({
+        allowed: false,
+        remaining: 0,
+        resetAt: new Date(Date.now() + 600_000),
+        failureKind: 'dependency',
+      })
+      const response = await POST(request('{', { cookie: `NEXT_LOCALE=${locale}` }))
 
-    expect(response.status).toBe(503)
-    expect(response.headers.get('Retry-After')).toBeTruthy()
-    expect(mocks.grantAccess).not.toHaveBeenCalled()
-  })
+      expect(response.status).toBe(503)
+      expect(response.headers.get('Retry-After')).toBeTruthy()
+      await expect(response.json()).resolves.toEqual({ error: message })
+      expect(mocks.grantAccess).not.toHaveBeenCalled()
+    }
+  )
 })

@@ -128,7 +128,7 @@ describe('subscription modal private access contract', () => {
     expect(source).not.toContain('Open Stripe Billing Portal to cancel')
   })
 
-  it('renders server copy for 429/503 and client-localized invalid copy for 404', async () => {
+  it('renders server copy for 429 and client-localized copy for 503/404', async () => {
     mocks.mutateAsync
       .mockRejectedValueOnce(new PrivateTierAccessRequestError('服务器本地化的限流消息', 429, 60))
       .mockRejectedValueOnce(
@@ -176,7 +176,7 @@ describe('subscription modal private access contract', () => {
     )
 
     await act(async () => button?.click())
-    expect(container.textContent).toContain('Access-code validation is temporarily unavailable')
+    expect(container.textContent).toContain('Access-code validation is temporarily unavailable.')
 
     await act(async () => button?.click())
     expect(container.textContent).toContain('Invalid access code.')

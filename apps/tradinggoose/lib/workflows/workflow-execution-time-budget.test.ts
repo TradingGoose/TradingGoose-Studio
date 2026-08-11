@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budget'
+import {
+  AttemptTimeBudget,
+  createAttemptTimeBudget,
+} from '@/lib/execution/workflow-execution-time-budget'
 import type { WorkflowExecutionTimePolicy } from '@/lib/execution/workflow-execution-time-policy'
 
 const remainingPolicy: WorkflowExecutionTimePolicy = {
@@ -26,8 +29,19 @@ describe('AttemptTimeBudget', () => {
     })
     await vi.advanceTimersByTimeAsync(999)
     expect(expired).toBe(false)
+    expect(budget.signal.aborted).toBe(false)
     await vi.advanceTimersByTimeAsync(1)
     expect(expired).toBe(true)
+    expect(budget.signal.aborted).toBe(true)
+    budget.dispose()
+  })
+
+  it('charges policy-resolution time before arming a claimed attempt', async () => {
+    vi.setSystemTime(new Date('2026-01-01T00:00:11.000Z'))
+    const budget = createAttemptTimeBudget(remainingPolicy, '2026-01-01T00:00:00.000Z')
+
+    expect(budget.remainingMilliseconds()).toBe(0)
+    await expect(budget.expired).resolves.toBeUndefined()
     budget.dispose()
   })
 

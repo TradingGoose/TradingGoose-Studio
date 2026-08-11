@@ -467,14 +467,22 @@ export async function formatWebhookInput(
   body: any,
   request: NextRequest,
   requestId: string,
-  pendingExecutionId: string
+  pendingExecutionId: string,
+  signal?: AbortSignal
 ): Promise<any> {
+  signal?.throwIfAborted()
   if (isMonitorProvider(foundWebhook.provider)) {
     return body
   }
 
   if (foundWebhook.provider === 'airtable') {
-    return formatAirtableWebhookInput(foundWebhook, foundWorkflow, requestId, pendingExecutionId)
+    return formatAirtableWebhookInput(
+      foundWebhook,
+      foundWorkflow,
+      requestId,
+      pendingExecutionId,
+      signal
+    )
   }
 
   if (foundWebhook.provider === 'whatsapp') {
@@ -1253,15 +1261,39 @@ export type AirtablePollResult = {
 
 export class AirtableStageIntegrityError extends Error {}
 
-async function retryAirtablePoll<T>(operation: () => Promise<T>): Promise<T> {
+async function waitForAirtablePollRetry(delayMilliseconds: number, signal?: AbortSignal) {
+  signal?.throwIfAborted()
+  if (!signal) {
+    await new Promise((resolve) => setTimeout(resolve, delayMilliseconds))
+    return
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', abort)
+      resolve()
+    }, delayMilliseconds)
+    const abort = () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    }
+    signal.addEventListener('abort', abort, { once: true })
+  })
+}
+
+async function retryAirtablePoll<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> {
   for (let attempt = 0; ; attempt += 1) {
+    signal?.throwIfAborted()
     try {
-      return await operation()
+      const result = await operation()
+      signal?.throwIfAborted()
+      return result
     } catch (error) {
+      if (signal?.aborted) throw error
       if (attempt >= AIRTABLE_POLL_RETRY_DELAYS_MS.length) {
         throw error
       }
-      await new Promise((resolve) => setTimeout(resolve, AIRTABLE_POLL_RETRY_DELAYS_MS[attempt]))
+      await waitForAirtablePollRetry(AIRTABLE_POLL_RETRY_DELAYS_MS[attempt], signal)
     }
   }
 }
@@ -1346,8 +1378,10 @@ async function commitAirtablePollPage(params: {
   nextCursor: number
   receivedPayloads: unknown[]
   mightHaveMore: boolean
+  signal?: AbortSignal
 }) {
   return db.transaction(async (tx) => {
+    params.signal?.throwIfAborted()
     const [row] = await tx
       .select({ payload: pendingExecution.payload })
       .from(pendingExecution)
@@ -1360,6 +1394,7 @@ async function commitAirtablePollPage(params: {
       )
       .for('update')
       .limit(1)
+    params.signal?.throwIfAborted()
     if (!row)
       throw new AirtableStageIntegrityError('Airtable pending execution lost processing ownership')
 
@@ -1382,6 +1417,7 @@ async function commitAirtablePollPage(params: {
       return { stage, committed: false }
     }
 
+    params.signal?.throwIfAborted()
     const [updatedWebhook] = await tx
       .update(webhook)
       .set({
@@ -1398,6 +1434,7 @@ async function commitAirtablePollPage(params: {
         )
       )
       .returning({ id: webhook.id })
+    params.signal?.throwIfAborted()
     if (!updatedWebhook) return { stage, committed: false }
 
     const nextStage: AirtablePollStage = {
@@ -1407,6 +1444,7 @@ async function commitAirtablePollPage(params: {
       cursor: params.nextCursor,
       mightHaveMore: params.mightHaveMore,
     }
+    params.signal?.throwIfAborted()
     const [updatedExecution] = await tx
       .update(pendingExecution)
       .set({
@@ -1421,6 +1459,7 @@ async function commitAirtablePollPage(params: {
         )
       )
       .returning({ id: pendingExecution.id })
+    params.signal?.throwIfAborted()
     if (!updatedExecution)
       throw new AirtableStageIntegrityError('Failed to persist Airtable poll stage')
     return { stage: nextStage, committed: true }
@@ -1501,8 +1540,10 @@ async function formatAirtableWebhookInput(
   webhookData: any,
   workflowData: any,
   requestId: string,
-  pendingExecutionId: string
+  pendingExecutionId: string,
+  signal?: AbortSignal
 ): Promise<AirtablePollResult> {
+  signal?.throwIfAborted()
   if (
     webhookData.provider !== 'airtable' ||
     webhookData.isActive !== true ||
@@ -1527,23 +1568,27 @@ async function formatAirtableWebhookInput(
   }
 
   let stage = await readAirtablePollStage(pendingExecutionId, webhookData.id, externalId)
+  signal?.throwIfAborted()
   const storedCursor = providerConfig.externalWebhookCursor
   let currentCursor = Number.isInteger(storedCursor) ? storedCursor : null
 
   let accessToken: string | null | undefined
 
   while ((stage?.mightHaveMore ?? true) && (stage?.apiCallCount ?? 0) < AIRTABLE_POLL_PAGE_LIMIT) {
+    signal?.throwIfAborted()
     try {
       accessToken ??= await getOAuthAccessTokenForStoredCredential({
         credentialId,
         workspaceId: workflowData.workspaceId,
         requestId,
       })
+      signal?.throwIfAborted()
       if (!accessToken) throw new Error('Airtable account connection required')
 
       const queryParams = new URLSearchParams()
       if (currentCursor !== null) queryParams.set('cursor', currentCursor.toString())
       const { response, responseText } = await retryAirtablePoll(async () => {
+        signal?.throwIfAborted()
         const response = await fetch(
           `https://api.airtable.com/v0/bases/${baseId}/webhooks/${externalId}/payloads?${queryParams.toString()}`,
           {
@@ -1552,13 +1597,18 @@ async function formatAirtableWebhookInput(
               Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
             },
+            signal,
           }
         )
+        signal?.throwIfAborted()
         if (response.status === 429 || response.status >= 500) {
           throw new Error(`Airtable API error ${response.status}`)
         }
-        return { response, responseText: await response.text() }
-      })
+        const responseText = await response.text()
+        signal?.throwIfAborted()
+        return { response, responseText }
+      }, signal)
+      signal?.throwIfAborted()
       let responseBody: Record<string, any>
       try {
         responseBody = toJsonRecord(JSON.parse(responseText))
@@ -1591,11 +1641,14 @@ async function formatAirtableWebhookInput(
         nextCursor,
         receivedPayloads: responseBody.payloads,
         mightHaveMore: responseBody.mightHaveMore === true,
+        signal,
       })
+      signal?.throwIfAborted()
       stage = committed.stage
       if (!committed.committed) break
       currentCursor = nextCursor
     } catch (error) {
+      if (signal?.aborted) throw error
       if (error instanceof AirtableStageIntegrityError) throw error
       if (!stage?.payloads.length) throw error
       logger.warn(`[${requestId}] Airtable polling stopped; executing durable payloads`, error)
@@ -1603,6 +1656,7 @@ async function formatAirtableWebhookInput(
     }
   }
 
+  signal?.throwIfAborted()
   const durableStage =
     stage ??
     ({

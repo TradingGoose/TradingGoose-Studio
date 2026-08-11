@@ -1992,7 +1992,8 @@
           "required": "Access code is required.",
           "invalid": "Invalid access code.",
           "success": "Private tier access unlocked.",
-          "tooManyAttempts": "Too many access-code attempts. Please try again later."
+          "tooManyAttempts": "Too many access-code attempts. Please try again later.",
+          "dependencyUnavailable": "Access-code validation is temporarily unavailable."
         },
         "enterprise": {
           "name": "Enterprise",
