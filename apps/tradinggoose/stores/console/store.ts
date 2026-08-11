@@ -470,6 +470,15 @@ export const useConsoleStore = create<ConsoleStore>()(
           if (isTerminalWorkflowExecutionEvent(event)) {
             clearExecutionStreamBuffers(event.executionId)
             set((state) => {
+              const deadlineFailure =
+                event.type === 'execution:error' &&
+                event.data.result.code === WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED
+                  ? event.data
+                  : undefined
+              const deadline = deadlineFailure?.result.deadline
+              const terminalTimestamp =
+                typeof deadline?.terminatedAt === 'string' ? deadline.terminatedAt : event.timestamp
+              const terminalTime = new Date(terminalTimestamp).getTime()
               const entries = state.entries.map((entry) => {
                 if (
                   entry.workflowId !== event.workflowId ||
@@ -479,7 +488,6 @@ export const useConsoleStore = create<ConsoleStore>()(
                   return entry
                 }
 
-                const terminalTime = new Date(event.timestamp).getTime()
                 const startedAt = entry.startedAt ? new Date(entry.startedAt).getTime() : Number.NaN
                 const durationMs =
                   Number.isFinite(terminalTime) && Number.isFinite(startedAt)
@@ -492,7 +500,7 @@ export const useConsoleStore = create<ConsoleStore>()(
                   error: event.type === 'execution:error' ? event.data.error : entry.error,
                   isRunning: false,
                   isCanceled: event.type === 'execution:cancelled',
-                  endedAt: entry.endedAt || event.timestamp,
+                  endedAt: deadline ? terminalTimestamp : entry.endedAt || terminalTimestamp,
                   durationMs,
                 }
               })
@@ -501,24 +509,18 @@ export const useConsoleStore = create<ConsoleStore>()(
                   entry.workflowId === event.workflowId &&
                   entry.executionId === event.executionId &&
                   entry.success === false &&
-                  entry.error === (event.type === 'execution:error' ? event.data.error : undefined)
+                  entry.error === deadlineFailure?.error
               )
 
-              if (
-                event.type !== 'execution:error' ||
-                event.data.result.code !== WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED ||
-                hasDeadlineFailureEntry
-              ) {
+              if (!deadlineFailure || hasDeadlineFailureEntry) {
                 return { entries }
               }
 
-              const deadline = event.data.result.deadline
               const startedAt =
                 typeof deadline?.processingStartedAt === 'string'
                   ? deadline.processingStartedAt
                   : event.timestamp
-              const endedAt =
-                typeof deadline?.terminatedAt === 'string' ? deadline.terminatedAt : event.timestamp
+              const endedAt = terminalTimestamp
               const startedAtMs = Date.parse(startedAt)
               const endedAtMs = Date.parse(endedAt)
               const durationMs =
@@ -534,7 +536,7 @@ export const useConsoleStore = create<ConsoleStore>()(
                 blockId: 'execution',
                 blockName: 'Workflow',
                 blockType: 'workflow',
-                error: event.data.error,
+                error: deadlineFailure.error,
                 success: false,
                 durationMs,
                 startedAt,

@@ -477,13 +477,14 @@ describe('Console Store', () => {
         })
 
       startBlock('exec-deadline', 'workflow-1', 'wait-1')
+      startBlock('exec-deadline', 'workflow-1', 'wait-1b')
       startBlock('exec-concurrent', 'workflow-1', 'wait-2')
       startBlock('exec-other', 'workflow-2', 'wait-3')
 
       store.ingestWorkflowExecutionEvent({
         executionId: 'exec-deadline',
         workflowId: 'workflow-1',
-        timestamp: '2026-08-07T15:16:34.200Z',
+        timestamp: '2026-08-07T15:16:35.000Z',
         type: 'execution:error',
         data: {
           error: deadlineError,
@@ -504,15 +505,18 @@ describe('Console Store', () => {
       })
 
       const entries = useConsoleStore.getState().entries
-      const expired = entries.find((entry) => entry.executionId === 'exec-deadline')
-      expect(expired).toMatchObject({
-        success: false,
-        error: deadlineError,
-        isRunning: false,
-        isCanceled: false,
-        endedAt: '2026-08-07T15:16:34.200Z',
-        durationMs: 20_000,
-      })
+      const expired = entries.filter((entry) => entry.executionId === 'exec-deadline')
+      expect(expired).toHaveLength(2)
+      for (const entry of expired) {
+        expect(entry).toMatchObject({
+          success: false,
+          error: deadlineError,
+          isRunning: false,
+          isCanceled: false,
+          endedAt: '2026-08-07T15:16:34.200Z',
+          durationMs: 20_000,
+        })
+      }
       expect(entries.find((entry) => entry.executionId === 'exec-concurrent')?.isRunning).toBe(true)
       expect(entries.find((entry) => entry.executionId === 'exec-other')?.isRunning).toBe(true)
       expect(
@@ -531,6 +535,8 @@ describe('Console Store', () => {
               error: deadlineError,
               isRunning: false,
               isCanceled: false,
+              endedAt: '2026-08-07T15:16:34.200Z',
+              durationMs: 20_000,
             }),
           ]),
         },
