@@ -9,6 +9,7 @@ import { AttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budge
 import {
   createWorkflowExecutionDeadlineResult,
   getWorkflowExecutionTimeLimitMilliseconds,
+  WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
   type WorkflowExecutionTimePolicy,
 } from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -343,19 +344,10 @@ export async function runPreparedWorkflowExecution(params: {
     loggingTriggerType,
     requestId
   )
-
-  // Workflow logs are the durable terminal state for queued and non-stream executions.
-  const workflowLogId = await loggingSession.start({
-    userId: params.actorUserId,
-    workspaceId,
-    workflowState: params.blueprint.workflowData,
-    triggerData: params.triggerData,
-    startedAt: params.attemptStartedAt,
-  })
-
   let encryptedEnvVars: Record<string, string> | undefined
   let result: ExecutionResult
   let executor: Executor | undefined
+  let workflowLogId: string | undefined
   const executionPolicy = params.timePolicy
   const configuredRemaining = getWorkflowExecutionTimeLimitMilliseconds(executionPolicy)
   const chargedStartupMilliseconds = Math.max(
@@ -378,23 +370,41 @@ export async function runPreparedWorkflowExecution(params: {
       executionResult.remainingMilliseconds = timeBudget.remainingMilliseconds() ?? 0
     }
   }
-  let attemptClosed = false
-  const deadlineResultIfExpired = () => {
-    if (
-      executionPolicy.kind !== 'bounded' ||
-      (!attemptClosed && (timeBudget.remainingMilliseconds() ?? 0) > 0)
-    ) {
-      return null
-    }
+  let deadlineResult: ExecutionResult | undefined
+  const closeForDeadline = (
+    boundedPolicy: Extract<WorkflowExecutionTimePolicy, { kind: 'bounded' }>
+  ) => {
+    if (deadlineResult) return deadlineResult
+    executor?.stopForDeadline()
     const terminatedAt = new Date().toISOString()
-    return createWorkflowExecutionDeadlineResult(
-      executionPolicy,
+    deadlineResult = createWorkflowExecutionDeadlineResult(
+      boundedPolicy,
       terminatedAt,
       executor?.snapshotBlockLogsForDeadline(terminatedAt) ?? []
     )
+    return deadlineResult
   }
+  const deadlineResultIfExpired = () => {
+    if (deadlineResult) return deadlineResult
+    if (executionPolicy.kind !== 'bounded' || (timeBudget.remainingMilliseconds() ?? 0) > 0) {
+      return null
+    }
+    return closeForDeadline(executionPolicy)
+  }
+
+  // Workflow logs are the durable terminal state for queued and non-stream executions.
+  const loggingStart = loggingSession.start({
+    userId: params.actorUserId,
+    workspaceId,
+    workflowState: params.blueprint.workflowData,
+    triggerData: params.triggerData,
+    startedAt: params.attemptStartedAt,
+  })
   try {
     const attempt = (async (): Promise<ExecutionResult> => {
+      workflowLogId = await loggingStart
+      const expiredAfterLoggingStart = deadlineResultIfExpired()
+      if (expiredAfterLoggingStart) return expiredAfterLoggingStart
       if (params.startupError) throw params.startupError
 
       const usageCheck = await checkServerSideUsageLimits({
@@ -470,29 +480,17 @@ export async function runPreparedWorkflowExecution(params: {
       })
       const expiredBeforeDispatch = deadlineResultIfExpired()
       if (expiredBeforeDispatch) {
-        executor.stopForDeadline()
         return expiredBeforeDispatch
       }
       return executor.execute(params.blueprint.workflowId, triggerBlockId)
     })()
 
     if (executionPolicy.kind === 'bounded') {
-      const deadline = timeBudget.expired.then(() => {
-        attemptClosed = true
-        executor?.stopForDeadline()
-        const terminatedAt = new Date().toISOString()
-        return createWorkflowExecutionDeadlineResult(
-          executionPolicy,
-          terminatedAt,
-          executor?.snapshotBlockLogsForDeadline(terminatedAt) ?? []
-        )
-      })
+      const deadline = timeBudget.expired.then(() => closeForDeadline(executionPolicy))
       result = await Promise.race([attempt, deadline])
-      attemptClosed = true
       void attempt.catch(() => undefined)
     } else {
       result = await attempt
-      attemptClosed = true
     }
     attachChildRemainingBudget(result)
     if (result.success) {
@@ -501,6 +499,7 @@ export async function runPreparedWorkflowExecution(params: {
       )
     }
   } catch (error: any) {
+    if (!workflowLogId) throw error
     const message = error.message || 'Workflow execution failed'
     const dispatchFailureReason =
       error instanceof WorkflowUsageLimitError
@@ -541,9 +540,15 @@ export async function runPreparedWorkflowExecution(params: {
     timeBudget.dispose()
   }
 
+  if (result === deadlineResult) {
+    await loggingStart
+  }
   const { traceSpans, totalDuration } = buildTraceSpans(result)
   await loggingSession.complete({
-    endedAt: new Date().toISOString(),
+    endedAt:
+      result.code === WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED
+        ? result.deadline?.terminatedAt
+        : new Date().toISOString(),
     totalDurationMs: totalDuration || 0,
     finalOutput: result.output === undefined ? {} : result.output,
     success: result.success,

@@ -175,9 +175,15 @@ describe('runPreparedWorkflowExecution', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
     let resolveExecution!: (value: any) => void
+    let resolveComplete!: () => void
     mocks.execute.mockReturnValue(
       new Promise((resolve) => {
         resolveExecution = resolve
+      })
+    )
+    mocks.complete.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveComplete = resolve
       })
     )
     const liveLogs = [
@@ -206,6 +212,15 @@ describe('runPreparedWorkflowExecution', () => {
       attemptStartedAt: '2026-01-01T00:00:00.000Z',
     })
     await vi.advanceTimersByTimeAsync(1_000)
+    let executionSettled = false
+    void execution.then(() => {
+      executionSettled = true
+    })
+    await Promise.resolve()
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+    expect(executionSettled).toBe(false)
+
+    resolveComplete()
     const outcome = await execution
     expect(outcome.result.code).toBe('WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED')
     expect(mocks.stopForDeadline).toHaveBeenCalledTimes(1)
@@ -239,6 +254,99 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.complete.mock.calls[0]?.[0].result.logs[0]).not.toHaveProperty('input')
     expect(mocks.complete.mock.calls[0]?.[0].result.logs[0]).not.toHaveProperty('output')
     expect(mocks.complete.mock.calls[0]?.[0].result.logs[0]).not.toHaveProperty('futurePayload')
+  })
+
+  it('expires while log startup is pending and returns after durable completion', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    let resolveStart!: (workflowLogId: string) => void
+    let resolveComplete!: () => void
+    mocks.start.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveStart = resolve
+      })
+    )
+    mocks.complete.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveComplete = resolve
+      })
+    )
+
+    const execution = runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      triggerTarget: { kind: 'block', blockId: 'trigger' },
+      timePolicy: boundedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    let executionSettled = false
+    void execution.then(() => {
+      executionSettled = true
+    })
+    await Promise.resolve()
+    expect(executionSettled).toBe(false)
+    expect(mocks.complete).not.toHaveBeenCalled()
+    expect(mocks.checkServerSideUsageLimits).not.toHaveBeenCalled()
+
+    resolveStart('workflow-log-1')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+    expect(mocks.complete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endedAt: '2026-01-01T00:00:01.000Z',
+        success: false,
+        result: expect.objectContaining({
+          code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+          deadline: expect.objectContaining({
+            terminatedAt: '2026-01-01T00:00:01.000Z',
+          }),
+        }),
+      })
+    )
+    expect(executionSettled).toBe(false)
+    expect(mocks.checkServerSideUsageLimits).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+
+    resolveComplete()
+    const outcome = await execution
+    expect(outcome.result).toMatchObject({
+      code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+      deadline: { terminatedAt: '2026-01-01T00:00:01.000Z' },
+    })
+  })
+
+  it('propagates log startup rejection after the deadline closes the attempt', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    let rejectStart!: (error: Error) => void
+    mocks.start.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectStart = reject
+      })
+    )
+
+    const execution = runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      triggerTarget: { kind: 'block', blockId: 'trigger' },
+      timePolicy: boundedPolicy,
+      attemptStartedAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    rejectStart(new Error('late log start failure'))
+    await expect(execution).rejects.toThrow('late log start failure')
+    expect(mocks.checkServerSideUsageLimits).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
   })
 
   it('expires while startup is pending and never dispatches after startup settles late', async () => {
