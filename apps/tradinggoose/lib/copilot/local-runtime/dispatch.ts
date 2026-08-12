@@ -99,6 +99,7 @@ export async function dispatchLocalCopilotRequest(params: {
           model: typeof body.model === 'string' ? body.model : '',
           conversationId: typeof body.conversationId === 'string' ? body.conversationId : undefined,
           userName: typeof body.userName === 'string' ? body.userName : undefined,
+          workspaceId: typeof body.workspaceId === 'string' ? body.workspaceId : undefined,
           context: Array.isArray(body.context)
             ? (body.context as LocalCopilotContext[])
             : undefined,

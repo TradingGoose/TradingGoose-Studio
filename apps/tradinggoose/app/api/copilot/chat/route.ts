@@ -876,6 +876,9 @@ export async function POST(req: NextRequest) {
       ...(effectiveConversationId ? { conversationId: effectiveConversationId } : {}),
       ...(typeof prefetch === 'boolean' ? { prefetch: prefetch } : {}),
       ...(session?.user?.name && { userName: session.user.name }),
+      // Several tools take `workspaceId` as a required argument and none of them
+      // can look it up, so the runtime has to put it in the system prompt.
+      ...(incomingWorkspaceId ? { workspaceId: incomingWorkspaceId } : {}),
       ...(agentContexts.length > 0 && { context: agentContexts }),
       ...(actualReviewSessionId ? { chatId: actualReviewSessionId } : {}),
       toolManifest: await getCopilotRuntimeToolManifest(),

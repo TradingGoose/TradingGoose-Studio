@@ -301,6 +301,62 @@ describe('local copilot runtime', () => {
     ])
   })
 
+  it('tells the model the workspace id, which no tool can look up', async () => {
+    mockStreamLlm.mockReturnValue(deltaStream([{ type: 'text', delta: 'ok' }])())
+
+    const { runLocalCopilotTurn } = await import('./runtime')
+    await readEvents(
+      await runLocalCopilotTurn({
+        message: 'list my workflows',
+        userId: 'user-1',
+        model: 'gpt-5.4',
+        workspaceId: 'ws-42',
+      })
+    )
+
+    expect(mockStreamLlm.mock.calls[0][0].systemPrompt).toContain('`ws-42`')
+  })
+
+  it('tells the model not to guess when the chat has no workspace', async () => {
+    mockStreamLlm.mockReturnValue(deltaStream([{ type: 'text', delta: 'ok' }])())
+
+    const { runLocalCopilotTurn } = await import('./runtime')
+    await readEvents(
+      await runLocalCopilotTurn({ message: 'hi', userId: 'user-1', model: 'gpt-5.4' })
+    )
+
+    expect(mockStreamLlm.mock.calls[0][0].systemPrompt).toContain('not scoped to a workspace')
+  })
+
+  it('keeps the workspace id across a tool-call resume', async () => {
+    mockStreamLlm.mockReturnValueOnce(
+      deltaStream([
+        { type: 'tool_call_start', index: 0, id: 'call-1', name: 'read_workflow' },
+        { type: 'tool_call_arguments', index: 0, delta: '{}' },
+      ])()
+    )
+
+    const { runLocalCopilotTurn, resumeLocalCopilotTurn } = await import('./runtime')
+    await readEvents(
+      await runLocalCopilotTurn({
+        message: 'read it',
+        userId: 'user-1',
+        model: 'gpt-5.4',
+        workspaceId: 'ws-42',
+      })
+    )
+
+    mockStreamLlm.mockReturnValueOnce(deltaStream([{ type: 'text', delta: 'Done.' }])())
+    await readEvents(
+      (await resumeLocalCopilotTurn(
+        { id: 'call-1', name: 'read_workflow', status: 200 },
+        'user-1'
+      ))!
+    )
+
+    expect(mockStreamLlm.mock.calls[1][0].systemPrompt).toContain('`ws-42`')
+  })
+
   it('rejects a model whose provider the local runtime cannot drive', async () => {
     const { runLocalCopilotTurn } = await import('./runtime')
     const events = await readEvents(

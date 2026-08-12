@@ -38,6 +38,12 @@ export interface LocalCopilotConversation {
   model: string
   provider: ProviderId
   userName?: string
+  /**
+   * The workspace the chat was opened against. Several tools take it as a
+   * required argument and no tool can discover it, so the model only ever learns
+   * it from the system prompt.
+   */
+  workspaceId?: string
   contexts: LocalCopilotContext[]
   messages: LocalCopilotMessage[]
   /** Tool calls the model emitted that the browser has not reported back yet. */

@@ -43,6 +43,7 @@ export interface LocalCopilotTurnRequest {
   model: string
   conversationId?: string
   userName?: string
+  workspaceId?: string
   context?: LocalCopilotContext[]
   /**
    * Persisted history, used only when nothing is cached for the conversation.
@@ -113,6 +114,8 @@ export async function runLocalCopilotTurn(
         pendingToolCalls: [],
         model: request.model,
         provider,
+        // The user can switch workspaces without starting a new chat.
+        workspaceId: request.workspaceId ?? existing.workspaceId,
         contexts: request.context ?? existing.contexts,
       }
     : {
@@ -121,6 +124,7 @@ export async function runLocalCopilotTurn(
         model: request.model,
         provider,
         userName: request.userName,
+        workspaceId: request.workspaceId,
         contexts: request.context ?? [],
         messages: rehydrateHistory(request.history),
         pendingToolCalls: [],
@@ -256,6 +260,7 @@ async function* streamModelTurn(
   const systemPrompt = buildLocalCopilotSystemPrompt({
     contexts: conversation.contexts,
     userName: conversation.userName,
+    workspaceId: conversation.workspaceId,
   })
 
   let textItemId: string | null = null
