@@ -507,13 +507,13 @@ function createGroupLayout(sizes: number[]): DashboardLayoutTopologyNode {
         id: 'panel-left',
         type: 'panel',
         identityId: 'widget-left',
-        widgetKey: 'copilot',
+        widgetKey: 'editor_workflow',
       },
       {
         id: 'panel-right',
         type: 'panel',
         identityId: 'widget-right',
-        widgetKey: 'copilot',
+        widgetKey: 'editor_workflow',
       },
     ],
   }

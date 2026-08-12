@@ -28,7 +28,6 @@ interface CopilotAppProps {
 const CopilotAppContent = ({
   workspaceId,
   panelWidth,
-  channelId,
   effectiveParams,
   layoutId,
   ownerUserId,
@@ -37,7 +36,6 @@ const CopilotAppContent = ({
 }: {
   workspaceId: string
   panelWidth: number
-  channelId: string
   effectiveParams?: Record<string, unknown> | null
   layoutId?: string | null
   ownerUserId?: string | null
@@ -46,10 +44,9 @@ const CopilotAppContent = ({
 }) => {
   const workflowId = resolveCopilotWorkflowId(effectiveParams) ?? null
 
-  const renderCopilotBody = () => (
+  const body = (
     <div className='flex h-full w-full flex-col overflow-hidden '>
       <Copilot
-        key={channelId}
         workspaceId={workspaceId}
         panelWidth={panelWidth}
         effectiveParams={effectiveParams}
@@ -62,16 +59,13 @@ const CopilotAppContent = ({
     </div>
   )
 
-  const renderWorkflowContent = () =>
-    workflowId ? (
-      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
-        {renderCopilotBody()}
-      </WorkflowSessionProvider>
-    ) : (
-      renderCopilotBody()
-    )
-
-  return renderWorkflowContent()
+  return workflowId ? (
+    <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+      {body}
+    </WorkflowSessionProvider>
+  ) : (
+    body
+  )
 }
 
 const CopilotApp = ({
@@ -99,7 +93,6 @@ const CopilotApp = ({
         <CopilotAppContent
           workspaceId={workspaceId}
           panelWidth={panelWidth}
-          channelId={channelId}
           effectiveParams={effectiveParams}
           layoutId={layoutId}
           ownerUserId={ownerUserId}

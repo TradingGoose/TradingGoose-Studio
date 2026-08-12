@@ -972,7 +972,12 @@
         "integrations": "Integrations",
         "registration": "Registration"
       },
-      "systemAdmin": "System Admin"
+      "systemAdmin": "System Admin",
+      "copilot": {
+        "label": "Copilot",
+        "show": "Show Copilot",
+        "hide": "Hide Copilot"
+      }
     },
     "defaults": {
       "newWorkspaceName": "My Workspace",
@@ -2260,7 +2265,6 @@
         "editor_workflow": "Workflow Editor",
         "workflow_chat": "Workflow Chat",
         "workflow_console": "Workflow Console",
-        "copilot": "Copilot",
         "list_indicator": "Indicators",
         "list_mcp": "MCP Servers",
         "editor_indicator": "Indicator Editor",
