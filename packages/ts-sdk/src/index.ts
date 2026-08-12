@@ -9,14 +9,6 @@ export interface WorkflowExecutionResult {
   success: boolean
   output?: any
   error?: string
-  code?: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED'
-  deadline?: {
-    appliedTierId: string
-    appliedTierName: string
-    limitSeconds: number
-    processingStartedAt: string
-    terminatedAt: string
-  }
   logs?: any[]
   metadata?: {
     duration?: number

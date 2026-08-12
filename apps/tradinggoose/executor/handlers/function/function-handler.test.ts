@@ -52,6 +52,7 @@ describe('FunctionBlockHandler', () => {
       executedBlocks: new Set(),
       activeExecutionPath: new Set(),
       completedLoops: new Set(),
+      abortSignal: new AbortController().signal,
     }
 
     // Reset mocks using vi
@@ -91,7 +92,8 @@ describe('FunctionBlockHandler', () => {
       'function_execute',
       expectedToolParams,
       false, // skipPostProcess
-      mockContext // execution context
+      mockContext, // execution context
+      { signal: mockContext.abortSignal }
     )
     expect(result).toEqual(expectedOutput)
   })
@@ -121,7 +123,8 @@ describe('FunctionBlockHandler', () => {
       'function_execute',
       expectedToolParams,
       false, // skipPostProcess
-      mockContext // execution context
+      mockContext, // execution context
+      { signal: mockContext.abortSignal }
     )
     expect(result).toEqual(expectedOutput)
   })
@@ -158,7 +161,8 @@ describe('FunctionBlockHandler', () => {
       'function_execute',
       expectedToolParams,
       false, // skipPostProcess
-      mockContext // execution context
+      mockContext, // execution context
+      { signal: mockContext.abortSignal }
     )
   })
 

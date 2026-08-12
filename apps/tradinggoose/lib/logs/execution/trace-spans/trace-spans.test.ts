@@ -3,31 +3,6 @@ import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { ExecutionResult } from '@/executor/types'
 
 describe('buildTraceSpans', () => {
-  test('preserves the deadline classification on a failed block span', () => {
-    const { traceSpans } = buildTraceSpans({
-      success: false,
-      output: {},
-      logs: [
-        {
-          blockId: 'wait-1',
-          blockType: 'wait',
-          startedAt: '2026-01-01T00:00:00.000Z',
-          endedAt: '2026-01-01T00:00:02.000Z',
-          durationMs: 2_000,
-          success: false,
-          code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
-          error: 'deadline reason',
-        },
-      ],
-    })
-
-    expect(traceSpans[0]).toMatchObject({
-      code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
-      status: 'error',
-      output: { error: 'deadline reason' },
-    })
-  })
-
   test('should extract sequential segments from timeSegments data', () => {
     const mockExecutionResult: ExecutionResult = {
       success: true,

@@ -30,7 +30,6 @@ export function createPublicExecutionResult(result: ExecutionResult) {
     output: result.output,
     ...(result.error ? { error: result.error } : {}),
     ...(result.code ? { code: result.code } : {}),
-    ...(result.deadline ? { deadline: result.deadline } : {}),
     ...(metadata && Object.keys(metadata).length > 0 ? { metadata } : {}),
   }
 }
@@ -39,8 +38,5 @@ export function createInternalWorkflowJobResult(result: ExecutionResultWithTrace
   return {
     ...createPublicExecutionResult(result),
     ...(Array.isArray(result.traceSpans) ? { traceSpans: result.traceSpans } : {}),
-    ...(typeof result.remainingMilliseconds === 'number'
-      ? { remainingMilliseconds: result.remainingMilliseconds }
-      : {}),
   }
 }

@@ -18,17 +18,11 @@ const {
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({
-  AuthType: { SESSION: 'session', API_KEY: 'api_key', INTERNAL_JWT: 'internal_jwt' },
   checkSessionOrInternalAuth: checkSessionOrInternalAuthMock,
 }))
 
-vi.mock('@/lib/workflows/utils', () => ({
-  hasWorkflowWriteAccess: vi.fn(
-    (context: { isOwner?: boolean; isWorkspaceOwner?: boolean; workspacePermission?: string }) =>
-      context.isOwner === true ||
-      context.isWorkspaceOwner === true ||
-      context.workspacePermission === 'write'
-  ),
+vi.mock('@/lib/workflows/utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/workflows/utils')>()),
   readWorkflowAccessContext: readWorkflowAccessContextMock,
 }))
 
@@ -199,18 +193,6 @@ describe('POST /api/workflows/[id]/queue', () => {
         parentWorkflowId: 'parent-1',
         parentExecutionId: 'execution-1',
         parentBlockId: 'block-1',
-        timePolicyCapturedAt: '2026-01-01T00:00:02.000Z',
-        timePolicy: {
-          kind: 'bounded',
-          processingStartedAt: '2026-01-01T00:00:00.000Z',
-          tier: {
-            source: 'resolved-tier',
-            appliedTierId: 'tier-1',
-            appliedTierName: 'Pro',
-          },
-          limitSeconds: 10,
-          accounting: { mode: 'remaining', remainingMilliseconds: 8_000 },
-        },
       },
     })
 
@@ -240,24 +222,19 @@ describe('POST /api/workflows/[id]/queue', () => {
         workspaceId: 'workspace-1',
         userId: 'user-1',
         source: 'workflow_block',
-        payload: expect.any(Function),
+        payload: expect.objectContaining({
+          input: { symbol: 'AAPL' },
+          executionTarget: 'live',
+          workflowDepth: 2,
+          metadata: {
+            source: 'workflow_block',
+            parentWorkflowId: 'parent-1',
+            parentExecutionId: 'execution-1',
+            parentBlockId: 'block-1',
+          },
+        }),
       })
     )
-    const queued = enqueuePendingExecutionMock.mock.calls[0][0]
-    expect(queued.payload('2026-01-01T00:00:05.000Z')).toMatchObject({
-      input: { symbol: 'AAPL' },
-      executionTarget: 'live',
-      workflowDepth: 2,
-      metadata: {
-        source: 'workflow_block',
-        parentWorkflowId: 'parent-1',
-        parentExecutionId: 'execution-1',
-        parentBlockId: 'block-1',
-        timePolicy: {
-          accounting: { mode: 'remaining', remainingMilliseconds: 5_000 },
-        },
-      },
-    })
 
     expect(response.status).toBe(202)
     await expect(response.json()).resolves.toEqual({

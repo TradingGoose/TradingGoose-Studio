@@ -11,7 +11,6 @@ import type {
 } from '@/lib/workflows/execution-events'
 import { isTerminalWorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import type { ExecutionResult } from '@/executor/types'
-import { isExecutionResult } from '@/lib/workflows/execution-result'
 
 const logger = createLogger('WorkflowExecutionEvents')
 const BUFFER_KEY_PREFIX = 'workflow:execution:events:'
@@ -217,7 +216,6 @@ export function createWorkflowExecutionResultFromLog(
   }
 
   const executionData = isRecord(row.executionData) ? row.executionData : {}
-  const storedResult = isRecord(executionData.result) ? executionData.result : null
   const finalOutput = readFinalOutput(executionData)
   const queuedExecution = readQueuedExecutionMetadata(executionData)
   const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
@@ -231,13 +229,6 @@ export function createWorkflowExecutionResultFromLog(
     ...(hasResponseBlock ? { hasResponseBlock } : {}),
     ...(queuedExecution ? { queuedExecution } : {}),
   } as ExecutionResult['metadata'] & { queuedExecution?: Record<string, unknown> }
-  if (isExecutionResult(storedResult)) {
-    return {
-      status: storedResult.success ? 'completed' : 'failed',
-      result: { ...storedResult, metadata: { ...storedResult.metadata, ...metadata } },
-      failureReason: storedResult.success ? null : storedResult.error || 'Workflow execution failed',
-    }
-  }
   const result: ExecutionResult & { traceSpans?: unknown[] } = {
     success: !failed,
     output: finalOutput,

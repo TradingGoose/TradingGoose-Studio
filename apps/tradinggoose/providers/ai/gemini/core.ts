@@ -12,9 +12,9 @@ import {
   type ToolConfig,
 } from '@google/genai'
 import { createLogger } from '@/lib/logs/console/logger'
+import { toError } from '@/providers/ai/error'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
-import { toError } from '@/providers/ai/error'
 import {
   checkForForcedToolUsage,
   cleanSchemaForGemini,
@@ -123,9 +123,7 @@ async function executeToolCallsBatch(
 
     try {
       const { toolParams, executionParams } = prepareToolExecution(tool, args, request)
-      const result = await executeTool(toolName, executionParams, false, undefined, {
-        signal: request.abortSignal,
-      })
+      const result = await executeTool(toolName, executionParams)
       const toolCallEndTime = Date.now()
       const duration = toolCallEndTime - toolCallStartTime
 

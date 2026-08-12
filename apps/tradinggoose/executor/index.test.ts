@@ -77,88 +77,6 @@ describe('Executor', () => {
       expect(executor).toBeInstanceOf(Executor)
     })
 
-    it('aborts active work when the execution deadline is reached', () => {
-      const executor = createTestExecutor(createMinimalWorkflow())
-      const signal = (executor as any).abortController.signal as AbortSignal
-
-      expect(signal.aborted).toBe(false)
-      executor.stopForDeadline()
-      expect(signal.aborted).toBe(true)
-    })
-
-    it('deeply snapshots every active block at the shared deadline', () => {
-      const executor = createTestExecutor(createMinimalWorkflow())
-      const active = {
-        blockId: 'wait-1',
-        blockType: 'wait',
-        startedAt: '2026-01-01T00:00:00.000Z',
-        endedAt: '',
-        durationMs: 0,
-        success: false,
-        input: { nested: { value: 'original' } },
-      }
-      const completed = {
-        ...active,
-        blockId: 'done-1',
-        endedAt: '2026-01-01T00:00:01.000Z',
-        durationMs: 1_000,
-        success: true,
-      }
-      ;(executor as any).executionContext = { blockLogs: [completed, active] }
-
-      const snapshot = executor.snapshotBlockLogsForDeadline('2026-01-01T00:00:02.000Z')
-      active.input.nested.value = 'late mutation'
-
-      expect(snapshot[0]).toMatchObject({
-        blockId: 'done-1',
-        endedAt: '2026-01-01T00:00:01.000Z',
-        success: true,
-        input: { nested: { value: 'original' } },
-      })
-      expect(snapshot[1]).toMatchObject({
-        code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
-        endedAt: '2026-01-01T00:00:02.000Z',
-        durationMs: 2_000,
-        success: false,
-        input: { nested: { value: 'original' } },
-      })
-    })
-
-    it('closes parallel active logs in deterministic order with individual durations', () => {
-      const executor = createTestExecutor(createMinimalWorkflow())
-      ;(executor as any).executionContext = {
-        blockLogs: [
-          {
-            blockId: 'parallel-a',
-            blockType: 'api',
-            startedAt: '2026-01-01T00:00:00.000Z',
-            endedAt: '',
-            durationMs: 0,
-            success: false,
-          },
-          {
-            blockId: 'parallel-b',
-            blockType: 'agent',
-            startedAt: '2026-01-01T00:00:00.500Z',
-            endedAt: '',
-            durationMs: 0,
-            success: false,
-          },
-        ],
-      }
-
-      const snapshot = executor.snapshotBlockLogsForDeadline('2026-01-01T00:00:02.000Z')
-      expect(snapshot.map((log) => log.blockId)).toEqual(['parallel-a', 'parallel-b'])
-      expect(snapshot.map((log) => log.endedAt)).toEqual([
-        '2026-01-01T00:00:02.000Z',
-        '2026-01-01T00:00:02.000Z',
-      ])
-      expect(snapshot.map((log) => log.durationMs)).toEqual([2_000, 1_500])
-      expect(snapshot.every((log) => log.code === 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED')).toBe(
-        true
-      )
-    })
-
     it.concurrent('should create an executor instance with explicit executor options', () => {
       const workflow = createMinimalWorkflow()
       const initialStates = {
@@ -200,6 +118,19 @@ describe('Executor', () => {
       })
 
       expect(executor).toBeDefined()
+    })
+
+    it('aborts active request signals through canonical cancellation', () => {
+      const executor = createTestExecutor(createMinimalWorkflow())
+      const context = (executor as any).createExecutionContext(
+        'test-workflow-id',
+        new Date(),
+        'trigger'
+      )
+
+      expect(context.abortSignal.aborted).toBe(false)
+      executor.cancel()
+      expect(context.abortSignal.aborted).toBe(true)
     })
   })
 
@@ -700,6 +631,90 @@ describe('Executor', () => {
         expect.objectContaining({ type: 'stream:done' })
       )
     })
+
+    it('cancels an active stream when workflow execution is cancelled', async () => {
+      const workflow = createMinimalWorkflow()
+      const executor = createTestExecutor(workflow, {
+        contextExtensions: { stream: true, selectedOutputs: ['block1'] },
+      })
+      let markStreamStarted!: () => void
+      const streamStarted = new Promise<void>((resolve) => {
+        markStreamStarted = resolve
+      })
+      let markReadStarted!: () => void
+      const readStarted = new Promise<void>((resolve) => {
+        markReadStarted = resolve
+      })
+      const cancelStream = vi.fn()
+
+      ;(executor as any).blockHandlers = [
+        {
+          canHandle: (block: any) => block.metadata?.category === 'triggers',
+          execute: vi.fn(async () => ({})),
+        },
+        {
+          canHandle: (block: any) => block.id === 'block1',
+          execute: vi.fn(async () => ({
+            stream: new ReadableStream({
+              start() {
+                markStreamStarted()
+              },
+              pull() {
+                markReadStarted()
+              },
+              cancel: cancelStream,
+            }),
+            execution: { output: { content: '' } },
+          })),
+        },
+      ]
+
+      const execution = executor.execute('test-workflow-id', 'trigger')
+      await streamStarted
+      await readStarted
+      executor.cancel()
+
+      await expect(execution).resolves.toMatchObject({ success: false })
+      expect(cancelStream).toHaveBeenCalledOnce()
+    })
+
+    it('cancels a stream returned after workflow execution is cancelled', async () => {
+      const executor = createTestExecutor(createMinimalWorkflow())
+      let markHandlerStarted!: () => void
+      const handlerStarted = new Promise<void>((resolve) => {
+        markHandlerStarted = resolve
+      })
+      let resolveHandler!: (value: unknown) => void
+      const cancelStream = vi.fn()
+
+      ;(executor as any).blockHandlers = [
+        {
+          canHandle: (block: any) => block.metadata?.category === 'triggers',
+          execute: vi.fn(async () => ({})),
+        },
+        {
+          canHandle: (block: any) => block.id === 'block1',
+          execute: vi.fn(
+            () =>
+              new Promise((resolve) => {
+                resolveHandler = resolve
+                markHandlerStarted()
+              })
+          ),
+        },
+      ]
+
+      const execution = executor.execute('test-workflow-id', 'trigger')
+      await handlerStarted
+      executor.cancel()
+      resolveHandler({
+        stream: new ReadableStream({ cancel: cancelStream }),
+        execution: { output: {} },
+      })
+
+      await expect(execution).resolves.toMatchObject({ success: false })
+      await vi.waitFor(() => expect(cancelStream).toHaveBeenCalledOnce())
+    })
   })
 
   /**
@@ -985,6 +1000,33 @@ describe('Executor', () => {
       executor.cancel()
 
       expect((executor as any).isCancelled).toBe(true)
+    })
+
+    it('should stop awaiting block work that ignores cancellation', async () => {
+      const executor = createTestExecutor(createMinimalWorkflow())
+      let markStarted!: () => void
+      const started = new Promise<void>((resolve) => {
+        markStarted = resolve
+      })
+
+      ;(executor as any).blockHandlers = [
+        {
+          canHandle: () => true,
+          execute: () => {
+            markStarted()
+            return new Promise(() => {})
+          },
+        },
+      ]
+
+      const execution = executor.execute('test-workflow-id', 'trigger')
+      await started
+      executor.cancel()
+
+      await expect(execution).resolves.toMatchObject({
+        success: false,
+        error: 'Workflow execution was cancelled',
+      })
     })
 
     it.concurrent('should prevent new execution on cancelled executor', async () => {

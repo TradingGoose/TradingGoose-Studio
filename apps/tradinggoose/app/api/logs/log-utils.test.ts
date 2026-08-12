@@ -30,56 +30,6 @@ const buildRow = (overrides: Record<string, unknown> = {}) =>
   }) as any
 
 describe('serializeWorkflowLog executionData', () => {
-  it('preserves deadline trace history for detail reloads', () => {
-    const deadlineError =
-      'Workflow execution stopped because it reached the 20-second Workflow Execution Time Limit for the "Pro" tier.'
-    const log = serializeWorkflowLog(
-      buildRow({
-        executionData: {
-          traceSpans: [
-            {
-              id: 'completed-1',
-              blockId: 'fetch-1',
-              name: 'Fetch',
-              type: 'api',
-              duration: 500,
-              startTime: '2026-05-05T00:00:00.000Z',
-              endTime: '2026-05-05T00:00:00.500Z',
-              status: 'success',
-              output: { value: 1 },
-            },
-            {
-              id: 'active-1',
-              blockId: 'wait-1',
-              name: 'Wait',
-              type: 'wait',
-              duration: 19_500,
-              startTime: '2026-05-05T00:00:00.500Z',
-              endTime: '2026-05-05T00:00:20.000Z',
-              status: 'error',
-              code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
-              output: { error: deadlineError },
-            },
-          ],
-        },
-      }),
-      'full'
-    )
-
-    expect(log.executionData?.traceSpans).toEqual([
-      expect.objectContaining({ blockId: 'fetch-1', status: 'success' }),
-      expect.objectContaining({
-        blockId: 'wait-1',
-        code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
-        status: 'error',
-        duration: 19_500,
-        endTime: '2026-05-05T00:00:20.000Z',
-        output: { error: deadlineError },
-      }),
-    ])
-    expect(log.outcome).toBe('error')
-  })
-
   it('does not spread arbitrary stored executionData fields', () => {
     const log = serializeWorkflowLog(
       buildRow({

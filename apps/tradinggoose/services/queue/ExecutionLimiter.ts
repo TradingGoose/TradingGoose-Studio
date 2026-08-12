@@ -20,11 +20,11 @@ interface SubscriptionInfo {
   tier?: BillingTierRecord | null
 }
 
-function createPermissiveRateLimitResult(windowMs = RATE_LIMIT_WINDOW_MS) {
+function createPermissiveRateLimitResult() {
   return {
     allowed: true,
     remaining: UNLIMITED_RATE_LIMIT,
-    resetAt: new Date(Date.now() + windowMs),
+    resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
   }
 }
 
@@ -113,11 +113,7 @@ export class ExecutionLimiter {
     triggerType: TriggerType = 'manual',
     isAsync = false,
     billingScope?: BillingScope | null,
-    options: {
-      enforceWithoutBilling?: boolean
-      failClosedOnError?: boolean
-      windowMs?: number
-    } = {}
+    options: { enforceWithoutBilling?: boolean; failClosedOnError?: boolean } = {}
   ): Promise<{
     allowed: boolean
     remaining: number
@@ -125,19 +121,13 @@ export class ExecutionLimiter {
     error?: string
     failureKind?: 'dependency'
   }> {
-    const windowMs = options.windowMs ?? RATE_LIMIT_WINDOW_MS
-
     try {
-      if (!Number.isSafeInteger(windowMs) || windowMs <= 0) {
-        throw new Error('Rate-limit window must be a positive safe integer')
-      }
-
       if (!options.enforceWithoutBilling && !(await isBillingEnabledForRuntime())) {
-        return createPermissiveRateLimitResult(windowMs)
+        return createPermissiveRateLimitResult()
       }
 
       if (triggerType === 'manual') {
-        return createPermissiveRateLimitResult(windowMs)
+        return createPermissiveRateLimitResult()
       }
 
       if (!subscription?.tier) {
@@ -148,7 +138,7 @@ export class ExecutionLimiter {
             triggerType,
           }
         )
-        return createPermissiveRateLimitResult(windowMs)
+        return createPermissiveRateLimitResult()
       }
 
       const effectiveTier = subscription.tier
@@ -160,7 +150,7 @@ export class ExecutionLimiter {
       const execLimit = this.getRateLimitForCounter(rateLimits, counterType)
 
       const now = new Date()
-      const windowStart = new Date(now.getTime() - windowMs)
+      const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS)
 
       const [rateLimitRecord] = await db
         .select()
@@ -168,7 +158,7 @@ export class ExecutionLimiter {
         .where(eq(userRateLimits.referenceId, rateLimitKey))
         .limit(1)
 
-      if (!rateLimitRecord || new Date(rateLimitRecord.windowStart) <= windowStart) {
+      if (!rateLimitRecord || new Date(rateLimitRecord.windowStart) < windowStart) {
         const result = await db
           .insert(userRateLimits)
           .values({
@@ -183,10 +173,10 @@ export class ExecutionLimiter {
           .onConflictDoUpdate({
             target: userRateLimits.referenceId,
             set: {
-              syncApiRequests: sql`CASE WHEN ${userRateLimits.windowStart} <= ${windowStart.toISOString()} THEN ${counterType === 'sync' ? 1 : 0} ELSE ${userRateLimits.syncApiRequests} + ${counterType === 'sync' ? 1 : 0} END`,
-              asyncApiRequests: sql`CASE WHEN ${userRateLimits.windowStart} <= ${windowStart.toISOString()} THEN ${counterType === 'async' ? 1 : 0} ELSE ${userRateLimits.asyncApiRequests} + ${counterType === 'async' ? 1 : 0} END`,
-              apiEndpointRequests: sql`CASE WHEN ${userRateLimits.windowStart} <= ${windowStart.toISOString()} THEN ${counterType === 'api-endpoint' ? 1 : 0} ELSE ${userRateLimits.apiEndpointRequests} + ${counterType === 'api-endpoint' ? 1 : 0} END`,
-              windowStart: sql`CASE WHEN ${userRateLimits.windowStart} <= ${windowStart.toISOString()} THEN ${now.toISOString()} ELSE ${userRateLimits.windowStart} END`,
+              syncApiRequests: sql`CASE WHEN ${userRateLimits.windowStart} < ${windowStart.toISOString()} THEN ${counterType === 'sync' ? 1 : 0} ELSE ${userRateLimits.syncApiRequests} + ${counterType === 'sync' ? 1 : 0} END`,
+              asyncApiRequests: sql`CASE WHEN ${userRateLimits.windowStart} < ${windowStart.toISOString()} THEN ${counterType === 'async' ? 1 : 0} ELSE ${userRateLimits.asyncApiRequests} + ${counterType === 'async' ? 1 : 0} END`,
+              apiEndpointRequests: sql`CASE WHEN ${userRateLimits.windowStart} < ${windowStart.toISOString()} THEN ${counterType === 'api-endpoint' ? 1 : 0} ELSE ${userRateLimits.apiEndpointRequests} + ${counterType === 'api-endpoint' ? 1 : 0} END`,
+              windowStart: sql`CASE WHEN ${userRateLimits.windowStart} < ${windowStart.toISOString()} THEN ${now.toISOString()} ELSE ${userRateLimits.windowStart} END`,
               lastRequestAt: now,
               isRateLimited: false,
               rateLimitResetAt: null,
@@ -203,7 +193,9 @@ export class ExecutionLimiter {
         const actualCount = this.getCountFromRecord(insertedRecord, counterType)
 
         if (actualCount > execLimit) {
-          const resetAt = new Date(new Date(insertedRecord.windowStart).getTime() + windowMs)
+          const resetAt = new Date(
+            new Date(insertedRecord.windowStart).getTime() + RATE_LIMIT_WINDOW_MS
+          )
 
           await db
             .update(userRateLimits)
@@ -240,7 +232,7 @@ export class ExecutionLimiter {
         return {
           allowed: true,
           remaining: execLimit - actualCount,
-          resetAt: new Date(new Date(insertedRecord.windowStart).getTime() + windowMs),
+          resetAt: new Date(new Date(insertedRecord.windowStart).getTime() + RATE_LIMIT_WINDOW_MS),
         }
       }
 
@@ -271,7 +263,9 @@ export class ExecutionLimiter {
       const actualNewRequests = this.getCountFromRecord(updatedRecord, counterType)
 
       if (actualNewRequests > execLimit) {
-        const resetAt = new Date(new Date(rateLimitRecord.windowStart).getTime() + windowMs)
+        const resetAt = new Date(
+          new Date(rateLimitRecord.windowStart).getTime() + RATE_LIMIT_WINDOW_MS
+        )
 
         logger.info(
           `Rate limit exceeded - request ${actualNewRequests} > limit ${execLimit} for ${
@@ -308,7 +302,7 @@ export class ExecutionLimiter {
       return {
         allowed: true,
         remaining: execLimit - actualNewRequests,
-        resetAt: new Date(new Date(rateLimitRecord.windowStart).getTime() + windowMs),
+        resetAt: new Date(new Date(rateLimitRecord.windowStart).getTime() + RATE_LIMIT_WINDOW_MS),
       }
     } catch (error) {
       if (options.failClosedOnError) {
@@ -316,13 +310,13 @@ export class ExecutionLimiter {
         return {
           allowed: false,
           remaining: 0,
-          resetAt: new Date(Date.now() + windowMs),
+          resetAt: new Date(Date.now() + RATE_LIMIT_WINDOW_MS),
           error: 'Rate limit service unavailable',
           failureKind: 'dependency',
         }
       }
       logger.error('Error checking rate limit; allowing request', error)
-      return createPermissiveRateLimitResult(windowMs)
+      return createPermissiveRateLimitResult()
     }
   }
 
@@ -374,7 +368,7 @@ export class ExecutionLimiter {
         .where(eq(userRateLimits.referenceId, rateLimitKey))
         .limit(1)
 
-      if (!rateLimitRecord || new Date(rateLimitRecord.windowStart) <= windowStart) {
+      if (!rateLimitRecord || new Date(rateLimitRecord.windowStart) < windowStart) {
         return {
           used: 0,
           limit: execLimit,

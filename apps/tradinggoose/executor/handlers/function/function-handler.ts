@@ -67,7 +67,7 @@ export class FunctionBlockHandler implements BlockHandler {
       },
       false, // skipPostProcess
       context, // execution context for file processing
-      ...(context.abortSignal ? [{ signal: context.abortSignal }] : [])
+      { signal: context.abortSignal }
     )
 
     if (!result.success) {

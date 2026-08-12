@@ -18,7 +18,6 @@ import type {
   TraceSpan,
   WorkflowState,
 } from '@/lib/logs/types'
-import type { ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('LoggingSession')
 
@@ -41,7 +40,6 @@ export interface SessionCompleteParams {
   actorUserId?: string | null
   hasResponseBlock?: boolean
   variables?: Record<string, string>
-  result?: ExecutionResult
 }
 
 export interface SessionErrorCompleteParams {
@@ -56,7 +54,6 @@ export interface SessionErrorCompleteParams {
   actorUserId?: string | null
   variables?: Record<string, string>
   billable?: boolean
-  result?: ExecutionResult
 }
 
 export class LoggingSession {
@@ -181,7 +178,6 @@ export class LoggingSession {
       actorUserId,
       hasResponseBlock,
       variables,
-      result,
     } = params
 
     try {
@@ -213,7 +209,6 @@ export class LoggingSession {
         workflowInput,
         hasResponseBlock,
         variables,
-        result,
       })
 
       // Track workflow execution outcome
@@ -259,7 +254,6 @@ export class LoggingSession {
         actorUserId,
         variables,
         billable,
-        result,
       } = params
       const scope = this.resolveCompletionScope({ workspaceId })
 
@@ -317,7 +311,6 @@ export class LoggingSession {
         success: false,
         traceSpans: spans,
         variables,
-        result,
       })
 
       // Track workflow execution error outcome

@@ -203,7 +203,6 @@ export interface TraceSpan {
   children?: TraceSpan[]
   toolCalls?: ToolCall[]
   status?: 'success' | 'error'
-  code?: string
   tokens?: number | TokenInfo
   relativeStartMs?: number
   blockId?: string

@@ -4,7 +4,6 @@ import {
   parseListingIdentityValueStrict,
 } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import { WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED } from '@/lib/execution/workflow-execution-time-policy'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBlock } from '@/blocks'
 import type { BlockOutput } from '@/blocks/types'
@@ -110,6 +109,15 @@ function isDeferredBlockExecution(value: unknown): value is DeferredBlockExecuti
   )
 }
 
+function isStreamingExecution(value: unknown): value is StreamingExecution {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'stream' in value &&
+    'execution' in value
+  )
+}
+
 export type ExecutorOptions = {
   workflow: SerializedWorkflow
   currentBlockStates?: Record<string, BlockOutput>
@@ -125,8 +133,6 @@ export type ExecutorOptions = {
  * Handles block execution, state management, and error handling.
  */
 export class Executor {
-  private readonly abortController = new AbortController()
-  private executionContext?: ExecutionContext
   // Core components are initialized once and remain immutable
   private resolver: InputResolver
   private loopManager: LoopManager
@@ -140,8 +146,8 @@ export class Executor {
   private contextExtensions: ExecutionContextExtensions
   private actualWorkflow: SerializedWorkflow
   private isCancelled = false
-  private deadlineExceeded = false
   private isChildExecution = false
+  private abortController = new AbortController()
 
   /**
    * Updates block output with streamed content, handling both structured and unstructured responses
@@ -193,7 +199,6 @@ export class Executor {
   private async emitExecutionEvent(
     event: Parameters<NonNullable<ExecutionContextExtensions['onExecutionEvent']>>[0]
   ) {
-    if (this.deadlineExceeded) return
     await this.contextExtensions.onExecutionEvent?.(event)
   }
 
@@ -248,35 +253,53 @@ export class Executor {
    * Sets the cancellation flag to stop further execution.
    */
   public cancel(): void {
+    if (this.isCancelled) return
     logger.info('Workflow execution cancelled')
-    this.isCancelled = true
-  }
-
-  public stopForDeadline(): void {
-    logger.info('Workflow execution stopped at its time limit')
-    this.deadlineExceeded = true
     this.isCancelled = true
     this.abortController.abort()
   }
 
-  public snapshotBlockLogsForDeadline(terminatedAt: string): BlockLog[] {
-    const terminatedAtMs = new Date(terminatedAt).getTime()
-    return structuredClone(this.executionContext?.blockLogs ?? []).map((log) =>
-      log.endedAt
-        ? log
-        : {
-            ...log,
-            success: false,
-            code: WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
-            endedAt: terminatedAt,
-            durationMs: Math.max(0, terminatedAtMs - new Date(log.startedAt).getTime()),
+  private awaitActiveTask<T>(
+    task: Promise<T>,
+    signal?: AbortSignal,
+    onCancelledResult?: (result: T) => void
+  ): Promise<T> {
+    if (!signal) return task
+    if (signal.aborted) {
+      task.then(onCancelledResult).catch(() => {})
+      return Promise.reject(new Error('Workflow execution was cancelled'))
+    }
+
+    return new Promise<T>((resolve, reject) => {
+      let cancelled = false
+      const rejectCancellation = () => {
+        cancelled = true
+        reject(new Error('Workflow execution was cancelled'))
+      }
+      signal.addEventListener('abort', rejectCancellation, { once: true })
+      task
+        .then(
+          (result) => {
+            if (cancelled) {
+              onCancelledResult?.(result)
+            } else {
+              resolve(result)
+            }
+          },
+          (error) => {
+            if (!cancelled) reject(error)
           }
-    )
+        )
+        .finally(() => signal.removeEventListener('abort', rejectCancellation))
+    })
   }
 
   private async shouldStopExecution(): Promise<boolean> {
     if (this.isCancelled) return true
-    if (await this.contextExtensions.shouldCancelExecution?.()) {
+    if (
+      this.contextExtensions.abortSignal?.aborted ||
+      (await this.contextExtensions.shouldCancelExecution?.())
+    ) {
       this.cancel()
       return true
     }
@@ -305,7 +328,6 @@ export class Executor {
     this.validateWorkflow(triggerBlockId)
 
     const context = this.createExecutionContext(workflowId, startTime, triggerBlockId)
-    this.executionContext = context
 
     try {
       let hasMoreLayers = true
@@ -412,14 +434,9 @@ export class Executor {
       })
 
       return {
-        ...((error as { executionResult?: ExecutionResult } | null)?.executionResult ?? {}),
         success: false,
-        output:
-          (error as { executionResult?: ExecutionResult } | null)?.executionResult?.output ??
-          finalOutput,
-        error:
-          (error as { executionResult?: ExecutionResult } | null)?.executionResult?.error ??
-          this.extractErrorMessage(error),
+        output: finalOutput,
+        error: this.extractErrorMessage(error),
         metadata: {
           duration: Date.now() - startTime.getTime(),
           startTime: context.metadata.startTime!,
@@ -659,10 +676,10 @@ export class Executor {
       selectedOutputs: this.contextExtensions.selectedOutputs || [],
       edges: this.contextExtensions.edges || [],
       onExecutionEvent: this.contextExtensions.onExecutionEvent,
-      shouldCancelExecution: async () =>
-        this.isCancelled || (await this.contextExtensions.shouldCancelExecution?.()) === true,
-      abortSignal: this.abortController.signal,
-      workflowExecutionTimeBudget: this.contextExtensions.workflowExecutionTimeBudget,
+      shouldCancelExecution: () => this.shouldStopExecution(),
+      abortSignal: this.contextExtensions.abortSignal
+        ? AbortSignal.any([this.abortController.signal, this.contextExtensions.abortSignal])
+        : this.abortController.signal,
     }
 
     Object.entries(this.initialBlockStates).forEach(([blockId, output]) => {
@@ -1440,9 +1457,6 @@ export class Executor {
     blockIds: string[],
     context: ExecutionContext
   ): Promise<NormalizedBlockOutput[]> {
-    for (const blockId of blockIds) {
-      context.workflowExecutionTimeBudget?.registerActivity(blockId)
-    }
     const settledResults = await Promise.allSettled(
       blockIds.map((blockId) => this.executeBlock(blockId, context))
     )
@@ -1452,17 +1466,15 @@ export class Executor {
     const errors: Error[] = []
     const deferredResultIndexes: number[] = []
 
-    settledResults.forEach((result, index) => {
+    settledResults.forEach((result) => {
       if (result.status === 'fulfilled') {
         if (isDeferredBlockExecution(result.value)) {
           deferredResultIndexes.push(results.length)
           results.push({ status: 102, result: 'Deferred block execution pending' })
         } else {
           results.push(result.value)
-          context.workflowExecutionTimeBudget?.closeActivity(blockIds[index])
         }
       } else {
-        context.workflowExecutionTimeBudget?.closeActivity(blockIds[index])
         errors.push(result.reason)
         // For failed blocks, we still need to add a placeholder result
         // so the results array matches the blockIds array length
@@ -1527,9 +1539,6 @@ export class Executor {
 
     this.pathTracker.updateExecutionPaths(blockIds, context)
 
-    for (const blockId of blockIds) {
-      context.workflowExecutionTimeBudget?.closeActivity(blockId)
-    }
     return results
   }
 
@@ -1585,7 +1594,6 @@ export class Executor {
         }
       }
     }
-    context.blockLogs.push(blockLog)
 
     const consoleBlockId = parallelInfo ? blockId : block.id
     const blockType = block.metadata?.id || 'unknown'
@@ -1673,7 +1681,6 @@ export class Executor {
         output: NormalizedBlockOutput
         executionTime: number
       }) => {
-        if (this.deadlineExceeded) return
         context.blockStates.set(blockId, {
           output,
           executed: true,
@@ -1708,6 +1715,7 @@ export class Executor {
         blockLog.endedAt = new Date().toISOString()
 
         this.integrateChildWorkflowLogs(block, output)
+        context.blockLogs.push(blockLog)
 
         if (shouldLogToConsole) {
           await this.emitExecutionEvent({
@@ -1742,7 +1750,6 @@ export class Executor {
       }
 
       handleBlockFailure = async (error: any): Promise<NormalizedBlockOutput> => {
-        if (this.deadlineExceeded) return {}
         blockLog.success = false
         blockLog.error =
           error.message ||
@@ -1752,6 +1759,7 @@ export class Executor {
           new Date(blockLog.endedAt).getTime() - new Date(blockLog.startedAt).getTime()
         const isCancellation =
           this.isCancelled ||
+          context.abortSignal?.aborted ||
           error?.message === 'Workflow execution was cancelled' ||
           error === 'Workflow execution was cancelled'
         const consoleErrorMessage = isCancellation
@@ -1764,6 +1772,7 @@ export class Executor {
           this.attachChildWorkflowSpansToLog(blockLog, error)
         }
 
+        context.blockLogs.push(blockLog)
 
         if (shouldLogToConsole) {
           await this.emitExecutionEvent({
@@ -1834,7 +1843,6 @@ export class Executor {
         const upstreamExecutionResult = (error as { executionResult?: ExecutionResult } | null)
           ?.executionResult
         const executionResultPayload: ExecutionResult = {
-          ...(upstreamExecutionResult ?? {}),
           success: false,
           output: upstreamExecutionResult?.output ?? errorOutput,
           error: upstreamExecutionResult?.error ?? this.extractErrorMessage(error),
@@ -1907,14 +1915,25 @@ export class Executor {
 
       // Execute the block
       const startTime = performance.now()
-      const rawOutput = await handler.execute(block, inputs, context)
+      const rawOutput = await this.awaitActiveTask(
+        handler.execute(block, inputs, context),
+        context.abortSignal,
+        (output) => {
+          if (isStreamingExecution(output)) {
+            void output.stream.cancel().catch(() => {})
+          }
+        }
+      )
 
       if (isDeferredBlockExecution(rawOutput)) {
         return {
           kind: 'deferred',
           wait: async () => {
             try {
-              const deferredOutput = await rawOutput.wait()
+              const deferredOutput = await this.awaitActiveTask(
+                rawOutput.wait(),
+                context.abortSignal
+              )
               const output: NormalizedBlockOutput =
                 typeof deferredOutput === 'object' && deferredOutput !== null
                   ? deferredOutput
@@ -1931,13 +1950,8 @@ export class Executor {
         }
       }
 
-      if (
-        rawOutput &&
-        typeof rawOutput === 'object' &&
-        'stream' in rawOutput &&
-        'execution' in rawOutput
-      ) {
-        const streamingExec = rawOutput as StreamingExecution
+      if (isStreamingExecution(rawOutput)) {
+        const streamingExec = rawOutput
         const streamingExecutionData = streamingExec.execution as any
         const executionTime = performance.now() - startTime
         if (parallelInfo || !streamingExecutionData?.blockId) {
@@ -1974,7 +1988,7 @@ export class Executor {
 
         try {
           while (true) {
-            const { done, value } = await reader.read()
+            const { done, value } = await this.awaitActiveTask(reader.read(), context.abortSignal)
             if (done) break
 
             const chunk = decoder.decode(value, { stream: true })
@@ -1993,10 +2007,17 @@ export class Executor {
           }
           await flushStreamChunk()
         } catch (readerError: any) {
-          logger.error('Error reading stream for executor:', readerError)
+          if (!context.abortSignal?.aborted) {
+            logger.error('Error reading stream for executor:', readerError)
+          }
           throw readerError
         } finally {
-          await flushStreamChunk()
+          if (context.abortSignal?.aborted) {
+            pendingStreamChunk = ''
+            await reader.cancel().catch(() => {})
+          } else {
+            await flushStreamChunk()
+          }
           try {
             reader.releaseLock()
           } catch {}

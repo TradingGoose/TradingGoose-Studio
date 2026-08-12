@@ -4,26 +4,23 @@ import type { TraceSpan } from '@/lib/logs/types'
 import { getBaseUrl } from '@/lib/urls/utils'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
-import type {
-  BlockHandler,
-  DeferredBlockExecution,
-  ExecutionContext,
-  ExecutionResult,
-} from '@/executor/types'
+import type { BlockHandler, DeferredBlockExecution, ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('WorkflowBlockHandler')
 
 const MAX_WORKFLOW_DEPTH = 10
 const CHILD_WORKFLOW_POLL_INTERVAL_MS = 1_000
-const CHILD_WORKFLOW_WAIT_TIMEOUT_MS = 30 * 60 * 1000
 
 type WorkflowTraceSpan = TraceSpan & {
   metadata?: Record<string, unknown>
   children?: WorkflowTraceSpan[]
 }
 
-type QueuedWorkflowExecutionResult = Partial<ExecutionResult> & {
+type QueuedWorkflowExecutionResult = {
+  success?: boolean
+  output?: Record<string, unknown>
+  error?: string
   traceSpans?: TraceSpan[]
 }
 
@@ -45,10 +42,24 @@ type ChildWorkflowWaitOptions = {
   childWorkflowName: string
   headers: ChildWorkflowHeaders
   shouldCancelExecution?: () => Promise<boolean>
-  timeBudget?: ExecutionContext['workflowExecutionTimeBudget']
+  abortSignal?: AbortSignal
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const sleep = (ms: number, signal?: AbortSignal): Promise<boolean> =>
+  new Promise((resolve) => {
+    if (signal?.aborted) return resolve(false)
+
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener('abort', cancel)
+      resolve(true)
+    }, ms)
+    const cancel = () => {
+      clearTimeout(timeout)
+      resolve(false)
+    }
+
+    signal?.addEventListener('abort', cancel, { once: true })
+  })
 
 const readResponseErrorMessage = async (response: Response, defaultMessage: string) => {
   try {
@@ -93,92 +104,77 @@ export class WorkflowBlockHandler implements BlockHandler {
     }
 
     const childWorkflowInput = this.resolveChildWorkflowInput(inputs)
-    const activitySlotId = context.currentVirtualBlockId ?? block.id
-    const timeBudget = context.workflowExecutionTimeBudget
-    if (!timeBudget) {
-      throw new Error('Nested workflow execution is missing its time budget')
+
+    return {
+      kind: 'deferred',
+      wait: async () => {
+        try {
+          if (context.abortSignal?.aborted) {
+            throw new Error('Workflow execution was cancelled')
+          }
+          const workflowExecution: InternalWorkflowExecutionContext = {
+            source: 'workflow_block',
+            parentWorkflowId: context.workflowId,
+            parentExecutionId: context.executionId,
+            parentBlockId: block.id,
+          }
+          const headers = () => this.buildHeaders(context, workflowExecution)
+          const queueResponse = await this.queueChildWorkflowExecution({
+            headers,
+            workflowId,
+            input: childWorkflowInput,
+            executionTarget: context.isDeployedContext ? 'deployed' : 'live',
+            workflowDepth: currentDepth + 1,
+          })
+
+          const childWorkflowName = queueResponse.workflowName
+          const childResult = await this.waitForQueuedWorkflowResult({
+            taskId: queueResponse.taskId,
+            childWorkflowName,
+            headers,
+            shouldCancelExecution: context.shouldCancelExecution,
+            abortSignal: context.abortSignal,
+          })
+          const childTraceSpans = this.transformChildWorkflowSpans(
+            childResult.traceSpans,
+            childWorkflowName
+          )
+
+          const mappedResult = this.mapChildOutputToParent(
+            childResult,
+            childWorkflowName,
+            childTraceSpans
+          )
+
+          return mappedResult
+        } catch (error: any) {
+          logger.error(`Error executing child workflow ${workflowId}:`, error)
+
+          const originalError = error?.message || 'Unknown error'
+
+          if (originalError.startsWith('Error in child workflow')) {
+            throw error
+          }
+
+          const errorPrefix = error?.childWorkflowName
+            ? `Error in child workflow "${error.childWorkflowName}"`
+            : `Error executing child workflow ${workflowId}`
+          const wrappedError = new Error(`${errorPrefix}: ${originalError}`) as Error & {
+            childTraceSpans?: WorkflowTraceSpan[]
+            childWorkflowName?: string
+          }
+
+          if (Array.isArray(error?.childTraceSpans)) {
+            wrappedError.childTraceSpans = error.childTraceSpans
+          }
+          if (error?.childWorkflowName) {
+            wrappedError.childWorkflowName = error.childWorkflowName
+          }
+
+          throw wrappedError
+        }
+      },
     }
-
-    const wait = (async () => {
-      try {
-        const timePolicy = timeBudget.snapshotPolicy()
-        const timePolicyCapturedAt = new Date().toISOString()
-        const workflowExecution: InternalWorkflowExecutionContext = {
-          source: 'workflow_block',
-          parentWorkflowId: context.workflowId,
-          parentExecutionId: context.executionId,
-          parentBlockId: block.id,
-          timePolicy,
-          timePolicyCapturedAt,
-        }
-        const headers = () => this.buildHeaders(context, workflowExecution)
-        const queueResponse = await this.queueChildWorkflowExecution({
-          headers,
-          workflowId,
-          input: childWorkflowInput,
-          executionTarget: context.isDeployedContext ? 'deployed' : 'live',
-          workflowDepth: currentDepth + 1,
-        })
-        timeBudget.markQueuedChildWait(activitySlotId)
-
-        const childWorkflowName = queueResponse.workflowName
-        const childResult = await this.waitForQueuedWorkflowResult({
-          taskId: queueResponse.taskId,
-          childWorkflowName,
-          headers,
-          shouldCancelExecution: context.shouldCancelExecution,
-          timeBudget,
-        })
-        if (typeof childResult.remainingMilliseconds === 'number') {
-          timeBudget.mergeChildRemaining(childResult.remainingMilliseconds)
-        }
-        const childTraceSpans = this.transformChildWorkflowSpans(
-          childResult.traceSpans,
-          childWorkflowName
-        )
-
-        const mappedResult = this.mapChildOutputToParent(
-          childResult,
-          childWorkflowName,
-          childTraceSpans
-        )
-
-        return mappedResult
-      } catch (error: any) {
-        logger.error(`Error executing child workflow ${workflowId}:`, error)
-
-        const originalError = error?.message || 'Unknown error'
-
-        if (originalError.startsWith('Error in child workflow')) {
-          throw error
-        }
-
-        const errorPrefix = error?.childWorkflowName
-          ? `Error in child workflow "${error.childWorkflowName}"`
-          : `Error executing child workflow ${workflowId}`
-        const wrappedError = new Error(`${errorPrefix}: ${originalError}`) as Error & {
-          childTraceSpans?: WorkflowTraceSpan[]
-          childWorkflowName?: string
-          executionResult?: ExecutionResult
-        }
-
-        if (Array.isArray(error?.childTraceSpans)) {
-          wrappedError.childTraceSpans = error.childTraceSpans
-        }
-        if (error?.childWorkflowName) {
-          wrappedError.childWorkflowName = error.childWorkflowName
-        }
-        if (error?.executionResult) {
-          wrappedError.executionResult = error.executionResult
-        }
-
-        throw wrappedError
-      } finally {
-        timeBudget.closeActivity(activitySlotId)
-      }
-    })()
-
-    return { kind: 'deferred', wait: () => wait }
   }
 
   private resolveChildWorkflowInput(inputs: Record<string, any>): Record<string, any> {
@@ -277,20 +273,32 @@ export class WorkflowBlockHandler implements BlockHandler {
     childWorkflowName,
     headers,
     shouldCancelExecution,
-    timeBudget,
+    abortSignal,
   }: ChildWorkflowWaitOptions): Promise<QueuedWorkflowExecutionResult> {
-    const startedAt = Date.now()
+    const cancelChild = () => {
+      void this.cancelQueuedWorkflowExecution(taskId, headers).catch((error) =>
+        logger.warn(`Failed to cancel queued child workflow ${taskId}`, error)
+      )
+    }
 
-    while (Date.now() - startedAt < CHILD_WORKFLOW_WAIT_TIMEOUT_MS) {
-      if (await shouldCancelExecution?.()) {
-        await this.cancelQueuedWorkflowExecution(taskId, headers)
-        throw new Error('Child workflow execution was cancelled')
+    while (true) {
+      if (abortSignal?.aborted || (await shouldCancelExecution?.())) {
+        cancelChild()
+        throw new Error('Workflow execution was cancelled')
       }
 
-      const response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
-        headers: await headers(),
-        cache: 'no-store',
-      })
+      let response: Response
+      try {
+        response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
+          headers: await headers(),
+          cache: 'no-store',
+          signal: abortSignal,
+        })
+      } catch (error) {
+        if (!abortSignal?.aborted) throw error
+        cancelChild()
+        throw new Error('Workflow execution was cancelled')
+      }
 
       if (!response.ok) {
         throw new Error(
@@ -308,20 +316,13 @@ export class WorkflowBlockHandler implements BlockHandler {
       }
 
       if (body.status === 'failed') {
-        if (typeof body.output?.remainingMilliseconds === 'number') {
-          timeBudget?.mergeChildRemaining(body.output.remainingMilliseconds)
-        }
         const error = new Error(
           body.output?.error || body.error || 'Child workflow execution failed'
         ) as Error & {
           childTraceSpans?: WorkflowTraceSpan[]
           childWorkflowName?: string
-          executionResult?: ExecutionResult
         }
         error.childWorkflowName = childWorkflowName
-        if (body.output?.success === false && body.output.output) {
-          error.executionResult = body.output as ExecutionResult
-        }
         if (Array.isArray(body.output?.traceSpans)) {
           error.childTraceSpans = this.transformChildWorkflowSpans(
             body.output.traceSpans,
@@ -331,11 +332,11 @@ export class WorkflowBlockHandler implements BlockHandler {
         throw error
       }
 
-      await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS)
+      if (!(await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS, abortSignal))) {
+        cancelChild()
+        throw new Error('Workflow execution was cancelled')
+      }
     }
-
-    await this.cancelQueuedWorkflowExecution(taskId, headers)
-    throw new Error('Child workflow execution timed out')
   }
 
   private transformChildWorkflowSpans(

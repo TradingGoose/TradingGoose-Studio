@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution } from '@tradinggoose/db/schema'
-import { schedules, task, timeout } from '@trigger.dev/sdk'
+import { schedules, task } from '@trigger.dev/sdk'
 import {
   claimNextPendingExecution,
   completePendingExecution,
@@ -146,7 +146,6 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
 
 export const pendingExecutionDrain = task({
   id: PENDING_EXECUTION_DRAIN_TASK_ID,
-  maxDuration: timeout.None,
   retry: {
     maxAttempts: 1,
   },

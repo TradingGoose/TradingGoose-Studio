@@ -16,12 +16,12 @@ import {
 } from '@/lib/webhooks/utils'
 import {
   loadWorkflowExecutionBlueprint,
+  runPreparedWorkflowExecution,
   type WorkflowExecutionBlueprint,
 } from '@/lib/workflows/execution-runner'
 import { processWorkflowInputFormatFiles } from '@/lib/workflows/input-format-files'
 import { getTrigger } from '@/triggers'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
-import { executeWorkflowJob } from './workflow-execution'
 
 const logger = createLogger('TriggerWebhookExecution')
 
@@ -358,20 +358,19 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
     }
 
     executionLogOwned = true
-    const result = await executeWorkflowJob(
-      {
-        workflowId: payload.workflowId,
-        userId: payload.userId,
-        workspaceId: scopedWorkspaceId,
-        executionId,
-        triggerType: 'webhook',
-        input: input || {},
-        triggerBlockId: payload.blockId,
-        executionTarget: 'deployed',
-        triggerData,
+    const { result } = await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: payload.userId,
+      requestId,
+      executionId,
+      triggerType: 'webhook',
+      workflowInput: input || {},
+      triggerTarget: {
+        kind: 'block',
+        blockId: payload.blockId,
       },
-      { blueprint }
-    )
+      triggerData,
+    })
 
     logger.info(`[${requestId}] Webhook execution completed`, {
       success: result.success,

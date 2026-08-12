@@ -4,12 +4,6 @@ import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
-import { AttemptTimeBudget } from '@/lib/execution/workflow-execution-time-budget'
-import {
-  createWorkflowExecutionDeadlineResult,
-  getWorkflowExecutionTimeLimitMilliseconds,
-  type WorkflowExecutionTimePolicy,
-} from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
@@ -25,6 +19,10 @@ import type { TriggerType } from '@/services/queue'
 import { mergeSubblockState } from '@/stores/workflows/server-utils'
 
 const logger = createLogger('WorkflowExecutionRunner')
+export const WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED =
+  'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED' as const
+const WORKFLOW_EXECUTION_TIME_LIMIT_ERROR = 'Workflow execution time limit exceeded'
+
 export type WorkflowExecutionTarget = 'deployed' | 'live'
 
 type WorkflowContextHint = {
@@ -328,8 +326,6 @@ export async function runPreparedWorkflowExecution(params: {
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
   startupError?: unknown
-  timePolicy: WorkflowExecutionTimePolicy
-  attemptStartedAt: string
 }): Promise<WorkflowRunnerResult> {
   const executionId = params.executionId ?? uuidv4()
   const requestId = params.requestId ?? executionId.slice(0, 8)
@@ -352,166 +348,143 @@ export async function runPreparedWorkflowExecution(params: {
 
   let encryptedEnvVars: Record<string, string> | undefined
   let result: ExecutionResult
+  let executionTimeout: ReturnType<typeof setTimeout> | undefined
+  let executionDeadline: number | undefined
   let executor: Executor | undefined
-  const executionPolicy = params.timePolicy
-  const configuredRemaining = getWorkflowExecutionTimeLimitMilliseconds(executionPolicy)
-  const chargedStartupMilliseconds = Math.max(
-    0,
-    Date.now() - new Date(params.attemptStartedAt).getTime()
-  )
-  const initialRemaining =
-    configuredRemaining !== null &&
-    executionPolicy.kind === 'bounded' &&
-    executionPolicy.accounting.mode === 'remaining'
-      ? Math.max(0, configuredRemaining - chargedStartupMilliseconds)
-      : configuredRemaining
-  const timeBudget = new AttemptTimeBudget(executionPolicy, initialRemaining)
-  const carriesChildRemainingBudget =
-    params.contextExtensions?.isChildExecution === true &&
-    executionPolicy.kind === 'bounded' &&
-    executionPolicy.accounting.mode === 'remaining'
-  const attachChildRemainingBudget = (executionResult: ExecutionResult) => {
-    if (carriesChildRemainingBudget) {
-      executionResult.remainingMilliseconds = timeBudget.remainingMilliseconds() ?? 0
-    }
-  }
-  let attemptClosed = false
-  const deadlineResultIfExpired = () => {
-    if (
-      executionPolicy.kind !== 'bounded' ||
-      (!attemptClosed && (timeBudget.remainingMilliseconds() ?? 0) > 0)
-    ) {
-      return null
-    }
-    const terminatedAt = new Date().toISOString()
-    return createWorkflowExecutionDeadlineResult(
-      executionPolicy,
-      terminatedAt,
-      executor?.snapshotBlockLogsForDeadline(terminatedAt) ?? []
-    )
-  }
+  let timedOut = false
   try {
-    const attempt = (async (): Promise<ExecutionResult> => {
-      if (params.startupError) throw params.startupError
-
-      const usageCheck = await checkServerSideUsageLimits({
-        userId: params.actorUserId,
-        workflowId: params.blueprint.workflowId,
-        workspaceId,
-      })
-      const expiredAfterUsage = deadlineResultIfExpired()
-      if (expiredAfterUsage) return expiredAfterUsage
-      if (usageCheck.isExceeded) {
-        throw new WorkflowUsageLimitError(
-          usageCheck.message ||
-            'Usage limit exceeded. Please upgrade your billing tier to continue.'
-        )
-      }
-
-      const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
-        params.actorUserId,
-        workspaceId
-      )
-      const expiredAfterEnvironmentLoad = deadlineResultIfExpired()
-      if (expiredAfterEnvironmentLoad) return expiredAfterEnvironmentLoad
-      encryptedEnvVars = { ...personalEncrypted, ...workspaceEncrypted }
-      const decryptedEnvVars = await decryptEnvironmentVariables(encryptedEnvVars)
-      const expiredAfterDecryption = deadlineResultIfExpired()
-      if (expiredAfterDecryption) return expiredAfterDecryption
-
-      const mergedStates = mergeSubblockState(params.blueprint.workflowData.blocks, {})
-      const processedBlockStates = buildProcessedBlockStates(mergedStates, decryptedEnvVars)
-      const serializedWorkflow = new Serializer().serializeWorkflow(
-        mergedStates,
-        params.blueprint.workflowData.edges,
-        params.blueprint.workflowData.loops,
-        params.blueprint.workflowData.parallels,
-        true
-      )
-      const workflowVariables = normalizeVariables(params.blueprint.workflowContext.variables)
-      const expiredAfterSerialization = deadlineResultIfExpired()
-      if (expiredAfterSerialization) return expiredAfterSerialization
-
-      const contextExtensions: ExecutionContextExtensions = {
-        ...params.contextExtensions,
-        workflowExecutionTimeBudget: timeBudget,
-        executionId,
-        workspaceId,
-        userId: params.actorUserId,
-        isDeployedContext: params.blueprint.executionTarget !== 'live',
-        triggerType: params.triggerType,
-        workflowDepth: params.contextExtensions?.workflowDepth ?? 0,
-        submissionSource: 'workflow',
-        workflowLogId,
-      }
-      if (contextExtensions.stream) {
-        contextExtensions.edges = params.blueprint.workflowData.edges.map((edge: any) => ({
-          source: edge.source,
-          target: edge.target,
-        }))
-      }
-
-      executor = new Executor({
-        workflow: serializedWorkflow,
-        currentBlockStates: processedBlockStates,
-        envVarValues: decryptedEnvVars,
-        workflowInput: params.workflowInput,
-        workflowVariables,
-        contextExtensions,
-      })
-      const triggerBlockId = resolveTriggerBlockId({
-        mergedStates,
-        serializedWorkflow,
-        target: params.triggerTarget,
-        isChildExecution: contextExtensions.isChildExecution === true,
-      })
-      const expiredBeforeDispatch = deadlineResultIfExpired()
-      if (expiredBeforeDispatch) {
-        executor.stopForDeadline()
-        return expiredBeforeDispatch
-      }
-      return executor.execute(params.blueprint.workflowId, triggerBlockId)
-    })()
-
-    if (executionPolicy.kind === 'bounded') {
-      const deadline = timeBudget.expired.then(() => {
-        attemptClosed = true
-        executor?.stopForDeadline()
-        const terminatedAt = new Date().toISOString()
-        return createWorkflowExecutionDeadlineResult(
-          executionPolicy,
-          terminatedAt,
-          executor?.snapshotBlockLogsForDeadline(terminatedAt) ?? []
-        )
-      })
-      result = await Promise.race([attempt, deadline])
-      attemptClosed = true
-      void attempt.catch(() => undefined)
-    } else {
-      result = await attempt
-      attemptClosed = true
+    if (params.startupError) {
+      throw params.startupError
     }
-    attachChildRemainingBudget(result)
+
+    const usageCheck = await checkServerSideUsageLimits({
+      userId: params.actorUserId,
+      workflowId: params.blueprint.workflowId,
+      workspaceId,
+    })
+
+    if (usageCheck.isExceeded) {
+      throw new WorkflowUsageLimitError(
+        usageCheck.message || 'Usage limit exceeded. Please upgrade your billing tier to continue.'
+      )
+    }
+
+    const abortController = new AbortController()
+
+    const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
+      params.actorUserId,
+      workspaceId
+    )
+    encryptedEnvVars = {
+      ...personalEncrypted,
+      ...workspaceEncrypted,
+    }
+    const decryptedEnvVars = await decryptEnvironmentVariables(encryptedEnvVars)
+    const mergedStates = mergeSubblockState(params.blueprint.workflowData.blocks, {})
+    const processedBlockStates = buildProcessedBlockStates(mergedStates, decryptedEnvVars)
+    const serializedWorkflow = new Serializer().serializeWorkflow(
+      mergedStates,
+      params.blueprint.workflowData.edges,
+      params.blueprint.workflowData.loops,
+      params.blueprint.workflowData.parallels,
+      true
+    )
+    const workflowVariables = normalizeVariables(params.blueprint.workflowContext.variables)
+
+    const contextExtensions: ExecutionContextExtensions = {
+      ...params.contextExtensions,
+      abortSignal: abortController.signal,
+      executionId,
+      workspaceId,
+      userId: params.actorUserId,
+      isDeployedContext: params.blueprint.executionTarget !== 'live',
+      triggerType: params.triggerType,
+      workflowDepth: params.contextExtensions?.workflowDepth ?? 0,
+      submissionSource: 'workflow',
+      workflowLogId,
+    }
+
+    if (contextExtensions.stream) {
+      contextExtensions.edges = params.blueprint.workflowData.edges.map((edge: any) => ({
+        source: edge.source,
+        target: edge.target,
+      }))
+    }
+
+    executor = new Executor({
+      workflow: serializedWorkflow,
+      currentBlockStates: processedBlockStates,
+      envVarValues: decryptedEnvVars,
+      workflowInput: params.workflowInput,
+      workflowVariables,
+      contextExtensions,
+    })
+
+    const triggerBlockId = resolveTriggerBlockId({
+      mergedStates,
+      serializedWorkflow,
+      target: params.triggerTarget,
+      isChildExecution: contextExtensions.isChildExecution === true,
+    })
+
+    if (usageCheck.workflowExecutionTimeLimitSeconds !== null) {
+      const executionLimitMs = usageCheck.workflowExecutionTimeLimitSeconds * 1_000
+      executionDeadline = performance.now() + executionLimitMs
+      executionTimeout = setTimeout(() => {
+        timedOut = true
+        abortController.abort()
+        executor?.cancel()
+      }, executionLimitMs)
+    }
+
+    result = await executor.execute(params.blueprint.workflowId, triggerBlockId)
+    if (executionDeadline !== undefined && performance.now() >= executionDeadline && !timedOut) {
+      timedOut = true
+      abortController.abort()
+      executor.cancel()
+    }
+    if (executionTimeout) {
+      clearTimeout(executionTimeout)
+      executionTimeout = undefined
+    }
+    if (timedOut) {
+      result = {
+        ...result,
+        success: false,
+        error: WORKFLOW_EXECUTION_TIME_LIMIT_ERROR,
+        code: WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
+      }
+    }
+
     if (result.success) {
       await updateWorkflowRunCounts(params.blueprint.workflowId).catch((error) =>
         logger.error(`[${requestId}] Workflow run count update failed after execution`, error)
       )
     }
   } catch (error: any) {
-    const message = error.message || 'Workflow execution failed'
+    const message = timedOut
+      ? WORKFLOW_EXECUTION_TIME_LIMIT_ERROR
+      : error.message || 'Workflow execution failed'
     const dispatchFailureReason =
       error instanceof WorkflowUsageLimitError
         ? 'usage_limit_exceeded'
         : error instanceof WorkflowTriggerBlockError
           ? 'missing_trigger_block'
           : undefined
-    result = (error?.executionResult as ExecutionResult | undefined) || {
+    const failedResult = (error?.executionResult as ExecutionResult | undefined) || {
       success: false,
       output: {},
       error: message,
       logs: [],
     }
-    attachChildRemainingBudget(result)
+    result = timedOut
+      ? {
+          ...failedResult,
+          success: false,
+          error: message,
+          code: WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
+        }
+      : failedResult
     const { traceSpans, totalDuration } = buildTraceSpans(result)
 
     await loggingSession.completeWithError({
@@ -525,7 +498,6 @@ export async function runPreparedWorkflowExecution(params: {
       workspaceId,
       actorUserId: params.actorUserId,
       variables: encryptedEnvVars,
-      result,
     })
     return {
       executionId,
@@ -535,10 +507,11 @@ export async function runPreparedWorkflowExecution(params: {
       dispatchFailureReason,
     }
   } finally {
-    timeBudget.dispose()
+    if (executionTimeout) clearTimeout(executionTimeout)
   }
 
   const { traceSpans, totalDuration } = buildTraceSpans(result)
+
   await loggingSession.complete({
     endedAt: new Date().toISOString(),
     totalDurationMs: totalDuration || 0,
@@ -552,7 +525,6 @@ export async function runPreparedWorkflowExecution(params: {
     hasResponseBlock:
       result.logs?.some((log) => log.success && log.blockType === 'response') === true,
     variables: encryptedEnvVars,
-    result,
   })
 
   return {
@@ -576,8 +548,6 @@ export async function runWorkflowExecution(params: {
   executionId?: string
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
-  timePolicy: WorkflowExecutionTimePolicy
-  attemptStartedAt: string
 }): Promise<WorkflowRunnerResult> {
   let startupError: unknown
   const blueprint = await loadWorkflowExecutionBlueprint({
@@ -608,8 +578,6 @@ export async function runWorkflowExecution(params: {
     executionId: params.executionId,
     triggerData: params.triggerData,
     contextExtensions: params.contextExtensions,
-    timePolicy: params.timePolicy,
-    attemptStartedAt: params.attemptStartedAt,
     startupError,
   })
 }

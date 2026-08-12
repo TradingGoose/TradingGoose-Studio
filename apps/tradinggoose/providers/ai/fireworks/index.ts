@@ -300,9 +300,7 @@ export const fireworksProvider: ProviderConfig = {
             if (!tool) return null
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeTool(toolName, executionParams, false, undefined, {
-              signal: request.abortSignal,
-            })
+            const result = await executeTool(toolName, executionParams)
             const toolCallEndTime = Date.now()
 
             return {

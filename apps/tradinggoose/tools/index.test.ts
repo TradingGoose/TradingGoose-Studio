@@ -525,24 +525,7 @@ describe('executeTool Function', () => {
   })
 
   it('uses workflow-scoped internal auth for credential token lookup without user context', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-01-01T00:00:05.000Z'))
-    const timePolicy = {
-      kind: 'unlimited' as const,
-      processingStartedAt: '2026-01-01T00:00:00.000Z',
-      tier: { source: 'no-tier' as const },
-    }
-    const mockContext = createMockExecutionContext({
-      userId: undefined,
-      workflowExecutionTimeBudget: {
-        registerActivity: vi.fn(),
-        markQueuedChildWait: vi.fn(),
-        closeActivity: vi.fn(),
-        snapshotPolicy: vi.fn(() => timePolicy),
-        mergeChildRemaining: vi.fn(),
-        remainingMilliseconds: vi.fn(() => null),
-      },
-    })
+    const mockContext = createMockExecutionContext({ userId: undefined })
     const originalWindow = global.window
     const originalTool = (tools as any).test_credential_tool
     ;(tools as any).test_credential_tool = {
@@ -577,8 +560,6 @@ describe('executeTool Function', () => {
         source: 'workflow_block',
         parentWorkflowId: 'test-workflow',
         parentBlockId: 'agent-1',
-        timePolicy,
-        timePolicyCapturedAt: '2026-01-01T00:00:05.000Z',
       }
       expect(vi.mocked(generateInternalToken)).toHaveBeenNthCalledWith(1, undefined, {
         workflowExecution,
@@ -607,7 +588,6 @@ describe('executeTool Function', () => {
         writable: true,
         configurable: true,
       })
-      vi.useRealTimers()
     }
   })
 

@@ -551,9 +551,7 @@ export async function executeAnthropicProviderRequest(
               if (!tool) return null
 
               const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-              const result = await executeTool(toolName, executionParams, false, undefined, {
-                signal: request.abortSignal,
-              })
+              const result = await executeTool(toolName, executionParams)
               const toolCallEndTime = Date.now()
 
               return {
@@ -969,9 +967,7 @@ export async function executeAnthropicProviderRequest(
             if (!tool) return null
 
             const { toolParams, executionParams } = prepareToolExecution(tool, toolArgs, request)
-            const result = await executeTool(toolName, executionParams, true, undefined, {
-              signal: request.abortSignal,
-            })
+            const result = await executeTool(toolName, executionParams, true)
             const toolCallEndTime = Date.now()
 
             return {

@@ -29,7 +29,6 @@ const {
 vi.mock('@trigger.dev/sdk', () => ({
   schedules: { task: vi.fn((config) => config) },
   task: vi.fn((config) => config),
-  timeout: { None: 'none' },
 }))
 
 vi.mock('@tradinggoose/db', () => ({

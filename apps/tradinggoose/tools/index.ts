@@ -49,14 +49,8 @@ function resolveExecutionScope(
   toolExecutionId?: string
   submissionSource?: string
   isDeployedContext?: boolean
-  workflowExecutionTimePolicy?: ReturnType<
-    NonNullable<ExecutionContext['workflowExecutionTimeBudget']>['snapshotPolicy']
-  >
-  workflowExecutionTimePolicyCapturedAt?: string
 } {
   const context = params._context || {}
-  const workflowExecutionTimePolicy =
-    executionContext?.workflowExecutionTimeBudget?.snapshotPolicy()
 
   return {
     workflowId: executionContext?.workflowId ?? context.workflowId,
@@ -67,10 +61,6 @@ function resolveExecutionScope(
     toolExecutionId: context.toolExecutionId,
     submissionSource: executionContext?.submissionSource ?? context.submissionSource,
     isDeployedContext: executionContext?.isDeployedContext ?? context.isDeployedContext,
-    workflowExecutionTimePolicy,
-    workflowExecutionTimePolicyCapturedAt: workflowExecutionTimePolicy
-      ? new Date().toISOString()
-      : undefined,
   }
 }
 
@@ -211,18 +201,12 @@ export async function getToolAsync(
 
 function generateScopedInternalToken(scope: ExecutionScope) {
   const workflowExecution =
-    !scope.userId &&
-    scope.workflowId &&
-    scope.toolExecutionId &&
-    scope.workflowExecutionTimePolicy &&
-    scope.workflowExecutionTimePolicyCapturedAt
+    !scope.userId && scope.workflowId && scope.toolExecutionId
       ? {
           source: 'workflow_block' as const,
           parentWorkflowId: scope.workflowId,
           ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
           parentBlockId: scope.toolExecutionId,
-          timePolicy: scope.workflowExecutionTimePolicy,
-          timePolicyCapturedAt: scope.workflowExecutionTimePolicyCapturedAt,
         }
       : undefined
   return workflowExecution
@@ -456,8 +440,7 @@ export async function executeTool(
         executionContext,
         requestId,
         startTimeISO,
-        scope.userId,
-        options
+        scope.userId
       )
     } else {
       // For built-in tools, use the synchronous version
@@ -1100,8 +1083,7 @@ async function executeMcpTool(
   executionContext?: ExecutionContext,
   requestId?: string,
   startTimeISO?: string,
-  userId?: string,
-  options?: ToolExecutionOptions
+  userId?: string
 ): Promise<ToolResponse> {
   const actualRequestId = requestId || generateRequestId()
   const actualStartTime = startTimeISO || new Date().toISOString()
@@ -1185,7 +1167,6 @@ async function executeMcpTool(
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
-      signal: options?.signal,
     })
 
     const endTime = new Date()

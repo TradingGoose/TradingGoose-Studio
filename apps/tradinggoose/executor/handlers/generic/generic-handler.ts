@@ -60,7 +60,7 @@ export class GenericBlockHandler implements BlockHandler {
         withBlockToolExecutionContext(finalInputs, block, context),
         false, // skipPostProcess
         context, // execution context for file processing
-        ...(context.abortSignal ? [{ signal: context.abortSignal }] : [])
+        { signal: context.abortSignal }
       )
 
       if (!result.success) {

@@ -179,6 +179,7 @@ describe('AgentBlockHandler', () => {
 
   describe('execute', () => {
     it('should execute a basic agent block request', async () => {
+      const abortController = new AbortController()
       const inputs = {
         model: 'gpt-4o',
         systemPrompt: 'You are a helpful assistant.',
@@ -190,6 +191,7 @@ describe('AgentBlockHandler', () => {
 
       mockGetProviderFromModel.mockReturnValue('openai')
       mockContext.isDeployedContext = false
+      mockContext.abortSignal = abortController.signal
 
       const expectedOutput = {
         content: 'Mocked response content',
@@ -207,6 +209,8 @@ describe('AgentBlockHandler', () => {
       expect(mockFetch).toHaveBeenCalledWith(expect.any(String), expect.any(Object))
       const [, init] = mockFetch.mock.calls.find(([url]) => String(url).includes('/api/providers'))!
       expect(JSON.parse(String(init.body)).isDeployedContext).toBe(false)
+      abortController.abort()
+      expect((init.signal as AbortSignal).aborted).toBe(true)
       expect(result).toEqual(expectedOutput)
     })
 

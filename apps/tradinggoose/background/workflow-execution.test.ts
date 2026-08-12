@@ -10,7 +10,6 @@ const {
   writeExecutionEventMock,
   isPendingWorkflowExecutionCancellationRequestedMock,
   disableMonitorMock,
-  resolveServerExecutionBillingContextMock,
 } = vi.hoisted(() => ({
   runWorkflowExecutionMock: vi.fn(),
   buildTraceSpansMock: vi.fn(),
@@ -18,11 +17,6 @@ const {
   writeExecutionEventMock: vi.fn(),
   isPendingWorkflowExecutionCancellationRequestedMock: vi.fn(),
   disableMonitorMock: vi.fn(),
-  resolveServerExecutionBillingContextMock: vi.fn(),
-}))
-
-vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
-  resolveServerExecutionBillingContext: resolveServerExecutionBillingContextMock,
 }))
 
 vi.mock('@/lib/execution/workflow-execution-events', () => ({
@@ -36,7 +30,6 @@ vi.mock('@/lib/execution/pending-execution', () => ({
 
 vi.mock('@/lib/workflows/execution-runner', () => ({
   runWorkflowExecution: runWorkflowExecutionMock,
-  runPreparedWorkflowExecution: vi.fn(),
 }))
 
 vi.mock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
@@ -73,7 +66,6 @@ describe('executeWorkflowJob', () => {
     })
     writeExecutionEventMock.mockResolvedValue(undefined)
     isPendingWorkflowExecutionCancellationRequestedMock.mockResolvedValue(false)
-    resolveServerExecutionBillingContextMock.mockResolvedValue(null)
   })
 
   it('marks queued workflow-block executions as child executions', async () => {
@@ -83,11 +75,6 @@ describe('executeWorkflowJob', () => {
       metadata: {
         source: 'workflow_block',
         parentBlockId: 'block-1',
-        timePolicy: {
-          kind: 'unlimited',
-          processingStartedAt: '2026-01-01T00:00:00.000Z',
-          tier: { source: 'no-tier' },
-        },
       },
     })
 
@@ -102,32 +89,6 @@ describe('executeWorkflowJob', () => {
         }),
       })
     )
-  })
-
-  it('rejects a nested policy that expands the inherited allowance', async () => {
-    await expect(
-      executeWorkflowJob({
-        workflowId: 'workflow-1',
-        userId: 'user-1',
-        metadata: {
-          source: 'workflow_block',
-          parentBlockId: 'block-1',
-          timePolicy: {
-            kind: 'bounded',
-            processingStartedAt: '2026-01-01T00:00:00.000Z',
-            tier: {
-              source: 'resolved-tier',
-              appliedTierId: 'tier-1',
-              appliedTierName: 'Pro',
-            },
-            limitSeconds: 10,
-            accounting: { mode: 'remaining', remainingMilliseconds: 10_001 },
-          },
-        },
-      })
-    ).rejects.toThrow('authenticated time policy')
-    expect(resolveServerExecutionBillingContextMock).not.toHaveBeenCalled()
-    expect(runWorkflowExecutionMock).not.toHaveBeenCalled()
   })
 
   it('does not mark non-child queued workflow executions as child executions', async () => {
