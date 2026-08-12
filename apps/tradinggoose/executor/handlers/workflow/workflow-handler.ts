@@ -17,7 +17,6 @@ const logger = createLogger('WorkflowBlockHandler')
 
 const MAX_WORKFLOW_DEPTH = 10
 const CHILD_WORKFLOW_POLL_INTERVAL_MS = 1_000
-const CHILD_WORKFLOW_WAIT_TIMEOUT_MS = 30 * 60 * 1000
 
 type WorkflowTraceSpan = TraceSpan & {
   metadata?: Record<string, unknown>
@@ -287,7 +286,6 @@ export class WorkflowBlockHandler implements BlockHandler {
     activitySlotId,
     timeBudget,
   }: ChildWorkflowWaitOptions): Promise<QueuedWorkflowExecutionResult> {
-    const startedAt = Date.now()
     let cancellationRequest: Promise<void> | undefined
     const cancelOnce = () => {
       cancellationRequest ??= this.cancelQueuedWorkflowExecution(taskId, headers)
@@ -312,7 +310,7 @@ export class WorkflowBlockHandler implements BlockHandler {
     }
 
     const poll = async () => {
-      while (Date.now() - startedAt < CHILD_WORKFLOW_WAIT_TIMEOUT_MS) {
+      while (true) {
         if (abortSignal?.aborted) {
           await cancelOnce()
           throw createAbortError()
@@ -367,9 +365,6 @@ export class WorkflowBlockHandler implements BlockHandler {
 
         await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS)
       }
-
-      await cancelOnce()
-      throw new Error('Child workflow execution timed out')
     }
 
     if (!abortSignal) return poll()

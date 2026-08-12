@@ -405,53 +405,100 @@ describe('WorkflowBlockHandler', () => {
     )
   })
 
-  it('cancels queued child workflows when child polling reaches its deadline', async () => {
-    vi.useFakeTimers()
-    const nowSpy = vi.spyOn(Date, 'now')
-    let now = 0
-    nowSpy.mockImplementation(() => now)
-    const fetchMock = vi.mocked(global.fetch)
-    fetchMock
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            taskId: 'job-4',
-            workflowName: 'Child Workflow',
-          }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ status: 'processing' }),
-      } as Response)
-      .mockResolvedValueOnce({ ok: true } as Response)
+  it.each([
+    {
+      policyName: 'unlimited',
+      timePolicy: {
+        kind: 'unlimited' as const,
+        processingStartedAt: '2026-01-01T00:00:00.000Z',
+        tier: { source: 'no-tier' as const },
+      },
+      childRemaining: undefined,
+    },
+    {
+      policyName: 'bounded above 30 minutes',
+      timePolicy: {
+        kind: 'bounded' as const,
+        processingStartedAt: '2026-01-01T00:00:00.000Z',
+        tier: {
+          source: 'resolved-tier' as const,
+          appliedTierId: 'tier-1',
+          appliedTierName: 'Pro',
+        },
+        limitSeconds: 3_600,
+        accounting: { mode: 'remaining' as const, remainingMilliseconds: 3_600_000 },
+      },
+      childRemaining: 1_799_000,
+    },
+  ])(
+    'continues polling past 30 minutes for a $policyName inherited policy',
+    async ({ timePolicy, childRemaining }) => {
+      vi.useFakeTimers()
+      const nowSpy = vi.spyOn(Date, 'now')
+      let now = 0
+      nowSpy.mockImplementation(() => now)
+      const mergeChildRemaining = vi.fn()
+      mockContext.workflowExecutionTimeBudget = {
+        registerActivity: vi.fn(),
+        markQueuedChildWait: vi.fn(),
+        closeActivity: vi.fn(),
+        snapshotPolicy: vi.fn(() => timePolicy),
+        mergeChildRemaining,
+        remainingMilliseconds: vi.fn(() => childRemaining ?? null),
+      }
+      const fetchMock = vi.mocked(global.fetch)
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              taskId: 'job-4',
+              workflowName: 'Child Workflow',
+            }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ status: 'processing' }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              status: 'completed',
+              output: {
+                success: true,
+                output: { value: 42 },
+                remainingMilliseconds: childRemaining,
+              },
+            }),
+        } as Response)
 
-    try {
-      const deferred = await handler.execute(
-        mockBlock,
-        { workflowId: 'child-workflow-id' },
-        mockContext
-      )
+      try {
+        const deferred = await handler.execute(
+          mockBlock,
+          { workflowId: 'child-workflow-id' },
+          mockContext
+        )
 
-      const waitPromise = (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
-      const errorPromise = waitPromise.catch((error) => error as Error)
-      await vi.advanceTimersByTimeAsync(0)
-      now = 30 * 60 * 1000 + 1
-      await vi.advanceTimersByTimeAsync(1_000)
+        const waitPromise = (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
+        await vi.advanceTimersByTimeAsync(0)
+        now = 30 * 60 * 1000 + 1
+        await vi.advanceTimersByTimeAsync(1_000)
 
-      await expect(errorPromise).resolves.toMatchObject({
-        message: expect.stringContaining('Child workflow execution timed out'),
-      })
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        3,
-        'http://localhost:3000/api/jobs/job-4',
-        expect.objectContaining({
-          method: 'DELETE',
+        await expect(waitPromise).resolves.toMatchObject({
+          success: true,
+          result: { value: 42 },
         })
-      )
-    } finally {
-      nowSpy.mockRestore()
-      vi.useRealTimers()
+        expect(fetchMock).not.toHaveBeenCalledWith(
+          'http://localhost:3000/api/jobs/job-4',
+          expect.objectContaining({ method: 'DELETE' })
+        )
+        if (childRemaining === undefined) expect(mergeChildRemaining).not.toHaveBeenCalled()
+        else expect(mergeChildRemaining).toHaveBeenCalledWith(childRemaining)
+      } finally {
+        nowSpy.mockRestore()
+        vi.useRealTimers()
+      }
     }
-  })
+  )
 })
