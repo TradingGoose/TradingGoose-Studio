@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ExecutionLimiter } from '@/services/queue/ExecutionLimiter'
 
 const TEST_RATE_LIMITS = {
@@ -96,6 +96,10 @@ describe('ExecutionLimiter', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsBillingEnabledForRuntime.mockResolvedValue(true)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   describe('checkRateLimitWithSubscription', () => {
@@ -343,7 +347,6 @@ describe('ExecutionLimiter', () => {
         })
       )
       expect(db.update).not.toHaveBeenCalled()
-      vi.useRealTimers()
     })
 
     it('increments a concurrently advanced window in the atomic conflict clause', async () => {
@@ -391,7 +394,6 @@ describe('ExecutionLimiter', () => {
       const conflictSet = onConflictDoUpdate.mock.calls[0]?.[0]?.set
       expect(conflictSet.apiEndpointRequests.sql).toContain('CASE WHEN ? <= ?')
       expect(conflictSet.windowStart.sql).toContain('CASE WHEN ? <= ?')
-      vi.useRealTimers()
     })
 
     it('uses the requested window for fail-closed dependency resets', async () => {
@@ -411,7 +413,6 @@ describe('ExecutionLimiter', () => {
       )
 
       expect(result.resetAt).toEqual(new Date('2026-01-01T00:10:00.000Z'))
-      vi.useRealTimers()
     })
   })
 
