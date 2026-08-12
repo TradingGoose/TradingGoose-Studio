@@ -10,7 +10,6 @@ import {
 
 const MONITOR_PREVIEW_ROW_LIMIT = 20
 const MONITOR_LISTINGS_TIMEOUT_MS = 4000
-const MONITOR_LISTINGS_TOTAL_TIMEOUT_MS = MONITOR_LISTINGS_TIMEOUT_MS + 250
 
 // Per-market result budget. Total pool = PER_MARKET_LIMIT * markets (5) = 50.
 const MONITOR_PER_MARKET_LIMIT = 10
@@ -53,15 +52,5 @@ async function requestMonitorListings(): Promise<ListingResolved[]> {
 }
 
 export async function fetchMonitorStocks(): Promise<ListingResolved[]> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-  try {
-    return await Promise.race([
-      requestMonitorListings().catch(() => []),
-      new Promise<ListingResolved[]>((resolve) => {
-        timeoutId = setTimeout(() => resolve([]), MONITOR_LISTINGS_TOTAL_TIMEOUT_MS)
-      }),
-    ])
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId)
-  }
+  return requestMonitorListings().catch(() => [])
 }
