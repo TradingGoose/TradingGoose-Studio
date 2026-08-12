@@ -1456,7 +1456,7 @@ function TierFormFields({
                     id='workflowExecutionTimeLimitSeconds'
                     name='workflowExecutionTimeLimitSeconds'
                     type='number'
-                    min='0'
+                    min={Number.MIN_VALUE}
                     step='any'
                     defaultValue={initialValues.workflowExecutionTimeLimitSeconds}
                   />

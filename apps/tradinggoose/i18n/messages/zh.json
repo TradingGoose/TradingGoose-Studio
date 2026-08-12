@@ -22145,7 +22145,7 @@
         "saving": "正在保存…",
         "updated": "层级已更新",
         "archive": "归档层级",
-        "activeSubscriptionsWarning": "此层级有享有权益的订阅。归档会保留当前已付费周期并取消续费。",
+        "activeSubscriptionsWarning": "此层级存在活跃订阅。归档会保留当前已付费周期并取消后续续费。归档会保留当前已付费周期并取消续费。",
         "loading": "正在加载计费层级...",
         "notFoundTitle": "未找到层级",
         "notFoundDescription": "返回计费页面并选择其他层级。",

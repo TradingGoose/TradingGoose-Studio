@@ -22158,7 +22158,7 @@
         "saving": "Guardando…",
         "updated": "Nivel actualizado",
         "archive": "Archivar nivel",
-        "activeSubscriptionsWarning": "Este nivel tiene suscripciones con derecho. Archivarlo conserva el período pagado actual y cancela la renovación.",
+        "activeSubscriptionsWarning": "Este nivel tiene suscripciones con acceso vigente. Archivarlo conserva el período pagado actual y cancela la renovación.",
         "loading": "Cargando nivel de facturación...",
         "notFoundTitle": "Nivel no encontrado",
         "notFoundDescription": "Vuelve a facturación y elige un nivel diferente.",
