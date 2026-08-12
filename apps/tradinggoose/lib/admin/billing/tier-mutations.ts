@@ -2,7 +2,16 @@ import { z } from 'zod'
 
 const nullableNumberSchema = z.number().finite().nonnegative().nullable()
 const nullableIntegerSchema = z.number().int().nonnegative().nullable()
-const nullablePositiveNumberSchema = z.number().finite().positive().nullable()
+const nullableExecutionTimeLimitSchema = z.number().int().min(1).max(2_147_483).nullable()
+const nullablePrivateAccessCodeSchema = z
+  .string()
+  .trim()
+  .max(128)
+  .refine((value) => value.length === 0 || value.length >= 16, {
+    message: 'Private tier access codes must be at least 16 characters',
+  })
+  .transform((value) => (value.length > 0 ? value : null))
+  .nullable()
 const nullableTrimmedStringSchema = z
   .string()
   .trim()
@@ -13,9 +22,10 @@ function hasPositiveNumber(value: number | null): value is number {
   return value !== null && value > 0
 }
 
-const adminBillingTierMutationShape = {
+export const adminBillingTierMutationSchema = z.object({
   displayName: z.string().trim().min(1),
   description: z.string().trim().min(1),
+  accessCode: nullablePrivateAccessCodeSchema,
   status: z.enum(['draft', 'active', 'archived']),
   ownerType: z.enum(['user', 'organization']),
   usageScope: z.enum(['individual', 'pooled']),
@@ -25,13 +35,12 @@ const adminBillingTierMutationShape = {
   includedUsageLimitUsd: nullableNumberSchema,
   storageLimitGb: nullableIntegerSchema,
   concurrencyLimit: nullableIntegerSchema,
+  workflowExecutionTimeLimitSeconds: nullableExecutionTimeLimitSchema,
   seatCount: nullableIntegerSchema,
   seatMaximum: nullableIntegerSchema,
   stripeMonthlyPriceId: nullableTrimmedStringSchema,
   stripeYearlyPriceId: nullableTrimmedStringSchema,
   stripeProductId: nullableTrimmedStringSchema,
-  accessCode: nullableTrimmedStringSchema,
-  workflowExecutionTimeLimitSeconds: nullablePositiveNumberSchema,
   syncRateLimitPerMinute: nullableIntegerSchema,
   asyncRateLimitPerMinute: nullableIntegerSchema,
   apiEndpointRateLimitPerMinute: nullableIntegerSchema,
@@ -48,21 +57,27 @@ const adminBillingTierMutationShape = {
   isPublic: z.boolean(),
   isDefault: z.boolean(),
   displayOrder: z.number().int(),
-}
-
-export const adminBillingTierMutationSchema = z.object(adminBillingTierMutationShape)
+})
 
 export type AdminBillingTierMutationInput = z.infer<typeof adminBillingTierMutationSchema>
 
-export function validateAdminBillingTierInput(input: AdminBillingTierMutationInput): string | null {
-  if (input.isPublic && input.accessCode) {
-    return 'Public tiers cannot configure an access code'
-  }
-  if (input.isDefault) {
-    if (input.status === 'archived') {
-      return 'The default tier cannot be archived'
-    }
+type AdminBillingTierValidationOptions = {
+  requireStripeMonthlyPriceId?: boolean
+}
 
+export function validateAdminBillingTierInput(
+  input: AdminBillingTierMutationInput,
+  options: AdminBillingTierValidationOptions = {}
+): string | null {
+  if (input.isPublic && input.accessCode) {
+    return 'Public tiers cannot configure a private access code'
+  }
+
+  if (input.accessCode && !input.stripeMonthlyPriceId) {
+    return 'Private tiers with an access code must configure a Stripe monthly price ID'
+  }
+
+  if (input.isDefault) {
     if (!input.isPublic) {
       return 'The default tier must be visible in the public catalog'
     }
@@ -126,12 +141,16 @@ export function validateAdminBillingTierInput(input: AdminBillingTierMutationInp
     }
   }
 
-  if (hasPositiveNumber(input.monthlyPriceUsd) && !input.stripeMonthlyPriceId) {
-    return 'Tiers with a recurring monthly price must configure a Stripe monthly price ID'
+  if (options.requireStripeMonthlyPriceId && !input.stripeMonthlyPriceId) {
+    return 'New tiers must configure a Stripe monthly price ID'
   }
 
-  if (hasPositiveNumber(input.yearlyPriceUsd) && !input.stripeYearlyPriceId) {
-    return 'Tiers with a recurring yearly price must configure a Stripe yearly price ID'
+  if (input.isPublic && hasPositiveNumber(input.monthlyPriceUsd) && !input.stripeMonthlyPriceId) {
+    return 'Public tiers with a recurring monthly price must configure a Stripe monthly price ID'
+  }
+
+  if (input.isPublic && hasPositiveNumber(input.yearlyPriceUsd) && !input.stripeYearlyPriceId) {
+    return 'Public tiers with a recurring yearly price must configure a Stripe yearly price ID'
   }
 
   if (input.seatMode === 'fixed' && input.seatMaximum !== null) {

@@ -164,18 +164,19 @@ export const privateTierAccess = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    tierId: text('tier_id')
+    billingTierId: text('billing_tier_id')
       .notNull()
-      .references(() => systemBillingTier.id, { onDelete: 'restrict' }),
+      .references(() => systemBillingTier.id, { onDelete: 'cascade' }),
   },
   (table) => ({
     userTierPk: primaryKey({
-      name: 'private_tier_access_user_tier_pkey',
-      columns: [table.userId, table.tierId],
+      name: 'private_tier_access_pkey',
+      columns: [table.userId, table.billingTierId],
     }),
-    userIdIdx: index('private_tier_access_user_id_idx').on(table.userId),
-    tierIdIdx: index('private_tier_access_tier_id_idx').on(table.tierId),
-  })
+    billingTierIdIdx: index('private_tier_access_billing_tier_id_idx').on(
+      table.billingTierId,
+    ),
+  }),
 )
 
 export const userRateLimits = pgTable('user_rate_limits', {

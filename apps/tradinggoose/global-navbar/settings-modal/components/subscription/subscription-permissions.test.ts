@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import {
-  composeSubscriptionTierDisplays,
-  type SubscriptionTierDisplay,
-} from '@/lib/billing/subscription-tier-display'
+import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/subscription/types'
 import { getSubscriptionSurfaceState } from './subscription-permissions'
 
 const adminRole = { isTeamAdmin: true }
 const memberRole = { isTeamAdmin: false }
+const noGrantedPrivateTiers = new Set<string>()
 
-function buildTier(overrides: Partial<SubscriptionTierDisplay>): SubscriptionTierDisplay {
+function buildTier(overrides: Partial<PublicBillingTierDisplay>): PublicBillingTierDisplay {
   return {
     id: 'tier_free',
     displayName: 'Free',
@@ -26,14 +24,11 @@ function buildTier(overrides: Partial<SubscriptionTierDisplay>): SubscriptionTie
     canEditUsageLimit: false,
     pricingFeatures: [],
     isDefault: false,
-    status: 'active',
-    isPublic: true,
-    isCurrentOnly: false,
     ...overrides,
   }
 }
 
-function toSummary(tier: SubscriptionTierDisplay): BillingTierSummary {
+function toSummary(tier: PublicBillingTierDisplay): BillingTierSummary {
   return {
     ...EMPTY_BILLING_TIER_SUMMARY,
     id: tier.id,
@@ -82,8 +77,9 @@ describe('getSubscriptionSurfaceState', () => {
         tier: toSummary(freeTier),
       },
       userRole: adminRole,
-      subscriptionTiers: publicTiers,
-      enterpriseContactCard: null,
+      publicTiers,
+      grantedPrivateTierIds: noGrantedPrivateTiers,
+      enterprisePlaceholder: null,
     })
 
     expect(state.currentTier?.id).toBe('tier_free')
@@ -94,7 +90,7 @@ describe('getSubscriptionSurfaceState', () => {
     ])
   })
 
-  it('shows all accessible tiers for paid users', () => {
+  it('shows the current paid tier before higher display-order upgrade tiers', () => {
     const state = getSubscriptionSurfaceState({
       subscription: {
         isFree: false,
@@ -102,19 +98,71 @@ describe('getSubscriptionSurfaceState', () => {
         tier: toSummary(proTier),
       },
       userRole: adminRole,
-      subscriptionTiers: publicTiers,
-      enterpriseContactCard: null,
+      publicTiers,
+      grantedPrivateTierIds: noGrantedPrivateTiers,
+      enterprisePlaceholder: null,
     })
 
     expect(state.currentTier?.id).toBe('tier_pro')
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual(['tier_pro', 'tier_team'])
+  })
+
+  it('keeps previously granted private tiers available for lateral resubscription', () => {
+    const privateTier = buildTier({
+      id: 'tier_private',
+      displayName: 'Private',
+      displayOrder: 0,
+      monthlyPriceUsd: 15,
+    })
+
+    const state = getSubscriptionSurfaceState({
+      subscription: {
+        isFree: false,
+        isPaid: true,
+        tier: toSummary(proTier),
+      },
+      userRole: adminRole,
+      publicTiers: [freeTier, privateTier, proTier, teamTier],
+      grantedPrivateTierIds: new Set([privateTier.id]),
+      enterprisePlaceholder: null,
+    })
+
     expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([
-      'tier_free',
       'tier_pro',
+      'tier_private',
       'tier_team',
     ])
   })
 
-  it('keeps plan discovery visible for organization team members', () => {
+  it('shows active granted alternatives when the current private tier is archived', () => {
+    const privateTier = buildTier({
+      id: 'tier_private_active',
+      displayName: 'Private',
+      displayOrder: 1,
+      monthlyPriceUsd: 15,
+    })
+
+    const state = getSubscriptionSurfaceState({
+      subscription: {
+        isFree: false,
+        isPaid: true,
+        tier: {
+          ...EMPTY_BILLING_TIER_SUMMARY,
+          id: 'tier_private_archived',
+          displayName: 'Archived private tier',
+          ownerType: 'user',
+        },
+      },
+      userRole: adminRole,
+      publicTiers: [freeTier, proTier, privateTier],
+      grantedPrivateTierIds: new Set([privateTier.id]),
+      enterprisePlaceholder: null,
+    })
+
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([privateTier.id])
+  })
+
+  it('keeps organization team members out of the tier chooser', () => {
     const orgTier = buildTier({
       id: 'tier_org',
       displayName: 'Organization',
@@ -132,12 +180,13 @@ describe('getSubscriptionSurfaceState', () => {
         tier: toSummary(orgTier),
       },
       userRole: memberRole,
-      subscriptionTiers: [...publicTiers, orgTier],
-      enterpriseContactCard: null,
+      publicTiers: [...publicTiers, orgTier],
+      grantedPrivateTierIds: noGrantedPrivateTiers,
+      enterprisePlaceholder: null,
     })
 
     expect(state.showTeamMemberView).toBe(true)
-    expect(state.visiblePlanTiers).toHaveLength(4)
+    expect(state.visiblePlanTiers).toEqual([])
   })
 
   it('does not invent a public current-tier card for custom organization plans', () => {
@@ -156,8 +205,9 @@ describe('getSubscriptionSurfaceState', () => {
         },
       },
       userRole: adminRole,
-      subscriptionTiers: publicTiers,
-      enterpriseContactCard: {
+      publicTiers,
+      grantedPrivateTierIds: noGrantedPrivateTiers,
+      enterprisePlaceholder: {
         displayName: 'Enterprise',
         description: 'Custom billing',
         pricingFeatures: [],
@@ -167,51 +217,7 @@ describe('getSubscriptionSurfaceState', () => {
 
     expect(state.currentTier).toBeNull()
     expect(state.isCustomOrganizationPlan).toBe(true)
-    expect(state.visiblePlanTiers).toEqual(publicTiers)
-    expect(state.showEnterprisePlaceholder).toBe(true)
+    expect(state.visiblePlanTiers).toEqual([])
+    expect(state.showEnterprisePlaceholder).toBe(false)
   })
-
-  it.each(['active', 'archived'] as const)(
-    'keeps %s organization current-only tiers in custom management state',
-    (status) => {
-      const currentTier: BillingTierSummary = {
-        ...EMPTY_BILLING_TIER_SUMMARY,
-        id: `tier_org_${status}`,
-        displayName: 'Private Organization',
-        status,
-        ownerType: 'organization',
-        usageScope: 'pooled',
-        seatMode: 'fixed',
-        displayOrder: 10,
-        isPublic: false,
-      }
-      const subscriptionTiers = composeSubscriptionTierDisplays({
-        publicTiers: [],
-        privateTiers: [],
-        currentTier,
-      })
-      const enterpriseContactCard = {
-        displayName: 'Enterprise' as const,
-        description: 'Custom billing',
-        pricingFeatures: [],
-        contactUrl: null,
-      }
-
-      const state = getSubscriptionSurfaceState({
-        subscription: {
-          isFree: false,
-          isPaid: true,
-          tier: currentTier,
-        },
-        userRole: adminRole,
-        subscriptionTiers,
-        enterpriseContactCard,
-      })
-
-      expect(state.currentTier?.isCurrentOnly).toBe(true)
-      expect(state.isCustomOrganizationPlan).toBe(true)
-      expect(state.visiblePlanTiers).toEqual(subscriptionTiers)
-      expect(state.showEnterprisePlaceholder).toBe(true)
-    }
-  )
 })

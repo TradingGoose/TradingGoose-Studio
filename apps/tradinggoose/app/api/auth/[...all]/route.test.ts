@@ -10,12 +10,8 @@ const {
   mockRunWithSystemOAuthClientCredentials,
   mockIsSignInOAuthProviderId,
   mockGetSession,
-  mockAuthorizeSubscriptionReference,
-  mockToBillingReference,
-  mockGetActiveSubscriptionForReference,
   mockGetBillingTierById,
-  mockUserCanAccessPrivateBillingTier,
-  mockEvaluateSubscriptionTierAvailability,
+  mockHasPrivateBillingTierAccess,
 } = vi.hoisted(() => ({
   mockAuthHandler: vi.fn(),
   mockLoadSystemOAuthClientCredentials: vi.fn(),
@@ -24,12 +20,8 @@ const {
     (providerId: string) => providerId === 'github' || providerId === 'google'
   ),
   mockGetSession: vi.fn(),
-  mockAuthorizeSubscriptionReference: vi.fn(),
-  mockToBillingReference: vi.fn(),
-  mockGetActiveSubscriptionForReference: vi.fn(),
   mockGetBillingTierById: vi.fn(),
-  mockUserCanAccessPrivateBillingTier: vi.fn(),
-  mockEvaluateSubscriptionTierAvailability: vi.fn(),
+  mockHasPrivateBillingTierAccess: vi.fn(),
 }))
 
 vi.mock('better-auth/next-js', () => ({
@@ -43,26 +35,15 @@ vi.mock('@/lib/auth', () => ({
   auth: {
     handler: (...args: unknown[]) => mockAuthHandler(...args),
   },
-  getSession: (...args: unknown[]) => mockGetSession(...args),
+  getSession: () => mockGetSession(),
 }))
 
-vi.mock('@/lib/billing/authorization', () => ({
-  authorizeSubscriptionReference: (...args: unknown[]) =>
-    mockAuthorizeSubscriptionReference(...args),
-  toBillingReference: (...args: unknown[]) => mockToBillingReference(...args),
+vi.mock('@/lib/billing/private-tier-access', () => ({
+  hasPrivateBillingTierAccess: (...args: unknown[]) => mockHasPrivateBillingTierAccess(...args),
 }))
-vi.mock('@/lib/billing/core/subscription', () => ({
-  getActiveSubscriptionForReference: (...args: unknown[]) =>
-    mockGetActiveSubscriptionForReference(...args),
-}))
+
 vi.mock('@/lib/billing/tiers', () => ({
   getBillingTierById: (...args: unknown[]) => mockGetBillingTierById(...args),
-  userCanAccessPrivateBillingTier: (...args: unknown[]) =>
-    mockUserCanAccessPrivateBillingTier(...args),
-}))
-vi.mock('@/lib/billing/tier-availability-policy', () => ({
-  evaluateSubscriptionTierAvailability: (...args: unknown[]) =>
-    mockEvaluateSubscriptionTierAvailability(...args),
 }))
 
 vi.mock('@/lib/oauth', () => ({
@@ -83,15 +64,11 @@ describe('/api/auth/[...all] route', () => {
     vi.resetModules()
     vi.clearAllMocks()
     mockLoadSystemOAuthClientCredentials.mockResolvedValue({})
+    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockHasPrivateBillingTierAccess.mockResolvedValue(false)
     mockRunWithSystemOAuthClientCredentials.mockImplementation(async (callback: () => Response) =>
       callback()
     )
-    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockAuthorizeSubscriptionReference.mockResolvedValue(true)
-    mockToBillingReference.mockReturnValue({ referenceType: 'user', referenceId: 'user-1' })
-    mockGetActiveSubscriptionForReference.mockResolvedValue(null)
-    mockGetBillingTierById.mockResolvedValue({ id: 'pro', isPublic: true, status: 'active' })
-    mockEvaluateSubscriptionTierAvailability.mockReturnValue({ isSelectable: true })
   })
 
   it('delegates non-system-oauth routes directly to Better Auth', async () => {
@@ -122,6 +99,78 @@ describe('/api/auth/[...all] route', () => {
     expect(response.status).toBe(204)
     expect(mockLoadSystemOAuthClientCredentials).not.toHaveBeenCalled()
     expect(mockRunWithSystemOAuthClientCredentials).not.toHaveBeenCalled()
+    expect(mockAuthHandler).toHaveBeenCalledTimes(1)
+  })
+
+  it('delegates upgrades to active public tiers', async () => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'public-tier',
+      status: 'active',
+      isPublic: true,
+    })
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({ plan: 'public-tier', referenceId: 'user-1' }),
+      })
+    )
+
+    expect(response.status).toBe(204)
+    expect(mockAuthHandler).toHaveBeenCalledTimes(1)
+    expect(mockHasPrivateBillingTierAccess).not.toHaveBeenCalled()
+  })
+
+  it('disables the unrestricted Better Auth billing portal endpoint', async () => {
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/billing-portal', { method: 'POST' })
+    )
+
+    expect(response.status).toBe(404)
+    expect(mockAuthHandler).not.toHaveBeenCalled()
+  })
+
+  it('rejects private tier upgrades without a persisted grant', async () => {
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'private-tier',
+      status: 'active',
+      isPublic: false,
+    })
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({ plan: 'private-tier', referenceId: 'user-1' }),
+      })
+    )
+
+    expect(response.status).toBe(403)
+    expect(mockHasPrivateBillingTierAccess).toHaveBeenCalledWith('user-1', 'private-tier')
+    expect(mockAuthHandler).not.toHaveBeenCalled()
+  })
+
+  it('delegates private tier upgrades with a persisted grant', async () => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'private-tier',
+      status: 'active',
+      isPublic: false,
+    })
+    mockHasPrivateBillingTierAccess.mockResolvedValue(true)
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({ plan: 'private-tier' }),
+      })
+    )
+
+    expect(response.status).toBe(204)
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
   })
 
@@ -208,107 +257,5 @@ describe('/api/auth/[...all] route', () => {
       error: 'OAuth provider is not configured',
     })
     expect(mockAuthHandler).not.toHaveBeenCalled()
-  })
-
-  it.each([null, 1, true, [], {}, ' ', ' padded'])(
-    'rejects malformed referenceId before authorization: %j',
-    async (referenceId) => {
-      const { handleAuthRequest } = await import('./route')
-      const response = await handleAuthRequest(
-        new Request('http://localhost/api/auth/subscription/upgrade', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plan: 'pro', referenceId }),
-        })
-      )
-      expect(response.status).toBe(403)
-      expect(mockAuthorizeSubscriptionReference).not.toHaveBeenCalled()
-      expect(mockGetBillingTierById).not.toHaveBeenCalled()
-      expect(mockAuthHandler).not.toHaveBeenCalled()
-    }
-  )
-
-  it('authorizes before target lookup and delegates a canonical user reference', async () => {
-    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
-    const { handleAuthRequest } = await import('./route')
-    const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/subscription/upgrade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'pro', referenceId: '' }),
-      })
-    )
-    expect(response.status).toBe(204)
-    expect(mockAuthorizeSubscriptionReference).toHaveBeenCalledWith('user-1', 'user-1')
-    expect(mockGetBillingTierById).toHaveBeenCalledWith('pro')
-    expect(mockAuthHandler).toHaveBeenCalledTimes(1)
-    await expect((mockAuthHandler.mock.calls[0][0] as Request).json()).resolves.toEqual({
-      plan: 'pro',
-      referenceId: 'user-1',
-      customerType: 'user',
-    })
-  })
-
-  it('bypasses private selectability only for the authorized current Stripe subscription', async () => {
-    mockGetActiveSubscriptionForReference.mockResolvedValue({
-      stripeSubscriptionId: 'sub_stripe',
-      billingTierId: 'private',
-      plan: 'private',
-    })
-    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
-    const { handleAuthRequest } = await import('./route')
-    const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/subscription/upgrade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan: 'private',
-          referenceId: 'user-1',
-          subscriptionId: 'sub_stripe',
-          customerType: 'organization',
-        }),
-      })
-    )
-    expect(response.status).toBe(204)
-    expect(mockGetBillingTierById).not.toHaveBeenCalled()
-    expect(mockUserCanAccessPrivateBillingTier).not.toHaveBeenCalled()
-    await expect((mockAuthHandler.mock.calls[0][0] as Request).json()).resolves.toMatchObject({
-      plan: 'private',
-      referenceId: 'user-1',
-      subscriptionId: 'sub_stripe',
-      customerType: 'user',
-    })
-  })
-
-  it('delegates an authorized organization with canonical organization identity', async () => {
-    mockToBillingReference.mockReturnValue({
-      referenceType: 'organization',
-      referenceId: 'organization-1',
-    })
-    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
-    const { handleAuthRequest } = await import('./route')
-
-    const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/subscription/upgrade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan: 'pro',
-          referenceId: 'organization-1',
-          customerType: 'user',
-          seats: 4,
-          successUrl: '/billing/success',
-        }),
-      })
-    )
-
-    expect(response.status).toBe(204)
-    await expect((mockAuthHandler.mock.calls[0][0] as Request).json()).resolves.toEqual({
-      plan: 'pro',
-      referenceId: 'organization-1',
-      customerType: 'organization',
-      seats: 4,
-      successUrl: '/billing/success',
-    })
   })
 })

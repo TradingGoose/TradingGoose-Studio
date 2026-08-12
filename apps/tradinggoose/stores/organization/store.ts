@@ -632,6 +632,105 @@ export const useOrganizationStore = create<OrganizationStore>()(
         }
       },
 
+      // Seat management
+      addSeats: async (newSeatCount: number) => {
+        const { activeOrganization, subscriptionData } = get()
+        if (!activeOrganization || !subscriptionData) return
+
+        if (
+          subscriptionData.tier?.ownerType !== 'organization' ||
+          subscriptionData.tier?.seatMode !== 'adjustable'
+        ) {
+          set({ error: 'Seat changes are only available for adjustable organization tiers' })
+          return
+        }
+
+        set({ isLoading: true, error: null })
+
+        try {
+          const billingTierId = subscriptionData.tier?.id
+          if (!billingTierId) {
+            throw new Error('Organization subscription tier is missing')
+          }
+
+          const { error } = await client.subscription.upgrade({
+            plan: billingTierId,
+            customerType: 'organization',
+            referenceId: activeOrganization.id,
+            subscriptionId: subscriptionData.id,
+            seats: newSeatCount,
+            successUrl: window.location.href,
+            cancelUrl: window.location.href,
+          })
+
+          if (error) {
+            throw new Error(error.message || 'Failed to update seats')
+          }
+
+          await get().refreshOrganization()
+        } catch (error) {
+          logger.error('Failed to add seats', { error })
+          set({ error: error instanceof Error ? error.message : 'Failed to update seats' })
+        } finally {
+          set({ isLoading: false })
+        }
+      },
+
+      reduceSeats: async (newSeatCount: number) => {
+        const { activeOrganization, subscriptionData } = get()
+        if (!activeOrganization || !subscriptionData) return
+
+        if (
+          subscriptionData.tier?.ownerType !== 'organization' ||
+          subscriptionData.tier?.seatMode !== 'adjustable'
+        ) {
+          set({ error: 'Seat changes are only available for adjustable organization tiers' })
+          return
+        }
+
+        if (newSeatCount <= 0) {
+          set({ error: 'Cannot reduce seats below 1' })
+          return
+        }
+
+        const { used: totalCount } = calculateSeatUsage(activeOrganization)
+        if (totalCount > newSeatCount) {
+          set({
+            error: `You have ${totalCount} active members/invitations. Please remove members or cancel invitations before reducing seats.`,
+          })
+          return
+        }
+
+        set({ isLoading: true, error: null })
+
+        try {
+          const billingTierId = subscriptionData.tier?.id
+          if (!billingTierId) {
+            throw new Error('Organization subscription tier is missing')
+          }
+
+          const { error } = await client.subscription.upgrade({
+            plan: billingTierId,
+            customerType: 'organization',
+            referenceId: activeOrganization.id,
+            subscriptionId: subscriptionData.id,
+            seats: newSeatCount,
+            successUrl: window.location.href,
+            cancelUrl: window.location.href,
+          })
+
+          if (error) {
+            throw new Error(error.message || 'Failed to reduce seats')
+          }
+
+          await get().refreshOrganization()
+        } catch (error) {
+          logger.error('Failed to reduce seats', { error })
+          set({ error: error instanceof Error ? error.message : 'Failed to reduce seats' })
+        } finally {
+          set({ isLoading: false })
+        }
+      },
       // Computed getters (keep only those that are used)
       getUserRole: (userEmail?: string) => {
         const { activeOrganization } = get()

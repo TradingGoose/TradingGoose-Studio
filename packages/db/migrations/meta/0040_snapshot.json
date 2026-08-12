@@ -1,5 +1,5 @@
 {
-  "id": "7347340e-ae02-4533-8ae9-5145d191caf1",
+  "id": "ecac35d6-63a3-426f-bf1d-1a6b810d1c23",
   "prevId": "4de53515-486d-47b3-a97d-99bdd7f518d6",
   "version": "7",
   "dialect": "postgresql",
@@ -1536,34 +1536,19 @@
           "primaryKey": false,
           "notNull": true
         },
-        "tier_id": {
-          "name": "tier_id",
+        "billing_tier_id": {
+          "name": "billing_tier_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {
-        "private_tier_access_user_id_idx": {
-          "name": "private_tier_access_user_id_idx",
+        "private_tier_access_billing_tier_id_idx": {
+          "name": "private_tier_access_billing_tier_id_idx",
           "columns": [
             {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "private_tier_access_tier_id_idx": {
-          "name": "private_tier_access_tier_id_idx",
-          "columns": [
-            {
-              "expression": "tier_id",
+              "expression": "billing_tier_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1589,26 +1574,26 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "private_tier_access_tier_id_system_billing_tier_id_fk": {
-          "name": "private_tier_access_tier_id_system_billing_tier_id_fk",
+        "private_tier_access_billing_tier_id_system_billing_tier_id_fk": {
+          "name": "private_tier_access_billing_tier_id_system_billing_tier_id_fk",
           "tableFrom": "private_tier_access",
           "tableTo": "system_billing_tier",
           "columnsFrom": [
-            "tier_id"
+            "billing_tier_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "restrict",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
-        "private_tier_access_user_tier_pkey": {
-          "name": "private_tier_access_user_tier_pkey",
+        "private_tier_access_pkey": {
+          "name": "private_tier_access_pkey",
           "columns": [
             "user_id",
-            "tier_id"
+            "billing_tier_id"
           ]
         }
       },
@@ -4724,6 +4709,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "access_code": {
+          "name": "access_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "text",
@@ -4780,6 +4771,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "workflow_execution_time_limit_seconds": {
+          "name": "workflow_execution_time_limit_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "seat_count": {
           "name": "seat_count",
           "type": "integer",
@@ -4807,18 +4804,6 @@
         "stripe_product_id": {
           "name": "stripe_product_id",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "access_code": {
-          "name": "access_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "workflow_execution_time_limit_seconds": {
-          "name": "workflow_execution_time_limit_seconds",
-          "type": "double precision",
           "primaryKey": false,
           "notNull": false
         },
@@ -4980,21 +4965,6 @@
           "method": "btree",
           "with": {}
         },
-        "system_billing_tier_updated_by_user_id_idx": {
-          "name": "system_billing_tier_updated_by_user_id_idx",
-          "columns": [
-            {
-              "expression": "updated_by_user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "system_billing_tier_access_code_unique": {
           "name": "system_billing_tier_access_code_unique",
           "columns": [
@@ -5006,7 +4976,21 @@
             }
           ],
           "isUnique": true,
-          "where": "\"system_billing_tier\".\"access_code\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "system_billing_tier_updated_by_user_id_idx": {
+          "name": "system_billing_tier_updated_by_user_id_idx",
+          "columns": [
+            {
+              "expression": "updated_by_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5031,18 +5015,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "system_billing_tier_public_access_code_check": {
-          "name": "system_billing_tier_public_access_code_check",
-          "value": "not \"system_billing_tier\".\"is_public\" or \"system_billing_tier\".\"access_code\" is null"
-        },
-        "system_billing_tier_access_code_not_blank_check": {
-          "name": "system_billing_tier_access_code_not_blank_check",
-          "value": "\"system_billing_tier\".\"access_code\" is null or (\"system_billing_tier\".\"access_code\" = btrim(\"system_billing_tier\".\"access_code\") and length(\"system_billing_tier\".\"access_code\") > 0)"
-        },
-        "system_billing_tier_workflow_execution_time_limit_check": {
-          "name": "system_billing_tier_workflow_execution_time_limit_check",
-          "value": "\"system_billing_tier\".\"workflow_execution_time_limit_seconds\" is null or (\"system_billing_tier\".\"workflow_execution_time_limit_seconds\" > 0 and \"system_billing_tier\".\"workflow_execution_time_limit_seconds\" < 'Infinity'::double precision)"
-        },
         "system_billing_tier_status_check": {
           "name": "system_billing_tier_status_check",
           "value": "\"system_billing_tier\".\"status\" in ('active', 'draft', 'archived')"
@@ -5086,6 +5058,14 @@
         "system_billing_tier_log_retention_days_check": {
           "name": "system_billing_tier_log_retention_days_check",
           "value": "\"system_billing_tier\".\"log_retention_days\" is null or \"system_billing_tier\".\"log_retention_days\" >= 0"
+        },
+        "system_billing_tier_access_code_check": {
+          "name": "system_billing_tier_access_code_check",
+          "value": "\"system_billing_tier\".\"access_code\" is null or (not \"system_billing_tier\".\"is_public\" and \"system_billing_tier\".\"access_code\" = btrim(\"system_billing_tier\".\"access_code\") and length(\"system_billing_tier\".\"access_code\") between 16 and 128)"
+        },
+        "system_billing_tier_workflow_execution_time_limit_check": {
+          "name": "system_billing_tier_workflow_execution_time_limit_check",
+          "value": "\"system_billing_tier\".\"workflow_execution_time_limit_seconds\" is null or \"system_billing_tier\".\"workflow_execution_time_limit_seconds\" between 1 and 2147483"
         },
         "system_billing_tier_workflow_execution_multiplier_check": {
           "name": "system_billing_tier_workflow_execution_multiplier_check",

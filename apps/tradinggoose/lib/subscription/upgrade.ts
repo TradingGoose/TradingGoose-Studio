@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { client, useSession, useSubscription } from '@/lib/auth-client'
+import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { organizationKeys } from '@/hooks/queries/organization'
@@ -15,8 +16,8 @@ const ENTITLED_SUBSCRIPTION_STATUSES = [
 export interface BillingUpgradeTarget {
   billingTierId: string
   displayName: string
-  ownerType: 'user' | 'organization'
-  usageScope: 'individual' | 'pooled'
+  ownerType: PublicBillingTierDisplay['ownerType']
+  usageScope: PublicBillingTierDisplay['usageScope']
   seatMode: 'fixed' | 'adjustable'
   seatCount?: number | null
 }

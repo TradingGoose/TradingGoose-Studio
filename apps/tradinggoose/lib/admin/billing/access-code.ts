@@ -1,30 +1,16 @@
-import { db } from '@tradinggoose/db'
-import { systemBillingTier } from '@tradinggoose/db/schema'
-import { and, eq, ne } from 'drizzle-orm'
+const PRIVATE_TIER_ACCESS_CODE_UNIQUE_CONSTRAINT = 'system_billing_tier_access_code_unique'
 
-export async function privateTierAccessCodeExists(
-  accessCode: string,
-  excludeTierId?: string
-): Promise<boolean> {
-  const conditions = [
-    eq(systemBillingTier.isPublic, false),
-    eq(systemBillingTier.accessCode, accessCode),
-  ]
-  if (excludeTierId) conditions.push(ne(systemBillingTier.id, excludeTierId))
-  const rows = await db
-    .select({ id: systemBillingTier.id })
-    .from(systemBillingTier)
-    .where(and(...conditions))
-    .limit(1)
-  return rows.length > 0
-}
-
-export function isAccessCodeUniqueViolation(error: unknown): boolean {
-  const cause = (error as { cause?: unknown })?.cause as {
-    code?: unknown
-    constraint_name?: unknown
+export function isPrivateTierAccessCodeConflict(error: unknown): boolean {
+  const seen = new Set<unknown>()
+  while (error && typeof error === 'object' && !seen.has(error)) {
+    seen.add(error)
+    const record = error as { code?: unknown; constraint_name?: unknown; cause?: unknown }
+    if (
+      record.code === '23505' &&
+      record.constraint_name === PRIVATE_TIER_ACCESS_CODE_UNIQUE_CONSTRAINT
+    )
+      return true
+    error = record.cause
   }
-  return (
-    cause?.code === '23505' && cause?.constraint_name === 'system_billing_tier_access_code_unique'
-  )
+  return false
 }

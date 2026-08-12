@@ -1,9 +1,15 @@
 import { db } from '@tradinggoose/db'
 import { subscription } from '@tradinggoose/db/schema'
 import { count, inArray } from 'drizzle-orm'
-import { DEFAULT_BILLING_SETTINGS, getResolvedBillingSettings } from '@/lib/billing/settings'
-import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
-import { type BillingTierRecord, getAllBillingTiers, parseBillingAmount } from '@/lib/billing/tiers'
+import {
+  DEFAULT_BILLING_SETTINGS,
+  getResolvedBillingSettings,
+} from '@/lib/billing/settings'
+import {
+  type BillingTierRecord,
+  getAllBillingTiers,
+  parseBillingAmount,
+} from '@/lib/billing/tiers'
 import type { AdminBillingSnapshot, AdminBillingTierSnapshot } from './types'
 
 function toTierSnapshot(tier: BillingTierRecord): AdminBillingTierSnapshot {
@@ -11,24 +17,32 @@ function toTierSnapshot(tier: BillingTierRecord): AdminBillingTierSnapshot {
     id: tier.id,
     displayName: tier.displayName,
     description: tier.description,
+    accessCode: tier.accessCode,
     status: tier.status,
     ownerType: tier.ownerType,
     usageScope: tier.usageScope,
     seatMode: tier.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
     monthlyPriceUsd:
-      tier.monthlyPriceUsd === null ? null : parseBillingAmount(tier.monthlyPriceUsd),
-    yearlyPriceUsd: tier.yearlyPriceUsd === null ? null : parseBillingAmount(tier.yearlyPriceUsd),
+      tier.monthlyPriceUsd === null
+        ? null
+        : parseBillingAmount(tier.monthlyPriceUsd),
+    yearlyPriceUsd:
+      tier.yearlyPriceUsd === null
+        ? null
+        : parseBillingAmount(tier.yearlyPriceUsd),
     includedUsageLimitUsd:
-      tier.includedUsageLimitUsd === null ? null : parseBillingAmount(tier.includedUsageLimitUsd),
+      tier.includedUsageLimitUsd === null
+        ? null
+        : parseBillingAmount(tier.includedUsageLimitUsd),
     storageLimitGb: tier.storageLimitGb,
     concurrencyLimit: tier.concurrencyLimit,
+    workflowExecutionTimeLimitSeconds:
+      tier.workflowExecutionTimeLimitSeconds,
     seatCount: tier.seatCount,
     seatMaximum: tier.seatMaximum,
     stripeMonthlyPriceId: tier.stripeMonthlyPriceId,
     stripeYearlyPriceId: tier.stripeYearlyPriceId,
     stripeProductId: tier.stripeProductId,
-    accessCode: tier.accessCode,
-    workflowExecutionTimeLimitSeconds: tier.workflowExecutionTimeLimitSeconds,
     syncRateLimitPerMinute: tier.syncRateLimitPerMinute ?? null,
     asyncRateLimitPerMinute: tier.asyncRateLimitPerMinute ?? null,
     apiEndpointRateLimitPerMinute: tier.apiEndpointRateLimitPerMinute ?? null,
@@ -50,18 +64,14 @@ function toTierSnapshot(tier: BillingTierRecord): AdminBillingTierSnapshot {
         ? null
         : parseBillingAmount(tier.functionExecutionMultiplier),
     copilotCostMultiplier:
-      tier.copilotCostMultiplier === null ? null : parseBillingAmount(tier.copilotCostMultiplier),
+      tier.copilotCostMultiplier === null
+        ? null
+        : parseBillingAmount(tier.copilotCostMultiplier),
     pricingFeatures: tier.pricingFeatures,
     isPublic: tier.isPublic,
     isDefault: tier.isDefault,
     displayOrder: tier.displayOrder,
     subscriptionCount: 0,
-    entitledSubscriptionCount: 0,
-    archiveAction: tier.isDefault
-      ? 'blockedDefault'
-      : tier.status === 'archived'
-        ? 'archived'
-        : 'archive',
   }
 }
 
@@ -86,36 +96,12 @@ async function buildCurrentTiers(): Promise<AdminBillingTierSnapshot[]> {
   const countsByTierId = new Map(
     subscriptionCounts
       .filter((row) => Boolean(row.billingTierId))
-      .map((row) => [row.billingTierId as string, Number(row.count)])
+      .map((row) => [row.billingTierId as string, Number(row.count)]),
   )
-  const entitledCounts = await db
-    .select({
-      billingTierId: subscription.billingTierId,
-      status: subscription.status,
-      count: count(),
-    })
-    .from(subscription)
-    .where(inArray(subscription.billingTierId, tierIds))
-    .groupBy(subscription.billingTierId, subscription.status)
-  const entitledByTierId = new Map<string, number>()
-  for (const row of entitledCounts) {
-    if (
-      row.billingTierId &&
-      BILLING_ENTITLED_SUBSCRIPTION_STATUSES.includes(
-        row.status as (typeof BILLING_ENTITLED_SUBSCRIPTION_STATUSES)[number]
-      )
-    ) {
-      entitledByTierId.set(
-        row.billingTierId,
-        (entitledByTierId.get(row.billingTierId) ?? 0) + Number(row.count)
-      )
-    }
-  }
 
   return snapshots.map((tier) => ({
     ...tier,
     subscriptionCount: countsByTierId.get(tier.id) ?? 0,
-    entitledSubscriptionCount: entitledByTierId.get(tier.id) ?? 0,
   }))
 }
 
@@ -134,7 +120,8 @@ export async function getAdminBillingSnapshot(): Promise<AdminBillingSnapshot> {
     usageWarningThresholdPercent: settings.usageWarningThresholdPercent,
     freeTierUpgradeThresholdPercent: settings.freeTierUpgradeThresholdPercent,
     enterpriseContactUrl:
-      settings.enterpriseContactUrl ?? DEFAULT_BILLING_SETTINGS.enterpriseContactUrl,
+      settings.enterpriseContactUrl ??
+      DEFAULT_BILLING_SETTINGS.enterpriseContactUrl,
     currentTiers,
   }
 }

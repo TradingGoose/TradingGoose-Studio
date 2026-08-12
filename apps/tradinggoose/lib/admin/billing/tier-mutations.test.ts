@@ -11,6 +11,7 @@ function createTierInput(
   return {
     displayName: 'Free',
     description: 'Default free tier',
+    accessCode: null,
     status: 'draft',
     ownerType: 'user',
     usageScope: 'individual',
@@ -20,13 +21,12 @@ function createTierInput(
     includedUsageLimitUsd: 0,
     storageLimitGb: null,
     concurrencyLimit: null,
+    workflowExecutionTimeLimitSeconds: null,
     seatCount: null,
     seatMaximum: null,
     stripeMonthlyPriceId: null,
     stripeYearlyPriceId: null,
     stripeProductId: null,
-    accessCode: null,
-    workflowExecutionTimeLimitSeconds: null,
     syncRateLimitPerMinute: null,
     asyncRateLimitPerMinute: null,
     apiEndpointRateLimitPerMinute: null,
@@ -48,11 +48,6 @@ function createTierInput(
 }
 
 describe('validateAdminBillingTierInput', () => {
-  it('accepts a fractional positive workflow execution limit', () => {
-    const input = createTierInput({ workflowExecutionTimeLimitSeconds: 1.5 })
-    expect(adminBillingTierMutationSchema.safeParse(input).success).toBe(true)
-    expect(validateAdminBillingTierInput(input)).toBeNull()
-  })
   it('allows a default tier to stay in draft while it is being edited', () => {
     expect(validateAdminBillingTierInput(createTierInput())).toBeNull()
   })
@@ -86,37 +81,23 @@ describe('validateAdminBillingTierInput', () => {
     )
   })
 
-  it('rejects archived default tiers independently of runtime billing state', () => {
-    expect(validateAdminBillingTierInput(createTierInput({ status: 'archived' }))).toBe(
-      'The default tier cannot be archived'
-    )
-  })
-
-  it('rejects access codes on public tiers before persistence normalization', () => {
-    expect(validateAdminBillingTierInput(createTierInput({ accessCode: 'Alpha' }))).toBe(
-      'Public tiers cannot configure an access code'
-    )
-  })
-
-  it('requires a Stripe monthly price ID for a recurring monthly tier', () => {
+  it('requires a Stripe monthly price ID when creating a new tier', () => {
     expect(
-      validateAdminBillingTierInput(createTierInput({ isDefault: false, monthlyPriceUsd: 10 }))
-    ).toBe('Tiers with a recurring monthly price must configure a Stripe monthly price ID')
+      validateAdminBillingTierInput(createTierInput(), {
+        requireStripeMonthlyPriceId: true,
+      })
+    ).toBe('New tiers must configure a Stripe monthly price ID')
   })
 
-  it('accepts a recurring monthly tier when the Stripe monthly price ID is configured', () => {
+  it('accepts new tiers when the Stripe monthly price ID is configured', () => {
     expect(
-      validateAdminBillingTierInput(
-        createTierInput({
-          isDefault: false,
-          monthlyPriceUsd: 10,
-          stripeMonthlyPriceId: 'price_monthly',
-        })
-      )
+      validateAdminBillingTierInput(createTierInput({ stripeMonthlyPriceId: 'price_monthly' }), {
+        requireStripeMonthlyPriceId: true,
+      })
     ).toBeNull()
   })
 
-  it('allows a zero-recurring default tier without a Stripe price ID', () => {
+  it('accepts a default zero-recurring tier when a Stripe monthly price ID is configured', () => {
     expect(
       validateAdminBillingTierInput(
         createTierInput({
@@ -127,8 +108,40 @@ describe('validateAdminBillingTierInput', () => {
           syncRateLimitPerMinute: 30,
           asyncRateLimitPerMinute: 15,
           apiEndpointRateLimitPerMinute: 30,
-        })
+          stripeMonthlyPriceId: 'price_monthly',
+        }),
+        {
+          requireStripeMonthlyPriceId: true,
+        }
       )
     ).toBeNull()
+  })
+
+  it('only allows access codes on private Stripe-backed tiers', () => {
+    expect(validateAdminBillingTierInput(createTierInput({ accessCode: 'invite' }))).toBe(
+      'Public tiers cannot configure a private access code'
+    )
+
+    expect(
+      validateAdminBillingTierInput(
+        createTierInput({
+          accessCode: 'invite',
+          isDefault: false,
+          isPublic: false,
+        })
+      )
+    ).toBe('Private tiers with an access code must configure a Stripe monthly price ID')
+  })
+
+  it('requires positive workflow execution time limits', () => {
+    const input = createTierInput({ workflowExecutionTimeLimitSeconds: 0 })
+
+    expect(adminBillingTierMutationSchema.safeParse(input).success).toBe(false)
+  })
+
+  it('requires private access codes to be at least 16 characters', () => {
+    expect(
+      adminBillingTierMutationSchema.safeParse(createTierInput({ accessCode: 'short-code' })).success
+    ).toBe(false)
   })
 })

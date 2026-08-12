@@ -4,7 +4,6 @@ import {
   boolean,
   check,
   decimal,
-  doublePrecision,
   index,
   integer,
   jsonb,
@@ -43,6 +42,7 @@ export interface SystemBillingTierSettings {
   id: string
   displayName: string
   description: string
+  accessCode: string | null
   status: SystemBillingTierStatus
   ownerType: SystemBillingTierOwnerType
   usageScope: SystemBillingTierUsageScope
@@ -52,13 +52,12 @@ export interface SystemBillingTierSettings {
   includedUsageLimitUsd: number | null
   storageLimitGb: number | null
   concurrencyLimit: number | null
+  workflowExecutionTimeLimitSeconds: number | null
   seatCount: number | null
   seatMaximum: number | null
   stripeMonthlyPriceId: string | null
   stripeYearlyPriceId: string | null
   stripeProductId: string | null
-  accessCode: string | null
-  workflowExecutionTimeLimitSeconds: number | null
   syncRateLimitPerMinute: number | null
   asyncRateLimitPerMinute: number | null
   apiEndpointRateLimitPerMinute: number | null
@@ -196,6 +195,7 @@ export const systemBillingTier = pgTable(
     id: text('id').primaryKey(),
     displayName: text('display_name').notNull(),
     description: text('description').notNull(),
+    accessCode: text('access_code'),
     status: text('status')
       .$type<SystemBillingTierStatus>()
       .notNull()
@@ -213,13 +213,14 @@ export const systemBillingTier = pgTable(
     includedUsageLimitUsd: decimal('included_usage_limit_usd'),
     storageLimitGb: integer('storage_limit_gb'),
     concurrencyLimit: integer('concurrency_limit'),
+    workflowExecutionTimeLimitSeconds: integer(
+      'workflow_execution_time_limit_seconds',
+    ),
     seatCount: integer('seat_count'),
     seatMaximum: integer('seat_maximum'),
     stripeMonthlyPriceId: text('stripe_monthly_price_id'),
     stripeYearlyPriceId: text('stripe_yearly_price_id'),
     stripeProductId: text('stripe_product_id'),
-    accessCode: text('access_code'),
-    workflowExecutionTimeLimitSeconds: doublePrecision('workflow_execution_time_limit_seconds'),
     syncRateLimitPerMinute: integer('sync_rate_limit_per_minute'),
     asyncRateLimitPerMinute: integer('async_rate_limit_per_minute'),
     apiEndpointRateLimitPerMinute: integer(
@@ -262,23 +263,11 @@ export const systemBillingTier = pgTable(
     displayOrderIdx: index('system_billing_tier_display_order_idx').on(
       table.displayOrder,
     ),
+    accessCodeUnique: uniqueIndex(
+      'system_billing_tier_access_code_unique',
+    ).on(table.accessCode),
     updatedByUserIdIdx: index('system_billing_tier_updated_by_user_id_idx').on(
       table.updatedByUserId,
-    ),
-    accessCodeUnique: uniqueIndex('system_billing_tier_access_code_unique')
-      .on(table.accessCode)
-      .where(sql`${table.accessCode} is not null`),
-    publicAccessCodeCheck: check(
-      'system_billing_tier_public_access_code_check',
-      sql`not ${table.isPublic} or ${table.accessCode} is null`,
-    ),
-    accessCodeNotBlankCheck: check(
-      'system_billing_tier_access_code_not_blank_check',
-      sql`${table.accessCode} is null or (${table.accessCode} = btrim(${table.accessCode}) and length(${table.accessCode}) > 0)`,
-    ),
-    workflowExecutionTimeLimitCheck: check(
-      'system_billing_tier_workflow_execution_time_limit_check',
-      sql`${table.workflowExecutionTimeLimitSeconds} is null or (${table.workflowExecutionTimeLimitSeconds} > 0 and ${table.workflowExecutionTimeLimitSeconds} < 'Infinity'::double precision)`,
     ),
     statusCheck: check(
       'system_billing_tier_status_check',
@@ -323,6 +312,14 @@ export const systemBillingTier = pgTable(
     logRetentionDaysCheck: check(
       'system_billing_tier_log_retention_days_check',
       sql`${table.logRetentionDays} is null or ${table.logRetentionDays} >= 0`,
+    ),
+    accessCodeCheck: check(
+      'system_billing_tier_access_code_check',
+      sql`${table.accessCode} is null or (not ${table.isPublic} and ${table.accessCode} = btrim(${table.accessCode}) and length(${table.accessCode}) between 16 and 128)`,
+    ),
+    workflowExecutionTimeLimitCheck: check(
+      'system_billing_tier_workflow_execution_time_limit_check',
+      sql`${table.workflowExecutionTimeLimitSeconds} is null or ${table.workflowExecutionTimeLimitSeconds} between 1 and 2147483`,
     ),
     workflowExecutionMultiplierCheck: check(
       'system_billing_tier_workflow_execution_multiplier_check',

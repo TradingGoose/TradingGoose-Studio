@@ -1,9 +1,7 @@
 import { toNextJsHandler } from 'better-auth/next-js'
 import { auth, getSession } from '@/lib/auth'
-import { authorizeSubscriptionReference, toBillingReference } from '@/lib/billing/authorization'
-import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
-import { evaluateSubscriptionTierAvailability } from '@/lib/billing/tier-availability-policy'
-import { getBillingTierById, userCanAccessPrivateBillingTier } from '@/lib/billing/tiers'
+import { hasPrivateBillingTierAccess } from '@/lib/billing/private-tier-access'
+import { getBillingTierById } from '@/lib/billing/tiers'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
 import {
   loadSystemOAuthClientCredentials,
@@ -14,6 +12,7 @@ export const dynamic = 'force-dynamic'
 
 const SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES = ['/api/auth/callback/', '/api/auth/oauth2/callback/']
 const SUBSCRIPTION_UPGRADE_PATH = '/api/auth/subscription/upgrade'
+const SUBSCRIPTION_BILLING_PORTAL_PATH = '/api/auth/subscription/billing-portal'
 
 const isSystemOAuthCallbackPath = (pathname: string) =>
   SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
@@ -52,14 +51,51 @@ async function getRequestedSystemOAuthProviderId(request: Request, pathname: str
   return ''
 }
 
+async function authorizeSubscriptionUpgrade(request: Request): Promise<Response | null> {
+  const body = await request
+    .clone()
+    .json()
+    .catch(() => null)
+  const billingTierId = body && typeof body.plan === 'string' ? body.plan.trim() : ''
+
+  if (!billingTierId) {
+    return Response.json({ error: 'Billing tier is required' }, { status: 400 })
+  }
+
+  const session = await getSession(request.headers)
+  if (!session?.user?.id) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const tier = await getBillingTierById(billingTierId)
+  if (!tier || tier.status !== 'active') {
+    return Response.json({ error: 'Billing tier is unavailable' }, { status: 403 })
+  }
+
+  if (!tier.isPublic && !(await hasPrivateBillingTierAccess(session.user.id, tier.id))) {
+    return Response.json({ error: 'Billing tier is unavailable' }, { status: 403 })
+  }
+
+  return null
+}
+
 export const handleAuthRequest = async (request: Request) => {
   const pathname = new URL(request.url).pathname
-  const guardedUpgrade = await guardSubscriptionUpgradeRequest(request, pathname)
-  if (guardedUpgrade instanceof Response) return guardedUpgrade
-  const delegatedRequest = guardedUpgrade ?? request
+  const subscriptionPathname = pathname.replace(/\/+$/, '')
+
+  if (request.method === 'POST' && subscriptionPathname === SUBSCRIPTION_BILLING_PORTAL_PATH) {
+    return Response.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  if (request.method === 'POST' && subscriptionPathname === SUBSCRIPTION_UPGRADE_PATH) {
+    const deniedResponse = await authorizeSubscriptionUpgrade(request)
+    if (deniedResponse) {
+      return deniedResponse
+    }
+  }
 
   if (!shouldHydrateSystemOAuthCredentials(pathname)) {
-    return auth.handler(delegatedRequest)
+    return auth.handler(request)
   }
 
   const providerId = await getRequestedSystemOAuthProviderId(request, pathname)
@@ -77,74 +113,6 @@ export const handleAuthRequest = async (request: Request) => {
   }
 
   return runWithSystemOAuthClientCredentials(() => auth.handler(request), credentials)
-}
-
-export async function guardSubscriptionUpgradeRequest(
-  request: Request,
-  pathname: string
-): Promise<Request | Response | null> {
-  if (request.method !== 'POST' || pathname !== SUBSCRIPTION_UPGRADE_PATH) return null
-  const body = await request
-    .clone()
-    .json()
-    .catch(() => null)
-  if (!body || typeof body !== 'object') {
-    return Response.json({ error: 'Invalid request' }, { status: 400 })
-  }
-  const plan = 'plan' in body ? body.plan : null
-  if (typeof plan !== 'string' || !plan.trim()) {
-    return Response.json({ error: 'Invalid plan' }, { status: 400 })
-  }
-  const session = await getSession(request.headers)
-  if (!session?.user?.id) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  const rawReferenceId = 'referenceId' in body ? body.referenceId : undefined
-  let requestedReferenceId: string
-  if (rawReferenceId === undefined || rawReferenceId === '') {
-    requestedReferenceId = session.user.id
-  } else if (
-    typeof rawReferenceId !== 'string' ||
-    !rawReferenceId.trim() ||
-    rawReferenceId !== rawReferenceId.trim()
-  ) {
-    return Response.json({ error: 'Forbidden' }, { status: 403 })
-  } else {
-    requestedReferenceId = rawReferenceId
-  }
-  const authorized = await authorizeSubscriptionReference(session.user.id, requestedReferenceId)
-  if (!authorized) return Response.json({ error: 'Forbidden' }, { status: 403 })
-  const reference = toBillingReference(session.user.id, requestedReferenceId)
-  const headers = new Headers(request.headers)
-  headers.delete('content-length')
-  const canonicalRequest = new Request(request, {
-    body: JSON.stringify({
-      ...body,
-      referenceId: reference.referenceId,
-      customerType: reference.referenceType,
-    }),
-    headers,
-  })
-  const subscriptionId = 'subscriptionId' in body ? body.subscriptionId : undefined
-  if (typeof subscriptionId === 'string' && subscriptionId) {
-    const current = await getActiveSubscriptionForReference(reference)
-    if (
-      current?.stripeSubscriptionId === subscriptionId &&
-      (current.billingTierId ?? current.plan) === plan
-    ) {
-      return canonicalRequest
-    }
-  }
-  const tier = await getBillingTierById(plan)
-  if (!tier) {
-    return Response.json({ error: 'Billing tier is not available' }, { status: 403 })
-  }
-  const isVisible =
-    tier.isPublic || (await userCanAccessPrivateBillingTier(session.user.id, tier.id))
-  if (!evaluateSubscriptionTierAvailability({ tier, isVisible }).isSelectable) {
-    return Response.json({ error: 'Billing tier is not available' }, { status: 403 })
-  }
-  return canonicalRequest
 }
 
 export const { GET, POST } = toNextJsHandler(handleAuthRequest)

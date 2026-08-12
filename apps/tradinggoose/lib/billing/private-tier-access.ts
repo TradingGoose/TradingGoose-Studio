@@ -1,29 +1,68 @@
 import { db } from '@tradinggoose/db'
-import { privateTierAccess } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { privateTierAccess, systemBillingTier } from '@tradinggoose/db/schema'
+import { and, asc, eq } from 'drizzle-orm'
+import type { BillingTierRecord } from '@/lib/billing/tiers'
 
-export async function listPrivateTierAccessTierIdsForUser(userId: string): Promise<string[]> {
-  const rows = await db
-    .select({ tierId: privateTierAccess.tierId })
+export async function getGrantedPrivateBillingTiers(userId: string): Promise<BillingTierRecord[]> {
+  return db
+    .select({ tier: systemBillingTier })
     .from(privateTierAccess)
-    .where(eq(privateTierAccess.userId, userId))
-  return rows.map((row) => row.tierId)
+    .innerJoin(systemBillingTier, eq(privateTierAccess.billingTierId, systemBillingTier.id))
+    .where(
+      and(
+        eq(privateTierAccess.userId, userId),
+        eq(systemBillingTier.status, 'active'),
+        eq(systemBillingTier.isPublic, false)
+      )
+    )
+    .orderBy(asc(systemBillingTier.displayOrder))
+    .then((rows) => rows.map(({ tier }) => tier))
 }
 
-export async function upsertPrivateTierAccess(userId: string, tierId: string): Promise<void> {
+export async function grantPrivateBillingTier(
+  userId: string,
+  accessCode: string
+): Promise<BillingTierRecord | null> {
+  const normalizedCode = accessCode.trim()
+  if (!normalizedCode) {
+    return null
+  }
+
+  const [tier] = await db
+    .select()
+    .from(systemBillingTier)
+    .where(
+      and(
+        eq(systemBillingTier.accessCode, normalizedCode),
+        eq(systemBillingTier.status, 'active'),
+        eq(systemBillingTier.isPublic, false)
+      )
+    )
+    .limit(1)
+
+  if (!tier) {
+    return null
+  }
+
   await db
     .insert(privateTierAccess)
-    .values({ userId, tierId })
-    .onConflictDoNothing({
-      target: [privateTierAccess.userId, privateTierAccess.tierId],
-    })
+    .values({ userId, billingTierId: tier.id })
+    .onConflictDoNothing()
+
+  return tier
 }
 
-export async function hasPrivateTierAccessRow(userId: string, tierId: string): Promise<boolean> {
+export async function hasPrivateBillingTierAccess(
+  userId: string,
+  billingTierId: string
+): Promise<boolean> {
   const rows = await db
-    .select({ tierId: privateTierAccess.tierId })
+    .select({ userId: privateTierAccess.userId })
     .from(privateTierAccess)
-    .where(and(eq(privateTierAccess.userId, userId), eq(privateTierAccess.tierId, tierId)))
+    .where(
+      and(eq(privateTierAccess.userId, userId), eq(privateTierAccess.billingTierId, billingTierId))
+    )
     .limit(1)
+
   return rows.length > 0
 }

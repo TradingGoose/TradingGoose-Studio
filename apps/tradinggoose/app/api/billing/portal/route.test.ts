@@ -11,6 +11,8 @@ const mockIsOrganizationOwnerOrAdmin = vi.fn()
 const mockRequireStripeClient = vi.fn()
 const mockEnsureStripeUserCustomer = vi.fn()
 const mockStripeBillingPortalSessionsCreate = vi.fn()
+const mockStripeBillingPortalConfigurationsList = vi.fn()
+const mockStripeBillingPortalConfigurationsUpdate = vi.fn()
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, value }))
 const mockAnd = vi.fn((...conditions: unknown[]) => conditions)
 const mockOr = vi.fn((...conditions: unknown[]) => conditions)
@@ -122,6 +124,7 @@ function expectPortalSession(customer: string) {
   expect(mockStripeBillingPortalSessionsCreate).toHaveBeenCalledWith({
     customer,
     return_url: 'https://example.com/workspace?billing=updated',
+    configuration: 'bpc_restricted',
   })
 }
 
@@ -142,6 +145,10 @@ describe('/api/billing/portal route', () => {
     mockIsOrganizationOwnerOrAdmin.mockResolvedValue(true)
     mockRequireStripeClient.mockReturnValue({
       billingPortal: {
+        configurations: {
+          list: mockStripeBillingPortalConfigurationsList,
+          update: mockStripeBillingPortalConfigurationsUpdate,
+        },
         sessions: {
           create: mockStripeBillingPortalSessionsCreate,
         },
@@ -152,6 +159,21 @@ describe('/api/billing/portal route', () => {
     })
     mockStripeBillingPortalSessionsCreate.mockResolvedValue({
       url: 'https://billing.stripe.test/session',
+    })
+    mockStripeBillingPortalConfigurationsList.mockResolvedValue({
+      data: [
+        {
+          id: 'bpc_default',
+          is_default: true,
+          login_page: { enabled: false },
+          features: { subscription_update: { enabled: true } },
+        },
+        {
+          id: 'bpc_restricted',
+          metadata: { tradinggoose_portal_policy: 'private-tier-grants-v1' },
+          features: { subscription_update: { enabled: false } },
+        },
+      ],
     })
   })
 

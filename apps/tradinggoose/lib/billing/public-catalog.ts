@@ -16,7 +16,7 @@ export interface PublicBillingTierDisplay {
 }
 
 export interface EnterprisePlaceholderDisplay {
-  displayName: string
+  displayName: 'Enterprise'
   description: string
   pricingFeatures: string[]
   contactUrl: string | null

@@ -118,6 +118,7 @@ export async function checkServerSideUsageLimits(params: {
   isExceeded: boolean
   currentUsage: number
   limit: number
+  workflowExecutionTimeLimitSeconds: number | null
   message?: string
 }> {
   const { userId, workspaceId = null, workflowId = null } = params
@@ -130,6 +131,7 @@ export async function checkServerSideUsageLimits(params: {
         isExceeded: false,
         currentUsage: 0,
         limit: Number.MAX_SAFE_INTEGER,
+        workflowExecutionTimeLimitSeconds: null,
       }
     }
 
@@ -147,6 +149,8 @@ export async function checkServerSideUsageLimits(params: {
             actorUserId: userId,
           })
         : null
+    const workflowExecutionTimeLimitSeconds =
+      billingContext?.tier.workflowExecutionTimeLimitSeconds ?? null
 
     if (billingContext?.scopeType === 'organization' && billingContext.scopeId) {
       const [billingLedger, orgRows] = await Promise.all([
@@ -174,6 +178,7 @@ export async function checkServerSideUsageLimits(params: {
           isExceeded: true,
           currentUsage,
           limit: 0,
+          workflowExecutionTimeLimitSeconds,
           message: 'Billing issue detected. Please update your payment method to continue.',
         }
       }
@@ -197,6 +202,7 @@ export async function checkServerSideUsageLimits(params: {
         isExceeded,
         currentUsage,
         limit,
+        workflowExecutionTimeLimitSeconds,
         message: isExceeded
           ? `Usage limit exceeded: ${currentUsage?.toFixed(2) || 0}$ used of ${limit?.toFixed(2) || 0}$ limit. Please upgrade your billing tier to continue.`
           : undefined,
@@ -223,6 +229,7 @@ export async function checkServerSideUsageLimits(params: {
           isExceeded: true,
           currentUsage,
           limit: 0,
+          workflowExecutionTimeLimitSeconds,
           message: 'Billing issue detected. Please update your payment method to continue.',
         }
       }
@@ -231,6 +238,7 @@ export async function checkServerSideUsageLimits(params: {
         isExceeded: currentUsage >= limit,
         currentUsage,
         limit,
+        workflowExecutionTimeLimitSeconds,
         message:
           currentUsage >= limit
             ? `Usage limit exceeded: ${currentUsage?.toFixed(2) || 0}$ used of ${limit?.toFixed(2) || 0}$ limit. Please upgrade your billing tier to continue.`
@@ -245,6 +253,7 @@ export async function checkServerSideUsageLimits(params: {
         isExceeded: true,
         currentUsage: usageData.currentUsage,
         limit: 0,
+        workflowExecutionTimeLimitSeconds,
         message: 'Billing issue detected. Please update your payment method to continue.',
       }
     }
@@ -253,6 +262,7 @@ export async function checkServerSideUsageLimits(params: {
       isExceeded: usageData.isExceeded,
       currentUsage: usageData.currentUsage,
       limit: usageData.limit,
+      workflowExecutionTimeLimitSeconds,
       message: usageData.isExceeded
         ? `Usage limit exceeded: ${usageData.currentUsage?.toFixed(2) || 0}$ used of ${usageData.limit?.toFixed(2) || 0}$ limit. Please upgrade your billing tier to continue.`
         : undefined,
@@ -272,6 +282,7 @@ export async function checkServerSideUsageLimits(params: {
       isExceeded: true, // Block execution when we can't determine limits
       currentUsage: 0,
       limit: 0, // Zero limit forces blocking
+      workflowExecutionTimeLimitSeconds: null,
       message:
         error instanceof Error && error.message.includes('No user stats record found')
           ? 'User account not properly initialized. Please contact support.'

@@ -26,10 +26,7 @@ export type ApiRateLimitEndpoint =
   | 'logs-detail'
   | 'mcp-auth-start'
   | 'mcp-auth-poll'
-  | 'private-tier-access-code'
-
-const PRIVATE_TIER_ACCESS_CODE_LIMIT = 5
-const PRIVATE_TIER_ACCESS_CODE_WINDOW_MS = 10 * 60_000
+  | 'private-tier-access'
 
 const PUBLIC_API_ENDPOINT_LIMITS: Partial<Record<ApiRateLimitEndpoint, number>> = {
   'copilot-mcp-public': 300,
@@ -124,6 +121,35 @@ export async function checkApiEndpointRateLimit(
   }
 }
 
+export async function checkPrivateTierAccessRateLimit(userId: string): Promise<RateLimitResult> {
+  const endpoint = 'private-tier-access' as const
+  const limit = 5
+  const result = await rateLimiter.checkRateLimitWithSubscription(
+    userId,
+    {
+      referenceType: 'user',
+      referenceId: userId,
+      tier: {
+        displayName: endpoint,
+        syncRateLimitPerMinute: 0,
+        asyncRateLimitPerMinute: 0,
+        apiEndpointRateLimitPerMinute: limit,
+      } as BillingTierRecord,
+    },
+    'api-endpoint',
+    false,
+    {
+      scopeType: 'user',
+      scopeId: `${userId}:${endpoint}`,
+      organizationId: null,
+      userId,
+    },
+    { enforceWithoutBilling: true, failClosedOnError: true }
+  )
+
+  return { ...result, limit, userId }
+}
+
 function getRequesterKey(request: Request): string {
   const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
   const requester =
@@ -170,39 +196,4 @@ export async function checkPublicApiEndpointRateLimit(
     limit,
     userId: scopeId,
   }
-}
-
-export async function checkPrivateTierAccessCodeRateLimit(
-  userId: string
-): Promise<RateLimitResult> {
-  const scopeId = `${userId}:private-tier-access-code`
-  const limit = PRIVATE_TIER_ACCESS_CODE_LIMIT
-  const result = await rateLimiter.checkRateLimitWithSubscription(
-    userId,
-    {
-      referenceType: 'user',
-      referenceId: userId,
-      tier: {
-        displayName: 'Private tier access code',
-        syncRateLimitPerMinute: 0,
-        asyncRateLimitPerMinute: 0,
-        apiEndpointRateLimitPerMinute: limit,
-      } as BillingTierRecord,
-    },
-    'api-endpoint',
-    false,
-    {
-      scopeType: 'user',
-      scopeId,
-      organizationId: null,
-      userId,
-    },
-    {
-      enforceWithoutBilling: true,
-      failClosedOnError: true,
-      windowMs: PRIVATE_TIER_ACCESS_CODE_WINDOW_MS,
-    }
-  )
-
-  return { ...result, limit, userId }
 }

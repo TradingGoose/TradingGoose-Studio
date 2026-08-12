@@ -1,120 +1,112 @@
 /**
  * @vitest-environment node
  */
-
-import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({
-  checkRateLimit: vi.fn(),
-  getPrivateTiers: vi.fn(),
-  getSession: vi.fn(),
-  grantAccess: vi.fn(),
+const {
+  mockGetSession,
+  mockGetGrantedPrivateBillingTiers,
+  mockGrantPrivateBillingTier,
+  mockCheckPrivateTierAccessRateLimit,
+  mockToBillingTierDisplay,
+  mockLogger,
+} = vi.hoisted(() => ({
+  mockGetSession: vi.fn(),
+  mockGetGrantedPrivateBillingTiers: vi.fn(),
+  mockGrantPrivateBillingTier: vi.fn(),
+  mockCheckPrivateTierAccessRateLimit: vi.fn(),
+  mockToBillingTierDisplay: vi.fn((tier) => tier),
+  mockLogger: { error: vi.fn() },
 }))
 
-vi.mock('@/lib/auth', () => ({ getSession: mocks.getSession }))
+vi.mock('@/lib/auth', () => ({
+  getSession: () => mockGetSession(),
+}))
+
+vi.mock('@/lib/billing/catalog', () => ({
+  toBillingTierDisplay: (tier: unknown) => mockToBillingTierDisplay(tier),
+}))
+
+vi.mock('@/lib/billing/private-tier-access', () => ({
+  getGrantedPrivateBillingTiers: (userId: string) => mockGetGrantedPrivateBillingTiers(userId),
+  grantPrivateBillingTier: (userId: string, accessCode: string) =>
+    mockGrantPrivateBillingTier(userId, accessCode),
+}))
+
 vi.mock('@/lib/api/rate-limit', () => ({
-  checkPrivateTierAccessCodeRateLimit: mocks.checkRateLimit,
-}))
-vi.mock('@/lib/billing/catalog', () => ({ getModalEnterpriseContactCard: vi.fn(() => null) }))
-vi.mock('@/lib/billing/subscription-tier-display', () => ({
-  toSubscriptionTierDisplay: (tier: unknown) => tier,
-}))
-vi.mock('@/lib/billing/tiers', () => ({
-  getPrivateBillingTiersForUser: mocks.getPrivateTiers,
-  grantPrivateBillingTierAccessByCode: mocks.grantAccess,
-}))
-vi.mock('next-intl/server', () => ({
-  getTranslations: vi.fn(async ({ locale }: { locale: string }) => (key: string) => {
-    const messages = {
-      en: 'Too many access-code attempts. Please try again later.',
-      es: 'Demasiados intentos de código de acceso. Inténtelo de nuevo más tarde.',
-      zh: '访问码尝试次数过多，请稍后再试。',
-    }
-    return key === 'tooManyAttempts' ? messages[locale as keyof typeof messages] : key
-  }),
+  checkPrivateTierAccessRateLimit: (userId: string) => mockCheckPrivateTierAccessRateLimit(userId),
 }))
 
-import { POST } from './route'
+vi.mock('@/lib/logs/console/logger', () => ({
+  createLogger: () => mockLogger,
+}))
 
-function request(body: string, headers: Record<string, string> = {}) {
-  return new NextRequest('http://localhost/api/billing/private-tier-access', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
-    body,
-  })
-}
-
-describe('private tier access POST', () => {
+describe('/api/billing/private-tier-access', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.useRealTimers()
-    mocks.getSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mocks.checkRateLimit.mockResolvedValue({
-      allowed: true,
-      remaining: 4,
-      resetAt: new Date(Date.now() + 600_000),
-    })
-    mocks.getPrivateTiers.mockResolvedValue([])
-    mocks.grantAccess.mockResolvedValue({ ok: false })
+    vi.resetModules()
+    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockGetGrantedPrivateBillingTiers.mockResolvedValue([])
+    mockGrantPrivateBillingTier.mockResolvedValue(null)
+    mockCheckPrivateTierAccessRateLimit.mockResolvedValue({ allowed: true })
   })
 
-  it('does not charge unauthenticated requests', async () => {
-    mocks.getSession.mockResolvedValue(null)
-    const response = await POST(request('{"accessCode":"code"}'))
+  it('returns only the active private tiers granted to the user', async () => {
+    const tier = { id: 'private-tier', displayOrder: 2 }
+    mockGetGrantedPrivateBillingTiers.mockResolvedValue([tier])
 
-    expect(response.status).toBe(401)
-    expect(mocks.checkRateLimit).not.toHaveBeenCalled()
+    const { GET } = await import('./route')
+    const response = await GET()
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ privateTiers: [tier] })
+    expect(mockGetGrantedPrivateBillingTiers).toHaveBeenCalledWith('user-1')
   })
 
-  it.each([
-    ['blank', '{"accessCode":"   "}', 400],
-    ['malformed', '{', 400],
-    ['invalid', '{"accessCode":"wrong"}', 404],
-    ['valid', '{"accessCode":"right"}', 200],
-  ])('charges an authenticated %s attempt before validation', async (name, body, status) => {
-    if (name === 'valid') mocks.grantAccess.mockResolvedValue({ ok: true })
-    const response = await POST(request(body))
+  it('persists an exact access-code grant and returns the refreshed tiers', async () => {
+    const tier = { id: 'private-tier', displayOrder: 2 }
+    mockGrantPrivateBillingTier.mockResolvedValue(tier)
+    mockGetGrantedPrivateBillingTiers.mockResolvedValue([tier])
 
-    expect(response.status).toBe(status)
-    expect(mocks.checkRateLimit).toHaveBeenCalledWith('user-1')
-  })
-
-  it.each([
-    ['en', 'Too many access-code attempts. Please try again later.'],
-    ['es', 'Demasiados intentos de código de acceso. Inténtelo de nuevo más tarde.'],
-    ['zh', '访问码尝试次数过多，请稍后再试。'],
-  ])('returns a localized generic 429 for %s', async (locale, message) => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
-    mocks.checkRateLimit.mockResolvedValue({
-      allowed: false,
-      remaining: 0,
-      resetAt: new Date('2026-01-01T00:02:01.000Z'),
-    })
-
+    const { POST } = await import('./route')
     const response = await POST(
-      request('{"accessCode":"right"}', { cookie: `NEXT_LOCALE=${locale}` })
+      new Request('http://localhost/api/billing/private-tier-access', {
+        method: 'POST',
+        body: JSON.stringify({ accessCode: ' private-code ' }),
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockGrantPrivateBillingTier).toHaveBeenCalledWith('user-1', 'private-code')
+    await expect(response.json()).resolves.toEqual({ privateTiers: [tier] })
+  })
+
+  it('rejects blank access codes', async () => {
+    const { POST } = await import('./route')
+    const blankResponse = await POST(
+      new Request('http://localhost/api/billing/private-tier-access', {
+        method: 'POST',
+        body: JSON.stringify({ accessCode: '   ' }),
+      })
+    )
+
+    expect(blankResponse.status).toBe(400)
+    expect(mockGrantPrivateBillingTier).not.toHaveBeenCalled()
+  })
+
+  it('rate-limits access-code validation per user', async () => {
+    mockCheckPrivateTierAccessRateLimit.mockResolvedValue({ allowed: false })
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new Request('http://localhost/api/billing/private-tier-access', {
+        method: 'POST',
+        body: JSON.stringify({ accessCode: 'a-random-private-access-code' }),
+      })
     )
 
     expect(response.status).toBe(429)
-    expect(response.headers.get('Retry-After')).toBe('121')
-    expect(response.headers.get('Cache-Control')).toBe('no-store')
-    await expect(response.json()).resolves.toEqual({ error: message })
-    expect(mocks.grantAccess).not.toHaveBeenCalled()
-  })
-
-  it('fails closed before parsing or granting when limiter storage is unavailable', async () => {
-    mocks.checkRateLimit.mockResolvedValue({
-      allowed: false,
-      remaining: 0,
-      resetAt: new Date(Date.now() + 600_000),
-      failureKind: 'dependency',
-    })
-    const response = await POST(request('{'))
-
-    expect(response.status).toBe(503)
-    expect(response.headers.get('Retry-After')).toBeTruthy()
-    expect(mocks.grantAccess).not.toHaveBeenCalled()
+    expect(mockCheckPrivateTierAccessRateLimit).toHaveBeenCalledWith('user-1')
+    expect(mockGrantPrivateBillingTier).not.toHaveBeenCalled()
   })
 })
