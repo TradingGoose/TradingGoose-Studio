@@ -28,6 +28,7 @@ export function CopilotSidebarToggle({
           <SidebarMenuButton
             type='button'
             isActive={open}
+            className='data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:hover:bg-primary-hover data-[active=true]:hover:text-primary-foreground'
             tooltip={actionLabel}
             aria-label={actionLabel}
             aria-pressed={open}

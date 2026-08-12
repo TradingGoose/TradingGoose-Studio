@@ -103,6 +103,8 @@ describe('CopilotSidebarToggle', () => {
 
     expect(button.getAttribute('aria-label')).toBe('Show Copilot')
     expect(button.getAttribute('aria-pressed')).toBe('false')
+    expect(button).toHaveClass('data-[active=true]:bg-primary')
+    expect(button).toHaveClass('data-[active=true]:text-primary-foreground')
     expect(container.querySelector('[data-slot="switch"]')).toBeNull()
 
     await act(async () => {
@@ -110,6 +112,7 @@ describe('CopilotSidebarToggle', () => {
     })
 
     expect(button.getAttribute('aria-pressed')).toBe('true')
+    expect(button.getAttribute('data-active')).toBe('true')
     expect(button.getAttribute('aria-label')).toBe('Hide Copilot')
   })
 })

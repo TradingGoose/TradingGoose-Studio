@@ -87,8 +87,10 @@ const CopilotApp = ({
       }
     : undefined
 
+  if (!user) return null
+
   return (
-    <Providers workspaceId={workspaceId} inheritUser>
+    <Providers workspaceId={workspaceId} userId={user.id}>
       <CopilotStoreProvider channelId={channelId}>
         <CopilotAppContent
           workspaceId={workspaceId}

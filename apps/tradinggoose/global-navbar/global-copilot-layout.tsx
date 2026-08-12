@@ -62,7 +62,7 @@ export function GlobalCopilotLayout({
         minSize={100 - COPILOT_PANEL_MAX_SIZE}
         defaultSize={open ? 100 - COPILOT_PANEL_SIZE : 100}
       >
-        <div className='h-full min-h-0 overflow-hidden p-1'>
+        <div className='h-full min-h-0 overflow-hidden'>
           <div className='h-full w-full overflow-auto'>{children}</div>
         </div>
       </ResizablePanel>

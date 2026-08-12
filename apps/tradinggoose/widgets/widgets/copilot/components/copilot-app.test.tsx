@@ -10,6 +10,9 @@ import { CopilotApp } from './copilot-app'
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
+const mocks = vi.hoisted(() => ({
+  sessionUser: undefined as { id: string; email: string; name: string } | undefined,
+}))
 
 const mockCopilot = vi.fn((props: any) => (
   <div
@@ -20,14 +23,20 @@ const mockCopilot = vi.fn((props: any) => (
     copilot
   </div>
 ))
+const mockProviders = vi.fn(
+  ({ children }: { children: React.ReactNode; workspaceId: string; userId?: string }) => (
+    <>{children}</>
+  )
+)
 vi.mock('@/lib/auth-client', () => ({
   useSession: () => ({
-    data: { user: { id: 'user-1', email: 'user@example.com', name: 'User' } },
+    data: { user: mocks.sessionUser },
   }),
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/providers/providers', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  default: (props: { children: React.ReactNode; workspaceId: string; userId?: string }) =>
+    mockProviders(props),
 }))
 
 vi.mock('@/lib/yjs/workflow-session-host', () => ({
@@ -71,6 +80,8 @@ describe('CopilotApp', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     mockCopilot.mockClear()
+    mockProviders.mockClear()
+    mocks.sessionUser = { id: 'user-1', email: 'user@example.com', name: 'User' }
   })
 
   afterEach(() => {
@@ -86,6 +97,19 @@ describe('CopilotApp', () => {
 
     expect(container.querySelector('[data-testid="workflow-session-host"]')).toBeNull()
     expect(container.querySelector('[data-testid="copilot"]')).not.toBeNull()
+    expect(mockProviders).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: 'ws-1', userId: 'user-1' })
+    )
+    expect(mockProviders.mock.lastCall?.[0]).not.toHaveProperty('inheritUser')
+  })
+
+  it('waits for an authenticated user before mounting workspace providers', async () => {
+    mocks.sessionUser = undefined
+
+    await renderApp()
+
+    expect(mockProviders).not.toHaveBeenCalled()
+    expect(container.querySelector('[data-testid="copilot"]')).toBeNull()
   })
 
   it('mounts the workflow session host for the effective workflow', async () => {
