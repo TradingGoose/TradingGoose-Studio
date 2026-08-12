@@ -26,7 +26,8 @@ describe('getPlans', () => {
 
   afterEach(() => {
     if (originalNextPhase === undefined) {
-      process.env.NEXT_PHASE = undefined
+      // biome-ignore lint/performance/noDelete: Assigning undefined stores the string "undefined" in process.env.
+      delete process.env.NEXT_PHASE
     } else {
       process.env.NEXT_PHASE = originalNextPhase
     }
@@ -42,7 +43,8 @@ describe('getPlans', () => {
   })
 
   it('returns the runtime DB-backed resolver outside the production build phase', async () => {
-    process.env.NEXT_PHASE = undefined
+    // biome-ignore lint/performance/noDelete: Assigning undefined stores the string "undefined" in process.env.
+    delete process.env.NEXT_PHASE
 
     const { getBetterAuthPlansConfig, getPlans } = await import('./plans')
 
@@ -50,7 +52,8 @@ describe('getPlans', () => {
   })
 
   it('maps active Stripe price-backed tiers into Better Auth plans at runtime', async () => {
-    process.env.NEXT_PHASE = undefined
+    // biome-ignore lint/performance/noDelete: Assigning undefined stores the string "undefined" in process.env.
+    delete process.env.NEXT_PHASE
 
     getActiveStripeBackedBillingTiersMock.mockResolvedValue([
       {

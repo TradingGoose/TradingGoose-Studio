@@ -4,7 +4,8 @@ const originalInternalSecret = process.env.INTERNAL_API_SECRET
 
 afterEach(() => {
   if (originalInternalSecret === undefined) {
-    process.env.INTERNAL_API_SECRET = undefined
+    // biome-ignore lint/performance/noDelete: Assigning undefined stores the string "undefined" in process.env.
+    delete process.env.INTERNAL_API_SECRET
   } else {
     process.env.INTERNAL_API_SECRET = originalInternalSecret
   }
