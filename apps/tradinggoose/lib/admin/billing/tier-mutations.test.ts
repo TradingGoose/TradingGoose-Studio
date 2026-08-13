@@ -176,7 +176,8 @@ describe('validateAdminBillingTierInput', () => {
 
   it('requires private access codes to be at least 16 characters', () => {
     expect(
-      adminBillingTierMutationSchema.safeParse(createTierInput({ accessCode: 'short-code' })).success
+      adminBillingTierMutationSchema.safeParse(createTierInput({ accessCode: 'short-code' }))
+        .success
     ).toBe(false)
   })
 })
