@@ -107,6 +107,7 @@ export class WorkflowBlockHandler implements BlockHandler {
 
     const wait = (async () => {
       try {
+        timeBudget.markQueuedChildWait(activitySlotId)
         const timePolicy = timeBudget.snapshotPolicy()
         const timePolicyCapturedAt = new Date().toISOString()
         const workflowExecution: InternalWorkflowExecutionContext = {
@@ -125,8 +126,6 @@ export class WorkflowBlockHandler implements BlockHandler {
           executionTarget: context.isDeployedContext ? 'deployed' : 'live',
           workflowDepth: currentDepth + 1,
         })
-        timeBudget.markQueuedChildWait(activitySlotId)
-
         const childWorkflowName = queueResponse.workflowName
         const childResult = await this.waitForQueuedWorkflowResult({
           taskId: queueResponse.taskId,

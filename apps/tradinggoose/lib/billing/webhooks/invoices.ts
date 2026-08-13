@@ -49,9 +49,10 @@ export async function handleInvoiceCreated(event: Stripe.Event) {
       invoiceId: invoice.id,
       stripeSubscriptionId,
     })
+    return
   }
-  const eligibility = evaluateSubscriptionTierRenewalEligibility({ tier: sub?.tier ?? null })
-  if (sub?.status !== 'canceled' && eligibility.isRenewable) return
+  const eligibility = evaluateSubscriptionTierRenewalEligibility({ tier: sub.tier ?? null })
+  if (sub.status !== 'canceled' && eligibility.isRenewable) return
   const stripe = requireStripeClient()
   if (!invoice.id) throw new Error('Renewal invoice is missing an ID')
   let currentStatus: Stripe.Invoice.Status | 'deleted'
@@ -88,7 +89,7 @@ export async function handleInvoiceCreated(event: Stripe.Event) {
     default:
       throw new Error(`Unsupported renewal invoice status: ${currentStatus}`)
   }
-  if (sub?.status !== 'canceled') {
+  if (sub.status !== 'canceled') {
     await stripe.subscriptions.cancel(stripeSubscriptionId, {
       idempotencyKey: `renewal-rejection:cancel:${stripeSubscriptionId}:${invoice.id}`,
     })

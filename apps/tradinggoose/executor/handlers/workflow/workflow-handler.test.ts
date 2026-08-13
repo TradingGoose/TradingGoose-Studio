@@ -187,6 +187,15 @@ describe('WorkflowBlockHandler', () => {
       result: { value: 42 },
       childTraceSpans: [],
     })
+    expect(
+      vi.mocked(mockContext.workflowExecutionTimeBudget!.markQueuedChildWait).mock
+        .invocationCallOrder[0]
+    ).toBeLessThan(
+      vi.mocked(mockContext.workflowExecutionTimeBudget!.snapshotPolicy).mock.invocationCallOrder[0]
+    )
+    expect(
+      vi.mocked(mockContext.workflowExecutionTimeBudget!.snapshotPolicy).mock.invocationCallOrder[0]
+    ).toBeLessThan(fetchMock.mock.invocationCallOrder[0])
     expect(generateInternalToken).toHaveBeenCalledWith('user-1', {
       workflowExecution: {
         source: 'workflow_block',

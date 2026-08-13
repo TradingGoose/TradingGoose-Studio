@@ -132,7 +132,7 @@ describe('handleInvoiceCreated renewal rejection', () => {
     expect(cancel).not.toHaveBeenCalled()
   })
 
-  it('suppresses and cancels a rejected renewal after local settlement removed the subscription', async () => {
+  it('leaves an unknown Stripe subscription untouched', async () => {
     retrieveInvoice.mockResolvedValue({ status: 'open' })
     getSubscription.mockResolvedValue(null)
     renewalEligibility.mockReturnValue({ isRenewable: false })
@@ -140,9 +140,11 @@ describe('handleInvoiceCreated renewal rejection', () => {
 
     await handleInvoiceCreated(createEvent('open') as any)
 
-    expect(voidInvoice).toHaveBeenCalledOnce()
-    expect(cancel).toHaveBeenCalledOnce()
-    expect(voidInvoice.mock.invocationCallOrder[0]).toBeLessThan(cancel.mock.invocationCallOrder[0])
+    expect(renewalEligibility).not.toHaveBeenCalled()
+    expect(retrieveInvoice).not.toHaveBeenCalled()
+    expect(deleteInvoice).not.toHaveBeenCalled()
+    expect(voidInvoice).not.toHaveBeenCalled()
+    expect(cancel).not.toHaveBeenCalled()
   })
 
   it('cancels suppressed renewals and reports unsuppressible terminal states', async () => {
