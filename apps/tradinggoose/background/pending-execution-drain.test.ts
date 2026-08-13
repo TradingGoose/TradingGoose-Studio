@@ -15,7 +15,7 @@ const {
   executeWebhookJobMock,
   recoveryScopeRowsMock,
   wakePendingExecutionDrainMock,
-  resolveServerExecutionBillingTierForScopeMock,
+  resolveServerExecutionBillingContextMock,
 } = vi.hoisted(() => ({
   dispatchQueuedDocumentProcessingJobMock: vi.fn(),
   executeWorkflowJobMock: vi.fn(),
@@ -27,11 +27,11 @@ const {
   executeWebhookJobMock: vi.fn(),
   recoveryScopeRowsMock: vi.fn(),
   wakePendingExecutionDrainMock: vi.fn(),
-  resolveServerExecutionBillingTierForScopeMock: vi.fn(),
+  resolveServerExecutionBillingContextMock: vi.fn(),
 }))
 
 vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
-  resolveServerExecutionBillingTierForScope: resolveServerExecutionBillingTierForScopeMock,
+  resolveServerExecutionBillingContext: resolveServerExecutionBillingContextMock,
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
@@ -146,7 +146,7 @@ describe('pendingExecutionDrain', () => {
     executeScheduleJobMock.mockResolvedValue(undefined)
     recoveryScopeRowsMock.mockResolvedValue([])
     wakePendingExecutionDrainMock.mockResolvedValue(undefined)
-    resolveServerExecutionBillingTierForScopeMock.mockResolvedValue(null)
+    resolveServerExecutionBillingContextMock.mockResolvedValue(null)
   })
 
   it('recovers a failed continuation admission through the queue heartbeat', async () => {
@@ -274,7 +274,7 @@ describe('pendingExecutionDrain', () => {
 
     await runPendingExecutionDrain('scope-1')
 
-    expect(resolveServerExecutionBillingTierForScopeMock).not.toHaveBeenCalled()
+    expect(resolveServerExecutionBillingContextMock).not.toHaveBeenCalled()
     expect(executeWorkflowJobMock).toHaveBeenCalledWith(
       expect.objectContaining({ executionId: 'pending-child-1' }),
       expect.objectContaining({
@@ -413,16 +413,62 @@ describe('pendingExecutionDrain', () => {
 
     await runPendingExecutionDrain('scope-1')
 
-    expect(resolveServerExecutionBillingTierForScopeMock).toHaveBeenCalledWith({
-      scopeId: 'scope-1',
-      scopeType: 'user',
+    expect(resolveServerExecutionBillingContextMock).toHaveBeenCalledWith({
+      actorUserId: 'user-1',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      requestId: 'pending-portfolio-1',
+      source: undefined,
     })
-    expect(resolveServerExecutionBillingTierForScopeMock.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(resolveServerExecutionBillingContextMock.mock.invocationCallOrder[0]).toBeLessThan(
       executeMonitorJobMock.mock.invocationCallOrder[0] ?? 0
     )
     expect(executeMonitorJobMock).toHaveBeenCalledWith(
       expect.objectContaining({ executionId: 'pending-portfolio-1' }),
       expectedAttempt
+    )
+  })
+
+  it('captures each root attempt from the current billing owner instead of its queued scope', async () => {
+    const tier = {
+      id: 'tier-current',
+      displayName: 'Current owner tier',
+      workflowExecutionTimeLimitSeconds: 90,
+    }
+    resolveServerExecutionBillingContextMock.mockResolvedValue({ tier })
+    claimNextPendingExecutionMock.mockResolvedValueOnce({
+      status: 'claimed',
+      row: {
+        ...workflowRow('pending-current-owner'),
+        billingScopeId: 'stale-owner',
+        billingScopeType: 'organization',
+      },
+    })
+
+    await runPendingExecutionDrain('stale-owner')
+
+    expect(resolveServerExecutionBillingContextMock).toHaveBeenCalledWith({
+      actorUserId: 'user-1',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      requestId: 'pending-current-owner',
+      source: undefined,
+    })
+    expect(executeWorkflowJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ executionId: 'pending-current-owner' }),
+      expect.objectContaining({
+        timePolicy: {
+          kind: 'bounded',
+          processingStartedAt: '2026-04-23T00:00:00.000Z',
+          tier: {
+            source: 'resolved-tier',
+            appliedTierId: 'tier-current',
+            appliedTierName: 'Current owner tier',
+          },
+          limitSeconds: 90,
+          accounting: { mode: 'remaining', remainingMilliseconds: 90_000 },
+        },
+      })
     )
   })
 })

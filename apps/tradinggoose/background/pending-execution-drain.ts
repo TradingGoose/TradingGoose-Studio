@@ -1,7 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution } from '@tradinggoose/db/schema'
 import { schedules, task, timeout } from '@trigger.dev/sdk'
-import { resolveServerExecutionBillingTierForScope } from '@/lib/execution/execution-concurrency-limit'
+import { resolveServerExecutionBillingContext } from '@/lib/execution/execution-concurrency-limit'
 import {
   claimNextPendingExecution,
   completePendingExecution,
@@ -60,13 +60,16 @@ async function captureWorkflowExecutionAttempt(
     }
   }
 
-  const tier = await resolveServerExecutionBillingTierForScope({
-    scopeId: row.billingScopeId,
-    scopeType: row.billingScopeType,
+  const billingContext = await resolveServerExecutionBillingContext({
+    actorUserId: row.userId,
+    workflowId: row.workflowId,
+    workspaceId: row.workspaceId,
+    requestId: row.id,
+    source: row.source,
   })
   const timePolicy = createWorkflowExecutionTimePolicy({
     processingStartedAt: attemptStartedAt,
-    tier,
+    tier: billingContext?.tier ?? null,
   })
   return {
     attemptStartedAt,
