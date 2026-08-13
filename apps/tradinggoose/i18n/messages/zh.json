@@ -22226,7 +22226,7 @@
           "canConfigureSso": "可配置 SSO",
           "canConfigureSsoHint": "允许设置 SSO。",
           "accessCode": "私有层级访问码",
-          "accessCodeHint": "使用至少 16 个字符且区分大小写的随机代码。",
+          "accessCodeHint": "使用区分大小写的访问码。",
           "accessCodeBlank": "留空将停止后续授权，直到设置新代码。"
         },
         "seats": {
@@ -22312,7 +22312,7 @@
           "userTiersNoOrgSeats": "用户层级不管理组织席位",
           "seatMaxAboveCount": "最大席位数必须大于席位数量",
           "noLimitsConfigured": "未配置包含用量、存储、并发、速率或保留限制",
-          "limitsConfigured": "{count}/7 项限制已配置",
+          "limitsConfigured": "已配置 {count}/{total} 项限制",
           "usingBasePricingOnly": "仅使用平台基础定价"
         }
       },

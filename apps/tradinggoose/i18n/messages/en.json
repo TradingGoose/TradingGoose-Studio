@@ -22239,7 +22239,7 @@
           "canConfigureSso": "Can configure SSO",
           "canConfigureSsoHint": "Allow SSO setup.",
           "accessCode": "Private tier access code",
-          "accessCodeHint": "Use a randomly generated case-sensitive code of at least 16 characters.",
+          "accessCodeHint": "Use a case-sensitive access code.",
           "accessCodeBlank": "Leave blank to disable future grants until a new code is set."
         },
         "seats": {
@@ -22325,7 +22325,7 @@
           "userTiersNoOrgSeats": "User tiers do not manage organization seats",
           "seatMaxAboveCount": "seat maximum must stay above seat count",
           "noLimitsConfigured": "No included usage, storage, concurrency, rate, or retention limits configured",
-          "limitsConfigured": "{count}/7 limits configured",
+          "limitsConfigured": "{count}/{total} limits configured",
           "usingBasePricingOnly": "Using base platform pricing only"
         }
       },

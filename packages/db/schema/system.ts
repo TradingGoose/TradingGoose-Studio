@@ -324,7 +324,7 @@ export const systemBillingTier = pgTable(
     ),
     accessCodeCheck: check(
       'system_billing_tier_access_code_check',
-      sql`${table.accessCode} is null or (not ${table.isPublic} and ${table.accessCode} = btrim(${table.accessCode}) and length(${table.accessCode}) between 16 and 128)`,
+      sql`${table.accessCode} is null or (not ${table.isPublic} and ${table.accessCode} = btrim(${table.accessCode}))`,
     ),
     stripePriceIdsDistinctCheck: check(
       'system_billing_tier_stripe_price_ids_distinct_check',

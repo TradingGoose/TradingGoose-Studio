@@ -3,15 +3,6 @@ import { z } from 'zod'
 const nullableNumberSchema = z.number().finite().nonnegative().nullable()
 const nullableIntegerSchema = z.number().int().nonnegative().nullable()
 const nullableExecutionTimeLimitSchema = z.number().int().min(5).max(2_147_483).nullable()
-const nullablePrivateAccessCodeSchema = z
-  .string()
-  .trim()
-  .max(128)
-  .refine((value) => value.length === 0 || value.length >= 16, {
-    message: 'Private tier access codes must be at least 16 characters',
-  })
-  .transform((value) => (value.length > 0 ? value : null))
-  .nullable()
 const nullableTrimmedStringSchema = z
   .string()
   .trim()
@@ -25,7 +16,7 @@ function hasPositiveNumber(value: number | null): value is number {
 export const adminBillingTierMutationSchema = z.object({
   displayName: z.string().trim().min(1),
   description: z.string().trim().min(1),
-  accessCode: nullablePrivateAccessCodeSchema,
+  accessCode: nullableTrimmedStringSchema,
   status: z.enum(['draft', 'active', 'archived']),
   ownerType: z.enum(['user', 'organization']),
   usageScope: z.enum(['individual', 'pooled']),

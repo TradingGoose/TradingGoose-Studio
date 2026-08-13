@@ -179,11 +179,20 @@ describe('validateAdminBillingTierInput', () => {
     ).toBe(true)
   })
 
-  it('requires private access codes to be at least 16 characters', () => {
+  it('trims private access codes and treats blank as unconfigured', () => {
     expect(
-      adminBillingTierMutationSchema.safeParse(createTierInput({ accessCode: 'short-code' }))
+      adminBillingTierMutationSchema.parse(createTierInput({ accessCode: ' invite ' })).accessCode
+    ).toBe('invite')
+    expect(
+      adminBillingTierMutationSchema.parse(createTierInput({ accessCode: '   ' })).accessCode
+    ).toBeNull()
+    expect(
+      adminBillingTierMutationSchema.safeParse(createTierInput({ accessCode: 'x' })).success
+    ).toBe(true)
+    expect(
+      adminBillingTierMutationSchema.safeParse(createTierInput({ accessCode: 'x'.repeat(129) }))
         .success
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it('requires a complete and distinct Stripe catalog identity', () => {

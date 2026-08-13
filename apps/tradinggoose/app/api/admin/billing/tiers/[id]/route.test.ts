@@ -14,6 +14,9 @@ const {
   mockCountWhere,
   mockTransaction,
   mockAssertBillingTierStripeIdentifiers,
+  mockUpdate,
+  mockUpdateSet,
+  mockUpdateWhere,
 } = vi.hoisted(() => ({
   mockRequireAdminBillingUserId: vi.fn(),
   mockGetBillingGateState: vi.fn(),
@@ -30,6 +33,9 @@ const {
   mockCountWhere: vi.fn(),
   mockTransaction: vi.fn(),
   mockAssertBillingTierStripeIdentifiers: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockUpdateSet: vi.fn(),
+  mockUpdateWhere: vi.fn(),
 }))
 
 const tierSelectChain = {
@@ -43,11 +49,15 @@ const countSelectChain = {
   where: mockCountWhere,
 }
 
+const transactionClient = {
+  select: vi.fn((selection?: unknown) =>
+    selection === undefined ? tierSelectChain : countSelectChain
+  ),
+  update: mockUpdate,
+}
+
 vi.mock('@tradinggoose/db', () => ({
   db: {
-    select: vi.fn((selection?: unknown) =>
-      selection === undefined ? tierSelectChain : countSelectChain
-    ),
     transaction: mockTransaction,
   },
 }))
@@ -150,7 +160,11 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
       },
     ])
     mockCountWhere.mockResolvedValue([{ count: 3 }])
-    mockTransaction.mockResolvedValue(undefined)
+    mockAssertBillingTierStripeIdentifiers.mockResolvedValue(undefined)
+    mockUpdateWhere.mockResolvedValue(undefined)
+    mockUpdateSet.mockImplementation(() => ({ where: mockUpdateWhere }))
+    mockUpdate.mockImplementation(() => ({ set: mockUpdateSet }))
+    mockTransaction.mockImplementation(async (callback) => callback(transactionClient))
   })
 
   it('rejects edits that omit the Stripe monthly price ID', async () => {
@@ -195,16 +209,11 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
     expect(response.status).toBe(409)
     expect(data.error).toContain(label)
     expect(data.error).toContain('Create a separate free tier')
-    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('archives a tier that still has subscriptions', async () => {
-    const updateWhere = vi.fn().mockResolvedValue(undefined)
-    const updateSet = vi.fn(() => ({ where: updateWhere }))
-    const update = vi.fn(() => ({ set: updateSet }))
-    mockTransaction.mockImplementationOnce(
-      async (callback: (tx: { update: typeof update }) => Promise<void>) => callback({ update })
-    )
     const { PATCH } = await import('./route')
     const response = await PATCH(
       new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
@@ -218,11 +227,11 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
     expect(response.status).toBe(200)
     expect(mockCountWhere).toHaveBeenCalled()
     expect(mockTransaction).toHaveBeenCalledOnce()
-    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived' }))
-    expect(updateWhere).toHaveBeenCalledOnce()
+    expect(mockUpdateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived' }))
+    expect(mockUpdateWhere).toHaveBeenCalledOnce()
   })
 
-  it('keeps Stripe identity immutable after activation even without persisted subscribers', async () => {
+  it('locks before re-reading tier state and keeps activated Stripe identity immutable', async () => {
     mockCountWhere.mockResolvedValueOnce([{ count: 0 }])
     const { PATCH } = await import('./route')
     const response = await PATCH(
@@ -241,7 +250,11 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
       error:
         'Cannot change stripeMonthlyPriceId after a tier has been activated. Duplicate the tier and archive the old tier instead.',
     })
-    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(mockAssertBillingTierStripeIdentifiers.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTierLimit.mock.invocationCallOrder[0]
+    )
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('does not expose a hard-delete handler', async () => {
@@ -266,8 +279,9 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
 
     await expect(response.json()).resolves.toEqual({ error: 'The default tier cannot be archived' })
     expect(response.status).toBe(409)
-    expect(mockCountWhere).not.toHaveBeenCalled()
-    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(mockCountWhere).toHaveBeenCalledOnce()
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('does not make an archived tier the default tier', async () => {
@@ -295,7 +309,8 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
 
     await expect(response.json()).resolves.toEqual({ error: 'The default tier cannot be archived' })
     expect(response.status).toBe(409)
-    expect(mockCountWhere).not.toHaveBeenCalled()
-    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(mockCountWhere).toHaveBeenCalledOnce()
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 })

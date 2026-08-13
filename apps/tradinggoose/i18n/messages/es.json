@@ -22239,7 +22239,7 @@
           "canConfigureSso": "Puede configurar SSO",
           "canConfigureSsoHint": "Permite configurar SSO.",
           "accessCode": "Código de acceso del nivel privado",
-          "accessCodeHint": "Usa un código aleatorio de al menos 16 caracteres que distinga mayúsculas de minúsculas.",
+          "accessCodeHint": "Use un código de acceso que distinga mayúsculas de minúsculas.",
           "accessCodeBlank": "Déjelo en blanco para desactivar nuevas concesiones hasta configurar otro código."
         },
         "seats": {
@@ -22325,7 +22325,7 @@
           "userTiersNoOrgSeats": "Los niveles de usuario no gestionan asientos de organización",
           "seatMaxAboveCount": "el máximo de asientos debe permanecer por encima de la cantidad de asientos",
           "noLimitsConfigured": "No hay límites configurados de uso incluido, almacenamiento, concurrencia, tasa o retención",
-          "limitsConfigured": "{count}/7 límites configurados",
+          "limitsConfigured": "{count}/{total} límites configurados",
           "usingBasePricingOnly": "Usando solo el precio base de la plataforma"
         }
       },

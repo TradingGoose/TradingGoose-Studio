@@ -49,136 +49,127 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
-    const [existingTier] = await db
-      .select()
-      .from(systemBillingTier)
-      .where(eq(systemBillingTier.id, id))
-      .limit(1)
-
-    if (!existingTier) {
-      return NextResponse.json({ error: 'Billing tier not found' }, { status: 404 })
-    }
-
-    if (existingTier.status !== 'draft' && parsed.data.status === 'draft') {
-      return NextResponse.json(
-        { error: 'Only tiers that have never been activated can be drafts.' },
-        { status: 409 }
-      )
-    }
-
-    if (parsed.data.status === 'archived' && (existingTier.isDefault || parsed.data.isDefault)) {
-      return NextResponse.json({ error: 'The default tier cannot be archived' }, { status: 409 })
-    }
-
-    const billingEnabled = await isBillingEnabledForRuntime()
-    if (billingEnabled && existingTier.isDefault && !parsed.data.isDefault) {
-      return NextResponse.json(
-        {
-          error:
-            'Disable billing or assign another active default tier before removing the default tier flag.',
-        },
-        { status: 409 }
-      )
-    }
-
-    if (billingEnabled && parsed.data.isDefault && parsed.data.status !== 'active') {
-      return NextResponse.json(
-        {
-          error: 'The default tier must stay active while billing is enabled.',
-        },
-        { status: 409 }
-      )
-    }
-
-    const [{ count: subscriptionCount }] = await db
-      .select({ count: count() })
-      .from(subscription)
-      .where(eq(subscription.billingTierId, id))
-
-    const referencedSubscriptionCount = Number(subscriptionCount)
-
-    const structuralFields: Array<keyof typeof existingTier> = [
-      'ownerType',
-      'usageScope',
-      'seatMode',
-      'stripeMonthlyPriceId',
-      'stripeYearlyPriceId',
-      'stripeProductId',
-    ]
-    const changedStructuralField = structuralFields.find(
-      (field) => existingTier[field] !== (parsed.data as any)[field]
-    )
-
-    if (existingTier.status !== 'draft' && changedStructuralField) {
-      return NextResponse.json(
-        {
-          error: `Cannot change ${changedStructuralField} after a tier has been activated. Duplicate the tier and archive the old tier instead.`,
-        },
-        { status: 409 }
-      )
-    }
-
-    if (referencedSubscriptionCount > 0) {
-      if (
-        parsed.data.syncRateLimitPerMinute === null ||
-        parsed.data.asyncRateLimitPerMinute === null ||
-        parsed.data.apiEndpointRateLimitPerMinute === null
-      ) {
-        return NextResponse.json(
-          {
-            error: 'A tier with subscriptions must keep explicit rate limits configured.',
-          },
-          { status: 409 }
-        )
-      }
-
-      if (parsed.data.includedUsageLimitUsd === null) {
-        return NextResponse.json(
-          {
-            error: 'A tier with subscriptions must keep an included usage limit configured.',
-          },
-          { status: 409 }
-        )
-      }
-
-      if (parsed.data.storageLimitGb === null) {
-        return NextResponse.json(
-          {
-            error: 'A tier with subscriptions must keep a storage limit configured.',
-          },
-          { status: 409 }
-        )
-      }
-
-      if (parsed.data.concurrencyLimit === null) {
-        return NextResponse.json(
-          {
-            error: 'A tier with subscriptions must keep an execution concurrency limit configured.',
-          },
-          { status: 409 }
-        )
-      }
-
-      const zeroedExecutionMultipliers = [
-        parsed.data.workflowExecutionMultiplier === 0 ? 'workflow execution multiplier' : null,
-        parsed.data.functionExecutionMultiplier === 0 ? 'function execution multiplier' : null,
-      ].filter((value): value is string => Boolean(value))
-
-      if (zeroedExecutionMultipliers.length > 0) {
-        return NextResponse.json(
-          {
-            error: `A tier with subscriptions cannot set ${zeroedExecutionMultipliers.join(' or ')} to 0. Create a separate free tier if you need zero-cost executions.`,
-          },
-          { status: 409 }
-        )
-      }
-    }
-
-    await db.transaction(async (tx) => {
+    const deniedResponse = await db.transaction(async (tx) => {
       await assertBillingTierStripeIdentifiers(tx, {
         ...parsed.data,
         excludeTierId: id,
       })
+
+      const [existingTier] = await tx
+        .select()
+        .from(systemBillingTier)
+        .where(eq(systemBillingTier.id, id))
+        .limit(1)
+      if (!existingTier) {
+        return NextResponse.json({ error: 'Billing tier not found' }, { status: 404 })
+      }
+
+      const [{ count: subscriptionCount }] = await tx
+        .select({ count: count() })
+        .from(subscription)
+        .where(eq(subscription.billingTierId, id))
+      const referencedSubscriptionCount = Number(subscriptionCount)
+      const billingEnabled = await isBillingEnabledForRuntime()
+
+      if (existingTier.status !== 'draft' && parsed.data.status === 'draft') {
+        return NextResponse.json(
+          { error: 'Only tiers that have never been activated can be drafts.' },
+          { status: 409 }
+        )
+      }
+
+      if (parsed.data.status === 'archived' && (existingTier.isDefault || parsed.data.isDefault)) {
+        return NextResponse.json({ error: 'The default tier cannot be archived' }, { status: 409 })
+      }
+
+      if (billingEnabled && existingTier.isDefault && !parsed.data.isDefault) {
+        return NextResponse.json(
+          {
+            error:
+              'Disable billing or assign another active default tier before removing the default tier flag.',
+          },
+          { status: 409 }
+        )
+      }
+
+      if (billingEnabled && parsed.data.isDefault && parsed.data.status !== 'active') {
+        return NextResponse.json(
+          { error: 'The default tier must stay active while billing is enabled.' },
+          { status: 409 }
+        )
+      }
+
+      const structuralFields: Array<keyof typeof existingTier> = [
+        'ownerType',
+        'usageScope',
+        'seatMode',
+        'stripeMonthlyPriceId',
+        'stripeYearlyPriceId',
+        'stripeProductId',
+      ]
+      const changedStructuralField = structuralFields.find(
+        (field) => existingTier[field] !== (parsed.data as any)[field]
+      )
+
+      if (existingTier.status !== 'draft' && changedStructuralField) {
+        return NextResponse.json(
+          {
+            error: `Cannot change ${changedStructuralField} after a tier has been activated. Duplicate the tier and archive the old tier instead.`,
+          },
+          { status: 409 }
+        )
+      }
+
+      if (referencedSubscriptionCount > 0) {
+        if (
+          parsed.data.syncRateLimitPerMinute === null ||
+          parsed.data.asyncRateLimitPerMinute === null ||
+          parsed.data.apiEndpointRateLimitPerMinute === null
+        ) {
+          return NextResponse.json(
+            { error: 'A tier with subscriptions must keep explicit rate limits configured.' },
+            { status: 409 }
+          )
+        }
+
+        if (parsed.data.includedUsageLimitUsd === null) {
+          return NextResponse.json(
+            { error: 'A tier with subscriptions must keep an included usage limit configured.' },
+            { status: 409 }
+          )
+        }
+
+        if (parsed.data.storageLimitGb === null) {
+          return NextResponse.json(
+            { error: 'A tier with subscriptions must keep a storage limit configured.' },
+            { status: 409 }
+          )
+        }
+
+        if (parsed.data.concurrencyLimit === null) {
+          return NextResponse.json(
+            {
+              error:
+                'A tier with subscriptions must keep an execution concurrency limit configured.',
+            },
+            { status: 409 }
+          )
+        }
+
+        const zeroedExecutionMultipliers = [
+          parsed.data.workflowExecutionMultiplier === 0 ? 'workflow execution multiplier' : null,
+          parsed.data.functionExecutionMultiplier === 0 ? 'function execution multiplier' : null,
+        ].filter((value): value is string => Boolean(value))
+
+        if (zeroedExecutionMultipliers.length > 0) {
+          return NextResponse.json(
+            {
+              error: `A tier with subscriptions cannot set ${zeroedExecutionMultipliers.join(' or ')} to 0. Create a separate free tier if you need zero-cost executions.`,
+            },
+            { status: 409 }
+          )
+        }
+      }
 
       if (parsed.data.isDefault) {
         await tx.update(systemBillingTier).set({ isDefault: false })
@@ -188,7 +179,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         .update(systemBillingTier)
         .set(toBillingTierMutationValues(parsed.data, userId))
         .where(eq(systemBillingTier.id, id))
+
+      return null
     })
+
+    if (deniedResponse) {
+      return deniedResponse
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

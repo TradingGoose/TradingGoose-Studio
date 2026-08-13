@@ -176,6 +176,7 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
           onAccessFieldChange={handleAccessFieldChange}
           isPending={updateTier.isPending}
           requireStripeMonthlyPriceId={true}
+          structuralIdentityLocked={tier.status !== 'draft'}
           onSubmit={handleSubmit}
           onFormChange={handleFormChange}
           footer={

@@ -104,12 +104,12 @@ type BillingBreadcrumbItem = {
   href?: string
 }
 
-const getTierStatusOptions = (copy: AdminBillingCopy) =>
+export const getTierStatusOptions = (copy: AdminBillingCopy, includeDraft = true) =>
   [
     { value: 'draft', label: copy.status.draft },
     { value: 'active', label: copy.status.active },
     { value: 'archived', label: copy.status.archived },
-  ] as const
+  ].filter((option) => includeDraft || option.value !== 'draft')
 
 const getTierOwnerTypeOptions = (copy: AdminBillingCopy) =>
   [
@@ -444,6 +444,24 @@ function countPricingFeatureLines(value: string) {
     .filter(Boolean).length
 }
 
+export function getConfiguredLimitSummary(defaults: TierFormDefaults) {
+  const configuredLimits = [
+    defaults.includedUsageLimitUsd,
+    defaults.storageLimitGb,
+    defaults.concurrencyLimit,
+    defaults.workflowExecutionTimeLimitSeconds,
+    defaults.syncRateLimitPerMinute,
+    defaults.asyncRateLimitPerMinute,
+    defaults.apiEndpointRateLimitPerMinute,
+    defaults.logRetentionDays,
+  ]
+
+  return {
+    count: configuredLimits.filter(isFilled).length,
+    total: configuredLimits.length,
+  }
+}
+
 function getTierSectionSummaries(
   defaults: TierFormDefaults,
   locale: LocaleCode | string,
@@ -516,15 +534,8 @@ function getTierSectionSummaries(
     isFilled(defaults.seatMaximum) &&
     Number(defaults.seatMaximum) < Number(defaults.seatCount)
 
-  const configuredLimitCount = [
-    defaults.includedUsageLimitUsd,
-    defaults.storageLimitGb,
-    defaults.concurrencyLimit,
-    defaults.syncRateLimitPerMinute,
-    defaults.asyncRateLimitPerMinute,
-    defaults.apiEndpointRateLimitPerMinute,
-    defaults.logRetentionDays,
-  ].filter(isFilled).length
+  const { count: configuredLimitCount, total: configuredLimitTotal } =
+    getConfiguredLimitSummary(defaults)
   const limitMissing = [
     defaults.status === 'active' && !isFilled(defaults.includedUsageLimitUsd)
       ? copy.editor.summaries.includedUsage
@@ -687,6 +698,7 @@ function getTierSectionSummaries(
                 : null,
               formatTemplate(copy.editor.summaries.limitsConfigured, {
                 count: configuredLimitCount,
+                total: configuredLimitTotal,
               }),
             ]),
       missing: formatMissingMessage(copy, limitMissing),
@@ -943,7 +955,15 @@ function SelectField({
 
   return (
     <FieldShell id={id} label={label} hint={hint} className={className}>
-      <Select name={name} disabled={disabled} items={options} {...selectProps}>
+      {disabled && name ? (
+        <input type='hidden' name={name} value={value ?? defaultValue ?? ''} />
+      ) : null}
+      <Select
+        name={disabled ? undefined : name}
+        disabled={disabled}
+        items={options}
+        {...selectProps}
+      >
         <SelectTrigger id={id} aria-labelledby={`${id}-label`} className={triggerClassName}>
           <SelectValue />
         </SelectTrigger>
@@ -995,6 +1015,7 @@ export function TierEditorFormSurface({
   onSectionStateChange,
   onAccessFieldChange,
   requireStripeMonthlyPriceId = false,
+  structuralIdentityLocked = false,
   isPending,
   onSubmit,
   onFormChange,
@@ -1009,6 +1030,7 @@ export function TierEditorFormSurface({
   onSectionStateChange: (sectionId: TierEditorSectionId, open: boolean) => void
   onAccessFieldChange: (field: keyof TierDerivedAccessFields, value: string) => void
   requireStripeMonthlyPriceId?: boolean
+  structuralIdentityLocked?: boolean
   isPending: boolean
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
   onFormChange: (event: FormEvent<HTMLFormElement>) => void
@@ -1016,7 +1038,7 @@ export function TierEditorFormSurface({
 }) {
   const sectionSummaries = getTierSectionSummaries(previewValues, locale, copy)
   const derivedAccessFields = normalizeTierAccessFields(previewValues)
-  const tierStatusOptions = getTierStatusOptions(copy)
+  const tierStatusOptions = getTierStatusOptions(copy, !structuralIdentityLocked)
   const tierOwnerTypeOptions = getTierOwnerTypeOptions(copy)
   const tierUsageScopeOptions = getTierUsageScopeOptions(copy)
   const tierSeatModeOptions = getTierSeatModeOptions(copy)
@@ -1070,8 +1092,6 @@ export function TierEditorFormSurface({
                     aria-labelledby='accessCode-label'
                     defaultValue={initialValues.accessCode}
                     disabled={previewValues.isPublic}
-                    minLength={16}
-                    maxLength={128}
                     autoComplete='off'
                     className='h-9'
                   />
@@ -1227,6 +1247,7 @@ export function TierEditorFormSurface({
                         aria-labelledby='stripeMonthlyPriceId-label'
                         defaultValue={initialValues.stripeMonthlyPriceId}
                         required={requireStripeMonthlyPriceId}
+                        readOnly={structuralIdentityLocked}
                       />
                     </FieldShell>
                   </div>
@@ -1270,6 +1291,7 @@ export function TierEditorFormSurface({
                         name='stripeYearlyPriceId'
                         aria-labelledby='stripeYearlyPriceId-label'
                         defaultValue={initialValues.stripeYearlyPriceId}
+                        readOnly={structuralIdentityLocked}
                       />
                     </FieldShell>
                   </div>
@@ -1290,6 +1312,7 @@ export function TierEditorFormSurface({
                       name='stripeProductId'
                       aria-labelledby='stripeProductId-label'
                       defaultValue={initialValues.stripeProductId}
+                      readOnly={structuralIdentityLocked}
                     />
                   </FieldShell>
                 </div>
@@ -1312,6 +1335,7 @@ export function TierEditorFormSurface({
                   value={derivedAccessFields.ownerType}
                   options={tierOwnerTypeOptions}
                   hint={copy.editor.access.ownerTypeHint}
+                  disabled={structuralIdentityLocked}
                   onValueChange={(value) => onAccessFieldChange('ownerType', value)}
                 />
                 <SelectField
@@ -1321,7 +1345,7 @@ export function TierEditorFormSurface({
                   value={derivedAccessFields.usageScope}
                   options={tierUsageScopeOptions}
                   hint={copy.editor.access.usageScopeHint}
-                  disabled={derivedAccessFields.ownerType === 'user'}
+                  disabled={structuralIdentityLocked || derivedAccessFields.ownerType === 'user'}
                   onValueChange={(value) => onAccessFieldChange('usageScope', value)}
                 />
                 <SelectField
@@ -1331,7 +1355,7 @@ export function TierEditorFormSurface({
                   value={derivedAccessFields.seatMode}
                   options={tierSeatModeOptions}
                   hint={copy.editor.access.seatModeHint}
-                  disabled={derivedAccessFields.ownerType === 'user'}
+                  disabled={structuralIdentityLocked || derivedAccessFields.ownerType === 'user'}
                   onValueChange={(value) => onAccessFieldChange('seatMode', value)}
                 />
                 <SwitchField
@@ -1494,9 +1518,7 @@ export function TierEditorFormSurface({
                         type='number'
                         min='5'
                         max='2147483'
-                        defaultValue={
-                          initialValues.workflowExecutionTimeLimitSeconds
-                        }
+                        defaultValue={initialValues.workflowExecutionTimeLimitSeconds}
                       />
                     </FieldShell>
                     <FieldShell

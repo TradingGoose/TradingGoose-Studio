@@ -1,5 +1,5 @@
 {
-  "id": "de172c9a-ba13-4760-a2e2-b41fce6ab509",
+  "id": "a6264ff3-b0ea-4a59-b161-885ecd4ef5b8",
   "prevId": "4de53515-486d-47b3-a97d-99bdd7f518d6",
   "version": "7",
   "dialect": "postgresql",
@@ -5106,7 +5106,7 @@
         },
         "system_billing_tier_access_code_check": {
           "name": "system_billing_tier_access_code_check",
-          "value": "\"system_billing_tier\".\"access_code\" is null or (not \"system_billing_tier\".\"is_public\" and \"system_billing_tier\".\"access_code\" = btrim(\"system_billing_tier\".\"access_code\") and length(\"system_billing_tier\".\"access_code\") between 16 and 128)"
+          "value": "\"system_billing_tier\".\"access_code\" is null or (not \"system_billing_tier\".\"is_public\" and \"system_billing_tier\".\"access_code\" = btrim(\"system_billing_tier\".\"access_code\"))"
         },
         "system_billing_tier_stripe_price_ids_distinct_check": {
           "name": "system_billing_tier_stripe_price_ids_distinct_check",
