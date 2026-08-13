@@ -1,5 +1,19 @@
-import { describe, expect, it } from 'vitest'
-import { formatDurationMs, formatFileSize, formatLocalizedNumber, formatUsd } from './formatters'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  formatDurationMs,
+  formatFileSize,
+  formatLocalizedNumber,
+  formatUsd,
+  formatWorkflowExecutionDeadline,
+} from './formatters'
+
+const deadline = {
+  appliedTierId: 'tier-pro',
+  appliedTierName: 'Pro',
+  limitSeconds: 20,
+  processingStartedAt: '2026-08-07T15:16:14.200Z',
+  terminatedAt: '2026-08-07T15:16:34.200Z',
+}
 
 describe('i18n formatters', () => {
   it('formats locale-aware numbers', () => {
@@ -23,5 +37,30 @@ describe('i18n formatters', () => {
     expect(formatDurationMs('en', 25)).toBe('25 ms')
     expect(formatDurationMs('es', 1200)).toBe('1200 ms')
     expect(formatDurationMs('en', null)).toBeNull()
+  })
+})
+
+describe('formatWorkflowExecutionDeadline', () => {
+  it('maps captured deadline values into every localized line', () => {
+    const translate = vi.fn((key: string, values?: Record<string, string | number | Date>) =>
+      values ? `${key}:${Object.values(values)[0]}` : key
+    )
+
+    expect(
+      formatWorkflowExecutionDeadline(
+        { code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED', deadline },
+        translate
+      )
+    ).toEqual({
+      title: 'title',
+      reason: 'reason',
+      limit: 'limit:20',
+      tier: 'tier:Pro',
+      text: 'title\nreason\nlimit:20\ntier:Pro',
+    })
+  })
+
+  it('ignores non-deadline results', () => {
+    expect(formatWorkflowExecutionDeadline({}, vi.fn())).toBeNull()
   })
 })

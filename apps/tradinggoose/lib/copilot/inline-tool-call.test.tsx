@@ -322,6 +322,55 @@ describe('InlineToolCall', () => {
     expect(container.textContent).not.toContain('Allow')
   })
 
+  it.each([
+    [
+      'en',
+      'Workflow execution time limit exceeded',
+      'Applied limit: 20 seconds',
+      'Applied tier: Pro',
+    ],
+    [
+      'es',
+      'Se excedió el límite de tiempo de ejecución',
+      'Límite aplicado: 20 segundos',
+      'Nivel aplicado: Pro',
+    ],
+    ['zh', '工作流执行时间已超出限制', '已应用限制：20 秒', '已应用层级：Pro'],
+  ] as const)(
+    'renders localized deadline diagnostics for run_workflow failures in %s',
+    async (locale, title, limit, tier) => {
+      await act(async () => {
+        renderLocalized(
+          {
+            id: `run-workflow-deadline-${locale}`,
+            name: 'run_workflow',
+            state: ClientToolCallState.error,
+            result: {
+              success: false,
+              output: {},
+              error: 'persisted English deadline error',
+              code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+              deadline: {
+                appliedTierId: 'tier-pro',
+                appliedTierName: 'Pro',
+                limitSeconds: 20,
+                processingStartedAt: '2026-08-07T15:16:14.200Z',
+                terminatedAt: '2026-08-07T15:16:34.200Z',
+              },
+            },
+          },
+          locale
+        )
+      })
+
+      expect(container.querySelector('[role="alert"]')).not.toBeNull()
+      expect(container.textContent).toContain(title)
+      expect(container.textContent).toContain(limit)
+      expect(container.textContent).toContain(tier)
+      expect(container.textContent).not.toContain('persisted English deadline error')
+    }
+  )
+
   it('renders entity review diffs with controls for already-staged reviews in full access', async () => {
     mockUseCopilotStoreState.accessLevel = 'full'
     mockGetToolInterruptDisplays.mockReturnValue({

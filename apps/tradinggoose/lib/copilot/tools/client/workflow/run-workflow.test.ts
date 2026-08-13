@@ -122,4 +122,42 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
     })
     expect(tool.getState()).toBe(ClientToolCallState.success)
   })
+
+  it('preserves public deadline diagnostics in the failed tool result', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    mockExecuteWorkflowWithFullLogging.mockResolvedValueOnce({
+      success: false,
+      output: {},
+      error: 'persisted English deadline error',
+      code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+      deadline: {
+        appliedTierId: 'tier-pro',
+        appliedTierName: 'Pro',
+        limitSeconds: 20,
+        processingStartedAt: '2026-08-07T15:16:14.200Z',
+        terminatedAt: '2026-08-07T15:16:34.200Z',
+      },
+      logs: [{ blockId: 'wait-1' }],
+    })
+
+    const tool = new RunWorkflowClientTool('run-workflow-deadline')
+    await tool.handleAccept({
+      entityId: 'wf-target',
+      triggerBlockId: 'manual-trigger',
+    })
+
+    expect(tool.getState()).toBe(ClientToolCallState.error)
+    const markCompleteBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(markCompleteBody.data).toMatchObject({
+      success: false,
+      code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+      deadline: { appliedTierName: 'Pro', limitSeconds: 20 },
+    })
+    expect(markCompleteBody.data).not.toHaveProperty('logs')
+  })
 })

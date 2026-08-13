@@ -12,7 +12,7 @@ import {
   Play,
 } from 'lucide-react'
 import Image from 'next/image'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { JsonDisplay, stringifyJsonDisplay } from '@/components/json-display/json-display'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -20,7 +20,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
-import { formatDurationMs } from '@/i18n/formatters'
+import { formatDurationMs, formatWorkflowExecutionDeadline } from '@/i18n/formatters'
 import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
 import type { ConsoleEntry as ConsoleEntryType } from '@/stores/console/types'
 import { CodeDisplay } from '../../../code-display/code-display'
@@ -189,6 +189,7 @@ export function OutputPanel({
 }: OutputPanelProps) {
   const copy = useWorkflowConsoleMessages()
   const locale = useLocale()
+  const tDeadline = useTranslations('workspace.logs.details.deadline')
   const [isExpanded, setIsExpanded] = useState(true)
   const [showCopySuccess, setShowCopySuccess] = useState(false)
   const [localShowInput, setLocalShowInput] = useState(false) // State for input/output toggle
@@ -201,6 +202,9 @@ export function OutputPanel({
   const setShowInput = detailState ? detailState.setShowInput : setLocalShowInput
   const structuredView = detailState?.structuredView ?? true
   const wrapText = detailState?.wrapText ?? true
+  const displayError = useMemo(() => {
+    return formatWorkflowExecutionDeadline(entry, tDeadline)?.text ?? entry.error
+  }, [entry.code, entry.deadline, entry.error, tDeadline])
 
   // Check if entry has audio data
   const hasAudio = useMemo(() => {
@@ -234,9 +238,9 @@ export function OutputPanel({
   // Get the data to display based on the toggle state
   const displayData = useMemo(() => {
     if (showInput) return entry.input
-    if (entry.error) return entry.error
+    if (displayError) return displayError
     return entry.output
-  }, [showInput, entry.input, entry.output, entry.error])
+  }, [showInput, entry.input, entry.output, displayError])
 
   // Check if input data exists
   const hasInputData = useMemo(() => {
@@ -534,7 +538,7 @@ export function OutputPanel({
         {entry.error && !showInput && !isDetailView && (
           <div className='rounded-lg bg-[#F6D2D2] p-3 dark:bg-[#442929]'>
             <div className='overflow-hidden whitespace-pre-wrap break-all font-normal text-[#DC2626] text-sm leading-normal dark:text-[#F87171]'>
-              {entry.error}
+              {displayError}
             </div>
           </div>
         )}

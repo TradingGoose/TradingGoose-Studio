@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, ChevronDown, LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Button,
   DropdownMenu,
@@ -32,6 +33,7 @@ import {
 } from '@/app/workspace/[workspaceId]/components/use-keyboard-shortcuts'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
+import { formatWorkflowExecutionDeadline } from '@/i18n/formatters'
 import { formatTemplate } from '@/i18n/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import {
@@ -97,6 +99,7 @@ export function ControlBar({
   variant = 'widget',
 }: ControlBarProps) {
   const copy = useWorkflowEditorCopy()
+  const tDeadline = useTranslations('workspace.logs.details.deadline')
   const { data: session } = useSession()
   const { workflowId, channelId } = useWorkflowRoute()
   const activeWorkflowId = workflowId
@@ -111,6 +114,11 @@ export function ControlBar({
   } = useWorkflowExecution()
   const executionFeedbackId = useId()
   const hasExecutionFeedback = manualRunFeedback.state !== 'idle'
+  const manualRunError =
+    manualRunFeedback.state === 'error'
+      ? (formatWorkflowExecutionDeadline(manualRunFeedback.result, tDeadline)?.text ??
+        manualRunFeedback.result.error)
+      : undefined
 
   // User permissions - use stable activeWorkspaceId from registry instead of deriving from currentWorkflow
   const userPermissions = useUserPermissionsContext()
@@ -624,7 +632,9 @@ export function ControlBar({
           aria-atomic='true'
           className='absolute top-full right-0 z-50 mt-1 max-w-72 rounded-md border border-destructive/30 bg-popover p-2 text-destructive text-xs shadow-md'
         >
-          {formatTemplate(copy.controlBar.workflowFailed, { error: manualRunFeedback.message })}
+          {formatTemplate(copy.controlBar.workflowFailed, {
+            error: manualRunError ?? manualRunFeedback.result.error,
+          })}
         </p>
       ) : null}
     </div>

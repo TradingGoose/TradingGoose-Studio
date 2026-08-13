@@ -8,6 +8,7 @@ import {
 import { executeWorkflowWithFullLogging } from '@/lib/copilot/tools/client/workflow/workflow-execution-utils'
 import { requireCopilotEntityId } from '@/lib/copilot/tools/entity-target'
 import { createLogger } from '@/lib/logs/console/logger'
+import { createPublicExecutionResult } from '@/lib/workflows/execution-result'
 import { useExecutionStore } from '@/stores/execution/store'
 
 interface RunWorkflowArgs {
@@ -126,43 +127,21 @@ export class RunWorkflowClientTool extends BaseClientTool {
           workflowId: activeWorkflowId,
           triggerBlockId: params.triggerBlockId,
         })
+        const publicResult = createPublicExecutionResult(result)
 
-        // Determine success for both non-streaming and streaming executions
-        let succeeded = true
-        let errorMessage: string | undefined
-        try {
-          if (result && typeof result === 'object' && 'success' in (result as any)) {
-            succeeded = Boolean((result as any).success)
-            if (!succeeded) {
-              errorMessage = (result as any)?.error || (result as any)?.output?.error
-            }
-          } else if (
-            result &&
-            typeof result === 'object' &&
-            'execution' in (result as any) &&
-            (result as any).execution &&
-            typeof (result as any).execution === 'object'
-          ) {
-            succeeded = Boolean((result as any).execution.success)
-            if (!succeeded) {
-              errorMessage =
-                (result as any).execution?.error || (result as any).execution?.output?.error
-            }
-          }
-        } catch {}
-
-        if (succeeded) {
+        if (result.success) {
           logger.debug('Workflow execution finished with success')
-          this.setState(ClientToolCallState.success)
+          this.setState(ClientToolCallState.success, { result: publicResult })
           await this.markToolComplete(
             200,
-            `Workflow execution completed. Started at: ${executionStartTime}`
+            `Workflow execution completed. Started at: ${executionStartTime}`,
+            publicResult
           )
         } else {
-          const msg = errorMessage || 'Workflow execution failed'
+          const msg = result.error || 'Workflow execution failed'
           logger.error('Workflow execution finished with failure', { message: msg })
-          this.setState(ClientToolCallState.error)
-          await this.markToolComplete(500, msg)
+          this.setState(ClientToolCallState.error, { result: publicResult })
+          await this.markToolComplete(500, msg, publicResult)
         }
       } catch (error: any) {
         const message = error instanceof Error ? error.message : String(error)

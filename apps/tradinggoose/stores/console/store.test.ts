@@ -500,6 +500,30 @@ describe('Console Store', () => {
               processingStartedAt: '2026-08-07T15:16:14.200Z',
               terminatedAt: '2026-08-07T15:16:34.200Z',
             },
+            logs: [
+              {
+                blockId: 'wait-1',
+                blockName: 'Wait',
+                blockType: 'wait',
+                startedAt: '2026-08-07T15:16:14.200Z',
+                endedAt: '2026-08-07T15:16:34.200Z',
+                durationMs: 20_000,
+                success: false,
+                error: deadlineError,
+                code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+              },
+              {
+                blockId: 'wait-1b',
+                blockName: 'Wait',
+                blockType: 'wait',
+                startedAt: '2026-08-07T15:16:14.200Z',
+                endedAt: '2026-08-07T15:16:34.200Z',
+                durationMs: 20_000,
+                success: false,
+                error: deadlineError,
+                code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+              },
+            ],
           },
         },
       })
@@ -566,6 +590,7 @@ describe('Console Store', () => {
               processingStartedAt: '2026-08-07T15:16:14.200Z',
               terminatedAt: '2026-08-07T15:16:34.200Z',
             },
+            logs: [],
           },
         },
       }
@@ -606,6 +631,80 @@ describe('Console Store', () => {
       })
     })
 
+    it('rebuilds durable block history from a terminal-only deadline replay', () => {
+      const store = useConsoleStore.getState()
+      const deadlineError =
+        'Workflow execution stopped because it reached the 20-second Workflow Execution Time Limit for the "Pro" tier.'
+      const event = {
+        executionId: 'exec-replayed-deadline',
+        workflowId: 'workflow-1',
+        timestamp: '2026-08-07T15:16:35.000Z',
+        type: 'execution:error' as const,
+        data: {
+          error: deadlineError,
+          result: {
+            success: false,
+            output: {},
+            error: deadlineError,
+            code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+            deadline: {
+              appliedTierId: 'tier-pro',
+              appliedTierName: 'Pro',
+              limitSeconds: 20,
+              processingStartedAt: '2026-08-07T15:16:14.200Z',
+              terminatedAt: '2026-08-07T15:16:34.200Z',
+            },
+            logs: [
+              {
+                blockId: 'api-1',
+                blockName: 'API',
+                blockType: 'api',
+                startedAt: '2026-08-07T15:16:14.200Z',
+                endedAt: '2026-08-07T15:16:15.200Z',
+                durationMs: 1_000,
+                success: true,
+              },
+              {
+                blockId: 'wait-1',
+                blockName: 'Wait',
+                blockType: 'wait',
+                startedAt: '2026-08-07T15:16:15.200Z',
+                endedAt: '2026-08-07T15:16:34.200Z',
+                durationMs: 19_000,
+                success: false,
+                error: deadlineError,
+                code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+              },
+            ],
+          },
+        },
+      }
+
+      store.ingestWorkflowExecutionEvent(event)
+      store.ingestWorkflowExecutionEvent(event)
+
+      const entries = useConsoleStore
+        .getState()
+        .entries.filter((entry) => entry.executionId === 'exec-replayed-deadline')
+      expect(entries).toHaveLength(2)
+      expect(entries).toEqual([
+        expect.objectContaining({
+          blockId: 'api-1',
+          success: true,
+          endedAt: '2026-08-07T15:16:15.200Z',
+          durationMs: 1_000,
+        }),
+        expect.objectContaining({
+          blockId: 'wait-1',
+          success: false,
+          code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+          deadline: expect.objectContaining({ appliedTierName: 'Pro', limitSeconds: 20 }),
+          endedAt: '2026-08-07T15:16:34.200Z',
+          durationMs: 19_000,
+        }),
+      ])
+    })
+
     it('adds a deadline failure entry when prior blocks completed successfully', () => {
       const store = useConsoleStore.getState()
       const deadlineError =
@@ -643,6 +742,17 @@ describe('Console Store', () => {
               processingStartedAt: '2026-08-07T15:16:14.200Z',
               terminatedAt: '2026-08-07T15:16:34.200Z',
             },
+            logs: [
+              {
+                blockId: 'api-1',
+                blockName: 'API',
+                blockType: 'api',
+                startedAt: '2026-08-07T15:16:14.200Z',
+                endedAt: '2026-08-07T15:16:15.200Z',
+                durationMs: 1_000,
+                success: true,
+              },
+            ],
           },
         },
       })

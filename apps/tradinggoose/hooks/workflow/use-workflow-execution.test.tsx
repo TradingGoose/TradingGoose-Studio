@@ -499,7 +499,10 @@ describe('useWorkflowExecution', () => {
     {
       label: 'failure',
       result: { success: false, output: {}, error: 'Driver failed', logs: [] },
-      expected: { state: 'error', message: 'Driver failed' },
+      expected: {
+        state: 'error',
+        result: { error: 'Driver failed', code: undefined, deadline: undefined },
+      },
     },
   ])(
     'does not restore settled $label feedback after workflow navigation',

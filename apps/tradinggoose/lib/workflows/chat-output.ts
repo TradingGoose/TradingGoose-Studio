@@ -9,7 +9,7 @@ import type { BlockLog, ExecutionResult } from '@/executor/types'
 
 type ChatOutputEvent =
   | { type: 'content'; blockId: string; content: string }
-  | { type: 'error'; blockId: string; message: string }
+  | { type: 'error'; blockId: string; message: string; result?: ExecutionResult }
   | { type: 'final'; success: boolean; result: ExecutionResult }
 
 function formatChatOutputContent(value: unknown) {
@@ -136,11 +136,13 @@ export function createChatOutputEventReader(selectedOutputs: string[]) {
       }
 
       if (event.type === 'execution:error') {
+        const result = isExecutionResult(event.data.result) ? event.data.result : undefined
         return [
           {
             type: 'error',
             blockId: 'workflow',
             message: event.data.error || 'Workflow execution failed',
+            result,
           },
         ]
       }

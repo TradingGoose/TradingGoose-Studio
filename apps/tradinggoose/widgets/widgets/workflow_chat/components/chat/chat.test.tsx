@@ -266,4 +266,35 @@ describe('Workflow Chat', () => {
       })
     )
   })
+
+  it('renders returned deadline failures from structured localized diagnostics', async () => {
+    mockHandleRunWorkflow.mockImplementationOnce((request) => {
+      request.onAdmitted()
+      return Promise.resolve({
+        success: false,
+        output: {},
+        error: 'persisted English deadline error',
+        code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+        deadline: {
+          appliedTierId: 'tier-pro',
+          appliedTierName: 'Pro',
+          limitSeconds: 20,
+          processingStartedAt: '2026-08-07T15:16:14.200Z',
+          terminatedAt: '2026-08-07T15:16:34.200Z',
+        },
+        logs: [],
+      })
+    })
+
+    await renderChat()
+    await submitMessage()
+
+    const workflowMessage = useChatStore
+      .getState()
+      .messages.find((message) => message.type === 'workflow')
+    expect(workflowMessage?.content).toContain('Workflow execution time limit exceeded')
+    expect(workflowMessage?.content).toContain('Applied limit: 20 seconds')
+    expect(workflowMessage?.content).toContain('Applied tier: Pro')
+    expect(workflowMessage?.content).not.toContain('persisted English deadline error')
+  })
 })

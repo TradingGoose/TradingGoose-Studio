@@ -2,15 +2,16 @@
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, File, FileText, Image, Paperclip, Send, X } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
+import type { ExecutionResult } from '@/executor/types'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
-import { formatFileSize } from '@/i18n/formatters'
+import { formatFileSize, formatWorkflowExecutionDeadline } from '@/i18n/formatters'
 import { formatTemplate } from '@/i18n/utils'
 import { useWorkflowChatMessages } from '@/i18n/workspace-widget-hooks'
 import { useChatStore } from '@/stores/chat/store'
@@ -38,6 +39,7 @@ interface ChatProps {
 export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: ChatProps) {
   const copy = useWorkflowChatMessages()
   const locale = useLocale()
+  const tDeadline = useTranslations('workspace.logs.details.deadline')
   const { workflowId: currentWorkflowId } = useWorkflowRoute()
 
   const { messages, addMessage, selectedWorkflowOutputs, getConversationId } = useChatStore()
@@ -219,16 +221,21 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
         blockId,
       })
     }
-    const appendStreamError = (message: string, blockId = 'workflow') => {
+    const appendStreamError = (
+      message: string,
+      blockId = 'workflow',
+      result?: Pick<ExecutionResult, 'code' | 'deadline'>
+    ) => {
       if (streamState.errorShown) return
       streamState.errorShown = true
       const prefix = streamState.content ? '\n\n' : ''
-      appendStreamContent(`${prefix}${copy.errorPrefix}${message}`, blockId)
+      const displayMessage = formatWorkflowExecutionDeadline(result, tDeadline)?.text ?? message
+      appendStreamContent(`${prefix}${copy.errorPrefix}${displayMessage}`, blockId)
     }
     const appendOutputEvents = (events: ReturnType<typeof outputReader.readEvent>) => {
       for (const event of events) {
         if (event.type === 'content') appendStreamContent(event.content, event.blockId)
-        if (event.type === 'error') appendStreamError(event.message, event.blockId)
+        if (event.type === 'error') appendStreamError(event.message, event.blockId, event.result)
       }
     }
 
@@ -318,7 +325,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
     if (streamState.content) {
       if (result && !result.success && !streamState.errorShown) {
-        appendStreamError(result.error ?? copy.workflowExecutionFailed)
+        appendStreamError(result.error ?? copy.workflowExecutionFailed, 'workflow', result)
       }
       addMessage({
         content: streamState.content,
@@ -329,7 +336,11 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       setStreamingMessage(null)
     } else if (result && !result.success) {
       addMessage({
-        content: `${copy.errorPrefix}${result.error ?? copy.workflowExecutionFailed}`,
+        content: `${copy.errorPrefix}${
+          formatWorkflowExecutionDeadline(result, tDeadline)?.text ??
+          result.error ??
+          copy.workflowExecutionFailed
+        }`,
         workflowId: currentWorkflowId,
         type: 'workflow',
         isExecutionFailure: true,
@@ -352,6 +363,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     setChatMessage,
     setChatFiles,
     setUploadErrors,
+    tDeadline,
   ])
 
   // Handle key press

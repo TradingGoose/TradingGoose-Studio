@@ -15,6 +15,7 @@ import LineChart, {
   type LineChartPoint,
 } from '@/app/workspace/[workspaceId]/records/components/stats/components/line-chart'
 import { extractOutput, formatDate } from '@/app/workspace/[workspaceId]/records/utils'
+import { formatWorkflowExecutionDeadline } from '@/i18n/formatters'
 import { useRouter } from '@/i18n/navigation'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -38,7 +39,16 @@ const readWorkflowLogOutputText = (log: WorkflowLog) => {
   return typeof output === 'string' ? output : JSON.stringify(output)
 }
 
-const readWorkflowLogErrorText = (log: WorkflowLog) => {
+const readWorkflowLogErrorText = (
+  log: WorkflowLog,
+  formatDeadline: (
+    key: 'title' | 'reason' | 'limit' | 'tier',
+    values?: Record<string, string | number | Date>
+  ) => string
+) => {
+  const deadlineDisplay = formatWorkflowExecutionDeadline(log.executionData?.result, formatDeadline)
+  if (deadlineDisplay) return deadlineDisplay.text
+
   if (log.executionData?.errorMessage) return log.executionData.errorMessage
 
   const blockExecutions = Array.isArray(log.executionData?.blockExecutions)
@@ -90,6 +100,7 @@ export function WorkflowDetails({
   const tDashboard = useTranslations('workspace.logs.dashboard')
   const t = useTranslations('workspace.logs.dashboard.workflows')
   const tFilters = useTranslations('workspace.logs.dashboard.filters')
+  const tDeadline = useTranslations('workspace.logs.details.deadline')
   const { workflows } = useWorkflowRegistry()
   const workflowColor = useMemo(
     () => workflows[expandedWorkflowId]?.color || '#3972F6',
@@ -365,7 +376,7 @@ export function WorkflowDetails({
                           ? formatDate(logDate.toISOString(), locale)
                           : ({ compactDate: '—', compactTime: '' } as any)
                       const outputsStr = readWorkflowLogOutputText(log)
-                      const errorStr = readWorkflowLogErrorText(log) || ''
+                      const errorStr = readWorkflowLogErrorText(log, tDeadline) || ''
                       const isExpanded = expandedRowId === log.id
                       const levelOption = getLogLevelOption(log.level)
                       const triggerOption = getLogTriggerOption(log.trigger)

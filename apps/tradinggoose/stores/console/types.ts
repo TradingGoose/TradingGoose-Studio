@@ -1,5 +1,5 @@
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
-import type { NormalizedBlockOutput } from '@/executor/types'
+import type { ExecutionResult, NormalizedBlockOutput } from '@/executor/types'
 
 export interface ConsoleEntry {
   id: string
@@ -16,6 +16,8 @@ export interface ConsoleEntry {
   output?: NormalizedBlockOutput
   input?: any
   error?: string
+  code?: ExecutionResult['code']
+  deadline?: ExecutionResult['deadline']
   warning?: string
   // Iteration context for loops and parallels
   iterationCurrent?: number

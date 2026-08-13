@@ -1,8 +1,31 @@
+import { WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED } from '@/lib/execution/workflow-execution-time-policy'
+import type { ExecutionResult } from '@/executor/types'
 import type { LocaleCode } from './utils'
 
 type FileSizeOptions = {
   fallback?: string
   maximumFractionDigits?: number
+}
+
+type DeadlineTranslator = (
+  key: 'title' | 'reason' | 'limit' | 'tier',
+  values?: Record<string, string | number | Date>
+) => string
+
+export function formatWorkflowExecutionDeadline(
+  result: Pick<ExecutionResult, 'code' | 'deadline'> | null | undefined,
+  translate: DeadlineTranslator
+) {
+  if (result?.code !== WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED || !result.deadline) {
+    return null
+  }
+
+  const title = translate('title')
+  const reason = translate('reason')
+  const limit = translate('limit', { seconds: result.deadline.limitSeconds })
+  const tier = translate('tier', { tierName: result.deadline.appliedTierName })
+
+  return { title, reason, limit, tier, text: [title, reason, limit, tier].join('\n') }
 }
 
 const FILE_SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const
@@ -53,7 +76,10 @@ export function formatFileSize(
   })} ${FILE_SIZE_UNITS[unitIndex]}`
 }
 
-export function formatDurationMs(locale: LocaleCode | string, durationMs: number | null | undefined) {
+export function formatDurationMs(
+  locale: LocaleCode | string,
+  durationMs: number | null | undefined
+) {
   if (durationMs === null || durationMs === undefined || !Number.isFinite(durationMs)) {
     return null
   }

@@ -31,7 +31,10 @@ type ActiveWorkflowExecution = {
 
 type ManualRunFeedback =
   | { state: 'idle' | 'running' | 'success' }
-  | { state: 'error'; message: string }
+  | {
+      state: 'error'
+      result: Pick<ExecutionResult, 'code' | 'deadline'> & { error: string }
+    }
 
 type ManualFeedbackPresenter = {
   owner: symbol
@@ -422,7 +425,11 @@ export function useWorkflowExecution() {
     } else if (manualRunResult) {
       manualRunFeedback = {
         state: 'error',
-        message: manualRunResult.error || WORKFLOW_EXECUTION_FAILURE_MESSAGE,
+        result: {
+          error: manualRunResult.error || WORKFLOW_EXECUTION_FAILURE_MESSAGE,
+          code: manualRunResult.code,
+          deadline: manualRunResult.deadline,
+        },
       }
     }
   }

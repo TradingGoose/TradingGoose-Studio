@@ -14,6 +14,7 @@ import { getClientTool } from '@/lib/copilot/tools/client/manager'
 import { getListingIdentityKey, getListingIdentitySymbol } from '@/lib/listing/identity'
 import type { WatchlistDocumentInputContent, WatchlistSettings } from '@/lib/watchlists/types'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
+import { formatWorkflowExecutionDeadline } from '@/i18n/formatters'
 import { useCopilotStore } from '@/stores/copilot/store'
 import {
   getCopilotToolMetadata,
@@ -669,6 +670,7 @@ export function InlineToolCall({
 }: InlineToolCallProps) {
   const dashboardPreviewCopy = useMessages().workspace.dashboard.layoutPreview
   const tReview = useTranslations('workspace.widgets.copilot.review')
+  const tDeadline = useTranslations('workspace.logs.details.deadline')
   const [, forceUpdate] = useState({})
   const liveToolCall = useCopilotStore((s) =>
     toolCallId ? s.toolCallsById[toolCallId] : undefined
@@ -701,6 +703,10 @@ export function InlineToolCall({
 
   const displayName = getDisplayName(toolCall)
   const failureDetails = readToolFailureDetails(toolCall)
+  const workflowDeadline =
+    toolCall.name === 'run_workflow' && toolCall.state === ClientToolCallState.error
+      ? formatWorkflowExecutionDeadline(toolCall.result, tDeadline)
+      : null
   const params = toolCall.params ?? {}
   const dashboardLayoutReviewPayload = readDashboardLayoutVisualReviewPayload(toolCall)
   const watchlistReviewPayload = readWatchlistVisualReviewPayload(toolCall)
@@ -893,6 +899,11 @@ export function InlineToolCall({
           </Button>
         ) : null}
       </div>
+      {workflowDeadline ? (
+        <div className='whitespace-pre-line px-5 text-destructive text-xs'>
+          {workflowDeadline.text}
+        </div>
+      ) : null}
       {failureDetails ? (
         <div className='space-y-1 px-5 text-destructive text-xs'>
           {failureDetails.issues.length > 0 ? (

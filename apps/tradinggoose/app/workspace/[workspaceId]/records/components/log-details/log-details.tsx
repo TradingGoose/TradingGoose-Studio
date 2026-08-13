@@ -16,7 +16,11 @@ import {
   formatDate,
   getTraceSpanDisplayCostMultiplier,
 } from '@/app/workspace/[workspaceId]/records/utils'
-import { formatDurationMs, formatFileSize } from '@/i18n/formatters'
+import {
+  formatDurationMs,
+  formatFileSize,
+  formatWorkflowExecutionDeadline,
+} from '@/i18n/formatters'
 import { formatCost } from '@/providers/ai/utils'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
@@ -57,6 +61,10 @@ export function LogDetails({
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const locale = useLocale()
   const t = useTranslations('workspace.logs.details')
+  const deadlineDisplay = formatWorkflowExecutionDeadline(
+    log?.executionData?.result,
+    (key, values) => t(`deadline.${key}`, values)
+  )
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -285,14 +293,24 @@ export function LogDetails({
                 </div>
               </div>
 
-              {log.executionData?.errorMessage && (
+              {deadlineDisplay ? (
+                <div
+                  className='space-y-1 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive text-sm'
+                  role='alert'
+                >
+                  <div className='font-medium'>{deadlineDisplay.title}</div>
+                  <div>{deadlineDisplay.reason}</div>
+                  <div>{deadlineDisplay.limit}</div>
+                  <div>{deadlineDisplay.tier}</div>
+                </div>
+              ) : log.executionData?.errorMessage ? (
                 <div
                   className='rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive text-sm'
                   role='alert'
                 >
                   {log.executionData.errorMessage}
                 </div>
-              )}
+              ) : null}
 
               {/* Workflow State */}
               {isWorkflowExecutionLog && log.executionId && (

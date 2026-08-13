@@ -12,7 +12,20 @@ const mocks = vi.hoisted(() => ({
   deployProps: null as Record<string, unknown> | null,
   manualRunFeedback: { state: 'idle' } as
     | { state: 'idle' | 'running' | 'success' }
-    | { state: 'error'; message: string },
+    | {
+        state: 'error'
+        result: {
+          error: string
+          code?: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED'
+          deadline?: {
+            appliedTierId: string
+            appliedTierName: string
+            limitSeconds: number
+            processingStartedAt: string
+            terminatedAt: string
+          }
+        }
+      },
   run: vi.fn(),
   shortcut: null as { handler: () => void; disabled: boolean } | null,
 }))
@@ -120,10 +133,36 @@ it('uses the session gate for mutations while keeping cancellation available', a
   await render()
   expect(container.querySelectorAll('[role="status"]')).toHaveLength(1)
 
-  mocks.manualRunFeedback = { state: 'error', message: 'Driver failed' }
+  mocks.manualRunFeedback = { state: 'error', result: { error: 'Driver failed' } }
   await render()
   expect(container.querySelector('[role="status"]')).toBeNull()
   expect(container.querySelector('[role="alert"]')?.textContent).toContain('Driver failed')
+
+  mocks.manualRunFeedback = {
+    state: 'error',
+    result: {
+      error: 'persisted English deadline error',
+      code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
+      deadline: {
+        appliedTierId: 'tier-pro',
+        appliedTierName: 'Pro',
+        limitSeconds: 20,
+        processingStartedAt: '2026-08-07T15:16:14.200Z',
+        terminatedAt: '2026-08-07T15:16:34.200Z',
+      },
+    },
+  }
+  await render()
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+    'Workflow execution time limit exceeded'
+  )
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+    'Applied limit: 20 seconds'
+  )
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('Applied tier: Pro')
+  expect(container.querySelector('[role="alert"]')?.textContent).not.toContain(
+    'persisted English deadline error'
+  )
 
   mocks.manualRunFeedback = { state: 'idle' }
   await render()
