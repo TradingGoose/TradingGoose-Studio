@@ -8,11 +8,6 @@ import { organizationKeys } from '@/hooks/queries/organization'
 import { resolveOrganizationUpgradeReference } from './upgrade-target'
 
 const logger = createLogger('SubscriptionUpgrade')
-const ENTITLED_SUBSCRIPTION_STATUSES = [
-  ...BILLING_ACTIVE_SUBSCRIPTION_STATUSES,
-  'past_due',
-] as const
-
 export interface BillingUpgradeTarget {
   billingTierId: string
   displayName: string
@@ -84,8 +79,8 @@ export function useSubscriptionUpgrade() {
 
       const existingStripeSubscriptionId = subscriptions.find(
         (subscription: any) =>
-          ENTITLED_SUBSCRIPTION_STATUSES.includes(
-            subscription.status as (typeof ENTITLED_SUBSCRIPTION_STATUSES)[number]
+          BILLING_ACTIVE_SUBSCRIPTION_STATUSES.includes(
+            subscription.status as (typeof BILLING_ACTIVE_SUBSCRIPTION_STATUSES)[number]
           ) &&
           subscription.referenceId === referenceId &&
           subscription.referenceType === targetTier.ownerType

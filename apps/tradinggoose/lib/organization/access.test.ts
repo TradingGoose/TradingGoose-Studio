@@ -12,41 +12,19 @@ describe('getOrganizationAccessState', () => {
     ).toMatchObject({
       canCreateOrganization: false,
       canOpenTeamSettings: false,
-      requiresOrganizationUpgrade: false,
     })
   })
 
-  it('shows team settings as an upgrade entry point when billing is enabled', () => {
+  it('allows a bare organization shell when billing is enabled', () => {
     expect(
       getOrganizationAccessState({
         billingEnabled: true,
         hasOrganization: false,
         isOrganizationAdmin: false,
-        userTier: {
-          ownerType: 'user',
-        },
-      })
-    ).toMatchObject({
-      canCreateOrganization: false,
-      canOpenTeamSettings: true,
-      requiresOrganizationUpgrade: true,
-    })
-  })
-
-  it('allows organization creation for organization-capable personal tiers', () => {
-    expect(
-      getOrganizationAccessState({
-        billingEnabled: true,
-        hasOrganization: false,
-        isOrganizationAdmin: false,
-        userTier: {
-          ownerType: 'organization',
-        },
       })
     ).toMatchObject({
       canCreateOrganization: true,
       canOpenTeamSettings: true,
-      requiresOrganizationUpgrade: false,
     })
   })
 

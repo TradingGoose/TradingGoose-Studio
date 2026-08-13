@@ -29,10 +29,7 @@ import {
 } from '@/components/emails/render-email'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
-import {
-  ensureDefaultUserSubscription,
-  getEffectiveSubscription,
-} from '@/lib/billing/core/subscription'
+import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
 import { handleNewUser } from '@/lib/billing/core/usage'
 import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
@@ -1789,9 +1786,8 @@ export const auth = betterAuth({
     }),
     organization({
       allowUserToCreateOrganization: async (user) => {
-        const [{ billingEnabled }, personalSubscription, memberships] = await Promise.all([
+        const [{ billingEnabled }, memberships] = await Promise.all([
           getBillingGateState(),
-          getEffectiveSubscription(user.id),
           db
             .select({ id: schema.member.id })
             .from(schema.member)
@@ -1803,7 +1799,6 @@ export const auth = betterAuth({
           billingEnabled,
           hasOrganization: memberships.length > 0,
           isOrganizationAdmin: false,
-          userTier: personalSubscription?.tier,
         }).canCreateOrganization
       },
       // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow

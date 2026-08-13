@@ -1,9 +1,11 @@
 import { toNextJsHandler } from 'better-auth/next-js'
 import { auth, getSession } from '@/lib/auth'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
+import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
 import { hasPrivateBillingTierAccess } from '@/lib/billing/private-tier-access'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { ensurePlanChangePortalConfiguration } from '@/lib/billing/stripe-portal'
+import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { getBillingTierById } from '@/lib/billing/tiers'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
 import {
@@ -61,6 +63,8 @@ async function authorizeSubscriptionUpgrade(request: Request): Promise<Response 
     .catch(() => null)
   const billingTierId = body && typeof body.plan === 'string' ? body.plan.trim() : ''
   const referenceId = body && typeof body.referenceId === 'string' ? body.referenceId.trim() : ''
+  const requestedSubscriptionId =
+    body && typeof body.subscriptionId === 'string' ? body.subscriptionId.trim() : ''
   const customerType =
     body && (body.customerType === 'user' || body.customerType === 'organization')
       ? body.customerType
@@ -96,10 +100,36 @@ async function authorizeSubscriptionUpgrade(request: Request): Promise<Response 
     return Response.json({ error: 'Billing tier is unavailable' }, { status: 403 })
   }
 
-  try {
-    await ensurePlanChangePortalConfiguration(requireStripeClient())
-  } catch {
-    return Response.json({ error: 'Stripe Billing Portal is unavailable' }, { status: 503 })
+  const existingSubscription = await getActiveSubscriptionForReference({
+    referenceType: tier.ownerType,
+    referenceId,
+  })
+  if (
+    requestedSubscriptionId &&
+    requestedSubscriptionId !== existingSubscription?.stripeSubscriptionId
+  ) {
+    return Response.json(
+      { error: 'Subscription does not match the billing subject' },
+      { status: 403 }
+    )
+  }
+  const activeStripeSubscription =
+    existingSubscription?.stripeSubscriptionId &&
+    BILLING_ACTIVE_SUBSCRIPTION_STATUSES.includes(
+      existingSubscription.status as (typeof BILLING_ACTIVE_SUBSCRIPTION_STATUSES)[number]
+    )
+  if (existingSubscription?.stripeSubscriptionId && !activeStripeSubscription) {
+    return Response.json(
+      { error: 'Resolve the current subscription before changing plans' },
+      { status: 409 }
+    )
+  }
+  if (activeStripeSubscription) {
+    try {
+      await ensurePlanChangePortalConfiguration(requireStripeClient())
+    } catch {
+      return Response.json({ error: 'Stripe Billing Portal is unavailable' }, { status: 503 })
+    }
   }
 
   return null

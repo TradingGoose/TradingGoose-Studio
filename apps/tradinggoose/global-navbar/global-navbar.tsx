@@ -115,7 +115,6 @@ export function GlobalNavbar({
     billingEnabled,
     hasOrganization,
     isOrganizationAdmin: userRole === 'owner' || userRole === 'admin',
-    userTier: organizationsData?.billingData?.data?.tier,
   })
   const canOpenTeamSettings = organizationAccess.canOpenTeamSettings
   const [activeSettingsSection, setActiveSettingsSection] =

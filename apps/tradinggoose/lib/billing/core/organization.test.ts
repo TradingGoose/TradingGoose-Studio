@@ -384,4 +384,25 @@ describe('getOrganizationBillingData', () => {
     expect(result?.totalUsageLimit).toBe(Number.MAX_SAFE_INTEGER)
     expect(result?.billingBlocked).toBe(false)
   })
+
+  it('returns an unsubscribed organization projection when billing is enabled', async () => {
+    mockGetOrganizationSubscription.mockResolvedValueOnce(null)
+    mockDb.select
+      .mockImplementationOnce(() =>
+        createSelectQueryMock([{ id: 'org_123', name: 'Trading Goose' }])
+      )
+      .mockImplementationOnce(() => createSelectQueryMock([{ id: 'org_123' }]))
+      .mockImplementationOnce(() => createSelectQueryMock([createOrganizationLedgerRow()]))
+      .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+      .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+
+    const { getOrganizationBillingData } = await import('./organization')
+    const result = await getOrganizationBillingData('org_123')
+
+    expect(result).toMatchObject({
+      subscriptionTier: null,
+      subscriptionStatus: null,
+      totalUsageLimit: 0,
+    })
+  })
 })

@@ -11,6 +11,7 @@ const {
   mockIsSignInOAuthProviderId,
   mockGetSession,
   mockGetBillingTierById,
+  mockGetActiveSubscriptionForReference,
   mockHasPrivateBillingTierAccess,
   mockAuthorizeSubscriptionReference,
   mockEnsurePlanChangePortalConfiguration,
@@ -23,6 +24,7 @@ const {
   ),
   mockGetSession: vi.fn(),
   mockGetBillingTierById: vi.fn(),
+  mockGetActiveSubscriptionForReference: vi.fn(),
   mockHasPrivateBillingTierAccess: vi.fn(),
   mockAuthorizeSubscriptionReference: vi.fn(),
   mockEnsurePlanChangePortalConfiguration: vi.fn(),
@@ -44,6 +46,11 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/billing/private-tier-access', () => ({
   hasPrivateBillingTierAccess: (...args: unknown[]) => mockHasPrivateBillingTierAccess(...args),
+}))
+
+vi.mock('@/lib/billing/core/subscription', () => ({
+  getActiveSubscriptionForReference: (...args: unknown[]) =>
+    mockGetActiveSubscriptionForReference(...args),
 }))
 
 vi.mock('@/lib/billing/authorization', () => ({
@@ -84,6 +91,7 @@ describe('/api/auth/[...all] route', () => {
     mockLoadSystemOAuthClientCredentials.mockResolvedValue({})
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockHasPrivateBillingTierAccess.mockResolvedValue(false)
+    mockGetActiveSubscriptionForReference.mockResolvedValue(null)
     mockAuthorizeSubscriptionReference.mockResolvedValue(true)
     mockEnsurePlanChangePortalConfiguration.mockResolvedValue('bpc_default')
     mockRunWithSystemOAuthClientCredentials.mockImplementation(async (callback: () => Response) =>
@@ -122,8 +130,11 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
   })
 
-  it('delegates upgrades to active public tiers', async () => {
+  it('starts first-subscription Checkout without requiring a Billing Portal configuration', async () => {
     mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+    mockEnsurePlanChangePortalConfiguration.mockRejectedValue(
+      new Error('Stripe Billing Portal is not configured')
+    )
     mockGetBillingTierById.mockResolvedValue({
       id: 'public-tier',
       status: 'active',
@@ -146,7 +157,99 @@ describe('/api/auth/[...all] route', () => {
     expect(response.status).toBe(204)
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
     expect(mockHasPrivateBillingTierAccess).not.toHaveBeenCalled()
+    expect(mockEnsurePlanChangePortalConfiguration).not.toHaveBeenCalled()
+  })
+
+  it('requires the plan-change Portal catalog for the subject existing subscription', async () => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+    mockGetActiveSubscriptionForReference.mockResolvedValue({
+      status: 'active',
+      stripeSubscriptionId: 'sub_existing',
+    })
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'public-tier',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'user',
+    })
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan: 'public-tier',
+          referenceId: 'user-1',
+          customerType: 'user',
+        }),
+      })
+    )
+
+    expect(response.status).toBe(204)
+    expect(mockGetActiveSubscriptionForReference).toHaveBeenCalledWith({
+      referenceType: 'user',
+      referenceId: 'user-1',
+    })
     expect(mockEnsurePlanChangePortalConfiguration).toHaveBeenCalledTimes(1)
+    expect(mockAuthHandler).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a supplied subscription outside the subject current subscription', async () => {
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'public-tier',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'user',
+    })
+    mockGetActiveSubscriptionForReference.mockResolvedValue({
+      status: 'active',
+      stripeSubscriptionId: 'sub_current',
+    })
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan: 'public-tier',
+          referenceId: 'user-1',
+          customerType: 'user',
+          subscriptionId: 'sub_other',
+        }),
+      })
+    )
+
+    expect(response.status).toBe(403)
+    expect(mockAuthHandler).not.toHaveBeenCalled()
+  })
+
+  it('does not create a second subscription while the subject subscription is past due', async () => {
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'public-tier',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'user',
+    })
+    mockGetActiveSubscriptionForReference.mockResolvedValue({
+      status: 'past_due',
+      stripeSubscriptionId: 'sub_past_due',
+    })
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan: 'public-tier',
+          referenceId: 'user-1',
+          customerType: 'user',
+        }),
+      })
+    )
+
+    expect(response.status).toBe(409)
+    expect(mockEnsurePlanChangePortalConfiguration).not.toHaveBeenCalled()
+    expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
   it('rejects an upgrade when the requested billing subject type does not match the tier', async () => {

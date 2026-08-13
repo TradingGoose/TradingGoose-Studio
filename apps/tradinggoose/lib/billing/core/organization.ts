@@ -335,7 +335,7 @@ export async function getOrganizationBillingData(
       .leftJoin(userStats, eq(member.userId, userStats.userId))
       .where(eq(member.organizationId, organizationId))
 
-    if (!billingEnabled) {
+    if (!billingEnabled || !subscription) {
       const memberLedgers = await getOrganizationMemberBillingLedgers(organizationId)
       const memberLedgerByUserId = new Map(memberLedgers.map((ledger) => [ledger.userId, ledger]))
       const members: MemberUsageData[] = memberRows.map((memberRecord) => ({
@@ -369,7 +369,7 @@ export async function getOrganizationBillingData(
         usedSeats: members.length,
         seatsCount: members.length,
         totalCurrentUsage: roundCurrency(totalCurrentUsage),
-        totalUsageLimit: Number.MAX_SAFE_INTEGER,
+        totalUsageLimit: billingEnabled ? 0 : Number.MAX_SAFE_INTEGER,
         warningThresholdPercent: 0,
         minimumUsageLimit: 0,
         averageUsagePerMember: roundCurrency(averageUsagePerMember),
@@ -385,11 +385,6 @@ export async function getOrganizationBillingData(
         totalCopilotCost: roundCurrency(billingLedger.totalCopilotCost),
         billingBlocked: false,
       }
-    }
-
-    if (!subscription) {
-      logger.warn('No subscription found for organization', { organizationId })
-      return null
     }
 
     const memberLedgers =

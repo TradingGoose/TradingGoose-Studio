@@ -11,10 +11,6 @@ import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('OrganizationQueries')
 
-/**
- * Query key factories for organization-related queries
- * This ensures consistent cache invalidation across the app
- */
 export const organizationKeys = {
   all: ['organizations'] as const,
   lists: () => [...organizationKeys.all, 'list'] as const,
@@ -39,9 +35,6 @@ export interface OrganizationWorkspaceRecord {
   billingOwner: OrganizationWorkspaceBillingOwner
 }
 
-/**
- * Fetch all organizations for the current user
- */
 async function fetchOrganizations() {
   const [billingResponse, orgsResponse, activeOrgResponse] = await Promise.all([
     fetch('/api/billing?context=user').then((r) => r.json()),
@@ -56,9 +49,6 @@ async function fetchOrganizations() {
   }
 }
 
-/**
- * Hook to fetch all organizations
- */
 export function useOrganizations(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: organizationKeys.lists(),
@@ -69,17 +59,11 @@ export function useOrganizations(options?: { enabled?: boolean }) {
   })
 }
 
-/**
- * Fetch a specific organization by ID
- */
 async function fetchOrganization() {
   const response = await client.organization.getFullOrganization()
   return response.data
 }
 
-/**
- * Hook to fetch a specific organization
- */
 export function useOrganization(orgId: string) {
   return useQuery({
     queryKey: organizationKeys.detail(orgId),
@@ -90,15 +74,8 @@ export function useOrganization(orgId: string) {
   })
 }
 
-/**
- * Fetch organization billing data
- */
 async function fetchOrganizationBilling(orgId: string) {
   const response = await fetch(`/api/billing?context=organization&id=${orgId}`)
-
-  if (response.status === 404) {
-    return null
-  }
 
   if (!response.ok) {
     throw new Error('Failed to fetch organization billing data')
@@ -113,9 +90,6 @@ async function fetchOrganizationBilling(orgId: string) {
     : null
 }
 
-/**
- * Hook to fetch organization billing data
- */
 export function useOrganizationBilling(orgId: string) {
   return useQuery({
     queryKey: organizationKeys.billing(orgId),
@@ -163,9 +137,6 @@ export function useAvailableOrganizationBillingWorkspaces(orgId: string, enabled
   })
 }
 
-/**
- * Fetch organization member usage data
- */
 async function fetchOrganizationMembers(orgId: string) {
   const response = await fetch(`/api/organizations/${orgId}/members?include=usage`)
 
@@ -179,9 +150,6 @@ async function fetchOrganizationMembers(orgId: string) {
   return response.json()
 }
 
-/**
- * Hook to fetch organization members with usage data
- */
 export function useOrganizationMembers(orgId: string) {
   return useQuery({
     queryKey: organizationKeys.memberUsage(orgId),
@@ -405,30 +373,20 @@ export const organizationMutationOptions = {
   createOrganization(queryClient: QueryClient) {
     return mutationOptions({
       mutationFn: async ({ name, slug }: CreateOrganizationParams) => {
-        const response = await fetch('/api/organizations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name,
-            slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
-          }),
+        const result = await client.organization.create({
+          name,
+          slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
         })
 
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({}))
-          throw new Error(error.error || error.message || 'Failed to create organization')
+        if (result.error) {
+          throw new Error(result.error.message || 'Failed to create organization')
         }
 
-        const data = await response.json()
-        if (!data.organizationId) {
+        if (!result.data?.id) {
           throw new Error('Failed to create organization')
         }
 
-        await client.organization.setActive({
-          organizationId: data.organizationId,
-        })
-
-        return data
+        return { success: true, organizationId: result.data.id }
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: organizationKeys.all })

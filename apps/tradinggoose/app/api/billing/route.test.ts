@@ -247,6 +247,48 @@ describe('/api/billing route', () => {
     expect(payload.error).toBe('Access denied - not a member of this organization')
   })
 
+  it('returns an explicit unsubscribed projection for an authorized organization', async () => {
+    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    memberRows = [{ role: 'owner' }]
+    mockGetOrganizationBillingData.mockResolvedValue({
+      organizationId: 'org-1',
+      organizationName: 'Acme',
+      subscriptionTier: null,
+      subscriptionStatus: null,
+      seatPriceUsd: 0,
+      seatCount: null,
+      seatMaximum: null,
+      seatMode: null,
+      totalSeats: 1,
+      usedSeats: 1,
+      seatsCount: 1,
+      totalCurrentUsage: 0,
+      totalUsageLimit: 0,
+      warningThresholdPercent: 0,
+      minimumUsageLimit: 0,
+      averageUsagePerMember: 0,
+      billingPeriodStart: null,
+      billingPeriodEnd: null,
+      billingBlocked: false,
+      members: [],
+    })
+
+    const { GET } = await import('./route')
+    const response = await GET(
+      createRequest('http://localhost:3000/api/billing?context=organization&id=org-1')
+    )
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.userRole).toBe('owner')
+    expect(payload.data).toMatchObject({
+      organizationId: 'org-1',
+      subscriptionTier: null,
+      subscriptionStatus: null,
+      billingEnabled: true,
+    })
+  })
+
   it('returns organization-shaped billing data only for explicit organization context', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user-1' },

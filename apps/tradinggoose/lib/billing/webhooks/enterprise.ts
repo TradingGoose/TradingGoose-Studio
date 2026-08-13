@@ -50,6 +50,11 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     return
   }
 
+  const enterpriseMetadata = {
+    ...metadata,
+    referenceId: metadata.referenceId.trim(),
+    billingTierId: metadata.billingTierId.trim(),
+  }
   const stripeCustomerId = stripeSubscription.customer as string
 
   if (!stripeCustomerId) {
@@ -59,7 +64,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     throw new Error('Missing Stripe customer ID on subscription')
   }
 
-  const referenceId = metadata.referenceId
+  const referenceId = enterpriseMetadata.referenceId
 
   if (!referenceId) {
     logger.error('[subscription.created] Unable to resolve referenceId', {
@@ -69,7 +74,6 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     throw new Error('Unable to resolve referenceId for subscription')
   }
 
-  const enterpriseMetadata = metadata
   const metadataJson: Record<string, unknown> = { ...enterpriseMetadata }
 
   // Extract and parse seats and monthly price from metadata (they come as strings from Stripe)

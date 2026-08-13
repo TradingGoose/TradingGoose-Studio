@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
-import { Skeleton } from '@/components/ui'
+import { useLocale, useTranslations } from 'next-intl'
+import { Button, Input, Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
+import { PRIVATE_TIER_ACCESS_ERROR_CODES } from '@/lib/billing/private-tier-access-contract'
+import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateSlug, getUsedSeats, getUserRole, isAdminOrOwner } from '@/lib/organization'
 import { getOrganizationAccessState } from '@/lib/organization/access'
@@ -15,10 +17,17 @@ import {
   useOrganizationBillingWorkspaces,
   useOrganizations,
 } from '@/hooks/queries/organization'
+import {
+  getPrivateTierAccessErrorCode,
+  usePrivateTierAccess,
+  usePrivateTierAccessMutation,
+} from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { useAdminWorkspaces } from '@/hooks/queries/workspace'
 import type { LocaleCode } from '@/i18n/utils'
+import { toUpgradeTarget } from '../subscription/plan-configs'
+import { getSubscriptionTierAlternatives } from '../subscription/subscription-permissions'
 import {
   MemberInvitationCard,
   NoOrganizationView,
@@ -77,6 +86,7 @@ export function TeamManagement() {
   const { data: session } = useSession()
   const { handleUpgrade } = useSubscriptionUpgrade()
   const locale = useLocale() as LocaleCode
+  const privateAccessCopy = useTranslations('workspace.settingsModal.subscription.privateAccess')
   const queryClient = useQueryClient()
 
   const { data: organizationsData } = useOrganizations()
@@ -102,6 +112,8 @@ export function TeamManagement() {
     error: organizationBillingError,
   } = useOrganizationBilling(activeOrgId || '')
   const { data: publicBillingCatalog } = usePublicBillingCatalog()
+  const privateTierAccess = usePrivateTierAccess()
+  const privateTierAccessMutation = usePrivateTierAccessMutation()
 
   const inviteMutation = useMutation(organizationMutationOptions.inviteMember(queryClient, locale))
   const removeMemberMutation = useMutation(organizationMutationOptions.removeMember(queryClient))
@@ -146,6 +158,7 @@ export function TeamManagement() {
   }>({ open: false, memberId: '', memberName: '', shouldReduceSeats: false })
   const [orgName, setOrgName] = useState('')
   const [orgSlug, setOrgSlug] = useState('')
+  const [accessCode, setAccessCode] = useState('')
   const [isAddSeatDialogOpen, setIsAddSeatDialogOpen] = useState(false)
   const [newSeatCount, setNewSeatCount] = useState(1)
   const [pendingAction, setPendingAction] = useState<string | null>(null)
@@ -253,11 +266,14 @@ export function TeamManagement() {
     personalBillingPayload?.billingEnabled ??
     organizationsData?.billingData?.data?.billingEnabled ??
     true
+  const organizationPlanTiers = getSubscriptionTierAlternatives(
+    [...(publicBillingCatalog?.publicTiers ?? []), ...(privateTierAccess.data?.privateTiers ?? [])],
+    'organization'
+  ).sort((left, right) => left.displayOrder - right.displayOrder || left.id.localeCompare(right.id))
   const organizationAccess = getOrganizationAccessState({
     billingEnabled,
     hasOrganization: Boolean(displayOrganization),
     isOrganizationAdmin: adminOrOwner,
-    userTier: personalBillingPayload?.tier,
     organizationTier: organizationSubscriptionTier,
   })
   const isLoadingSubscription = displayOrganization
@@ -540,6 +556,15 @@ export function TeamManagement() {
   const queryFailure = queryError instanceof Error ? queryError.message : null
   const actionFailure = (action: string) =>
     actionError?.action === action ? actionError.message : null
+  const privateAccessErrorCode =
+    getPrivateTierAccessErrorCode(privateTierAccessMutation.error) ??
+    (privateTierAccessMutation.isError ? PRIVATE_TIER_ACCESS_ERROR_CODES.validateFailed : null)
+  const handlePrivateTierAccess = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    privateTierAccessMutation.mutate(accessCode.trim(), {
+      onSuccess: () => setAccessCode(''),
+    })
+  }
 
   if (isLoading && !displayOrganization) {
     return (
@@ -594,6 +619,81 @@ export function TeamManagement() {
             </div>
           </div>
         )}
+
+        {billingEnabled && adminOrOwner && !currentTier ? (
+          <div className='space-y-3 rounded-sm border bg-background p-4 shadow-xs'>
+            <div>
+              <h4 className='font-medium text-sm'>Choose an organization plan</h4>
+              <p className='mt-1 text-muted-foreground text-xs'>
+                Subscribe this organization before assigning workspace billing or inviting members.
+              </p>
+            </div>
+
+            <form className='flex gap-2' onSubmit={handlePrivateTierAccess}>
+              <Input
+                className='min-w-0 flex-1'
+                value={accessCode}
+                placeholder={privateAccessCopy('placeholder')}
+                autoComplete='off'
+                onChange={(event) => {
+                  setAccessCode(event.target.value)
+                  privateTierAccessMutation.reset()
+                }}
+              />
+              <Button
+                type='submit'
+                disabled={!accessCode.trim() || privateTierAccessMutation.isPending}
+              >
+                {privateAccessCopy('validate')}
+              </Button>
+            </form>
+            {privateAccessErrorCode ? (
+              <p role='alert' className='text-destructive text-xs'>
+                {privateAccessCopy(`errors.${privateAccessErrorCode}`)}
+              </p>
+            ) : privateTierAccessMutation.isSuccess ? (
+              <p role='status' className='text-muted-foreground text-xs'>
+                {privateAccessCopy('success')}
+              </p>
+            ) : null}
+
+            {organizationBillingError ? (
+              <p role='alert' className='text-destructive text-xs'>
+                Failed to load organization billing. Try again before selecting a plan.
+              </p>
+            ) : organizationPlanTiers.length > 0 ? (
+              <div className='flex flex-wrap gap-2'>
+                {organizationPlanTiers.map((tier) => (
+                  <Button
+                    key={tier.id}
+                    variant='outline'
+                    disabled={isPending || !activeOrgId}
+                    onClick={() =>
+                      void runAction(`subscribe:${tier.id}`, () =>
+                        handleUpgrade(toUpgradeTarget(tier), {
+                          organizationId: activeOrgId,
+                          seats: Math.max(tier.seatCount ?? 1, 1),
+                        })
+                      )
+                    }
+                  >
+                    {tier.displayName} · {formatBillingPriceLabel(tier)}
+                    {formatBillingPricePeriod(tier)}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <p className='text-muted-foreground text-xs'>
+                No organization plans are currently available.
+              </p>
+            )}
+            {actionError?.action.startsWith('subscribe:') ? (
+              <p role='alert' className='text-destructive text-xs'>
+                {actionError.message}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <WorkspaceBilling
           billedWorkspaces={organizationBillingWorkspaces}

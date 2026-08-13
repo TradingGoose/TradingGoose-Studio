@@ -163,7 +163,6 @@ export function UserMenu({
     billingEnabled,
     hasOrganization: Boolean(activeOrganizationId),
     isOrganizationAdmin: isOwner || isAdmin,
-    userTier: billingPayload?.tier,
     organizationTier: organizationBillingPayload?.subscriptionTier,
   })
   const canOpenTeamSettings = organizationAccess.canOpenTeamSettings

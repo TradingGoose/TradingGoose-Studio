@@ -34,6 +34,16 @@ interface SubscriptionSurfaceInput {
   enterprisePlaceholder: EnterprisePlaceholderDisplay | null
 }
 
+export function getSubscriptionTierAlternatives(
+  tiers: PublicBillingTierDisplay[],
+  ownerType: PublicBillingTierDisplay['ownerType'],
+  currentTierId?: string | null
+) {
+  return tiers.filter(
+    (tier) => !tier.isDefault && tier.id !== currentTierId && tier.ownerType === ownerType
+  )
+}
+
 function getCurrentTier(
   subscription: SubscriptionState,
   publicTiers: PublicBillingTierDisplay[]
@@ -79,11 +89,10 @@ export function getSubscriptionSurfaceState({
   if (isCurrentCustomOrganizationPlan) {
     visiblePlanTiers = currentTier ? [currentTier] : []
   } else if (!isTeamMemberView) {
-    const alternativeTiers = publicTiers.filter(
-      (tier) =>
-        !tier.isDefault &&
-        tier.id !== currentTier?.id &&
-        tier.ownerType === subscription.tier.ownerType
+    const alternativeTiers = getSubscriptionTierAlternatives(
+      publicTiers,
+      subscription.tier.ownerType,
+      currentTier?.id
     )
 
     visiblePlanTiers = currentTier ? [currentTier, ...alternativeTiers] : alternativeTiers

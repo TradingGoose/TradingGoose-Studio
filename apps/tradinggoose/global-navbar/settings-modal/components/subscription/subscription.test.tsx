@@ -13,10 +13,14 @@ import { Subscription } from './subscription'
 
 const mocks = vi.hoisted(() => ({
   organizationBilling: null as Record<string, unknown> | null,
+  organizationBillingError: false,
   organizationBillingId: '',
   organizationBillingPlaceholder: false,
+  handleUpgrade: vi.fn(),
   personalBilling: null as Record<string, unknown> | null,
+  privateTiers: [] as Array<Record<string, unknown>>,
   privateTierAccessError: null as Error | null,
+  publicTiers: [] as Array<Record<string, unknown>>,
   workspaceId: 'workspace-1',
   workspaceSettings: null as Record<string, unknown> | null,
 }))
@@ -30,7 +34,7 @@ vi.mock('@/lib/auth-client', () => ({
 }))
 
 vi.mock('@/lib/subscription/upgrade', () => ({
-  useSubscriptionUpgrade: () => ({ handleUpgrade: vi.fn() }),
+  useSubscriptionUpgrade: () => ({ handleUpgrade: mocks.handleUpgrade }),
 }))
 
 vi.mock('@/hooks/queries/subscription', () => ({
@@ -58,17 +62,21 @@ vi.mock('@/hooks/queries/organization', () => ({
     return {
       data: mocks.organizationBilling,
       isLoading: false,
-      isError: false,
+      isError: mocks.organizationBillingError,
       isPlaceholderData: mocks.organizationBillingPlaceholder,
     }
   },
-  useOrganizations: () => ({ data: { activeOrganization: null } }),
+  useOrganizations: () => ({ data: { activeOrganization: null }, isLoading: false }),
   organizationMutationOptions: { assignWorkspace: vi.fn() },
 }))
 
 vi.mock('@/hooks/queries/public-billing-catalog', () => ({
   usePublicBillingCatalog: () => ({
-    data: { publicTiers: [], enterprisePlaceholder: null, enterpriseContactUrl: null },
+    data: {
+      publicTiers: mocks.publicTiers,
+      enterprisePlaceholder: null,
+      enterpriseContactUrl: null,
+    },
     isLoading: false,
   }),
 }))
@@ -78,7 +86,7 @@ vi.mock('@/hooks/queries/private-tier-access', async (importOriginal) => {
   return {
     ...original,
     usePrivateTierAccess: () => ({
-      data: { privateTiers: [] },
+      data: { privateTiers: mocks.privateTiers },
       isLoading: false,
       isError: Boolean(mocks.privateTierAccessError),
       error: mocks.privateTierAccessError,
@@ -95,8 +103,18 @@ vi.mock('@/hooks/queries/private-tier-access', async (importOriginal) => {
 })
 
 vi.mock('./components', () => ({
-  PlanCard: ({ name, buttonText }: { name: string; buttonText: string }) => (
-    <div data-testid='plan-card'>{`${name}:${buttonText}`}</div>
+  PlanCard: ({
+    name,
+    buttonText,
+    onButtonClick,
+  }: {
+    name: string
+    buttonText: string
+    onButtonClick: () => void
+  }) => (
+    <button type='button' data-testid='plan-card' onClick={onButtonClick}>
+      {`${name}:${buttonText}`}
+    </button>
   ),
   UsageLimit: () => null,
   WorkspaceBillingOwnerEditor: () => <div data-testid='billing-owner-editor' />,
@@ -171,6 +189,30 @@ function organizationPayload() {
   }
 }
 
+function catalogTier(
+  id: string,
+  displayName: string,
+  ownerType: 'user' | 'organization',
+  displayOrder: number
+) {
+  return {
+    id,
+    displayName,
+    description: '',
+    ownerType,
+    usageScope: ownerType === 'organization' ? 'pooled' : 'individual',
+    seatMode: ownerType === 'organization' ? 'adjustable' : 'fixed',
+    displayOrder,
+    monthlyPriceUsd: 20,
+    yearlyPriceUsd: null,
+    seatCount: ownerType === 'organization' ? 2 : null,
+    seatMaximum: null,
+    canEditUsageLimit: false,
+    pricingFeatures: [],
+    isDefault: false,
+  }
+}
+
 function workspaceBillingOwner(
   billingOwner: { type: 'user'; userId: string } | { type: 'organization'; organizationId: string }
 ) {
@@ -197,10 +239,14 @@ describe('Subscription billing subject', () => {
       globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true
     mocks.organizationBilling = organizationPayload()
+    mocks.organizationBillingError = false
     mocks.organizationBillingId = ''
     mocks.organizationBillingPlaceholder = false
     mocks.personalBilling = personalPayload()
+    mocks.handleUpgrade.mockReset()
+    mocks.privateTiers = []
     mocks.privateTierAccessError = null
+    mocks.publicTiers = []
     mocks.workspaceSettings = workspaceBillingOwner({ type: 'user', userId: 'user-1' })
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -217,16 +263,17 @@ describe('Subscription billing subject', () => {
     vi.clearAllMocks()
   })
 
-  function render(locale: LocaleCode = 'en') {
+  function render(locale: LocaleCode = 'en', onOpenChange = vi.fn()) {
     act(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
           <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-            <Subscription onOpenChange={vi.fn()} />
+            <Subscription onOpenChange={onOpenChange} />
           </NextIntlClientProvider>
         </QueryClientProvider>
       )
     })
+    return onOpenChange
   }
 
   it('uses the exact workspace billing organization instead of personal billing', () => {
@@ -277,6 +324,58 @@ describe('Subscription billing subject', () => {
     )
     expect(container.textContent).not.toContain('Personal Pro')
     expect(container.querySelector('[data-testid="billing-owner-editor"]')).not.toBeNull()
+  })
+
+  it('keeps an inaccessible organization workspace open in repair-only mode', () => {
+    mocks.workspaceSettings = workspaceBillingOwner({
+      type: 'organization',
+      organizationId: 'org-billing',
+    })
+    mocks.organizationBilling = null
+    mocks.organizationBillingError = true
+    const onOpenChange = render()
+
+    expect(container.textContent).toContain('You cannot access this billing organization.')
+    expect(container.querySelector('[data-testid="billing-owner-editor"]')).not.toBeNull()
+    expect(container.textContent).not.toContain('Personal Pro')
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('offers public and granted-private organization tiers to an unsubscribed organization admin', () => {
+    mocks.workspaceSettings = workspaceBillingOwner({
+      type: 'organization',
+      organizationId: 'org-billing',
+    })
+    mocks.organizationBilling = {
+      organizationId: 'org-billing',
+      billingEnabled: true,
+      subscriptionTier: null,
+      subscriptionStatus: null,
+      userRole: 'admin',
+    }
+    mocks.publicTiers = [
+      catalogTier('tier-personal-public', 'Personal Public', 'user', 0),
+      catalogTier('tier-org-public', 'Organization Public', 'organization', 1),
+    ]
+    mocks.privateTiers = [
+      catalogTier('tier-org-private', 'Organization Private', 'organization', 2),
+    ]
+
+    render()
+
+    expect(container.textContent).toContain('Organization Public:Change to Organization Public')
+    expect(container.textContent).toContain('Organization Private:Change to Organization Private')
+    expect(container.textContent).not.toContain('Personal Public')
+
+    const privatePlan = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Organization Private')
+    )
+    act(() => privatePlan?.click())
+
+    expect(mocks.handleUpgrade).toHaveBeenCalledWith(
+      expect.objectContaining({ billingTierId: 'tier-org-private', ownerType: 'organization' }),
+      { organizationId: 'org-billing' }
+    )
   })
 
   it('renders private access errors through locale copy', () => {

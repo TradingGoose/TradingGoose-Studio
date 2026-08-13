@@ -2009,6 +2009,7 @@
           "nextBillingDate": "Next Billing Date",
           "usageNotifications": "Usage notifications",
           "billingOwner": "Billing owner",
+          "organizationBilling": "Organization billing",
           "organizationUsage": "Organization Usage",
           "custom": "Custom",
           "seats": "seats"
@@ -2019,7 +2020,8 @@
           "usageNotifications": "Email me when usage reaches the billing warning threshold",
           "customPlan": "Contact your account team for billing tier and usage limit changes",
           "teamMemberView": "Contact your team admin to increase limits",
-          "otherBillingOwner": "This workspace's billing is managed by another workspace administrator."
+          "otherBillingOwner": "This workspace's billing is managed by another workspace administrator.",
+          "organizationBillingUnavailable": "You cannot access this billing organization. Assign billing to an eligible workspace administrator below."
         },
         "notifications": {
           "pending": "Saving usage notification preference…",

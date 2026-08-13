@@ -175,6 +175,40 @@ describe('getSubscriptionSurfaceState', () => {
     expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([proTier.id, teamTier.id])
   })
 
+  it('offers only organization tiers on an unsubscribed organization surface', () => {
+    const publicOrganizationTier = buildTier({
+      id: 'tier_org_public',
+      displayName: 'Organization public',
+      ownerType: 'organization',
+      usageScope: 'pooled',
+    })
+    const grantedPrivateOrganizationTier = buildTier({
+      id: 'tier_org_private',
+      displayName: 'Organization private',
+      ownerType: 'organization',
+      usageScope: 'pooled',
+    })
+    const state = getSubscriptionSurfaceState({
+      subscription: {
+        isFree: false,
+        isPaid: false,
+        tier: {
+          ...EMPTY_BILLING_TIER_SUMMARY,
+          ownerType: 'organization',
+          usageScope: 'pooled',
+        },
+      },
+      userRole: adminRole,
+      publicTiers: [proTier, publicOrganizationTier, grantedPrivateOrganizationTier],
+      enterprisePlaceholder: null,
+    })
+
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([
+      'tier_org_public',
+      'tier_org_private',
+    ])
+  })
+
   it('shows active granted alternatives when the current private tier is archived', () => {
     const privateTier = buildTier({
       id: 'tier_private_active',

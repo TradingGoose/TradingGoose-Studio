@@ -2009,6 +2009,7 @@
           "nextBillingDate": "Próxima fecha de facturación",
           "usageNotifications": "Notificaciones de uso",
           "billingOwner": "Propietario de facturación",
+          "organizationBilling": "Facturación de la organización",
           "organizationUsage": "Uso de la organización",
           "custom": "Personalizado",
           "seats": "Asientos"
@@ -2019,7 +2020,8 @@
           "usageNotifications": "Envíeme un correo electrónico cuando el uso alcance el umbral de advertencia de facturación.",
           "customPlan": "Contacte a su equipo de cuenta para cambios de nivel de facturación y límites de uso.",
           "teamMemberView": "Contacte al administrador de su equipo para aumentar los límites.",
-          "otherBillingOwner": "La facturación de este espacio de trabajo está gestionada por otro administrador."
+          "otherBillingOwner": "La facturación de este espacio de trabajo está gestionada por otro administrador.",
+          "organizationBillingUnavailable": "No puede acceder a esta organización de facturación. Asigne la facturación a un administrador apto del espacio de trabajo."
         },
         "notifications": {
           "pending": "Guardando la preferencia de notificaciones de uso…",

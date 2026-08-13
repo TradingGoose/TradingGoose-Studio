@@ -10,12 +10,10 @@ import { Switch } from '@/components/ui/switch'
 import { useSession } from '@/lib/auth-client'
 import { openBillingPortal as openBillingPortalSession } from '@/lib/billing/billing-portal'
 import { PRIVATE_TIER_ACCESS_ERROR_CODES } from '@/lib/billing/private-tier-access-contract'
-import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
-import type { BillingUpgradeTarget } from '@/lib/subscription/upgrade'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
 import { cn } from '@/lib/utils'
 import {
@@ -40,13 +38,20 @@ import {
   type PaygActivationErrorPayload,
   shouldOpenBillingPortalForPaygActivationError,
 } from './payg-ui'
-import { toPlanFeatures } from './plan-configs'
+import { toPlanFeatures, toUpgradeTarget } from './plan-configs'
 import { getSubscriptionSurfaceState } from './subscription-permissions'
 
 const UPGRADE_ERROR_TIMEOUT = 3000
 
 const safeNumber = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0
+
+const EMPTY_ORGANIZATION_BILLING_TIER = {
+  ...EMPTY_BILLING_TIER_SUMMARY,
+  displayName: 'Organization billing',
+  ownerType: 'organization' as const,
+  usageScope: 'pooled' as const,
+}
 
 function BillingUsageNotificationsToggle({ userId }: { userId: string | null }) {
   const copy = useTranslations('workspace.settingsModal.subscription')
@@ -227,17 +232,6 @@ function SubscriptionSkeleton() {
   )
 }
 
-function toUpgradeTarget(tier: PublicBillingTierDisplay): BillingUpgradeTarget {
-  return {
-    billingTierId: tier.id,
-    displayName: tier.displayName,
-    ownerType: tier.ownerType,
-    usageScope: tier.usageScope,
-    seatMode: tier.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
-    seatCount: tier.seatCount,
-  }
-}
-
 function openContactUrl(url: string | null) {
   if (url) window.open(url, '_blank')
 }
@@ -312,7 +306,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         status: organizationBillingPayload?.subscriptionStatus ?? null,
         seats: organizationBillingPayload?.totalSeats ?? null,
         metadata: null,
-        tier: organizationTier ?? EMPTY_BILLING_TIER_SUMMARY,
+        tier: organizationTier ?? EMPTY_ORGANIZATION_BILLING_TIER,
       }
     : personalSubscription
   const usage = getUsage(billingPayload)
@@ -433,7 +427,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     !isOrganizationPlan && Boolean(billingPayload?.cancelAtPeriodEnd)
 
   const handleUpgradeWithErrorHandling = useCallback(
-    async (targetTier: BillingUpgradeTarget) => {
+    async (targetTier: ReturnType<typeof toUpgradeTarget>) => {
       try {
         await handleUpgrade(targetTier, {
           ...(targetTier.ownerType === 'organization' && organizationBillingId
@@ -561,7 +555,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
   if (
     (workspaceId && (isWorkspaceSettingsError || !currentWorkspace)) ||
-    (isOrganizationBillingSubject && (isOrgBillingError || !organizationTier)) ||
     (!isOrganizationBillingSubject && !isOtherUserBillingSubject && isSubscriptionError)
   ) {
     onOpenChange(false)
@@ -573,6 +566,26 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
       <div className='px-6 pt-4 pb-4'>
         <p className='text-muted-foreground text-sm'>{copy('descriptions.otherBillingOwner')}</p>
         <div className='mt-4'>
+          <WorkspaceBillingOwnerEditor
+            isLoading={isWorkspaceSettingsPending}
+            workspaceSettings={workspaceSettings}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (isOrganizationBillingSubject && isOrgBillingError) {
+    return (
+      <div className='px-6 pt-4 pb-4'>
+        <div className='flex flex-col gap-4'>
+          <div>
+            <h4 className='font-medium text-sm'>{copy('titles.organizationBilling')}</h4>
+            <p className='mt-1 text-muted-foreground text-xs'>
+              {copy('descriptions.organizationBillingUnavailable')}
+            </p>
+          </div>
+
           <WorkspaceBillingOwnerEditor
             isLoading={isWorkspaceSettingsPending}
             workspaceSettings={workspaceSettings}
