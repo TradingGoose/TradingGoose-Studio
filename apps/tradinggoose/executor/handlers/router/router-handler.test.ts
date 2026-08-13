@@ -117,8 +117,6 @@ describe('RouterBlockHandler', () => {
   })
 
   it('should execute router block correctly and select a path', async () => {
-    const abortSignal = new AbortController().signal
-    mockContext.abortSignal = abortSignal
     const inputs = {
       prompt: 'Choose the best option.',
       model: 'gpt-4o',
@@ -160,7 +158,6 @@ describe('RouterBlockHandler', () => {
         method: 'POST',
         headers: expect.any(Object),
         body: expect.any(String),
-        signal: abortSignal,
       })
     )
 

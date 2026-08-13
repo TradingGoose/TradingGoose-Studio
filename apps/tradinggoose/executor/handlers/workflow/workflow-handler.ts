@@ -11,6 +11,7 @@ const logger = createLogger('WorkflowBlockHandler')
 
 const MAX_WORKFLOW_DEPTH = 10
 const CHILD_WORKFLOW_POLL_INTERVAL_MS = 1_000
+const CHILD_WORKFLOW_WAIT_TIMEOUT_MS = 30 * 60 * 1000
 
 type WorkflowTraceSpan = TraceSpan & {
   metadata?: Record<string, unknown>
@@ -42,24 +43,9 @@ type ChildWorkflowWaitOptions = {
   childWorkflowName: string
   headers: ChildWorkflowHeaders
   shouldCancelExecution?: () => Promise<boolean>
-  abortSignal?: AbortSignal
 }
 
-const sleep = (ms: number, signal?: AbortSignal): Promise<boolean> =>
-  new Promise((resolve) => {
-    if (signal?.aborted) return resolve(false)
-
-    const timeout = setTimeout(() => {
-      signal?.removeEventListener('abort', cancel)
-      resolve(true)
-    }, ms)
-    const cancel = () => {
-      clearTimeout(timeout)
-      resolve(false)
-    }
-
-    signal?.addEventListener('abort', cancel, { once: true })
-  })
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const readResponseErrorMessage = async (response: Response, defaultMessage: string) => {
   try {
@@ -109,9 +95,6 @@ export class WorkflowBlockHandler implements BlockHandler {
       kind: 'deferred',
       wait: async () => {
         try {
-          if (context.abortSignal?.aborted) {
-            throw new Error('Workflow execution was cancelled')
-          }
           const workflowExecution: InternalWorkflowExecutionContext = {
             source: 'workflow_block',
             parentWorkflowId: context.workflowId,
@@ -133,7 +116,6 @@ export class WorkflowBlockHandler implements BlockHandler {
             childWorkflowName,
             headers,
             shouldCancelExecution: context.shouldCancelExecution,
-            abortSignal: context.abortSignal,
           })
           const childTraceSpans = this.transformChildWorkflowSpans(
             childResult.traceSpans,
@@ -273,32 +255,19 @@ export class WorkflowBlockHandler implements BlockHandler {
     childWorkflowName,
     headers,
     shouldCancelExecution,
-    abortSignal,
   }: ChildWorkflowWaitOptions): Promise<QueuedWorkflowExecutionResult> {
-    const cancelChild = () => {
-      void this.cancelQueuedWorkflowExecution(taskId, headers).catch((error) =>
-        logger.warn(`Failed to cancel queued child workflow ${taskId}`, error)
-      )
-    }
+    const startedAt = Date.now()
 
-    while (true) {
-      if (abortSignal?.aborted || (await shouldCancelExecution?.())) {
-        cancelChild()
-        throw new Error('Workflow execution was cancelled')
+    while (Date.now() - startedAt < CHILD_WORKFLOW_WAIT_TIMEOUT_MS) {
+      if (await shouldCancelExecution?.()) {
+        await this.cancelQueuedWorkflowExecution(taskId, headers)
+        throw new Error('Child workflow execution was cancelled')
       }
 
-      let response: Response
-      try {
-        response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
-          headers: await headers(),
-          cache: 'no-store',
-          signal: abortSignal,
-        })
-      } catch (error) {
-        if (!abortSignal?.aborted) throw error
-        cancelChild()
-        throw new Error('Workflow execution was cancelled')
-      }
+      const response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
+        headers: await headers(),
+        cache: 'no-store',
+      })
 
       if (!response.ok) {
         throw new Error(
@@ -332,11 +301,11 @@ export class WorkflowBlockHandler implements BlockHandler {
         throw error
       }
 
-      if (!(await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS, abortSignal))) {
-        cancelChild()
-        throw new Error('Workflow execution was cancelled')
-      }
+      await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS)
     }
+
+    await this.cancelQueuedWorkflowExecution(taskId, headers)
+    throw new Error('Child workflow execution timed out')
   }
 
   private transformChildWorkflowSpans(

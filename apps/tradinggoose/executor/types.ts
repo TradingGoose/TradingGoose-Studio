@@ -188,7 +188,6 @@ export interface ExecutionContext {
 
   onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
   shouldCancelExecution?: () => Promise<boolean>
-  abortSignal?: AbortSignal
 }
 
 /**
@@ -200,7 +199,6 @@ export interface ExecutionContextExtensions {
   edges?: Array<{ source: string; target: string }> // Workflow edge connections
   onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
   shouldCancelExecution?: () => Promise<boolean>
-  abortSignal?: AbortSignal
   executionId?: string
   workspaceId: string
   userId?: string
@@ -220,7 +218,6 @@ export interface ExecutionResult {
   success: boolean // Whether the workflow executed successfully
   output: NormalizedBlockOutput // Final output data from the workflow
   error?: string // Error message if execution failed
-  code?: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED'
   logs?: BlockLog[] // Execution logs for all blocks
   metadata?: ExecutionMetadata
 }

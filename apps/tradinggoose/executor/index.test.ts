@@ -119,19 +119,6 @@ describe('Executor', () => {
 
       expect(executor).toBeDefined()
     })
-
-    it('aborts active request signals through canonical cancellation', () => {
-      const executor = createTestExecutor(createMinimalWorkflow())
-      const context = (executor as any).createExecutionContext(
-        'test-workflow-id',
-        new Date(),
-        'trigger'
-      )
-
-      expect(context.abortSignal.aborted).toBe(false)
-      executor.cancel()
-      expect(context.abortSignal.aborted).toBe(true)
-    })
   })
 
   /**
@@ -631,90 +618,6 @@ describe('Executor', () => {
         expect.objectContaining({ type: 'stream:done' })
       )
     })
-
-    it('cancels an active stream when workflow execution is cancelled', async () => {
-      const workflow = createMinimalWorkflow()
-      const executor = createTestExecutor(workflow, {
-        contextExtensions: { stream: true, selectedOutputs: ['block1'] },
-      })
-      let markStreamStarted!: () => void
-      const streamStarted = new Promise<void>((resolve) => {
-        markStreamStarted = resolve
-      })
-      let markReadStarted!: () => void
-      const readStarted = new Promise<void>((resolve) => {
-        markReadStarted = resolve
-      })
-      const cancelStream = vi.fn()
-
-      ;(executor as any).blockHandlers = [
-        {
-          canHandle: (block: any) => block.metadata?.category === 'triggers',
-          execute: vi.fn(async () => ({})),
-        },
-        {
-          canHandle: (block: any) => block.id === 'block1',
-          execute: vi.fn(async () => ({
-            stream: new ReadableStream({
-              start() {
-                markStreamStarted()
-              },
-              pull() {
-                markReadStarted()
-              },
-              cancel: cancelStream,
-            }),
-            execution: { output: { content: '' } },
-          })),
-        },
-      ]
-
-      const execution = executor.execute('test-workflow-id', 'trigger')
-      await streamStarted
-      await readStarted
-      executor.cancel()
-
-      await expect(execution).resolves.toMatchObject({ success: false })
-      expect(cancelStream).toHaveBeenCalledOnce()
-    })
-
-    it('cancels a stream returned after workflow execution is cancelled', async () => {
-      const executor = createTestExecutor(createMinimalWorkflow())
-      let markHandlerStarted!: () => void
-      const handlerStarted = new Promise<void>((resolve) => {
-        markHandlerStarted = resolve
-      })
-      let resolveHandler!: (value: unknown) => void
-      const cancelStream = vi.fn()
-
-      ;(executor as any).blockHandlers = [
-        {
-          canHandle: (block: any) => block.metadata?.category === 'triggers',
-          execute: vi.fn(async () => ({})),
-        },
-        {
-          canHandle: (block: any) => block.id === 'block1',
-          execute: vi.fn(
-            () =>
-              new Promise((resolve) => {
-                resolveHandler = resolve
-                markHandlerStarted()
-              })
-          ),
-        },
-      ]
-
-      const execution = executor.execute('test-workflow-id', 'trigger')
-      await handlerStarted
-      executor.cancel()
-      resolveHandler({
-        stream: new ReadableStream({ cancel: cancelStream }),
-        execution: { output: {} },
-      })
-
-      await expect(execution).resolves.toMatchObject({ success: false })
-      await vi.waitFor(() => expect(cancelStream).toHaveBeenCalledOnce())
-    })
   })
 
   /**
@@ -1000,33 +903,6 @@ describe('Executor', () => {
       executor.cancel()
 
       expect((executor as any).isCancelled).toBe(true)
-    })
-
-    it('should stop awaiting block work that ignores cancellation', async () => {
-      const executor = createTestExecutor(createMinimalWorkflow())
-      let markStarted!: () => void
-      const started = new Promise<void>((resolve) => {
-        markStarted = resolve
-      })
-
-      ;(executor as any).blockHandlers = [
-        {
-          canHandle: () => true,
-          execute: () => {
-            markStarted()
-            return new Promise(() => {})
-          },
-        },
-      ]
-
-      const execution = executor.execute('test-workflow-id', 'trigger')
-      await started
-      executor.cancel()
-
-      await expect(execution).resolves.toMatchObject({
-        success: false,
-        error: 'Workflow execution was cancelled',
-      })
     })
 
     it.concurrent('should prevent new execution on cancelled executor', async () => {

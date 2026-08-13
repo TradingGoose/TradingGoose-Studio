@@ -19,9 +19,6 @@ import type { TriggerType } from '@/services/queue'
 import { mergeSubblockState } from '@/stores/workflows/server-utils'
 
 const logger = createLogger('WorkflowExecutionRunner')
-export const WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED =
-  'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED' as const
-const WORKFLOW_EXECUTION_TIME_LIMIT_ERROR = 'Workflow execution time limit exceeded'
 
 export type WorkflowExecutionTarget = 'deployed' | 'live'
 
@@ -348,10 +345,6 @@ export async function runPreparedWorkflowExecution(params: {
 
   let encryptedEnvVars: Record<string, string> | undefined
   let result: ExecutionResult
-  let executionTimeout: ReturnType<typeof setTimeout> | undefined
-  let executionDeadline: number | undefined
-  let executor: Executor | undefined
-  let timedOut = false
   try {
     if (params.startupError) {
       throw params.startupError
@@ -368,8 +361,6 @@ export async function runPreparedWorkflowExecution(params: {
         usageCheck.message || 'Usage limit exceeded. Please upgrade your billing tier to continue.'
       )
     }
-
-    const abortController = new AbortController()
 
     const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
       params.actorUserId,
@@ -393,7 +384,6 @@ export async function runPreparedWorkflowExecution(params: {
 
     const contextExtensions: ExecutionContextExtensions = {
       ...params.contextExtensions,
-      abortSignal: abortController.signal,
       executionId,
       workspaceId,
       userId: params.actorUserId,
@@ -411,7 +401,7 @@ export async function runPreparedWorkflowExecution(params: {
       }))
     }
 
-    executor = new Executor({
+    const executor = new Executor({
       workflow: serializedWorkflow,
       currentBlockStates: processedBlockStates,
       envVarValues: decryptedEnvVars,
@@ -427,34 +417,7 @@ export async function runPreparedWorkflowExecution(params: {
       isChildExecution: contextExtensions.isChildExecution === true,
     })
 
-    if (usageCheck.workflowExecutionTimeLimitSeconds !== null) {
-      const executionLimitMs = usageCheck.workflowExecutionTimeLimitSeconds * 1_000
-      executionDeadline = performance.now() + executionLimitMs
-      executionTimeout = setTimeout(() => {
-        timedOut = true
-        abortController.abort()
-        executor?.cancel()
-      }, executionLimitMs)
-    }
-
     result = await executor.execute(params.blueprint.workflowId, triggerBlockId)
-    if (executionDeadline !== undefined && performance.now() >= executionDeadline && !timedOut) {
-      timedOut = true
-      abortController.abort()
-      executor.cancel()
-    }
-    if (executionTimeout) {
-      clearTimeout(executionTimeout)
-      executionTimeout = undefined
-    }
-    if (timedOut) {
-      result = {
-        ...result,
-        success: false,
-        error: WORKFLOW_EXECUTION_TIME_LIMIT_ERROR,
-        code: WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
-      }
-    }
 
     if (result.success) {
       await updateWorkflowRunCounts(params.blueprint.workflowId).catch((error) =>
@@ -462,29 +425,19 @@ export async function runPreparedWorkflowExecution(params: {
       )
     }
   } catch (error: any) {
-    const message = timedOut
-      ? WORKFLOW_EXECUTION_TIME_LIMIT_ERROR
-      : error.message || 'Workflow execution failed'
+    const message = error.message || 'Workflow execution failed'
     const dispatchFailureReason =
       error instanceof WorkflowUsageLimitError
         ? 'usage_limit_exceeded'
         : error instanceof WorkflowTriggerBlockError
           ? 'missing_trigger_block'
           : undefined
-    const failedResult = (error?.executionResult as ExecutionResult | undefined) || {
+    result = (error?.executionResult as ExecutionResult | undefined) || {
       success: false,
       output: {},
       error: message,
       logs: [],
     }
-    result = timedOut
-      ? {
-          ...failedResult,
-          success: false,
-          error: message,
-          code: WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED,
-        }
-      : failedResult
     const { traceSpans, totalDuration } = buildTraceSpans(result)
 
     await loggingSession.completeWithError({
@@ -506,8 +459,6 @@ export async function runPreparedWorkflowExecution(params: {
       workspaceId,
       dispatchFailureReason,
     }
-  } finally {
-    if (executionTimeout) clearTimeout(executionTimeout)
   }
 
   const { traceSpans, totalDuration } = buildTraceSpans(result)

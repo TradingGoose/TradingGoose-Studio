@@ -44,7 +44,6 @@ describe('GenericBlockHandler', () => {
       executedBlocks: new Set(),
       activeExecutionPath: new Set(),
       completedLoops: new Set(),
-      abortSignal: new AbortController().signal,
     }
 
     mockTool = {
@@ -98,8 +97,7 @@ describe('GenericBlockHandler', () => {
         _context: { toolExecutionId: 'generic-block-1' },
       },
       false, // skipPostProcess
-      mockContext, // execution context
-      { signal: mockContext.abortSignal }
+      mockContext // execution context
     )
     expect(result).toEqual(expectedOutput)
   })
@@ -127,8 +125,7 @@ describe('GenericBlockHandler', () => {
         _context: { toolExecutionId: 'generic-block-1:loop-1:2' },
       }),
       false,
-      mockContext,
-      { signal: mockContext.abortSignal }
+      mockContext
     )
   })
 

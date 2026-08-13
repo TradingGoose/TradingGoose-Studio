@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => {
   const complete = vi.fn()
   const completeWithError = vi.fn()
   const checkServerSideUsageLimits = vi.fn()
-  const cancel = vi.fn()
   const decryptSecret = vi.fn()
   const getPersonalAndWorkspaceEnv = vi.fn()
   const dbRowsQueue: unknown[][] = []
@@ -23,7 +22,6 @@ const mocks = vi.hoisted(() => {
     complete,
     completeWithError,
     checkServerSideUsageLimits,
-    cancel,
     dbRowsQueue,
     dbSelect: vi.fn(() => dbChain),
     decryptSecret,
@@ -107,7 +105,6 @@ vi.mock('@/executor', () => ({
     void new.target
     mocks.executorConstructor(options)
     return {
-      cancel: mocks.cancel,
       execute: mocks.execute,
     }
   }),
@@ -144,10 +141,7 @@ describe('runPreparedWorkflowExecution', () => {
     })
     mocks.complete.mockResolvedValue(undefined)
     mocks.completeWithError.mockResolvedValue(undefined)
-    mocks.checkServerSideUsageLimits.mockResolvedValue({
-      isExceeded: false,
-      workflowExecutionTimeLimitSeconds: null,
-    })
+    mocks.checkServerSideUsageLimits.mockResolvedValue({ isExceeded: false })
     mocks.decryptSecret.mockImplementation(async (value: string) => ({ decrypted: value }))
     mocks.getPersonalAndWorkspaceEnv.mockResolvedValue({
       personalEncrypted: {},
@@ -244,7 +238,6 @@ describe('runPreparedWorkflowExecution', () => {
   it('returns failed results after terminalizing usage gate failures', async () => {
     mocks.checkServerSideUsageLimits.mockResolvedValueOnce({
       isExceeded: true,
-      workflowExecutionTimeLimitSeconds: null,
       message: 'Usage limit exceeded',
     })
 
@@ -276,97 +269,6 @@ describe('runPreparedWorkflowExecution', () => {
       })
     )
     expect(result.dispatchFailureReason).toBe('usage_limit_exceeded')
-  })
-
-  it('cancels execution and returns the stable tier timeout code', async () => {
-    vi.useFakeTimers()
-    let resolveExecution: ((result: unknown) => void) | undefined
-    mocks.checkServerSideUsageLimits.mockResolvedValueOnce({
-      isExceeded: false,
-      workflowExecutionTimeLimitSeconds: 1,
-    })
-    mocks.execute.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveExecution = resolve
-        })
-    )
-    mocks.cancel.mockImplementationOnce(() =>
-      resolveExecution?.({
-        success: false,
-        output: {},
-        error: 'Workflow execution was cancelled',
-        logs: [],
-      })
-    )
-
-    try {
-      const execution = runPreparedWorkflowExecution({
-        blueprint,
-        actorUserId: 'user-1',
-        triggerType: 'manual',
-        workflowInput: {},
-        executionId: 'execution-1',
-        triggerTarget: { kind: 'block', blockId: 'trigger' },
-      })
-      await vi.advanceTimersByTimeAsync(0)
-      expect(mocks.execute).toHaveBeenCalled()
-
-      await vi.advanceTimersByTimeAsync(1_000)
-      const result = await execution
-
-      expect(mocks.cancel).toHaveBeenCalledOnce()
-      expect(
-        mocks.executorConstructor.mock.calls[0]?.[0].contextExtensions.abortSignal.aborted
-      ).toBe(true)
-      expect(result.result).toEqual(
-        expect.objectContaining({
-          success: false,
-          error: 'Workflow execution time limit exceeded',
-          code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
-        })
-      )
-      expect(vi.getTimerCount()).toBe(0)
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('rejects work that completes after the deadline before its timer can run', async () => {
-    vi.useFakeTimers()
-    let elapsed = 0
-    const performanceNow = vi.spyOn(performance, 'now').mockImplementation(() => elapsed)
-    mocks.checkServerSideUsageLimits.mockResolvedValueOnce({
-      isExceeded: false,
-      workflowExecutionTimeLimitSeconds: 1,
-    })
-    mocks.execute.mockImplementationOnce(async () => {
-      elapsed = 1_001
-      return { success: true, output: {}, logs: [] }
-    })
-
-    try {
-      const result = await runPreparedWorkflowExecution({
-        blueprint,
-        actorUserId: 'user-1',
-        triggerType: 'manual',
-        workflowInput: {},
-        executionId: 'execution-1',
-        triggerTarget: { kind: 'block', blockId: 'trigger' },
-      })
-
-      expect(mocks.cancel).toHaveBeenCalledOnce()
-      expect(result.result).toEqual(
-        expect.objectContaining({
-          success: false,
-          code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
-        })
-      )
-      expect(vi.getTimerCount()).toBe(0)
-    } finally {
-      performanceNow.mockRestore()
-      vi.useRealTimers()
-    }
   })
 
   it('reports missing trigger blocks as dispatch failures', async () => {

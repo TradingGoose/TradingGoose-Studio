@@ -109,15 +109,6 @@ function isDeferredBlockExecution(value: unknown): value is DeferredBlockExecuti
   )
 }
 
-function isStreamingExecution(value: unknown): value is StreamingExecution {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'stream' in value &&
-    'execution' in value
-  )
-}
-
 export type ExecutorOptions = {
   workflow: SerializedWorkflow
   currentBlockStates?: Record<string, BlockOutput>
@@ -147,7 +138,6 @@ export class Executor {
   private actualWorkflow: SerializedWorkflow
   private isCancelled = false
   private isChildExecution = false
-  private abortController = new AbortController()
 
   /**
    * Updates block output with streamed content, handling both structured and unstructured responses
@@ -253,53 +243,13 @@ export class Executor {
    * Sets the cancellation flag to stop further execution.
    */
   public cancel(): void {
-    if (this.isCancelled) return
     logger.info('Workflow execution cancelled')
     this.isCancelled = true
-    this.abortController.abort()
-  }
-
-  private awaitActiveTask<T>(
-    task: Promise<T>,
-    signal?: AbortSignal,
-    onCancelledResult?: (result: T) => void
-  ): Promise<T> {
-    if (!signal) return task
-    if (signal.aborted) {
-      task.then(onCancelledResult).catch(() => {})
-      return Promise.reject(new Error('Workflow execution was cancelled'))
-    }
-
-    return new Promise<T>((resolve, reject) => {
-      let cancelled = false
-      const rejectCancellation = () => {
-        cancelled = true
-        reject(new Error('Workflow execution was cancelled'))
-      }
-      signal.addEventListener('abort', rejectCancellation, { once: true })
-      task
-        .then(
-          (result) => {
-            if (cancelled) {
-              onCancelledResult?.(result)
-            } else {
-              resolve(result)
-            }
-          },
-          (error) => {
-            if (!cancelled) reject(error)
-          }
-        )
-        .finally(() => signal.removeEventListener('abort', rejectCancellation))
-    })
   }
 
   private async shouldStopExecution(): Promise<boolean> {
     if (this.isCancelled) return true
-    if (
-      this.contextExtensions.abortSignal?.aborted ||
-      (await this.contextExtensions.shouldCancelExecution?.())
-    ) {
+    if (await this.contextExtensions.shouldCancelExecution?.()) {
       this.cancel()
       return true
     }
@@ -676,10 +626,7 @@ export class Executor {
       selectedOutputs: this.contextExtensions.selectedOutputs || [],
       edges: this.contextExtensions.edges || [],
       onExecutionEvent: this.contextExtensions.onExecutionEvent,
-      shouldCancelExecution: () => this.shouldStopExecution(),
-      abortSignal: this.contextExtensions.abortSignal
-        ? AbortSignal.any([this.abortController.signal, this.contextExtensions.abortSignal])
-        : this.abortController.signal,
+      shouldCancelExecution: this.contextExtensions.shouldCancelExecution,
     }
 
     Object.entries(this.initialBlockStates).forEach(([blockId, output]) => {
@@ -1759,7 +1706,6 @@ export class Executor {
           new Date(blockLog.endedAt).getTime() - new Date(blockLog.startedAt).getTime()
         const isCancellation =
           this.isCancelled ||
-          context.abortSignal?.aborted ||
           error?.message === 'Workflow execution was cancelled' ||
           error === 'Workflow execution was cancelled'
         const consoleErrorMessage = isCancellation
@@ -1915,25 +1861,14 @@ export class Executor {
 
       // Execute the block
       const startTime = performance.now()
-      const rawOutput = await this.awaitActiveTask(
-        handler.execute(block, inputs, context),
-        context.abortSignal,
-        (output) => {
-          if (isStreamingExecution(output)) {
-            void output.stream.cancel().catch(() => {})
-          }
-        }
-      )
+      const rawOutput = await handler.execute(block, inputs, context)
 
       if (isDeferredBlockExecution(rawOutput)) {
         return {
           kind: 'deferred',
           wait: async () => {
             try {
-              const deferredOutput = await this.awaitActiveTask(
-                rawOutput.wait(),
-                context.abortSignal
-              )
+              const deferredOutput = await rawOutput.wait()
               const output: NormalizedBlockOutput =
                 typeof deferredOutput === 'object' && deferredOutput !== null
                   ? deferredOutput
@@ -1950,8 +1885,13 @@ export class Executor {
         }
       }
 
-      if (isStreamingExecution(rawOutput)) {
-        const streamingExec = rawOutput
+      if (
+        rawOutput &&
+        typeof rawOutput === 'object' &&
+        'stream' in rawOutput &&
+        'execution' in rawOutput
+      ) {
+        const streamingExec = rawOutput as StreamingExecution
         const streamingExecutionData = streamingExec.execution as any
         const executionTime = performance.now() - startTime
         if (parallelInfo || !streamingExecutionData?.blockId) {
@@ -1988,7 +1928,7 @@ export class Executor {
 
         try {
           while (true) {
-            const { done, value } = await this.awaitActiveTask(reader.read(), context.abortSignal)
+            const { done, value } = await reader.read()
             if (done) break
 
             const chunk = decoder.decode(value, { stream: true })
@@ -2007,17 +1947,10 @@ export class Executor {
           }
           await flushStreamChunk()
         } catch (readerError: any) {
-          if (!context.abortSignal?.aborted) {
-            logger.error('Error reading stream for executor:', readerError)
-          }
+          logger.error('Error reading stream for executor:', readerError)
           throw readerError
         } finally {
-          if (context.abortSignal?.aborted) {
-            pendingStreamChunk = ''
-            await reader.cancel().catch(() => {})
-          } else {
-            await flushStreamChunk()
-          }
+          await flushStreamChunk()
           try {
             reader.releaseLock()
           } catch {}

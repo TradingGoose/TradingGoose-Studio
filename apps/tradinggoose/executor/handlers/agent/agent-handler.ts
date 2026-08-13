@@ -686,7 +686,6 @@ export class AgentBlockHandler implements BlockHandler {
       ...providerRequest,
       apiKey,
       userId: context.userId,
-      abortSignal: context.abortSignal,
     })
 
     this.logExecutionSuccess(
@@ -740,9 +739,7 @@ export class AgentBlockHandler implements BlockHandler {
       method: 'POST',
       headers,
       body: JSON.stringify(providerRequest),
-      signal: context.abortSignal
-        ? AbortSignal.any([context.abortSignal, AbortSignal.timeout(REQUEST_TIMEOUT)])
-        : AbortSignal.timeout(REQUEST_TIMEOUT),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT),
     })
 
     if (!response.ok) {

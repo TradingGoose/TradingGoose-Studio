@@ -235,9 +235,8 @@ describe('WorkflowBlockHandler', () => {
 
     await expect(
       (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
-    ).rejects.toThrow('Workflow execution was cancelled')
+    ).rejects.toThrow('Child workflow execution was cancelled')
 
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'http://localhost:3000/api/jobs/job-3',
@@ -252,8 +251,11 @@ describe('WorkflowBlockHandler', () => {
     expect(generateInternalToken).toHaveBeenCalledTimes(2)
   })
 
-  it('cancels queued child workflows when the parent signal aborts', async () => {
-    const abortController = new AbortController()
+  it('cancels queued child workflows when child polling reaches its deadline', async () => {
+    vi.useFakeTimers()
+    const nowSpy = vi.spyOn(Date, 'now')
+    let now = 0
+    nowSpy.mockImplementation(() => now)
     const fetchMock = vi.mocked(global.fetch)
     fetchMock
       .mockResolvedValueOnce({
@@ -270,59 +272,32 @@ describe('WorkflowBlockHandler', () => {
       } as Response)
       .mockResolvedValueOnce({ ok: true } as Response)
 
-    const deferred = await handler.execute(
-      mockBlock,
-      { workflowId: 'child-workflow-id' },
-      { ...mockContext, abortSignal: abortController.signal }
-    )
-
-    const waitPromise = (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    abortController.abort()
-
-    await expect(waitPromise).rejects.toThrow('Workflow execution was cancelled')
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      3,
-      'http://localhost:3000/api/jobs/job-4',
-      expect.objectContaining({ method: 'DELETE' })
-    )
-  })
-
-  it('obtains the queued task ID before cancelling an aborted parent', async () => {
-    const abortController = new AbortController()
-    let resolveQueue!: (response: Response) => void
-    const fetchMock = vi.mocked(global.fetch)
-    fetchMock
-      .mockImplementationOnce(
-        () =>
-          new Promise<Response>((resolve) => {
-            resolveQueue = resolve
-          })
+    try {
+      const deferred = await handler.execute(
+        mockBlock,
+        { workflowId: 'child-workflow-id' },
+        mockContext
       )
-      .mockResolvedValueOnce({ ok: true } as Response)
 
-    const deferred = await handler.execute(
-      mockBlock,
-      { workflowId: 'child-workflow-id' },
-      { ...mockContext, abortSignal: abortController.signal }
-    )
-    const waitPromise = (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
+      const waitPromise = (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
+      const errorPromise = waitPromise.catch((error) => error as Error)
+      await vi.advanceTimersByTimeAsync(0)
+      now = 30 * 60 * 1000 + 1
+      await vi.advanceTimersByTimeAsync(1_000)
 
-    abortController.abort()
-    resolveQueue({
-      ok: true,
-      json: () => Promise.resolve({ taskId: 'job-5', workflowName: 'Child Workflow' }),
-    } as Response)
-
-    await expect(waitPromise).rejects.toThrow('Workflow execution was cancelled')
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('signal')
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      'http://localhost:3000/api/jobs/job-5',
-      expect.objectContaining({ method: 'DELETE' })
-    )
+      await expect(errorPromise).resolves.toMatchObject({
+        message: expect.stringContaining('Child workflow execution timed out'),
+      })
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        3,
+        'http://localhost:3000/api/jobs/job-4',
+        expect.objectContaining({
+          method: 'DELETE',
+        })
+      )
+    } finally {
+      nowSpy.mockRestore()
+      vi.useRealTimers()
+    }
   })
 })

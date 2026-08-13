@@ -77,8 +77,6 @@ describe('EvaluatorBlockHandler', () => {
   })
 
   it('should execute evaluator block correctly with basic inputs', async () => {
-    const abortSignal = new AbortController().signal
-    mockContext.abortSignal = abortSignal
     const inputs = {
       content: 'This is the content to evaluate.',
       metrics: [
@@ -98,7 +96,6 @@ describe('EvaluatorBlockHandler', () => {
         method: 'POST',
         headers: expect.any(Object),
         body: expect.any(String),
-        signal: abortSignal,
       })
     )
 

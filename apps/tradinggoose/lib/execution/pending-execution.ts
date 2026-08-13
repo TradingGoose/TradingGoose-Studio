@@ -1,26 +1,21 @@
+import { createHash } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { idempotencyKeys, tasks, timeout } from '@trigger.dev/sdk'
 import { and, asc, eq, lte, ne, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
-import { isDev } from '@/lib/environment'
 import {
   resolveServerExecutionBillingContext,
   resolveServerExecutionBillingTierForScope,
 } from '@/lib/execution/execution-concurrency-limit'
-import {
-  triggerPendingExecutionDrain,
-  wakePendingExecutionDrain,
-} from '@/lib/execution/pending-execution-drain-wake'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 
-export {
-  PENDING_EXECUTION_DRAIN_TASK_ID,
-  triggerPendingExecutionDrain,
-} from '@/lib/execution/pending-execution-drain-wake'
-
-const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
+export const PENDING_EXECUTION_TASK_ID = 'pending-execution'
 export const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 const WORKFLOW_BLOCK_SOURCE = 'workflow_block'
+const logger = createLogger('PendingExecutionQueue')
+type TriggerExecutionState = Awaited<ReturnType<typeof getTriggerExecutionState>>
 
 export type PendingExecutionType = 'workflow' | 'webhook' | 'schedule' | 'monitor' | 'document'
 
@@ -127,6 +122,110 @@ export function isPendingExecutionPayload(value: unknown): value is PendingExecu
 const usesParentExecutionCapacity = (row: Pick<PendingExecutionRow, 'source'>) =>
   row.source === WORKFLOW_BLOCK_SOURCE
 
+export function isTierLimitedPendingExecution(
+  row: Pick<PendingExecutionClaim, 'executionType' | 'source'>
+) {
+  return (
+    row.executionType === 'workflow' ||
+    row.executionType === 'webhook' ||
+    row.executionType === 'schedule' ||
+    (row.executionType === 'monitor' && row.source === 'monitor:portfolio')
+  )
+}
+
+export function getPendingExecutionTriggerKey(pendingExecutionId: string) {
+  const digest = createHash('sha256').update(pendingExecutionId).digest('hex')
+  return `${PENDING_EXECUTION_TASK_ID}:${digest}`
+}
+
+export async function triggerPendingExecution(row: PendingExecutionClaim) {
+  const triggerKey = getPendingExecutionTriggerKey(row.id)
+  const idempotencyKey = await idempotencyKeys.create(triggerKey, { scope: 'global' })
+  const maxDuration = isTierLimitedPendingExecution(row)
+    ? ((
+        await resolveServerExecutionBillingTierForScope({
+          scopeId: row.billingScopeId,
+          scopeType: row.billingScopeType,
+        })
+      )?.workflowExecutionTimeLimitSeconds ?? timeout.None)
+    : undefined
+
+  await tasks.trigger(
+    PENDING_EXECUTION_TASK_ID,
+    { pendingExecutionId: row.id },
+    {
+      idempotencyKey,
+      tags: [triggerKey],
+      ...(maxDuration === undefined ? {} : { maxDuration }),
+    }
+  )
+}
+
+export async function dispatchNextPendingExecution(params: {
+  billingScopeId: string
+  requestId?: string
+  triggerState?: TriggerExecutionState
+}) {
+  const triggerState = params.triggerState ?? (await getTriggerExecutionState())
+
+  if (triggerState.triggerDevEnabled && !triggerState.configurationReady) {
+    throw new TriggerExecutionUnavailableError(
+      'Trigger.dev execution is enabled but not configured.'
+    )
+  }
+
+  const claim = await claimNextPendingExecution(params.billingScopeId)
+  if (claim.status !== 'claimed') {
+    return claim
+  }
+
+  const row = claim.row
+
+  if (!triggerState.executionEnabled) {
+    try {
+      const { executePendingExecution } = await import('@/background/pending-execution-worker')
+      void executePendingExecution({ pendingExecutionId: row.id }).catch(async (error) => {
+        await restorePendingExecutionClaim(row.id)
+        logger.error('Local pending execution failed', {
+          pendingExecutionId: row.id,
+          requestId: params.requestId,
+          error,
+        })
+      })
+    } catch (error) {
+      await restorePendingExecutionClaim(row.id)
+      throw error
+    }
+
+    return { status: 'dispatched' as const, pendingExecutionId: row.id }
+  }
+
+  // The row stays processing if Trigger admission is ambiguous. Recovery retries this
+  // idempotent request without freeing capacity or replaying the workflow.
+  await triggerPendingExecution(row)
+
+  return { status: 'dispatched' as const, pendingExecutionId: row.id }
+}
+
+export async function wakePendingExecution(params: { billingScopeId: string; requestId?: string }) {
+  try {
+    const triggerState = await getTriggerExecutionState()
+
+    while (true) {
+      const result = await dispatchNextPendingExecution({ ...params, triggerState })
+      if (result.status !== 'dispatched') {
+        return result
+      }
+    }
+  } catch (error) {
+    logger.error('Pending execution wake failed', {
+      billingScopeId: params.billingScopeId,
+      requestId: params.requestId,
+      error,
+    })
+  }
+}
+
 export async function enqueuePendingExecution(
   params: PendingExecutionInsert
 ): Promise<PendingExecutionHandle> {
@@ -135,12 +234,6 @@ export async function enqueuePendingExecution(
   if (triggerState.triggerDevEnabled && !triggerState.configurationReady) {
     throw new TriggerExecutionUnavailableError(
       'Trigger.dev execution is enabled but not configured.'
-    )
-  }
-
-  if (!triggerState.executionEnabled && (triggerState.triggerDevEnabled || !isDev)) {
-    throw new TriggerExecutionUnavailableError(
-      'Queued server execution requires Trigger.dev outside local development.'
     )
   }
 
@@ -258,7 +351,7 @@ export async function enqueuePendingExecution(
 
   if (!inserted) {
     if (params.orderingKey) {
-      await wakePendingExecutionDrain({
+      await wakePendingExecution({
         billingScopeId,
         requestId: params.requestId,
       })
@@ -271,7 +364,7 @@ export async function enqueuePendingExecution(
   }
 
   try {
-    await triggerPendingExecutionDrain({
+    await dispatchNextPendingExecution({
       billingScopeId,
       requestId: params.requestId,
       triggerState,
@@ -298,26 +391,10 @@ export async function enqueuePendingExecution(
 export async function claimNextPendingExecution(
   billingScopeId: string
 ): Promise<PendingExecutionClaimResult> {
-  const staleBefore = new Date(Date.now() - STALE_PROCESSING_WINDOW_MS)
   return db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(${PENDING_EXECUTION_LOCK_NAMESPACE}, hashtext(${billingScopeId}))`
     )
-
-    await tx
-      .update(pendingExecution)
-      .set({
-        status: 'pending',
-        processingStartedAt: null,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(pendingExecution.billingScopeId, billingScopeId),
-          eq(pendingExecution.status, 'processing'),
-          lte(pendingExecution.processingStartedAt, staleBefore)
-        )
-      )
 
     const [candidate] = await tx
       .select()
@@ -415,6 +492,43 @@ export async function claimNextPendingExecution(
   })
 }
 
+export async function getProcessingPendingExecution(
+  pendingExecutionId: string
+): Promise<PendingExecutionClaim | null> {
+  const [row] = await db
+    .select()
+    .from(pendingExecution)
+    .where(
+      and(eq(pendingExecution.id, pendingExecutionId), eq(pendingExecution.status, 'processing'))
+    )
+    .limit(1)
+
+  if (!row) {
+    return null
+  }
+
+  return {
+    ...row,
+    payload: isPendingExecutionPayload(row.payload) ? row.payload : {},
+  } as PendingExecutionClaim
+}
+
+export async function restorePendingExecutionClaim(pendingExecutionId: string) {
+  const [restored] = await db
+    .update(pendingExecution)
+    .set({
+      status: 'pending',
+      processingStartedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(pendingExecution.id, pendingExecutionId), eq(pendingExecution.status, 'processing'))
+    )
+    .returning({ billingScopeId: pendingExecution.billingScopeId })
+
+  return restored ?? null
+}
+
 export async function isPendingWorkflowExecutionCancellationRequested(pendingExecutionId: string) {
   const [row] = await db
     .select({
@@ -438,7 +552,7 @@ export async function completePendingExecution(params: { pendingExecutionId: str
     .returning({ billingScopeId: pendingExecution.billingScopeId })
 
   if (deleted?.billingScopeId) {
-    await wakePendingExecutionDrain({
+    await wakePendingExecution({
       billingScopeId: deleted.billingScopeId,
     })
   }
