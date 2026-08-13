@@ -334,10 +334,16 @@ export async function recoverPendingExecutions() {
   let reconciledCount = 0
   let processingCursor: string | undefined
   while (true) {
-    const rows = await listProcessingPendingExecutions({
+    const batch = await listProcessingPendingExecutions({
       afterId: processingCursor,
       limit: RECOVERY_PAGE_SIZE,
+      mode: 'trigger',
     })
+    if (!batch) {
+      return { pendingScopeCount: 0, reconciledCount }
+    }
+
+    const rows = batch
     await mapWithConcurrency(rows, RECOVERY_CONCURRENCY, async (row) => {
       try {
         await reconcileProcessingExecution(row)
@@ -356,10 +362,15 @@ export async function recoverPendingExecutions() {
   let pendingScopeCount = 0
   let scopeCursor: string | undefined
   while (true) {
-    const scopes = await listPendingExecutionBillingScopes({
+    const batch = await listPendingExecutionBillingScopes({
       afterBillingScopeId: scopeCursor,
       limit: RECOVERY_PAGE_SIZE,
+      mode: 'trigger',
     })
+    if (!batch) {
+      return { pendingScopeCount, reconciledCount }
+    }
+    const scopes = batch
     await mapWithConcurrency(scopes, RECOVERY_CONCURRENCY, ({ billingScopeId }) =>
       wakePendingExecution({ billingScopeId }).then(() => undefined)
     )

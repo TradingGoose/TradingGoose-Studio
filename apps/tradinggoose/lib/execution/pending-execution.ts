@@ -2,12 +2,13 @@ import { createHash } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { idempotencyKeys, tasks, timeout } from '@trigger.dev/sdk'
-import { and, asc, eq, gt, lte, ne, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, lte, ne, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import {
   resolveServerExecutionBillingContext,
   resolveServerExecutionBillingTierForScope,
 } from '@/lib/execution/execution-concurrency-limit'
+import { lockPendingExecutionMode } from '@/lib/execution/execution-mode-lock'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 
@@ -181,8 +182,6 @@ export async function dispatchNextPendingExecution(params: {
     return claim
   }
 
-  // The row stays processing if Trigger admission is ambiguous. Recovery retries this
-  // idempotent request without freeing capacity or replaying the workflow.
   await triggerPendingExecution(claim.row)
 
   return { status: 'dispatched' as const, pendingExecutionId: claim.row.id }
@@ -210,14 +209,6 @@ export async function wakePendingExecution(params: { billingScopeId: string; req
 export async function enqueuePendingExecution(
   params: PendingExecutionInsert
 ): Promise<PendingExecutionHandle> {
-  const triggerState = await getTriggerExecutionState()
-
-  if (triggerState.mode === 'unavailable') {
-    throw new TriggerExecutionUnavailableError()
-  }
-
-  let inserted = false
-
   const billingContext = await resolveServerExecutionBillingContext({
     actorUserId: params.userId,
     workflowId: params.workflowId,
@@ -234,7 +225,13 @@ export async function enqueuePendingExecution(
         maxPendingCount: null,
       }
 
-  await db.transaction(async (tx) => {
+  const { inserted, triggerState } = await db.transaction(async (tx) => {
+    await lockPendingExecutionMode(tx)
+    const triggerState = await getTriggerExecutionState(tx)
+    if (triggerState.mode === 'unavailable') {
+      throw new TriggerExecutionUnavailableError()
+    }
+
     await tx.execute(
       sql`select pg_advisory_xact_lock(${PENDING_EXECUTION_LOCK_NAMESPACE}, hashtext(${billingScopeId}))`
     )
@@ -260,7 +257,7 @@ export async function enqueuePendingExecution(
       .limit(1)
 
     if (existingRow) {
-      return
+      return { inserted: false, triggerState }
     }
 
     if (params.executionType === 'workflow') {
@@ -271,7 +268,7 @@ export async function enqueuePendingExecution(
         .limit(1)
 
       if (existingLog) {
-        return
+        return { inserted: false, triggerState }
       }
     }
 
@@ -289,7 +286,7 @@ export async function enqueuePendingExecution(
         .limit(1)
 
       if (overlappingRow) {
-        return
+        return { inserted: false, triggerState }
       }
     }
 
@@ -325,7 +322,7 @@ export async function enqueuePendingExecution(
       workspaceId: params.workspaceId ?? null,
       payload: params.payload,
     })
-    inserted = true
+    return { inserted: true, triggerState }
   })
 
   if (!inserted) {
@@ -370,95 +367,77 @@ export async function enqueuePendingExecution(
 export async function claimNextPendingExecution(
   billingScopeId: string
 ): Promise<PendingExecutionClaimResult> {
-  return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(${PENDING_EXECUTION_LOCK_NAMESPACE}, hashtext(${billingScopeId}))`
+  return db.transaction((tx) => claimNextPendingExecutionWithStore(billingScopeId, tx))
+}
+
+async function claimNextPendingExecutionWithStore(
+  billingScopeId: string,
+  store: Pick<typeof db, 'execute' | 'select' | 'update'>
+): Promise<PendingExecutionClaimResult> {
+  await store.execute(
+    sql`select pg_advisory_xact_lock(${PENDING_EXECUTION_LOCK_NAMESPACE}, hashtext(${billingScopeId}))`
+  )
+
+  const [candidate] = await store
+    .select()
+    .from(pendingExecution)
+    .where(
+      and(
+        eq(pendingExecution.billingScopeId, billingScopeId),
+        eq(pendingExecution.status, 'pending'),
+        lte(pendingExecution.nextAttemptAt, new Date())
+      )
     )
+    .orderBy(
+      sql`case when ${pendingExecution.source} = ${WORKFLOW_BLOCK_SOURCE} then 0 else 1 end`,
+      asc(pendingExecution.nextAttemptAt),
+      asc(pendingExecution.createdAt),
+      asc(pendingExecution.id)
+    )
+    .limit(1)
 
-    const [candidate] = await tx
-      .select()
-      .from(pendingExecution)
-      .where(
-        and(
-          eq(pendingExecution.billingScopeId, billingScopeId),
-          eq(pendingExecution.status, 'pending'),
-          lte(pendingExecution.nextAttemptAt, new Date())
-        )
-      )
-      .orderBy(
-        asc(pendingExecution.nextAttemptAt),
-        asc(pendingExecution.createdAt),
-        asc(pendingExecution.id)
-      )
-      .limit(1)
+  if (!candidate) {
+    return { status: 'empty' }
+  }
 
-    if (!candidate) {
-      return { status: 'empty' }
-    }
+  if (!usesParentExecutionCapacity(candidate)) {
+    const concurrencyLimit = await getConcurrencyLimitForPendingExecution(candidate)
 
-    let claimCandidate = candidate
-    if (!usesParentExecutionCapacity(candidate)) {
-      const concurrencyLimit = await getConcurrencyLimitForPendingExecution(candidate)
-
-      if (concurrencyLimit !== null) {
-        const [activeRow] = await tx
-          .select({ count: sql<number>`count(*)` })
-          .from(pendingExecution)
-          .where(
-            and(
-              eq(pendingExecution.billingScopeId, billingScopeId),
-              eq(pendingExecution.status, 'processing'),
-              ne(pendingExecution.source, WORKFLOW_BLOCK_SOURCE)
-            )
+    if (concurrencyLimit !== null) {
+      const [activeRow] = await store
+        .select({ count: sql<number>`count(*)` })
+        .from(pendingExecution)
+        .where(
+          and(
+            eq(pendingExecution.billingScopeId, billingScopeId),
+            eq(pendingExecution.status, 'processing'),
+            ne(pendingExecution.source, WORKFLOW_BLOCK_SOURCE)
           )
-          .limit(1)
+        )
+        .limit(1)
 
-        const activeCount = Number(activeRow?.count ?? 0)
-        if (activeCount >= concurrencyLimit) {
-          const [childCandidate] = await tx
-            .select()
-            .from(pendingExecution)
-            .where(
-              and(
-                eq(pendingExecution.billingScopeId, billingScopeId),
-                eq(pendingExecution.status, 'pending'),
-                eq(pendingExecution.source, WORKFLOW_BLOCK_SOURCE),
-                lte(pendingExecution.nextAttemptAt, new Date())
-              )
-            )
-            .orderBy(
-              asc(pendingExecution.nextAttemptAt),
-              asc(pendingExecution.createdAt),
-              asc(pendingExecution.id)
-            )
-            .limit(1)
-
-          if (!childCandidate) {
-            return { status: 'capacity_blocked', pendingExecutionId: candidate.id }
-          }
-          claimCandidate = childCandidate
-        }
+      const activeCount = Number(activeRow?.count ?? 0)
+      if (activeCount >= concurrencyLimit) {
+        return { status: 'capacity_blocked', pendingExecutionId: candidate.id }
       }
     }
+  }
 
-    const [claimed] = await tx
-      .update(pendingExecution)
-      .set({
-        status: 'processing',
-        processingStartedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(eq(pendingExecution.id, claimCandidate.id), eq(pendingExecution.status, 'pending'))
-      )
-      .returning()
+  const [claimed] = await store
+    .update(pendingExecution)
+    .set({
+      status: 'processing',
+      processingStartedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(pendingExecution.id, candidate.id), eq(pendingExecution.status, 'pending')))
+    .returning()
 
-    if (!claimed) {
-      throw new Error(`Pending execution ${claimCandidate.id} could not be claimed`)
-    }
+  if (!claimed) {
+    throw new Error(`Pending execution ${candidate.id} could not be claimed`)
+  }
 
-    return { status: 'claimed', row: asPendingExecutionClaim(claimed) }
-  })
+  return { status: 'claimed', row: asPendingExecutionClaim(claimed) }
 }
 
 export async function getProcessingPendingExecution(
@@ -473,6 +452,19 @@ export async function getProcessingPendingExecution(
     .limit(1)
 
   return row ? asPendingExecutionClaim(row) : null
+}
+
+export async function renewProcessingPendingExecutions(pendingExecutionIds: string[]) {
+  if (pendingExecutionIds.length === 0) return
+  await db
+    .update(pendingExecution)
+    .set({ updatedAt: new Date() })
+    .where(
+      and(
+        inArray(pendingExecution.id, pendingExecutionIds),
+        eq(pendingExecution.status, 'processing')
+      )
+    )
 }
 
 export async function isPendingWorkflowExecutionCancellationRequested(pendingExecutionId: string) {
@@ -512,32 +504,39 @@ function asPendingExecutionClaim(row: typeof pendingExecution.$inferSelect): Pen
   } as PendingExecutionClaim
 }
 
-export async function hasPendingExecutions() {
-  const [row] = await db.select({ id: pendingExecution.id }).from(pendingExecution).limit(1)
-  return Boolean(row)
-}
-
-export async function listProcessingPendingExecutions(params: { afterId?: string; limit: number }) {
-  const rows = await db
-    .select()
-    .from(pendingExecution)
-    .where(
-      and(
-        eq(pendingExecution.status, 'processing'),
-        params.afterId ? gt(pendingExecution.id, params.afterId) : undefined
-      )
-    )
-    .orderBy(asc(pendingExecution.id))
-    .limit(params.limit)
-
-  return rows.map(asPendingExecutionClaim)
-}
-
-export async function listPendingExecutionBillingScopes(params: {
-  afterBillingScopeId?: string
+export async function listProcessingPendingExecutions(params: {
+  afterId?: string
   limit: number
+  mode: 'local' | 'trigger'
 }) {
-  return db
+  return db.transaction(async (tx) => {
+    await lockPendingExecutionMode(tx)
+    if ((await getTriggerExecutionState(tx)).mode !== params.mode) return null
+
+    const rows = await tx
+      .select()
+      .from(pendingExecution)
+      .where(
+        and(
+          eq(pendingExecution.status, 'processing'),
+          params.afterId ? gt(pendingExecution.id, params.afterId) : undefined
+        )
+      )
+      .orderBy(asc(pendingExecution.id))
+      .limit(params.limit)
+
+    return rows.map(asPendingExecutionClaim)
+  })
+}
+
+async function listPendingExecutionBillingScopesWithStore(
+  params: {
+    afterBillingScopeId?: string
+    limit: number
+  },
+  store: Pick<typeof db, 'selectDistinct'>
+) {
+  return store
     .selectDistinct({ billingScopeId: pendingExecution.billingScopeId })
     .from(pendingExecution)
     .where(
@@ -550,6 +549,44 @@ export async function listPendingExecutionBillingScopes(params: {
     )
     .orderBy(asc(pendingExecution.billingScopeId))
     .limit(params.limit)
+}
+
+export async function claimNextLocalPendingExecutionBatch(params: {
+  afterBillingScopeId?: string
+  limit: number
+}) {
+  return db.transaction(async (tx) => {
+    await lockPendingExecutionMode(tx)
+    if ((await getTriggerExecutionState(tx)).mode !== 'local') return null
+
+    let nextBillingScopeId = params.afterBillingScopeId
+    let scopes = await listPendingExecutionBillingScopesWithStore(params, tx)
+    if (scopes.length === 0 && nextBillingScopeId) {
+      nextBillingScopeId = undefined
+      scopes = await listPendingExecutionBillingScopesWithStore({ limit: params.limit }, tx)
+    }
+
+    const rows: PendingExecutionClaim[] = []
+    for (const { billingScopeId } of scopes) {
+      nextBillingScopeId = billingScopeId
+      const claim = await claimNextPendingExecutionWithStore(billingScopeId, tx)
+      if (claim.status === 'claimed') rows.push(claim.row)
+    }
+
+    return { nextBillingScopeId, rows }
+  })
+}
+
+export async function listPendingExecutionBillingScopes(params: {
+  afterBillingScopeId?: string
+  limit: number
+  mode: 'trigger'
+}) {
+  return db.transaction(async (tx) => {
+    await lockPendingExecutionMode(tx)
+    if ((await getTriggerExecutionState(tx)).mode !== params.mode) return null
+    return listPendingExecutionBillingScopesWithStore(params, tx)
+  })
 }
 
 export async function listChildPendingWorkflowExecutions(parentExecutionId: string) {

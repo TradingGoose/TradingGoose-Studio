@@ -9,18 +9,17 @@ const {
   mockGetSystemAdminAccess,
   mockClaimFirstSystemAdmin,
   mockGetBillingGateState,
-  mockHasPendingExecutions,
   mockGetResolvedSystemSettings,
   mockIsBillingConfigurationReady,
   mockIsTriggerConfigurationReady,
   mockUpsertSystemSettings,
   mockLogger,
+  MockTriggerExecutionBusyError,
 } = vi.hoisted(() => ({
   mockBackfillDefaultUserSubscriptions: vi.fn(),
   mockGetSystemAdminAccess: vi.fn(),
   mockClaimFirstSystemAdmin: vi.fn(),
   mockGetBillingGateState: vi.fn(),
-  mockHasPendingExecutions: vi.fn(),
   mockGetResolvedSystemSettings: vi.fn(),
   mockIsBillingConfigurationReady: vi.fn(),
   mockIsTriggerConfigurationReady: vi.fn(),
@@ -30,6 +29,14 @@ const {
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
+  },
+  MockTriggerExecutionBusyError: class TriggerExecutionBusyError extends Error {
+    code = 'trigger_execution_busy' as const
+
+    constructor() {
+      super('Trigger.dev execution mode cannot change while executions are queued or running.')
+      this.name = 'TriggerExecutionBusyError'
+    }
   },
 }))
 
@@ -47,10 +54,6 @@ vi.mock('@/lib/billing/settings', () => ({
   isBillingConfigurationReady: mockIsBillingConfigurationReady,
 }))
 
-vi.mock('@/lib/execution/pending-execution', () => ({
-  hasPendingExecutions: mockHasPendingExecutions,
-}))
-
 vi.mock('@/lib/trigger/settings', () => ({
   isTriggerConfigurationReady: mockIsTriggerConfigurationReady,
 }))
@@ -61,6 +64,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/system-settings/service', () => ({
   getResolvedSystemSettings: mockGetResolvedSystemSettings,
+  TriggerExecutionBusyError: MockTriggerExecutionBusyError,
   upsertSystemSettings: mockUpsertSystemSettings,
 }))
 
@@ -82,7 +86,6 @@ describe('/api/admin/system-settings route', () => {
       billingEnabled: true,
       stripeConfigured: true,
     })
-    mockHasPendingExecutions.mockResolvedValue(false)
     mockIsBillingConfigurationReady.mockResolvedValue(true)
     mockIsTriggerConfigurationReady.mockResolvedValue(true)
     mockGetResolvedSystemSettings.mockResolvedValue({
@@ -366,7 +369,7 @@ describe('/api/admin/system-settings route', () => {
       emailDomain: 'tradinggoose.ai',
       fromEmailAddress: '',
     })
-    mockHasPendingExecutions.mockResolvedValueOnce(true)
+    mockUpsertSystemSettings.mockRejectedValueOnce(new MockTriggerExecutionBusyError())
 
     const { PATCH } = await import('./route')
     const response = await PATCH(
@@ -378,7 +381,7 @@ describe('/api/admin/system-settings route', () => {
 
     await expect(response.json()).resolves.toMatchObject({ code: 'trigger_execution_busy' })
     expect(response.status).toBe(409)
-    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+    expect(mockUpsertSystemSettings).toHaveBeenCalledWith({ triggerDevEnabled: true })
   })
 
   it('updates only targeted fields when Stripe is not configured', async () => {

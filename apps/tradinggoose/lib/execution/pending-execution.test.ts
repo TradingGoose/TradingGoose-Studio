@@ -17,6 +17,7 @@ const {
   neMock,
   selectLimitMock,
   txExecuteMock,
+  txSelectDistinctLimitMock,
   updateReturningMock,
   deleteReturningMock,
   loggingStartMock,
@@ -36,6 +37,7 @@ const {
   neMock: vi.fn((field, value) => ({ field, value, op: 'ne' })),
   selectLimitMock: vi.fn(),
   txExecuteMock: vi.fn(),
+  txSelectDistinctLimitMock: vi.fn(),
   updateReturningMock: vi.fn(),
   deleteReturningMock: vi.fn(),
   loggingStartMock: vi.fn(),
@@ -52,6 +54,13 @@ const txSelectChain = {
   where: vi.fn().mockReturnThis(),
   orderBy: vi.fn().mockReturnThis(),
   limit: txSelectLimitMock,
+}
+
+const txSelectDistinctChain = {
+  from: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  orderBy: vi.fn().mockReturnThis(),
+  limit: txSelectDistinctLimitMock,
 }
 
 const txInsertValuesMock = vi.fn()
@@ -81,6 +90,7 @@ vi.mock('@tradinggoose/db', () => ({
   db: {
     transaction: transactionMock,
     select: vi.fn(() => selectChain),
+    selectDistinct: vi.fn(() => txSelectDistinctChain),
     update: vi.fn(() => updateChain),
     delete: vi.fn(() => deleteChain),
   },
@@ -165,6 +175,7 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
 
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import {
+  claimNextLocalPendingExecutionBatch,
   claimNextPendingExecution,
   completePendingExecution,
   dispatchNextPendingExecution,
@@ -208,6 +219,7 @@ function configureTransactionMock() {
     callback({
       execute: txExecuteMock,
       select: vi.fn(() => txSelectChain),
+      selectDistinct: vi.fn(() => txSelectDistinctChain),
       insert: vi.fn(() => txInsertChain),
       update: vi.fn(() => updateChain),
     })
@@ -346,10 +358,7 @@ describe('dispatchNextPendingExecution', () => {
       displayName: 'Starter',
       workflowExecutionTimeLimitSeconds: 45,
     })
-    txSelectLimitMock
-      .mockResolvedValueOnce([row])
-      .mockResolvedValueOnce([{ count: 1 }])
-      .mockResolvedValueOnce([])
+    txSelectLimitMock.mockResolvedValueOnce([row]).mockResolvedValueOnce([{ count: 1 }])
 
     await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
       status: 'capacity_blocked',
@@ -393,7 +402,6 @@ describe('wakePendingExecution', () => {
       .mockResolvedValueOnce([{ count: 1 }])
       .mockResolvedValueOnce([blocked])
       .mockResolvedValueOnce([{ count: 2 }])
-      .mockResolvedValueOnce([])
     updateReturningMock
       .mockResolvedValueOnce([{ ...first, status: 'processing' }])
       .mockResolvedValueOnce([{ ...second, status: 'processing' }])
@@ -684,6 +692,7 @@ describe('claimNextPendingExecution', () => {
       callback({
         execute: txExecuteMock,
         select: vi.fn(() => txSelectChain),
+        selectDistinct: vi.fn(() => txSelectDistinctChain),
         update: vi.fn(() => updateChain),
       })
     )
@@ -792,14 +801,9 @@ describe('claimNextPendingExecution', () => {
     const { resolveServerExecutionBillingTierForScope } = await import(
       '@/lib/execution/execution-concurrency-limit'
     )
-    vi.mocked(resolveServerExecutionBillingTierForScope).mockResolvedValueOnce({
-      concurrencyLimit: 1,
-      displayName: 'Starter',
-    } as any)
-    txSelectLimitMock
-      .mockResolvedValueOnce([pendingRow])
-      .mockResolvedValueOnce([{ count: 1 }])
-      .mockResolvedValueOnce([{ ...pendingRow, id: 'child-1', source: 'workflow_block' }])
+    txSelectLimitMock.mockResolvedValueOnce([
+      { ...pendingRow, id: 'child-1', source: 'workflow_block' },
+    ])
     updateReturningMock.mockResolvedValueOnce([
       {
         ...pendingRow,
@@ -818,6 +822,47 @@ describe('claimNextPendingExecution', () => {
         status: 'processing',
       }),
     })
+    expect(resolveServerExecutionBillingTierForScope).not.toHaveBeenCalled()
+    expect(sqlMock.mock.calls.some(([strings]) => strings.join('').includes('case when'))).toBe(
+      true
+    )
+  })
+
+  it('attempts one claim per scope and continues after a full scope', async () => {
+    const { resolveServerExecutionBillingTierForScope } = await import(
+      '@/lib/execution/execution-concurrency-limit'
+    )
+    getTriggerExecutionStateMock.mockResolvedValueOnce(directExecutionState)
+    vi.mocked(resolveServerExecutionBillingTierForScope).mockResolvedValue({
+      concurrencyLimit: 1,
+      displayName: 'Starter',
+    } as any)
+    txSelectDistinctLimitMock.mockResolvedValueOnce([
+      { billingScopeId: 'scope-1' },
+      { billingScopeId: 'scope-2' },
+    ])
+    txSelectLimitMock
+      .mockResolvedValueOnce([pendingRow])
+      .mockResolvedValueOnce([{ count: 1 }])
+      .mockResolvedValueOnce([{ ...pendingRow, id: 'pending-2', billingScopeId: 'scope-2' }])
+      .mockResolvedValueOnce([{ count: 0 }])
+    updateReturningMock.mockResolvedValueOnce([
+      {
+        ...pendingRow,
+        id: 'pending-2',
+        billingScopeId: 'scope-2',
+        status: 'processing',
+        processingStartedAt: new Date(),
+      },
+    ])
+
+    await expect(claimNextLocalPendingExecutionBatch({ limit: 50 })).resolves.toMatchObject({
+      nextBillingScopeId: 'scope-2',
+      rows: [{ id: 'pending-2', billingScopeId: 'scope-2', status: 'processing' }],
+    })
+
+    expect(resolveServerExecutionBillingTierForScope).toHaveBeenCalledTimes(2)
+    expect(updateReturningMock).toHaveBeenCalledOnce()
   })
 })
 
@@ -861,9 +906,7 @@ describe('markPendingExecutionOwnerCompleted', () => {
       })
     )
 
-    expect(sqlMock.mock.calls[0]?.[0].join('')).toContain(
-      "jsonb_build_object('ownerCompletedAt'"
-    )
+    expect(sqlMock.mock.calls[0]?.[0].join('')).toContain("jsonb_build_object('ownerCompletedAt'")
     expect(sqlMock.mock.calls[0]?.[1]).toBe('pendingExecution.payload')
     expect(updateChain.set).toHaveBeenCalledWith(
       expect.objectContaining({ payload: sqlMock.mock.results[0]?.value })
@@ -964,9 +1007,7 @@ describe('cancelPendingWorkflowExecution', () => {
       })
     ).resolves.toEqual({ status: 'cancelling' })
 
-    expect(sqlMock.mock.calls[0]?.[0].join('')).toContain(
-      "jsonb_build_object('cancelRequestedAt'"
-    )
+    expect(sqlMock.mock.calls[0]?.[0].join('')).toContain("jsonb_build_object('cancelRequestedAt'")
     expect(sqlMock.mock.calls[0]?.[1]).toBe('pendingExecution.payload')
     expect(updateChain.set).toHaveBeenCalledWith(
       expect.objectContaining({ payload: sqlMock.mock.results[0]?.value })

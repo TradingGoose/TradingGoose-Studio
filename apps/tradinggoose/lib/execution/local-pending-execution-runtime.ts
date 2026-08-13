@@ -1,14 +1,14 @@
-import { randomUUID } from 'node:crypto'
+import { db } from '@tradinggoose/db'
+import { LOCAL_PENDING_EXECUTION_DISPATCHER_LOCK_ID } from '@/lib/execution/execution-mode-lock'
 import {
-  claimNextPendingExecution,
+  claimNextLocalPendingExecutionBatch,
   completePendingExecution,
   isPendingExecutionOwnerCompleted,
   listChildPendingWorkflowExecutions,
-  listPendingExecutionBillingScopes,
   listProcessingPendingExecutions,
+  renewProcessingPendingExecutions,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
-import { acquireLock, releaseLock, renewLock } from '@/lib/redis'
 import { getTriggerExecutionState } from '@/lib/trigger/settings'
 import {
   executePendingExecution,
@@ -16,40 +16,82 @@ import {
 } from '@/background/pending-execution-worker'
 
 const POLL_INTERVAL_MS = 2_000
-const LEASE_RENEW_INTERVAL_MS = 30_000
-const LEASE_TTL_SECONDS = 90
-const MAX_LOCAL_EXECUTIONS = 20
+const ACTIVE_EXECUTION_LEASE_MS = 10_000
 const PAGE_SIZE = 50
-const LEASE_KEY = 'pending-execution:local-dispatcher'
 const LOCAL_INTERRUPTION_ERROR = 'Local workflow execution stopped before it could finish'
 const logger = createLogger('LocalPendingExecutionRuntime')
 
 const active = new Set<string>()
-const leaseValue = randomUUID()
-let lastLeaseRenewalAt = 0
-let leader = false
+const activePromises = new Set<Promise<void>>()
+let leadership: {
+  acquiredAt: number
+  connection: Awaited<ReturnType<typeof db.$client.reserve>>
+  backendPid: number
+} | null = null
+let currentTick: Promise<void> | undefined
 let processingCursor: string | undefined
-let runningTick = false
+let stopping = false
 let scopeCursor: string | undefined
 let timer: ReturnType<typeof setInterval> | undefined
 
 async function ensureLeadership() {
-  if (!leader) {
-    leader = await acquireLock(LEASE_KEY, leaseValue, LEASE_TTL_SECONDS)
-  } else if (Date.now() - lastLeaseRenewalAt >= LEASE_RENEW_INTERVAL_MS) {
-    leader = await renewLock(LEASE_KEY, leaseValue, LEASE_TTL_SECONDS)
+  if (leadership) {
+    try {
+      const [session] = await leadership.connection<{ backendPid: number }[]>`
+        select pg_backend_pid()::int as "backendPid"
+      `
+      if (session?.backendPid === leadership.backendPid) return true
+    } catch (error) {
+      logger.error('Local dispatcher database session was lost', { error })
+    }
+    await releaseLeadership().catch((error) => {
+      logger.error('Local dispatcher database session release failed', { error })
+    })
   }
-  if (leader) lastLeaseRenewalAt = Date.now()
-  return leader
+
+  if (active.size > 0) return false
+
+  const connection = await db.$client.reserve()
+  try {
+    const [result] = await connection<{ acquired: boolean; backendPid: number }[]>`
+      select
+        pg_try_advisory_lock(${LOCAL_PENDING_EXECUTION_DISPATCHER_LOCK_ID}) as acquired,
+        pg_backend_pid()::int as "backendPid"
+    `
+    if (!result?.acquired) {
+      connection.release()
+      return false
+    }
+    leadership = { acquiredAt: Date.now(), connection, backendPid: result.backendPid }
+    return true
+  } catch (error) {
+    connection.release()
+    throw error
+  }
+}
+
+async function releaseLeadership() {
+  if (!leadership) return
+  const { connection } = leadership
+  leadership = null
+  try {
+    await connection`select pg_advisory_unlock(${LOCAL_PENDING_EXECUTION_DISPATCHER_LOCK_ID})`
+  } finally {
+    connection.release()
+  }
 }
 
 async function reconcileInterruptedLocalExecutions() {
+  const staleBefore = Date.now() - ACTIVE_EXECUTION_LEASE_MS
   const rows = await listProcessingPendingExecutions({
     afterId: processingCursor,
     limit: PAGE_SIZE,
+    mode: 'local',
   })
+  if (!rows) return false
+
   for (const row of rows) {
-    if (active.has(row.id)) continue
+    if (active.has(row.id) || row.updatedAt.getTime() > staleBefore) continue
 
     if (isPendingExecutionOwnerCompleted(row)) {
       if ((await listChildPendingWorkflowExecutions(row.id)).length === 0) {
@@ -64,11 +106,12 @@ async function reconcileInterruptedLocalExecutions() {
     }
   }
   processingCursor = rows.length === PAGE_SIZE ? rows.at(-1)?.id : undefined
+  return true
 }
 
 function startExecution(pendingExecutionId: string) {
   active.add(pendingExecutionId)
-  void executePendingExecution({ pendingExecutionId })
+  const execution = executePendingExecution({ pendingExecutionId })
     .then(() => undefined)
     .catch((error) => {
       logger.error('Local pending execution finalization failed', {
@@ -78,70 +121,69 @@ function startExecution(pendingExecutionId: string) {
     })
     .finally(() => {
       active.delete(pendingExecutionId)
+      activePromises.delete(execution)
     })
+  activePromises.add(execution)
 }
 
 async function dispatchLocalExecutions() {
-  const available = MAX_LOCAL_EXECUTIONS - active.size
-  if (available <= 0) return
-
-  const scopes = await listPendingExecutionBillingScopes({
+  const batch = await claimNextLocalPendingExecutionBatch({
     afterBillingScopeId: scopeCursor,
-    limit: Math.min(PAGE_SIZE, available),
+    limit: PAGE_SIZE,
   })
-  if (scopes.length === 0) {
-    scopeCursor = undefined
-    return
-  }
+  if (!batch) return false
 
-  for (const { billingScopeId } of scopes) {
-    while (active.size < MAX_LOCAL_EXECUTIONS) {
-      const claim = await claimNextPendingExecution(billingScopeId)
-      if (claim.status !== 'claimed') break
-      startExecution(claim.row.id)
-    }
+  scopeCursor = batch.nextBillingScopeId
+  for (const row of batch.rows) {
+    startExecution(row.id)
   }
-
-  scopeCursor = scopes.at(-1)?.billingScopeId
+  return true
 }
 
 async function tick() {
-  if (runningTick) return
-  runningTick = true
-
   try {
+    await renewProcessingPendingExecutions([...active])
     const { mode } = await getTriggerExecutionState()
     if (mode !== 'local') {
-      if (leader && active.size === 0) {
-        await releaseLock(LEASE_KEY, leaseValue)
-        leader = false
-      }
+      await releaseLeadership()
       return
     }
-    if (!(await ensureLeadership())) return
+    if (!(await ensureLeadership()) || !leadership) return
 
-    await reconcileInterruptedLocalExecutions()
-    await dispatchLocalExecutions()
+    if (
+      Date.now() - leadership.acquiredAt >= ACTIVE_EXECUTION_LEASE_MS &&
+      !(await reconcileInterruptedLocalExecutions())
+    ) {
+      await releaseLeadership()
+      return
+    }
+    if (!(await dispatchLocalExecutions())) await releaseLeadership()
   } catch (error) {
     logger.error('Local pending execution dispatch failed', { error })
-  } finally {
-    runningTick = false
   }
+}
+
+function scheduleTick() {
+  if (currentTick || stopping) return
+  currentTick = tick().finally(() => {
+    currentTick = undefined
+  })
 }
 
 export function startLocalPendingExecutionRuntime() {
   if (timer) return
-  void tick()
-  timer = setInterval(() => void tick(), POLL_INTERVAL_MS)
+  stopping = false
+  scheduleTick()
+  timer = setInterval(scheduleTick, POLL_INTERVAL_MS)
   timer.unref?.()
 }
 
 export async function stopLocalPendingExecutionRuntime() {
+  stopping = true
   if (timer) clearInterval(timer)
   timer = undefined
 
-  if (leader && active.size === 0) {
-    await releaseLock(LEASE_KEY, leaseValue)
-    leader = false
-  }
+  await currentTick
+  await Promise.allSettled(activePromises)
+  await releaseLeadership()
 }

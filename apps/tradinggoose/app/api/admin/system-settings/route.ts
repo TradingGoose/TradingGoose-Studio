@@ -7,11 +7,11 @@ import {
 } from '@/lib/admin/system-settings/mutations'
 import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
 import { getBillingGateState, isBillingConfigurationReady } from '@/lib/billing/settings'
-import { hasPendingExecutions } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getResolvedSystemSettings,
   type ResolvedSystemSettings,
+  TriggerExecutionBusyError,
   upsertSystemSettings,
 } from '@/lib/system-settings/service'
 import { isTriggerConfigurationReady } from '@/lib/trigger/settings'
@@ -168,19 +168,6 @@ export async function PATCH(request: NextRequest) {
       hasPayloadField(payload, 'triggerDevEnabled') &&
       payload.triggerDevEnabled &&
       !currentSettings.triggerDevEnabled
-    const isChangingTriggerDev =
-      hasPayloadField(payload, 'triggerDevEnabled') &&
-      payload.triggerDevEnabled !== currentSettings.triggerDevEnabled
-
-    if (isChangingTriggerDev && (await hasPendingExecutions())) {
-      return NextResponse.json(
-        {
-          error: 'Trigger.dev execution mode cannot change while executions are queued or running.',
-          code: 'trigger_execution_busy',
-        },
-        { status: 409, headers: NO_STORE_HEADERS }
-      )
-    }
 
     if (isEnablingTriggerDev && !triggerReady) {
       return NextResponse.json(
@@ -207,6 +194,13 @@ export async function PATCH(request: NextRequest) {
       }
     )
   } catch (error) {
+    if (error instanceof TriggerExecutionBusyError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: 409, headers: NO_STORE_HEADERS }
+      )
+    }
+
     if (error instanceof ZodError) {
       logger.warn(`[${requestId}] Invalid admin system settings payload`, {
         errors: error.issues,

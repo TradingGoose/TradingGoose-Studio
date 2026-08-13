@@ -320,6 +320,29 @@ describe('recoverPendingExecutions', () => {
     })
     expect(mocks.completePendingExecution).not.toHaveBeenCalled()
     expect(mocks.triggerPendingExecution).not.toHaveBeenCalled()
+    expect(mocks.listProcessingPendingExecutions).toHaveBeenCalledWith({
+      afterId: undefined,
+      limit: 50,
+      mode: 'trigger',
+    })
+  })
+
+  it('does not inspect or wake queue rows outside Trigger mode', async () => {
+    mocks.listProcessingPendingExecutions.mockResolvedValueOnce(null)
+
+    await expect(recoverPendingExecutions()).resolves.toEqual({
+      pendingScopeCount: 0,
+      reconciledCount: 0,
+    })
+
+    expect(mocks.listProcessingPendingExecutions).toHaveBeenCalledWith({
+      afterId: undefined,
+      limit: 50,
+      mode: 'trigger',
+    })
+    expect(mocks.listPendingExecutionBillingScopes).not.toHaveBeenCalled()
+    expect(mocks.runsList).not.toHaveBeenCalled()
+    expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -379,10 +402,12 @@ describe('recoverPendingExecutions', () => {
     expect(mocks.listProcessingPendingExecutions).toHaveBeenNthCalledWith(2, {
       afterId: 'row-49',
       limit: 50,
+      mode: 'trigger',
     })
     expect(mocks.listPendingExecutionBillingScopes).toHaveBeenNthCalledWith(2, {
       afterBillingScopeId: 'scope-49',
       limit: 50,
+      mode: 'trigger',
     })
     expect(mocks.wakePendingExecution).toHaveBeenCalledTimes(51)
   })
