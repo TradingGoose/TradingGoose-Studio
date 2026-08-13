@@ -49,6 +49,7 @@ interface CopilotProps {
   ownerUserId?: string | null
   layoutName?: string | null
   authenticatedUserId?: string | null
+  currentContext?: ChatContext | null
   inputDisabled?: boolean
   reviewTarget: ReviewTargetDescriptor | null
 }
@@ -68,6 +69,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       ownerUserId = null,
       layoutName = null,
       authenticatedUserId = null,
+      currentContext = null,
       inputDisabled = false,
       reviewTarget,
     },
@@ -106,8 +108,17 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
             mcp_server: entityLabels.currentMcpServer,
             watchlist: entityLabels.currentWatchlist,
           },
+          currentContext,
         }),
-      [effectiveParams, entityLabels, layoutId, layoutName, ownerUserId, workspaceId]
+      [
+        currentContext,
+        effectiveParams,
+        entityLabels,
+        layoutId,
+        layoutName,
+        ownerUserId,
+        workspaceId,
+      ]
     )
     const workflowId = resolveCopilotWorkflowId(effectiveParams) ?? null
     const liveContext = useMemo(

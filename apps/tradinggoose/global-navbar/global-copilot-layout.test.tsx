@@ -17,6 +17,10 @@ const panelState = vi.hoisted(() => ({
   }),
 }))
 
+vi.mock('next/navigation', () => ({
+  useSelectedLayoutSegments: () => ['ws-1', 'records'],
+}))
+
 vi.mock('@/global-navbar/global-copilot-panel', () => ({
   GlobalCopilotPanel: ({ dashboardMode }: { dashboardMode: boolean }) => (
     <div data-testid='global-copilot-panel' data-dashboard-mode={String(dashboardMode)} />

@@ -238,6 +238,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
       ENTITY_KIND_CUSTOM_TOOL: 'custom_tool',
       ENTITY_KIND_DASHBOARD_LAYOUT: 'dashboard_layout',
       ENTITY_KIND_INDICATOR: 'indicator',
+      ENTITY_KIND_KNOWLEDGE_BASE: 'knowledge_base',
       ENTITY_KIND_MCP_SERVER: 'mcp_server',
       ENTITY_KIND_SKILL: 'skill',
       ENTITY_KIND_WATCHLIST: 'watchlist',
@@ -481,7 +482,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Update the current indicator',
       reviewSessionId: 'review-session-1',
-      workspaceId: 'workspace-1',
       stream: false,
       contexts: [
         {
@@ -531,6 +531,43 @@ describe('Copilot Chat POST Generic Sessions', () => {
         signal: expect.any(AbortSignal),
       })
     )
+  })
+
+  it('rejects a request workspace that differs from the existing chat workspace', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'creator-user',
+      entityKind: 'copilot',
+      entityId: null,
+      workspaceId: 'workspace-1',
+      title: 'Workspace chat',
+      conversationId: null,
+    })
+
+    const request = createMockRequest('POST', {
+      message: 'Read this monitor',
+      reviewSessionId: 'review-session-1',
+      workspaceId: 'workspace-2',
+      stream: false,
+      contexts: [
+        {
+          kind: 'current_monitor',
+          monitorId: 'monitor-2',
+          workspaceId: 'workspace-2',
+          label: 'Current monitor',
+        },
+      ],
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'workspaceId does not match the review session workspace',
+    })
+    expect(mockProcessContextsServer).not.toHaveBeenCalled()
+    expect(mockProxyCopilotRequest).not.toHaveBeenCalled()
   })
 
   it('keeps entity labels in the saved message but sends ordered ids to the model', async () => {

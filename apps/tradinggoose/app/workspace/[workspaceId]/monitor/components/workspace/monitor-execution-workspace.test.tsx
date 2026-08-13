@@ -2,9 +2,14 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
+import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  GlobalCopilotContextProvider,
+  useGlobalCopilotCurrentContext,
+} from '@/global-navbar/copilot-context'
+import type { MonitorExecutionItem } from '../data/execution-ordering'
 import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { MonitorExecutionWorkspace } from './monitor-execution-workspace'
 
@@ -18,6 +23,11 @@ const ResizeObserverMock = class {
   unobserve() {}
   disconnect() {}
 } as unknown as typeof ResizeObserver
+
+function CurrentContextProbe() {
+  const context = useGlobalCopilotCurrentContext()
+  return <div data-testid='current-context'>{context ? JSON.stringify(context) : ''}</div>
+}
 
 const findCombobox = (text: string) => {
   const combobox = Array.from(document.querySelectorAll('[role="combobox"]')).find((node) =>
@@ -134,6 +144,7 @@ describe('MonitorExecutionWorkspace', () => {
     await act(async () => {
       root.render(
         <MonitorExecutionWorkspace
+          workspaceId='workspace-1'
           viewStateMode='error'
           viewStateReloading={false}
           viewsError='Failed to load monitor views'
@@ -180,99 +191,105 @@ describe('MonitorExecutionWorkspace', () => {
     expect(onReloadViews).toHaveBeenCalledOnce()
   })
 
-  it('requires detail-route data before rendering the inspector body', async () => {
-    await act(async () => {
-      root.render(
-        <MonitorExecutionWorkspace
-          viewStateMode='server'
-          viewStateReloading={false}
-          viewsError={null}
-          effectiveConfig={DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG}
-          executionItems={[]}
-          executionsLoading={false}
-          executionFailureMode={null}
-          selectedExecutionLogId='log-1'
-          selectedExecution={{
-            logId: 'log-1',
-            workflowId: 'wf-1',
-            executionId: 'exec-1',
-            startedAt: '2026-04-23T00:00:00.000Z',
-            endedAt: '2026-04-23T00:05:00.000Z',
-            durationMs: 300000,
-            outcome: 'success',
-            trigger: 'manual',
-            workflowName: 'Workflow One',
-            workflowColor: '#3972F6',
-            monitorId: 'monitor-1',
+  it('publishes the selected log only while its inspector is visible', async () => {
+    const selectedExecution: MonitorExecutionItem = {
+      logId: 'log-1',
+      workflowId: 'wf-1',
+      executionId: 'exec-1',
+      startedAt: '2026-04-23T00:00:00.000Z',
+      endedAt: '2026-04-23T00:05:00.000Z',
+      durationMs: 300000,
+      outcome: 'success',
+      trigger: 'manual',
+      workflowName: 'Workflow One',
+      monitorId: 'monitor-1',
+      source: 'indicator',
+      providerId: 'alpaca',
+      serviceId: null,
+      accountId: null,
+      interval: '1m',
+      indicatorId: 'rsi',
+      assetType: 'stock',
+      listing: null,
+      listingLabel: 'AAPL',
+      cost: 0.12,
+      isOrphaned: false,
+      isPartial: false,
+    }
 
-            source: 'indicator',
+    function InspectorHarness() {
+      const [executionsLoading, setExecutionsLoading] = useState(false)
 
-            providerId: 'alpaca',
-
-            serviceId: null,
-
-            accountId: null,
-
-            interval: '1m',
-            indicatorId: 'rsi',
-            assetType: 'stock',
-            listing: null,
-            listingLabel: 'AAPL',
-            cost: 0.12,
-            isOrphaned: false,
-            isPartial: false,
-            sourceLog: {
-              id: 'log-1',
-              workspaceId: 'workspace-1',
-              workflowId: 'wf-1',
-              executionId: 'exec-1',
-              level: 'info',
-              trigger: 'manual',
-              startedAt: '2026-04-23T00:00:00.000Z',
-              recordCreatedAt: '2026-04-23T00:00:00.000Z',
-              endedAt: '2026-04-23T00:05:00.000Z',
-              durationMs: 300000,
-              outcome: 'success',
-              workflow: {
-                id: 'wf-1',
-                name: 'Workflow One',
-                description: null,
-                color: '#3972F6',
-                folderId: null,
-                folderName: null,
-                userId: 'user-1',
-                workspaceId: 'workspace-1',
-                createdAt: '2026-04-23T00:00:00.000Z',
-                updatedAt: '2026-04-23T00:00:00.000Z',
-              },
-            },
-          }}
-          selectedExecutionLog={null}
-          inspectorLoading={false}
-          inspectorError={null}
-          panelSizes={null}
-          onPanelLayout={vi.fn()}
-          onUpdateViewConfig={vi.fn()}
-          onToggleQuickFilter={vi.fn()}
-          isQuickFilterActive={() => false}
-          onReorderColumnCards={vi.fn()}
-          onSelectExecution={vi.fn()}
-          onNavigatePrev={vi.fn()}
-          onNavigateNext={vi.fn()}
-          hasPrev={false}
-          hasNext={false}
-          onReloadViews={vi.fn()}
-        />
+      return (
+        <GlobalCopilotContextProvider>
+          <button type='button' onClick={() => setExecutionsLoading(true)}>
+            Hide inspector
+          </button>
+          <MonitorExecutionWorkspace
+            workspaceId='workspace-1'
+            viewStateMode='server'
+            viewStateReloading={false}
+            viewsError={null}
+            effectiveConfig={DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG}
+            executionItems={[selectedExecution]}
+            executionsLoading={executionsLoading}
+            executionFailureMode={null}
+            selectedExecutionLogId='log-1'
+            selectedExecution={selectedExecution}
+            selectedExecutionLog={null}
+            inspectorLoading={false}
+            inspectorError={null}
+            panelSizes={null}
+            onPanelLayout={vi.fn()}
+            onUpdateViewConfig={vi.fn()}
+            onToggleQuickFilter={vi.fn()}
+            isQuickFilterActive={() => false}
+            onReorderColumnCards={vi.fn()}
+            onSelectExecution={vi.fn()}
+            onNavigatePrev={vi.fn()}
+            onNavigateNext={vi.fn()}
+            hasPrev={false}
+            hasNext={false}
+            onReloadViews={vi.fn()}
+          />
+          <CurrentContextProbe />
+        </GlobalCopilotContextProvider>
       )
+    }
+
+    await act(async () => {
+      root.render(<InspectorHarness />)
     })
 
     expect(container.textContent).toContain('Execution details unavailable')
+    expect(container.querySelector('[data-testid="current-context"]')?.textContent).toBe(
+      JSON.stringify({
+        kind: 'current_logs',
+        logId: 'log-1',
+        workspaceId: 'workspace-1',
+        label: 'Current log',
+      })
+    )
+
+    const hideInspector = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Hide inspector'
+    )
+    if (!(hideInspector instanceof HTMLButtonElement)) {
+      throw new Error('Expected inspector visibility control to render')
+    }
+
+    await act(async () => {
+      hideInspector.click()
+    })
+
+    expect(container.querySelector('[data-testid="current-context"]')?.textContent).toBe('')
   })
 
   it('surfaces partial execution snapshot state in the inspector context strip', async () => {
     await act(async () => {
       root.render(
         <MonitorExecutionWorkspace
+          workspaceId='workspace-1'
           viewStateMode='server'
           viewStateReloading={false}
           viewsError={null}
@@ -291,7 +308,6 @@ describe('MonitorExecutionWorkspace', () => {
             outcome: 'success',
             trigger: 'manual',
             workflowName: 'Workflow One',
-            workflowColor: '#3972F6',
             monitorId: 'monitor-1',
 
             source: 'indicator',
@@ -310,31 +326,6 @@ describe('MonitorExecutionWorkspace', () => {
             cost: null,
             isOrphaned: false,
             isPartial: true,
-            sourceLog: {
-              id: 'log-1',
-              workspaceId: 'workspace-1',
-              workflowId: 'wf-1',
-              executionId: 'exec-1',
-              level: 'info',
-              trigger: 'manual',
-              startedAt: '2026-04-23T00:00:00.000Z',
-              recordCreatedAt: '2026-04-23T00:00:00.000Z',
-              endedAt: null,
-              durationMs: null,
-              outcome: 'success',
-              workflow: {
-                id: 'wf-1',
-                name: 'Workflow One',
-                description: null,
-                color: '#3972F6',
-                folderId: null,
-                folderName: null,
-                userId: 'user-1',
-                workspaceId: 'workspace-1',
-                createdAt: '2026-04-23T00:00:00.000Z',
-                updatedAt: '2026-04-23T00:00:00.000Z',
-              },
-            },
           }}
           selectedExecutionLog={{
             id: 'log-1',
@@ -377,6 +368,7 @@ describe('MonitorExecutionWorkspace', () => {
     await act(async () => {
       root.render(
         <MonitorExecutionWorkspace
+          workspaceId='workspace-1'
           viewStateMode='server'
           viewStateReloading={false}
           viewsError={null}
@@ -395,7 +387,6 @@ describe('MonitorExecutionWorkspace', () => {
             outcome: 'success',
             trigger: 'manual',
             workflowName: 'Workflow One',
-            workflowColor: '#3972F6',
             monitorId: 'monitor-1',
 
             source: 'indicator',
@@ -414,31 +405,6 @@ describe('MonitorExecutionWorkspace', () => {
             cost: 0.12,
             isOrphaned: true,
             isPartial: false,
-            sourceLog: {
-              id: 'log-1',
-              workspaceId: 'workspace-1',
-              workflowId: 'wf-1',
-              executionId: 'exec-1',
-              level: 'info',
-              trigger: 'manual',
-              startedAt: '2026-04-23T00:00:00.000Z',
-              recordCreatedAt: '2026-04-23T00:00:00.000Z',
-              endedAt: '2026-04-23T00:05:00.000Z',
-              durationMs: 300000,
-              outcome: 'success',
-              workflow: {
-                id: 'wf-1',
-                name: 'Workflow One',
-                description: null,
-                color: '#3972F6',
-                folderId: null,
-                folderName: null,
-                userId: 'user-1',
-                workspaceId: 'workspace-1',
-                createdAt: '2026-04-23T00:00:00.000Z',
-                updatedAt: '2026-04-23T00:00:00.000Z',
-              },
-            },
           }}
           selectedExecutionLog={{
             id: 'log-1',
@@ -483,6 +449,7 @@ describe('MonitorExecutionWorkspace', () => {
     await act(async () => {
       root.render(
         <MonitorExecutionWorkspace
+          workspaceId='workspace-1'
           viewStateMode='server'
           viewStateReloading={false}
           viewsError={null}
@@ -544,6 +511,7 @@ describe('MonitorExecutionWorkspace', () => {
     await act(async () => {
       root.render(
         <MonitorExecutionWorkspace
+          workspaceId='workspace-1'
           viewStateMode='server'
           viewStateReloading={false}
           viewsError={null}
@@ -586,6 +554,7 @@ describe('MonitorExecutionWorkspace', () => {
     await act(async () => {
       root.render(
         <MonitorExecutionWorkspace
+          workspaceId='workspace-1'
           viewStateMode='server'
           viewStateReloading={false}
           viewsError={null}

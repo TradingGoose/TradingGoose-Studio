@@ -1,13 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
-import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import {
   getLocalizedBlockNameWithCopy,
@@ -21,7 +20,6 @@ import {
 } from '../../../workspace-entities'
 import type {
   BlockItem,
-  KnowledgeBaseItem,
   LogItem,
   MentionSources,
   MentionSubmenu,
@@ -63,9 +61,6 @@ export function useUserInputMentionSources({
   const [workspaceEntityState, setWorkspaceEntityState] = useState<WorkspaceEntityMentionLoadState>(
     {}
   )
-  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseItem[]>([])
-  const [isLoadingKnowledge, setIsLoadingKnowledge] = useState(false)
-  const knowledgeLoadOwnerRef = useRef({ generation: 0, pending: false })
   const [blocksList, setBlocksList] = useState<BlockItem[]>([])
   const [isLoadingBlocks, setIsLoadingBlocks] = useState(false)
   const [logsList, setLogsList] = useState<LogItem[]>([])
@@ -162,38 +157,6 @@ export function useUserInputMentionSources({
     [workspaceEntityState, workspaceId, workspaceLifecycle]
   )
 
-  const ensureKnowledgeLoaded = useCallback(async () => {
-    const owner = knowledgeLoadOwnerRef.current
-    if (owner.pending || knowledgeBases.length > 0) return
-    const generation = ++owner.generation
-    owner.pending = true
-    const lifecycle = workspaceLifecycle
-
-    try {
-      setIsLoadingKnowledge(true)
-      const items = await fetchWorkspaceKnowledgeBases(workspaceId)
-      if (!lifecycle.active || generation !== owner.generation) return
-      const sorted = [...items].sort((a: any, b: any) => {
-        const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime()
-        const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime()
-        return timeB - timeA
-      })
-
-      setKnowledgeBases(
-        sorted.flatMap((item: any) => {
-          const name = toTrimmedString(item.name)
-          return item.id && name ? [{ id: item.id, name }] : []
-        })
-      )
-    } catch {
-    } finally {
-      if (lifecycle.active && generation === owner.generation) {
-        owner.pending = false
-        setIsLoadingKnowledge(false)
-      }
-    }
-  }, [knowledgeBases.length, workspaceId, workspaceLifecycle])
-
   const ensureBlocksLoaded = useCallback(async () => {
     if (isLoadingBlocks || blocksList.length > 0) {
       return
@@ -245,7 +208,6 @@ export function useUserInputMentionSources({
             ? [
                 {
                   id: item.id,
-                  executionId: item.executionId || item.id,
                   level: item.level,
                   trigger: item.trigger || null,
                   startedAt: item.startedAt,
@@ -302,7 +264,6 @@ export function useUserInputMentionSources({
     if (submenu === 'dashboard_layout') return
 
     if (isCopilotWorkspaceEntityMentionOption(submenu)) return ensureWorkspaceEntityLoaded(submenu)
-    if (submenu === 'knowledge') return ensureKnowledgeLoaded()
     if (submenu === 'blocks') return ensureBlocksLoaded()
     if (submenu === 'workflow_blocks') return ensureWorkflowBlocksLoaded()
     return ensureLogsLoaded()
@@ -333,21 +294,14 @@ export function useUserInputMentionSources({
   }, [ensureWorkspaceEntityLoaded, workflowId, workspaceEntityState.workflow])
 
   useLayoutEffect(() => {
-    const knowledgeOwner = knowledgeLoadOwnerRef.current
-    knowledgeOwner.generation += 1
-    knowledgeOwner.pending = false
     workspaceLifecycle.active = true
     setPastChats([])
     setIsLoadingPastChats(false)
     setWorkspaceEntityState({})
-    setKnowledgeBases([])
-    setIsLoadingKnowledge(false)
     setLogsList([])
     setIsLoadingLogs(false)
 
     return () => {
-      knowledgeOwner.generation += 1
-      knowledgeOwner.pending = false
       workspaceLifecycle.active = false
     }
   }, [workspaceLifecycle])
@@ -366,7 +320,6 @@ export function useUserInputMentionSources({
       ...workspaceEntities,
       dashboard_layout: dashboardLayoutMentions,
     },
-    knowledgeBases,
     blocksList,
     logsList,
     workflowBlocks,
@@ -378,7 +331,6 @@ export function useUserInputMentionSources({
     dashboard_layout: isLoadingDashboardLayouts,
     workflow_blocks: isLoadingWorkflowBlocks,
     blocks: isLoadingBlocks,
-    knowledge: isLoadingKnowledge,
     logs: isLoadingLogs,
   }
 

@@ -17,10 +17,10 @@ const WORKSPACE_CONTEXT_ENTITY_KINDS = [
 
 const mockGetBlocksMetadataExecute = vi.fn()
 const mockVerifyWorkflowAccess = vi.fn()
-const mockVerifyReviewTargetAccess = vi.fn()
 const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
-const mockReadBootstrappedSavedEntityFields = vi.fn()
 const mockReadWorkflowSnapshot = vi.fn()
+const mockReadKnowledgeBaseExecute = vi.fn()
+const mockReadMonitorExecute = vi.fn()
 const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
 const mockOr = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' }))
@@ -42,8 +42,6 @@ vi.mock('@tradinggoose/db', () => ({
 vi.mock('@tradinggoose/db/schema', () => ({
   copilotReviewItems: {},
   copilotReviewSessions: {},
-  document: {},
-  knowledgeBase: {},
   permissions: {
     entityType: 'permissions.entityType',
     entityId: 'permissions.entityId',
@@ -77,7 +75,6 @@ vi.mock('drizzle-orm', () => ({
   and: mockAnd,
   asc: vi.fn(),
   eq: mockEq,
-  isNull: vi.fn(),
   or: mockOr,
 }))
 
@@ -91,7 +88,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
-  verifyReviewTargetAccess: mockVerifyReviewTargetAccess,
   verifyWorkflowAccess: mockVerifyWorkflowAccess,
 }))
 
@@ -101,9 +97,20 @@ vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata', () => ({
   },
 }))
 
+vi.mock('@/lib/copilot/tools/server/monitor/read-monitor', () => ({
+  readMonitorServerTool: {
+    execute: mockReadMonitorExecute,
+  },
+}))
+
+vi.mock('@/lib/copilot/tools/server/knowledge/knowledge-base', () => ({
+  readKnowledgeBaseServerTool: {
+    execute: mockReadKnowledgeBaseExecute,
+  },
+}))
+
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedReviewTargetSnapshot: mockReadBootstrappedReviewTargetSnapshot,
-  readBootstrappedSavedEntityFields: mockReadBootstrappedSavedEntityFields,
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
@@ -115,10 +122,10 @@ describe('processContextsServer', () => {
     vi.resetModules()
     mockGetBlocksMetadataExecute.mockReset()
     mockVerifyWorkflowAccess.mockReset()
-    mockVerifyReviewTargetAccess.mockReset()
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
-    mockReadBootstrappedSavedEntityFields.mockReset()
     mockReadWorkflowSnapshot.mockReset()
+    mockReadKnowledgeBaseExecute.mockReset()
+    mockReadMonitorExecute.mockReset()
     mockAnd.mockClear()
     mockEq.mockClear()
     mockOr.mockClear()
@@ -126,12 +133,6 @@ describe('processContextsServer', () => {
     mockDbSelect.mockClear()
     mockSelectChain.leftJoin.mockClear()
     mockSelectChain.innerJoin.mockClear()
-    mockVerifyReviewTargetAccess.mockResolvedValue({
-      hasAccess: true,
-      userPermission: 'read',
-      workspaceId: 'workspace-1',
-      isOwner: false,
-    })
     mockVerifyWorkflowAccess.mockResolvedValue({
       hasAccess: true,
       userPermission: 'read',
@@ -213,11 +214,72 @@ describe('processContextsServer', () => {
         expect(Object.keys(JSON.parse(context.content))).toEqual(['entityId'])
       }
 
-      expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
       expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
-      expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
     }
   )
+
+  it('hydrates current knowledge through the canonical knowledge_base entity path', async () => {
+    const knowledgeBase = {
+      entityKind: 'knowledge_base',
+      entityId: 'knowledge-1',
+      entityName: 'Research',
+      workspaceId: 'workspace-1',
+      documentFormat: 'tg-knowledge-base-document-v1',
+      entityDocument: '{"description":"Research notes"}',
+      docCount: 1,
+      tokenCount: 42,
+    }
+    mockReadKnowledgeBaseExecute.mockResolvedValue(knowledgeBase)
+
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        buildCopilotWorkspaceEntityContext({
+          entityKind: 'knowledge_base',
+          entityId: 'knowledge-1',
+          workspaceId: 'workspace-1',
+          label: 'Current knowledge base',
+          current: true,
+        }),
+      ],
+      'user-1',
+      undefined,
+      'workspace-1'
+    )
+
+    expect(mockReadKnowledgeBaseExecute).toHaveBeenCalledWith(
+      { entityId: 'knowledge-1' },
+      { userId: 'user-1', workspaceId: 'workspace-1' }
+    )
+    expect(result).toEqual([
+      {
+        type: 'current_knowledge_base',
+        tag: '@knowledge-1',
+        content: JSON.stringify(knowledgeBase, null, 2),
+      },
+    ])
+  })
+
+  it('rejects knowledge contexts from a different active workspace', async () => {
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        buildCopilotWorkspaceEntityContext({
+          entityKind: 'knowledge_base',
+          entityId: 'knowledge-1',
+          workspaceId: 'workspace-2',
+          label: 'Research',
+        }),
+      ],
+      'user-1',
+      undefined,
+      'workspace-1'
+    )
+
+    expect(result).toEqual([])
+    expect(mockReadKnowledgeBaseExecute).not.toHaveBeenCalled()
+    expect(mockDbSelect).not.toHaveBeenCalled()
+  })
 
   it('reads workflow document content only for an attached workflow block', async () => {
     const doc = new Y.Doc()
@@ -282,7 +344,9 @@ describe('processContextsServer', () => {
           label: 'Attached Block',
         },
       ],
-      'user-1'
+      'user-1',
+      undefined,
+      'workspace-1'
     )
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
@@ -290,7 +354,7 @@ describe('processContextsServer', () => {
     expect(result).toEqual([])
   })
 
-  it('hydrates deleted workflow log contexts from the durable workflow summary', async () => {
+  it('hydrates the open log by its canonical log id', async () => {
     mockLogRowsQueue.push([
       {
         id: 'log-1',
@@ -313,9 +377,21 @@ describe('processContextsServer', () => {
 
     const { processContextsServer } = await import('@/lib/copilot/process-contents')
     const result = await processContextsServer(
-      [{ kind: 'logs', executionId: 'execution-1', label: 'Deleted Run' }],
-      'user-1'
+      [
+        {
+          kind: 'current_logs',
+          logId: 'log-1',
+          workspaceId: 'workspace-1',
+          label: 'Deleted Run',
+        },
+      ],
+      'user-1',
+      undefined,
+      'workspace-1'
     )
+
+    expect(mockEq).toHaveBeenCalledWith('workflowExecutionLogs.id', 'log-1')
+    expect(mockEq).toHaveBeenCalledWith('workflowExecutionLogs.workspaceId', 'workspace-1')
 
     expect(mockSelectChain.innerJoin).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -347,5 +423,125 @@ describe('processContextsServer', () => {
       workflowId: 'deleted-workflow-1',
       entityName: 'Deleted workflow',
     })
+    expect(result[0]?.type).toBe('current_logs')
+  })
+
+  it('rejects log contexts from a different active workspace', async () => {
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'logs',
+          logId: 'log-1',
+          workspaceId: 'workspace-2',
+          label: 'Run',
+        },
+      ],
+      'user-1',
+      undefined,
+      'workspace-1'
+    )
+
+    expect(result).toEqual([])
+    expect(mockDbSelect).not.toHaveBeenCalled()
+  })
+
+  it('rejects log contexts without an active request workspace', async () => {
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'logs',
+          logId: 'log-1',
+          workspaceId: 'workspace-1',
+          label: 'Run',
+        },
+      ],
+      'user-1'
+    )
+
+    expect(result).toEqual([])
+    expect(mockDbSelect).not.toHaveBeenCalled()
+  })
+
+  it('reads the open monitor through the canonical monitor tool', async () => {
+    mockReadMonitorExecute.mockResolvedValue({
+      surfaceKind: 'monitor',
+      monitorId: 'monitor-1',
+      workspaceId: 'workspace-1',
+    })
+
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'current_monitor',
+          monitorId: 'monitor-1',
+          workspaceId: 'workspace-1',
+          label: 'Current monitor',
+        },
+      ],
+      'user-1',
+      undefined,
+      'workspace-1'
+    )
+
+    expect(mockReadMonitorExecute).toHaveBeenCalledWith(
+      { monitorId: 'monitor-1' },
+      { userId: 'user-1', workspaceId: 'workspace-1' }
+    )
+    expect(result).toEqual([
+      {
+        type: 'current_monitor',
+        tag: '@Current monitor',
+        content: JSON.stringify(
+          {
+            surfaceKind: 'monitor',
+            monitorId: 'monitor-1',
+            workspaceId: 'workspace-1',
+          },
+          null,
+          2
+        ),
+      },
+    ])
+  })
+
+  it('rejects monitor contexts from a different active workspace', async () => {
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'current_monitor',
+          monitorId: 'monitor-1',
+          workspaceId: 'workspace-2',
+          label: 'Current monitor',
+        },
+      ],
+      'user-1',
+      undefined,
+      'workspace-1'
+    )
+
+    expect(result).toEqual([])
+    expect(mockReadMonitorExecute).not.toHaveBeenCalled()
+  })
+
+  it('rejects monitor contexts without an active request workspace', async () => {
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'current_monitor',
+          monitorId: 'monitor-1',
+          workspaceId: 'workspace-1',
+          label: 'Current monitor',
+        },
+      ],
+      'user-1'
+    )
+
+    expect(result).toEqual([])
+    expect(mockReadMonitorExecute).not.toHaveBeenCalled()
   })
 })

@@ -35,6 +35,9 @@ export async function loadWorkspaceEntityMentionItems(
     case 'indicator':
       path = `/api/indicators/custom?workspaceId=${encodeURIComponent(workspaceId)}`
       break
+    case 'knowledge_base':
+      path = `/api/knowledge?workspaceId=${encodeURIComponent(workspaceId)}`
+      break
     case 'custom_tool':
       path = `/api/tools/custom?workspaceId=${encodeURIComponent(workspaceId)}`
       break
@@ -60,6 +63,7 @@ export async function loadWorkspaceEntityMentionItems(
           color: item.color,
         }))
     case 'skill':
+    case 'knowledge_base':
       return sortByRecent(Array.isArray(data?.data) ? data.data : [])
         .filter((item: any) => item.id)
         .map((item: any) => ({

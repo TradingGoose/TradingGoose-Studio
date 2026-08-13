@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   useLogsList: vi.fn(),
   useOrderDetail: vi.fn(),
   useOrdersList: vi.fn(),
+  copilotContext: null as Record<string, unknown> | null,
   workflowDetailsProps: null as any,
   workflowIds: [] as string[],
   workflowListProps: null as any,
@@ -35,6 +36,13 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('next/font/local', () => ({ default: () => ({ className: '' }) }))
+
+vi.mock('@/global-navbar/copilot-context', () => ({
+  GlobalCopilotContextPublisher: ({ context }: { context: Record<string, unknown> | null }) => {
+    mocks.copilotContext = context
+    return null
+  },
+}))
 
 vi.mock('@/components/ui/resizable', () => ({
   ResizableHandle: () => <div data-testid='resize-handle' />,
@@ -60,7 +68,11 @@ vi.mock('@/app/workspace/[workspaceId]/records/components/log-details/log-detail
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/records/components/logs-list', () => ({
-  LogsList: () => <div data-testid='logs-list'>logs-list</div>,
+  LogsList: ({ logs, onLogClick }: any) => (
+    <button data-testid='logs-list' onClick={() => logs[0] && onLogClick(logs[0])} type='button'>
+      logs-list
+    </button>
+  ),
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/records/components/logs-toolbar', () => ({
@@ -205,6 +217,7 @@ describe('Records', () => {
     mocks.triggers = []
     mocks.workflowDetailsProps = null
     mocks.workflowListProps = null
+    mocks.copilotContext = null
     reactActEnvironment.ResizeObserver = class {
       disconnect() {}
       observe() {}
@@ -399,6 +412,44 @@ describe('Records', () => {
     expect(container.querySelector('[data-testid="logs-list"]')).toBeTruthy()
     expect(container.querySelector('[data-testid="orders-table"]')).toBeFalsy()
     expect(window.location.search).toBe('?tab=logs')
+  })
+
+  it('publishes only the open log id as the current Copilot context', async () => {
+    window.history.pushState({}, '', '/workspace/workspace-1/records?tab=logs')
+    mocks.useLogsList.mockReturnValue({
+      data: {
+        pages: [
+          {
+            hasMore: false,
+            logs: [
+              {
+                id: 'log-1',
+                executionId: 'execution-1',
+                level: 'info',
+                trigger: 'manual',
+                createdAt: '2026-08-12T00:00:00.000Z',
+              },
+            ],
+            nextPage: undefined,
+            total: 1,
+          },
+        ],
+      },
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    })
+
+    await renderRecords()
+    const logRow = container.querySelector('[data-testid="logs-list"]')
+    if (!(logRow instanceof HTMLButtonElement)) throw new Error('Expected log row')
+    await act(async () => logRow.click())
+
+    expect(mocks.copilotContext).toEqual({
+      kind: 'current_logs',
+      logId: 'log-1',
+      workspaceId: 'workspace-1',
+      label: 'Current log',
+    })
   })
 
   it('renders Stats controls in the Records toolbar', async () => {

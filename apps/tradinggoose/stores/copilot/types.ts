@@ -51,33 +51,33 @@ type WorkspaceEntityContextIdFieldByKind = {
   workflow: 'workflowId'
   skill: 'skillId'
   indicator: 'indicatorId'
+  knowledge_base: 'knowledgeBaseId'
   custom_tool: 'customToolId'
   mcp_server: 'mcpServerId'
   watchlist: 'watchlistId'
   dashboard_layout: 'dashboardLayoutId'
 }
 
-type WorkspaceEntityContextBase = {
-  workspaceId?: string
+type WorkspaceEntityContextBase<K extends keyof WorkspaceEntityContextIdFieldByKind> = {
   ownerUserId?: string
   label: string
-}
+} & (K extends 'knowledge_base' ? { workspaceId: string } : { workspaceId?: string })
 
 type WorkspaceEntityExplicitChatContext = {
   [K in keyof WorkspaceEntityContextIdFieldByKind]: { kind: K } & Record<
     WorkspaceEntityContextIdFieldByKind[K],
     string
   > &
-    WorkspaceEntityContextBase
+    WorkspaceEntityContextBase<K>
 }[keyof WorkspaceEntityContextIdFieldByKind]
 
 type WorkspaceEntityCurrentChatContext = {
   [K in keyof WorkspaceEntityContextIdFieldByKind]: {
     kind: `current_${K}`
-  } & (K extends 'workflow'
+  } & (K extends 'workflow' | 'knowledge_base'
     ? Record<WorkspaceEntityContextIdFieldByKind[K], string>
     : Partial<Record<WorkspaceEntityContextIdFieldByKind[K], string>>) &
-    WorkspaceEntityContextBase
+    WorkspaceEntityContextBase<K>
 }[keyof WorkspaceEntityContextIdFieldByKind]
 
 type WorkspaceEntityChatContext =
@@ -88,9 +88,19 @@ export type ChatContext =
   | { kind: 'past_chat'; reviewSessionId: string; label: string }
   | WorkspaceEntityChatContext
   | { kind: 'blocks'; blockTypes?: string[]; label: string }
-  | { kind: 'logs'; executionId?: string; label: string }
+  | {
+      kind: 'logs' | 'current_logs'
+      logId: string
+      workspaceId: string
+      label: string
+    }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
-  | { kind: 'knowledge'; knowledgeId?: string; workspaceId?: string; label: string }
+  | {
+      kind: 'current_monitor'
+      monitorId: string
+      workspaceId: string
+      label: string
+    }
   | { kind: 'docs'; label: string }
 
 export interface CopilotChat {

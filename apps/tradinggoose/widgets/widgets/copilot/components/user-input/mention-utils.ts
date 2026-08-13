@@ -14,7 +14,6 @@ import {
 import { MENTION_OPTIONS } from './constants'
 import {
   type CopilotMentionCopy,
-  getKnowledgeBaseMentionLabel,
   getLogMentionSearchText,
   getMentionOptionLabel,
   getPastChatMentionLabel,
@@ -23,7 +22,6 @@ import {
 import type {
   AggregatedMentionItem,
   BlockItem,
-  KnowledgeBaseItem,
   LogItem,
   MentionItem,
   MentionOption,
@@ -97,10 +95,6 @@ export function filterWorkspaceEntities(
   )
 }
 
-export function filterKnowledgeBases(items: KnowledgeBaseItem[], query: string) {
-  return items.filter((item) => includesNormalized(getKnowledgeBaseMentionLabel(item), query))
-}
-
 export function filterBlocks(items: BlockItem[], query: string) {
   return items.filter((item) => includesNormalized(item.name || item.id, query))
 }
@@ -128,10 +122,6 @@ export function filterMentionItems(
 
   if (isCopilotWorkspaceEntityMentionOption(submenu)) {
     return filterWorkspaceEntities(sources.workspaceEntities[submenu], query, mentionCopy)
-  }
-
-  if (submenu === 'knowledge') {
-    return filterKnowledgeBases(sources.knowledgeBases, query)
   }
 
   if (submenu === 'blocks') {
@@ -174,11 +164,6 @@ export function buildAggregatedMentionItems(
     ),
     ...filterBlocks(sources.blocksList, query).map((value) => ({
       type: 'blocks' as const,
-      id: value.id,
-      value,
-    })),
-    ...filterKnowledgeBases(sources.knowledgeBases, query).map((value) => ({
-      type: 'knowledge' as const,
       id: value.id,
       value,
     })),

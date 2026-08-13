@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { useDashboardColorPair } from '@/lib/yjs/use-dashboard-color-pair'
 import { useActiveDashboardLayout } from '@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc'
+import { useGlobalCopilotCurrentContext } from '@/global-navbar/copilot-context'
 import type { PairColor } from '@/widgets/pair-colors'
 import { PairColorDropdown } from '@/widgets/widgets/components/pair-color-dropdown'
 import {
@@ -23,6 +24,7 @@ export function GlobalCopilotPanel({
   ownerUserId: string
   dashboardMode: boolean
 }) {
+  const currentContext = useGlobalCopilotCurrentContext()
   const [dashboardPairColor, setDashboardPairColor] = useState<PairColor>('gray')
   const pairColor = dashboardMode ? dashboardPairColor : 'gray'
   const activeLayout = useActiveDashboardLayout(
@@ -84,6 +86,7 @@ export function GlobalCopilotPanel({
             layoutId={activeLayout?.id ?? null}
             ownerUserId={activeLayout ? ownerUserId : null}
             layoutName={activeLayout?.name ?? null}
+            currentContext={currentContext}
           />
         </div>
       </Card>

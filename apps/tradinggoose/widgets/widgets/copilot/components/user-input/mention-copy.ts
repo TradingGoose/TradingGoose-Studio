@@ -8,7 +8,6 @@ import {
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
 import type {
-  KnowledgeBaseItem,
   LogItem,
   MentionOption,
   MentionSubmenu,
@@ -46,7 +45,7 @@ export function getCopilotMentionCopy({
       dashboard_layout: 'Dashboard layouts',
       workflow_blocks: copilot.mentions.workflowBlocks,
       blocks: widgets.workflowToolbar.blocks,
-      knowledge: dashboard.pages.knowledge,
+      knowledge_base: dashboard.pages.knowledge,
       docs: nav.docs,
       logs: dashboard.pages.logs,
     } satisfies Record<MentionOption, string>,
@@ -61,7 +60,7 @@ export function getCopilotMentionCopy({
       dashboard_layout: 'Dashboard layouts',
       workflow_blocks: copilot.mentions.workflowBlocks,
       blocks: widgets.workflowToolbar.blocks,
-      knowledge: dashboard.sections.knowledgeBases,
+      knowledge_base: dashboard.sections.knowledgeBases,
       logs: dashboard.pages.logs,
     } satisfies Record<MentionSubmenu, string>,
     emptyStates: {
@@ -73,7 +72,7 @@ export function getCopilotMentionCopy({
       mcp_server: widgets.mcpDropdown.noServersFound,
       watchlist: widgets.watchlist.listSelector.noWatchlistsFound,
       dashboard_layout: 'No dashboard layouts found.',
-      knowledge: knowledge.emptyState.noMatches,
+      knowledge_base: knowledge.emptyState.noMatches,
       blocks: copilot.mentions.noBlocksFound,
       workflow_blocks: copilot.mentions.noBlocksInWorkflow,
       logs: copilot.mentions.noExecutionsFound,
@@ -87,6 +86,7 @@ export function getCopilotMentionCopy({
       mcp_server: widgets.mcpDropdown.unnamedServer,
       watchlist: widgets.watchlist.header.defaultWatchlistPrefix,
       dashboard_layout: 'Untitled layout',
+      knowledge_base: 'Untitled knowledge base',
     } satisfies Record<'chats' | CopilotWorkspaceEntityKind, string>,
     matches: copilot.mentions.matches,
     noMatches: copilot.mentions.noMatches,
@@ -126,10 +126,6 @@ export function getPastChatMentionLabel(
   item: Pick<PastChatItem, 'title'>
 ): string {
   return item.title?.trim() || copy.untitledLabels.chats
-}
-
-export function getKnowledgeBaseMentionLabel(item: Pick<KnowledgeBaseItem, 'name'>): string {
-  return item.name.trim()
 }
 
 export function getLogMentionTriggerLabel(

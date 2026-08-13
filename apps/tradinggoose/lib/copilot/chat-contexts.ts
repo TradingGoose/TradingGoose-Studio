@@ -1,19 +1,9 @@
 import type { ChatContext } from '@/stores/copilot/types'
 import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
-const HIDDEN_COPILOT_CONTEXT_KINDS = new Set<ChatContext['kind']>([
-  'current_workflow',
-  'current_skill',
-  'current_custom_tool',
-  'current_indicator',
-  'current_mcp_server',
-  'current_watchlist',
-  'current_dashboard_layout',
-])
-
 export const isHiddenCopilotContext = (
   context: Pick<ChatContext, 'kind'> | null | undefined
-): boolean => Boolean(context && HIDDEN_COPILOT_CONTEXT_KINDS.has(context.kind))
+): boolean => Boolean(context?.kind.startsWith('current_'))
 
 const extractExplicitCopilotContexts = (
   contexts: ChatContext[] | null | undefined
@@ -32,11 +22,6 @@ export const isCopilotMentionBoundary = (char: string | undefined): boolean =>
   !char || /\s/u.test(char) || (/[\p{P}\p{S}]/u.test(char) && !/[-_@]/u.test(char))
 
 export const buildCopilotContextIdentityKey = (context: ChatContext): string => {
-  const getContextReviewIdentity = () =>
-    ('reviewSessionId' in context ? context.reviewSessionId : undefined) ??
-    ('draftSessionId' in context ? context.draftSessionId : undefined) ??
-    context.label
-
   const entityContext = readCopilotWorkspaceEntityContext(context)
   if (entityContext) {
     if (entityContext.entityKind === 'dashboard_layout') {
@@ -45,7 +30,7 @@ export const buildCopilotContextIdentityKey = (context: ChatContext): string => 
       }
       return `dashboard_layout:${entityContext.ownerUserId}:${entityContext.entityId}`
     }
-    return `${entityContext.entityKind}:${entityContext.entityId ?? getContextReviewIdentity()}`
+    return `${entityContext.entityKind}:${entityContext.entityId ?? context.label}`
   }
 
   switch (context.kind) {
@@ -55,12 +40,13 @@ export const buildCopilotContextIdentityKey = (context: ChatContext): string => 
       return `workflow_block:${context.workflowId}:${context.blockId}`
     case 'blocks':
       return `blocks:${[...(context.blockTypes ?? [])].sort().join(',')}`
-    case 'knowledge':
-      return `knowledge:${context.knowledgeId ?? context.label}`
     case 'docs':
       return 'docs'
     case 'logs':
-      return `logs:${context.executionId ?? context.label}`
+    case 'current_logs':
+      return `logs:${context.workspaceId}:${context.logId}`
+    case 'current_monitor':
+      return `monitor:${context.monitorId}`
   }
 
   return context.label

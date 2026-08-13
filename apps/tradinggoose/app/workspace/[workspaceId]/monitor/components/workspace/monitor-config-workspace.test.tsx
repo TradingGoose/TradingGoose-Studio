@@ -9,6 +9,17 @@ import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
 import { DEFAULT_CONFIG_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { MonitorConfigWorkspace } from './monitor-config-workspace'
 
+const mocks = vi.hoisted(() => ({
+  copilotContext: null as Record<string, unknown> | null,
+}))
+
+vi.mock('@/global-navbar/copilot-context', () => ({
+  GlobalCopilotContextPublisher: ({ context }: { context: Record<string, unknown> | null }) => {
+    mocks.copilotContext = context
+    return null
+  },
+}))
+
 vi.mock('../data/use-monitor-execution-summaries', () => ({
   useMonitorExecutionSummaries: () => ({
     summariesByMonitorId: {},
@@ -157,6 +168,7 @@ describe('MonitorConfigWorkspace', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    mocks.copilotContext = null
   })
 
   afterEach(() => {
@@ -195,7 +207,6 @@ describe('MonitorConfigWorkspace', () => {
 
     expect(container.textContent).toContain('RSI')
     expect(container.textContent).toContain('Workflow One - Indicator Trigger')
-
     const addMonitorButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.getAttribute('aria-label')?.includes('Add monitor')
     )
@@ -209,6 +220,7 @@ describe('MonitorConfigWorkspace', () => {
     })
 
     expect(container.textContent).toContain('Create Monitor')
+    expect(mocks.copilotContext).toBeNull()
   })
 
   it('keeps the detail panel closed until a monitor card is selected', async () => {
@@ -258,6 +270,12 @@ describe('MonitorConfigWorkspace', () => {
     expect(container.textContent).toContain('Monitor ID')
     expect(container.textContent).toContain('Delete')
     expect(container.textContent).toContain('Workflow One - Indicator Trigger')
+    expect(mocks.copilotContext).toEqual({
+      kind: 'current_monitor',
+      monitorId: 'monitor-1',
+      workspaceId: 'workspace-1',
+      label: 'Current monitor',
+    })
   })
 
   it('surfaces non-fatal view warnings while rendering server-backed config views', async () => {

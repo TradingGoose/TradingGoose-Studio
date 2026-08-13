@@ -17,6 +17,12 @@ describe('workspace-entities', () => {
     expect(COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS.map((config) => config.entityKind)).not.toContain(
       'dashboard_layout'
     )
+    expect(COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => config.entityKind)).toContain(
+      'knowledge_base'
+    )
+    expect(COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS.map((config) => config.entityKind)).not.toContain(
+      'knowledge_base'
+    )
   })
 
   it('builds current workflow context from centralized metadata', () => {
@@ -35,6 +41,21 @@ describe('workspace-entities', () => {
   })
 
   it('builds explicit workspace entity contexts with workspace ids', () => {
+    expect(
+      buildCopilotWorkspaceEntityContext({
+        entityKind: 'knowledge_base',
+        entityId: 'knowledge-1',
+        workspaceId: 'workspace-1',
+        label: 'Research',
+        current: true,
+      })
+    ).toEqual({
+      kind: 'current_knowledge_base',
+      knowledgeBaseId: 'knowledge-1',
+      workspaceId: 'workspace-1',
+      label: 'Research',
+    })
+
     expect(
       buildCopilotWorkspaceEntityContext({
         entityKind: 'workflow',

@@ -30,7 +30,6 @@ import {
 } from '../../../workspace-entities'
 import {
   type CopilotMentionCopy,
-  getKnowledgeBaseMentionLabel,
   getLogMentionTriggerLabel,
   getMentionOptionLabel,
   getMentionSubmenuTitle,
@@ -46,7 +45,6 @@ import {
 import type {
   AggregatedMentionItem,
   BlockItem,
-  KnowledgeBaseItem,
   LogItem,
   MentionItem,
   MentionOption,
@@ -136,6 +134,7 @@ const WORKSPACE_ENTITY_MAIN_OPTION_ICONS: Record<CopilotWorkspaceEntityKind, Luc
   mcp_server: Server,
   watchlist: ListChecks,
   dashboard_layout: Grid2x2,
+  knowledge_base: LibraryBig,
 }
 
 const renderWorkspaceEntityMainOptionIcon = (entityKind: CopilotWorkspaceEntityKind) => {
@@ -189,6 +188,12 @@ const WORKSPACE_ENTITY_ITEM_RENDERERS: Record<
       <span className='truncate'>{label}</span>
     </>
   ),
+  knowledge_base: (entity, label) => (
+    <>
+      {renderEntityBadge({ icon: LibraryBig, entityId: entity.id })}
+      <span className='truncate'>{label}</span>
+    </>
+  ),
 }
 
 const renderMainOptionIcon = (option: MentionOption) => {
@@ -206,10 +211,6 @@ const renderMainOptionIcon = (option: MentionOption) => {
 
   if (option === 'workflow_blocks') {
     return <Box className='h-3.5 w-3.5 text-muted-foreground' />
-  }
-
-  if (option === 'knowledge') {
-    return <LibraryBig className='h-3.5 w-3.5 text-muted-foreground' />
   }
 
   if (option === 'docs') {
@@ -246,16 +247,6 @@ const renderMentionItemContent = (
     return WORKSPACE_ENTITY_ITEM_RENDERERS[entity.entityKind](
       entity,
       getWorkspaceEntityMentionLabel(mentionCopy, entity)
-    )
-  }
-
-  if (type === 'knowledge') {
-    const knowledgeBase = item as KnowledgeBaseItem
-    return (
-      <>
-        <LibraryBig className='h-3.5 w-3.5 text-muted-foreground' />
-        <span className='truncate'>{getKnowledgeBaseMentionLabel(knowledgeBase)}</span>
-      </>
     )
   }
 

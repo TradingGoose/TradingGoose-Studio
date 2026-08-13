@@ -9,6 +9,7 @@ const currentLabels = {
   mcp_server: 'Localized MCP Server',
   watchlist: 'Localized Watchlist',
   dashboard_layout: 'Localized Dashboard Layout',
+  knowledge_base: 'Localized Knowledge Base',
 }
 
 describe('buildImplicitCopilotContexts', () => {
@@ -95,5 +96,24 @@ describe('buildImplicitCopilotContexts', () => {
         label: 'Localized Dashboard Layout',
       },
     ])
+  })
+
+  it('adds the page context without treating it as a color-pair parameter', () => {
+    const currentContext = {
+      kind: 'current_monitor' as const,
+      monitorId: 'monitor-1',
+      workspaceId: 'workspace-1',
+      label: 'Current monitor',
+    }
+
+    expect(
+      buildImplicitCopilotContexts({
+        workspaceId: 'workspace-1',
+        effectiveParams: {},
+        currentContext,
+        currentLabels,
+      })
+    ).toEqual([currentContext])
+    expect(resolveCopilotWorkflowId({ monitorId: 'monitor-1' })).toBeUndefined()
   })
 })

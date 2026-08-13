@@ -745,6 +745,10 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       return false
     }
 
+    if (prevProps.runtimeContext !== nextProps.runtimeContext) {
+      return false
+    }
+
     // If panel width changed, re-render
     if (prevProps.panelWidth !== nextProps.panelWidth) {
       return false

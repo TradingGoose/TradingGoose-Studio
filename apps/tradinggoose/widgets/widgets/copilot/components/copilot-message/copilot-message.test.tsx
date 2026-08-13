@@ -42,6 +42,20 @@ const assistantMessage: CopilotMessageType = {
   citations: [{ id: 1, title: 'Source A', url: 'https://example.com/source-a' }],
 }
 
+const assistantOptionsMessage: CopilotMessageType = {
+  ...assistantMessage,
+  id: 'assistant-options',
+  content: 'Choose next.',
+  contentBlocks: [
+    {
+      type: 'text' as const,
+      content: 'Choose next.',
+      timestamp: 1,
+      itemId: 'text-options',
+    },
+  ],
+}
+
 const userMentionMessage: CopilotMessageType = {
   id: 'user-1',
   role: 'user',
@@ -95,10 +109,23 @@ vi.mock('./components', () => ({
       return { type: 'text', key: `text-${index}`, block }
     }),
   FileAttachmentDisplay: () => <div data-testid='file-attachments' />,
-  OptionsSelector: () => <div data-testid='options-selector' />,
-  parseSpecialTags: (content: string) => ({
-    cleanContent: content,
-  }),
+  OptionsSelector: ({ onSelect }: { onSelect: (key: string, text: string) => void }) => (
+    <button
+      type='button'
+      data-testid='options-selector'
+      onClick={() => onSelect('1', 'Inspect current page')}
+    >
+      Inspect current page
+    </button>
+  ),
+  parseSpecialTags: (content: string) =>
+    content === 'Choose next.'
+      ? {
+          cleanContent: content,
+          options: { '1': 'Inspect current page' },
+          optionsComplete: true,
+        }
+      : { cleanContent: content },
   SmoothStreamingText: ({ content }: { content: string }) => <div>{content}</div>,
   StreamingIndicator: () => <div data-testid='streaming-indicator' />,
   ThinkingGroup: () => <div data-testid='thinking-group' />,
@@ -164,5 +191,44 @@ describe('CopilotMessage', () => {
     const inlineMention = container.querySelector('[data-message-box] span.rounded-xs')
     expect(inlineMention?.textContent).toBe('@default-agent')
     expect(container.textContent).toContain("what's the trigger of this workflow?")
+  })
+
+  it('uses the current page context when selecting an option after navigation', async () => {
+    const updatedRuntimeContext: CopilotSendRuntimeContext = {
+      ...runtimeContext,
+      implicitContexts: [
+        {
+          kind: 'current_monitor',
+          monitorId: 'monitor-2',
+          workspaceId: 'ws-1',
+          label: 'Current monitor',
+        },
+      ],
+    }
+    mockStoreState.messages = [assistantOptionsMessage]
+
+    await act(async () => {
+      root.render(
+        <CopilotMessage message={assistantOptionsMessage} runtimeContext={runtimeContext} />
+      )
+    })
+    await act(async () => {
+      root.render(
+        <CopilotMessage message={assistantOptionsMessage} runtimeContext={updatedRuntimeContext} />
+      )
+    })
+
+    const option = container.querySelector('[data-testid="options-selector"]')
+    if (!(option instanceof HTMLButtonElement)) {
+      throw new Error('Expected option selector to render')
+    }
+
+    await act(async () => {
+      option.click()
+    })
+
+    expect(mockStoreState.sendMessage).toHaveBeenCalledWith('Inspect current page', {
+      runtimeContext: updatedRuntimeContext,
+    })
   })
 })

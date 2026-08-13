@@ -13,6 +13,11 @@ const mocks = vi.hoisted(() => ({
   activeLayout: vi.fn(),
   targetSession: vi.fn(),
   copilotProps: null as Record<string, unknown> | null,
+  currentContext: null as Record<string, unknown> | null,
+}))
+
+vi.mock('@/global-navbar/copilot-context', () => ({
+  useGlobalCopilotCurrentContext: () => mocks.currentContext,
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc', () => ({
@@ -88,6 +93,12 @@ describe('GlobalCopilotPanel dashboard color boundary', () => {
       doc: descriptor ? pairDoc : null,
     }))
     mocks.copilotProps = null
+    mocks.currentContext = {
+      kind: 'current_monitor',
+      monitorId: 'monitor-1',
+      workspaceId: 'ws-1',
+      label: 'Current monitor',
+    }
   })
 
   afterEach(() => {
@@ -118,6 +129,7 @@ describe('GlobalCopilotPanel dashboard color boundary', () => {
       effectiveParams: null,
       layoutId: null,
       ownerUserId: null,
+      currentContext: mocks.currentContext,
     })
 
     await act(async () => {
@@ -143,6 +155,7 @@ describe('GlobalCopilotPanel dashboard color boundary', () => {
       layoutId: 'layout-1',
       ownerUserId: 'user-1',
       layoutName: 'Main Dashboard',
+      currentContext: mocks.currentContext,
     })
 
     await act(async () => {

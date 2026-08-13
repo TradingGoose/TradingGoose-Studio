@@ -12,7 +12,6 @@ import {
 } from '../../../workspace-entities'
 import { MENTION_SUBMENUS } from '../constants'
 import {
-  getKnowledgeBaseMentionLabel,
   getMentionOptionLabel,
   getPastChatMentionLabel,
   getWorkspaceEntityMentionLabel,
@@ -324,21 +323,6 @@ export function useUserInputMentions({
     closeMentionMenu()
   }
 
-  const insertKnowledgeMention = (knowledgeBase: { id: string; name: string }) => {
-    const label = getKnowledgeBaseMentionLabel(knowledgeBase)
-    const insertion = insertMentionToken(label)
-    selectMentionContext(
-      {
-        kind: 'knowledge',
-        knowledgeId: knowledgeBase.id,
-        workspaceId,
-        label,
-      },
-      insertion
-    )
-    closeMentionMenu()
-  }
-
   const insertBlockMention = (block: { id: string; name: string }) => {
     const label = block.name || block.id
     const insertion = insertMentionToken(label)
@@ -377,7 +361,6 @@ export function useUserInputMentions({
 
   const insertLogMention = (log: {
     id: string
-    executionId?: string
     level: string
     trigger: string | null
     startedAt: string
@@ -388,7 +371,8 @@ export function useUserInputMentions({
     selectMentionContext(
       {
         kind: 'logs',
-        executionId: log.executionId,
+        logId: log.id,
+        workspaceId,
         label,
       },
       insertion
@@ -401,8 +385,6 @@ export function useUserInputMentions({
       insertPastChatMention(item as any)
     } else if (isCopilotWorkspaceEntityMentionOption(submenu)) {
       insertWorkspaceEntityMention(item as WorkspaceEntityItem)
-    } else if (submenu === 'knowledge') {
-      insertKnowledgeMention(item as any)
     } else if (submenu === 'blocks') {
       insertBlockMention(item as any)
     } else if (submenu === 'workflow_blocks') {
@@ -419,8 +401,6 @@ export function useUserInputMentions({
       insertPastChatMention(item.value as any)
     } else if (isCopilotWorkspaceEntityMentionOption(item.type)) {
       insertWorkspaceEntityMention(item.value as WorkspaceEntityItem)
-    } else if (item.type === 'knowledge') {
-      insertKnowledgeMention(item.value as any)
     } else if (item.type === 'blocks') {
       insertBlockMention(item.value as any)
     } else if (item.type === 'workflow_blocks') {

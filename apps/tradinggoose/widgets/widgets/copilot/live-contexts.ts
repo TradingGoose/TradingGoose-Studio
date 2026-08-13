@@ -13,6 +13,7 @@ type BuildImplicitCopilotContextsOptions = {
   currentLayoutId?: string | null
   currentLayoutOwnerUserId?: string | null
   currentLabels: Partial<Record<CopilotWorkspaceEntityKind, string>>
+  currentContext?: ChatContext | null
 }
 
 export function resolveCopilotWorkflowId(
@@ -27,6 +28,7 @@ export const buildImplicitCopilotContexts = ({
   currentLayoutId,
   currentLayoutOwnerUserId,
   currentLabels,
+  currentContext,
 }: BuildImplicitCopilotContextsOptions): ChatContext[] => {
   // These contexts describe what the user is looking at right now. They are sent
   // with each turn, but they do not mount or select editable review sessions.
@@ -66,6 +68,10 @@ export const buildImplicitCopilotContexts = ({
         current: true,
       })
     )
+  }
+
+  if (currentContext) {
+    contexts.push(currentContext)
   }
 
   return contexts

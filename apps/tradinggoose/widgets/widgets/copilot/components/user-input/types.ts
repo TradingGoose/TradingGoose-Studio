@@ -55,7 +55,6 @@ export type MentionOption =
   | CopilotWorkspaceEntityKind
   | 'workflow_blocks'
   | 'blocks'
-  | 'knowledge'
   | 'docs'
   | 'logs'
 
@@ -90,11 +89,6 @@ export interface WorkspaceEntityItem {
   description?: string
 }
 
-export interface KnowledgeBaseItem {
-  id: string
-  name: string
-}
-
 export interface BlockItem {
   id: string
   name: string
@@ -108,7 +102,6 @@ export interface WorkflowBlockItem extends BlockItem {
 
 export interface LogItem {
   id: string
-  executionId?: string
   level: string
   trigger: string | null
   startedAt: string
@@ -118,7 +111,6 @@ export interface LogItem {
 export type MentionItem =
   | PastChatItem
   | WorkspaceEntityItem
-  | KnowledgeBaseItem
   | BlockItem
   | WorkflowBlockItem
   | LogItem
@@ -126,7 +118,6 @@ export type MentionItem =
 export interface MentionSources {
   pastChats: PastChatItem[]
   workspaceEntities: Record<CopilotWorkspaceEntityKind, WorkspaceEntityItem[]>
-  knowledgeBases: KnowledgeBaseItem[]
   blocksList: BlockItem[]
   logsList: LogItem[]
   workflowBlocks: WorkflowBlockItem[]

@@ -4,6 +4,7 @@ import { useSession } from '@/lib/auth-client'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { CopilotStoreProvider, DEFAULT_COPILOT_CHANNEL_ID } from '@/stores/copilot/store'
+import type { ChatContext } from '@/stores/copilot/types'
 import { resolveCopilotWorkflowId } from '@/widgets/widgets/copilot/live-contexts'
 import { Copilot } from './copilot/copilot'
 
@@ -23,6 +24,7 @@ interface CopilotAppProps {
   layoutId?: string | null
   ownerUserId?: string | null
   layoutName?: string | null
+  currentContext?: ChatContext | null
 }
 
 const CopilotAppContent = ({
@@ -32,6 +34,7 @@ const CopilotAppContent = ({
   layoutId,
   ownerUserId,
   layoutName,
+  currentContext,
   user,
 }: {
   workspaceId: string
@@ -40,6 +43,7 @@ const CopilotAppContent = ({
   layoutId?: string | null
   ownerUserId?: string | null
   layoutName?: string | null
+  currentContext?: ChatContext | null
   user: CopilotAppUser
 }) => {
   const workflowId = resolveCopilotWorkflowId(effectiveParams) ?? null
@@ -53,6 +57,7 @@ const CopilotAppContent = ({
         layoutId={layoutId}
         ownerUserId={ownerUserId}
         layoutName={layoutName}
+        currentContext={currentContext}
         authenticatedUserId={user?.id ?? null}
         reviewTarget={null}
       />
@@ -76,6 +81,7 @@ const CopilotApp = ({
   layoutId,
   ownerUserId,
   layoutName,
+  currentContext,
 }: CopilotAppProps) => {
   const session = useSession()
 
@@ -99,6 +105,7 @@ const CopilotApp = ({
           layoutId={layoutId}
           ownerUserId={ownerUserId}
           layoutName={layoutName}
+          currentContext={currentContext}
           user={user}
         />
       </CopilotStoreProvider>

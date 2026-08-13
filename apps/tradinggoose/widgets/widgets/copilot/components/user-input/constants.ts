@@ -18,7 +18,6 @@ export const MENTION_OPTIONS: readonly MentionOption[] = [
   ...COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS,
   'workflow_blocks',
   'blocks',
-  'knowledge',
   'docs',
   'logs',
 ]

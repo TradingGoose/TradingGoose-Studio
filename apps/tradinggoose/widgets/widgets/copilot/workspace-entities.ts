@@ -2,6 +2,7 @@ import {
   ENTITY_KIND_CUSTOM_TOOL,
   ENTITY_KIND_DASHBOARD_LAYOUT,
   ENTITY_KIND_INDICATOR,
+  ENTITY_KIND_KNOWLEDGE_BASE,
   ENTITY_KIND_MCP_SERVER,
   ENTITY_KIND_SKILL,
   ENTITY_KIND_WATCHLIST,
@@ -17,6 +18,7 @@ type CopilotWorkspaceEntityConfig = {
     | 'workflowId'
     | 'skillId'
     | 'indicatorId'
+    | 'knowledgeBaseId'
     | 'customToolId'
     | 'mcpServerId'
     | 'watchlistId'
@@ -55,6 +57,10 @@ export const COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS = [
   {
     entityKind: ENTITY_KIND_DASHBOARD_LAYOUT,
     idField: 'dashboardLayoutId',
+  },
+  {
+    entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
+    idField: 'knowledgeBaseId',
   },
 ] as const satisfies readonly CopilotWorkspaceEntityConfig[]
 
@@ -149,6 +155,9 @@ export function getCopilotWorkspaceEntityIdFromContext(context: ChatContext): st
     case 'indicator':
     case 'current_indicator':
       return normalizeOptionalString(context.indicatorId) ?? null
+    case 'knowledge_base':
+    case 'current_knowledge_base':
+      return normalizeOptionalString(context.knowledgeBaseId) ?? null
     case 'custom_tool':
     case 'current_custom_tool':
       return normalizeOptionalString(context.customToolId) ?? null
@@ -190,25 +199,31 @@ export function getCopilotWorkspaceEntityIdFromEffectiveParams(
   }
 }
 
-export function buildCopilotWorkspaceEntityContext({
+type BuildCopilotWorkspaceEntityContextOptions<K extends CopilotWorkspaceEntityKind> = {
+  entityKind: K
+  entityId: string
+  ownerUserId?: string | null
+  label: string
+  current?: boolean
+} & (K extends typeof ENTITY_KIND_KNOWLEDGE_BASE
+  ? { workspaceId: string }
+  : { workspaceId?: string | null })
+
+export function buildCopilotWorkspaceEntityContext<K extends CopilotWorkspaceEntityKind>({
   entityKind,
   entityId,
   workspaceId,
   ownerUserId,
   label,
   current = false,
-}: {
-  entityKind: CopilotWorkspaceEntityKind
-  entityId: string
-  workspaceId?: string | null
-  ownerUserId?: string | null
-  label: string
-  current?: boolean
-}): ChatContext {
+}: BuildCopilotWorkspaceEntityContextOptions<K>): ChatContext {
   const config = getCopilotWorkspaceEntityConfig(entityKind)
   const resolvedLabel = label.trim()
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
   const normalizedOwnerUserId = normalizeOptionalString(ownerUserId)
+  if (entityKind === ENTITY_KIND_KNOWLEDGE_BASE && !normalizedWorkspaceId) {
+    throw new Error('Knowledge base context requires workspaceId')
+  }
   if (entityKind === ENTITY_KIND_DASHBOARD_LAYOUT && !normalizedOwnerUserId) {
     throw new Error('Dashboard layout context requires ownerUserId')
   }
@@ -236,6 +251,13 @@ export function buildCopilotWorkspaceEntityContext({
         kind: current ? 'current_indicator' : 'indicator',
         ...baseContext,
         indicatorId: entityId,
+      }
+    case 'knowledgeBaseId':
+      return {
+        kind: current ? 'current_knowledge_base' : 'knowledge_base',
+        knowledgeBaseId: entityId,
+        workspaceId: normalizedWorkspaceId!,
+        label: resolvedLabel,
       }
     case 'customToolId':
       return {
