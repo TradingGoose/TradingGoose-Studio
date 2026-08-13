@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { type subscription, systemBillingTier } from '@tradinggoose/db/schema'
-import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -453,6 +453,7 @@ export async function getHiddenEnterprisePlaceholderTier(): Promise<BillingTierR
         eq(systemBillingTier.status, 'active'),
         eq(systemBillingTier.isPublic, false),
         eq(systemBillingTier.ownerType, 'organization'),
+        isNull(systemBillingTier.stripeMonthlyPriceId),
       ),
     )
     .orderBy(asc(systemBillingTier.displayOrder))

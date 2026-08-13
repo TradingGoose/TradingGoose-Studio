@@ -319,7 +319,7 @@ export const systemBillingTier = pgTable(
     ),
     workflowExecutionTimeLimitCheck: check(
       'system_billing_tier_workflow_execution_time_limit_check',
-      sql`${table.workflowExecutionTimeLimitSeconds} is null or ${table.workflowExecutionTimeLimitSeconds} between 1 and 2147483`,
+      sql`${table.workflowExecutionTimeLimitSeconds} is null or ${table.workflowExecutionTimeLimitSeconds} between 5 and 2147483`,
     ),
     workflowExecutionMultiplierCheck: check(
       'system_billing_tier_workflow_execution_multiplier_check',

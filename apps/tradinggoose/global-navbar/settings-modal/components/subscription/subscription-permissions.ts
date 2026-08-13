@@ -32,7 +32,6 @@ interface SubscriptionSurfaceInput {
   subscription: SubscriptionState
   userRole: UserRole
   publicTiers: PublicBillingTierDisplay[]
-  grantedPrivateTierIds: ReadonlySet<string>
   enterprisePlaceholder: EnterprisePlaceholderDisplay | null
 }
 
@@ -58,14 +57,16 @@ export function getSubscriptionSurfaceState({
   subscription,
   userRole,
   publicTiers,
-  grantedPrivateTierIds,
   enterprisePlaceholder,
 }: SubscriptionSurfaceInput): SubscriptionSurfaceState {
   const currentTier = getCurrentTier(subscription, publicTiers)
   const effectiveTier = currentTier ?? subscription.tier
   const isCurrentOrganizationPlan = effectiveTier.ownerType === 'organization'
   const isCurrentCustomOrganizationPlan =
-    isCurrentOrganizationPlan && !currentTier && !subscription.isFree
+    isCurrentOrganizationPlan &&
+    !currentTier &&
+    !subscription.isFree &&
+    !subscription.tier.hasStripeMonthlyPriceId
   const isCurrentAdjustableSeatPlan =
     isCurrentOrganizationPlan && effectiveTier.seatMode === 'adjustable'
   const canEditUsageLimit = canTierEditUsageLimit(effectiveTier)
@@ -74,20 +75,11 @@ export function getSubscriptionSurfaceState({
   let visiblePlanTiers: PublicBillingTierDisplay[] = []
 
   if (!isTeamMemberView && !isCurrentCustomOrganizationPlan) {
-    const currentDisplayOrder = currentTier?.displayOrder ?? (subscription.isFree ? -1 : null)
-    const upgradableTiers = subscription.isFree
-      ? publicTiers.filter((tier) => !tier.isDefault)
-      : currentDisplayOrder !== null
-        ? publicTiers.filter(
-            (tier) =>
-              tier.id !== currentTier?.id &&
-              (tier.displayOrder > currentDisplayOrder || grantedPrivateTierIds.has(tier.id))
-          )
-        : publicTiers.filter((tier) => grantedPrivateTierIds.has(tier.id))
+    const alternativeTiers = publicTiers.filter(
+      (tier) => !tier.isDefault && tier.id !== currentTier?.id
+    )
 
-    visiblePlanTiers = currentTier
-      ? [currentTier, ...upgradableTiers.filter((tier) => tier.id !== currentTier.id)]
-      : upgradableTiers
+    visiblePlanTiers = currentTier ? [currentTier, ...alternativeTiers] : alternativeTiers
   }
 
   const showEnterprisePlaceholder = Boolean(

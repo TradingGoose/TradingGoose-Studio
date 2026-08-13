@@ -2,6 +2,37 @@ import { db } from '@tradinggoose/db'
 import { privateTierAccess, systemBillingTier } from '@tradinggoose/db/schema'
 import { and, asc, eq } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
+import { ExecutionLimiter } from '@/services/queue/ExecutionLimiter'
+
+const PRIVATE_TIER_ACCESS_RATE_LIMIT = 5
+const rateLimiter = new ExecutionLimiter()
+
+export async function checkPrivateTierAccessRateLimit(userId: string) {
+  const result = await rateLimiter.checkRateLimitWithSubscription(
+    userId,
+    {
+      referenceType: 'user',
+      referenceId: userId,
+      tier: {
+        displayName: 'private-tier-access',
+        syncRateLimitPerMinute: 0,
+        asyncRateLimitPerMinute: 0,
+        apiEndpointRateLimitPerMinute: PRIVATE_TIER_ACCESS_RATE_LIMIT,
+      } as BillingTierRecord,
+    },
+    'api-endpoint',
+    false,
+    {
+      scopeType: 'user',
+      scopeId: `${userId}:private-tier-access`,
+      organizationId: null,
+      userId,
+    },
+    { enforceWithoutBilling: true, failClosedOnError: true }
+  )
+
+  return { ...result, limit: PRIVATE_TIER_ACCESS_RATE_LIMIT, userId }
+}
 
 export async function getGrantedPrivateBillingTiers(userId: string): Promise<BillingTierRecord[]> {
   return db

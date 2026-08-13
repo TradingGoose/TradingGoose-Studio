@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { checkPrivateTierAccessRateLimit } from '@/lib/api/rate-limit'
 import { getSession } from '@/lib/auth'
 import { toBillingTierDisplay } from '@/lib/billing/catalog'
 import {
+  checkPrivateTierAccessRateLimit,
   getGrantedPrivateBillingTiers,
   grantPrivateBillingTier,
 } from '@/lib/billing/private-tier-access'

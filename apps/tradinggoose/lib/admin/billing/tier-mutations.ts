@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 const nullableNumberSchema = z.number().finite().nonnegative().nullable()
 const nullableIntegerSchema = z.number().int().nonnegative().nullable()
-const nullableExecutionTimeLimitSchema = z.number().int().min(1).max(2_147_483).nullable()
+const nullableExecutionTimeLimitSchema = z.number().int().min(5).max(2_147_483).nullable()
 const nullablePrivateAccessCodeSchema = z
   .string()
   .trim()

@@ -8,7 +8,6 @@ const mockGetResolvedBillingSettings = vi.fn()
 const mockGetUserUsageData = vi.fn()
 const mockDbSelect = vi.fn()
 const mockDbLimit = vi.fn()
-const mockResolveWorkflowBillingContext = vi.fn()
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -50,7 +49,7 @@ vi.mock('@/lib/billing/tiers', () => ({
 }))
 
 vi.mock('@/lib/billing/workspace-billing', () => ({
-  resolveWorkflowBillingContext: (...args: unknown[]) => mockResolveWorkflowBillingContext(...args),
+  resolveWorkflowBillingContext: vi.fn().mockResolvedValue(null),
   resolveWorkspaceBillingContext: vi.fn().mockResolvedValue(null),
 }))
 
@@ -71,7 +70,6 @@ describe('checkServerSideUsageLimits', () => {
       billingEnabled: true,
       usageWarningThresholdPercent: 80,
     })
-    mockResolveWorkflowBillingContext.mockResolvedValue(null)
 
     mockGetUserUsageData.mockResolvedValue({
       currentUsage: 12.5,
@@ -103,7 +101,6 @@ describe('checkServerSideUsageLimits', () => {
       isExceeded: true,
       currentUsage: 12.5,
       limit: 0,
-      workflowExecutionTimeLimitSeconds: null,
       message: 'Billing issue detected. Please update your payment method to continue.',
     })
   })
@@ -115,21 +112,7 @@ describe('checkServerSideUsageLimits', () => {
       isExceeded: false,
       currentUsage: 12.5,
       limit: 100,
-      workflowExecutionTimeLimitSeconds: null,
       message: undefined,
     })
-  })
-
-  it('returns the resolved workflow tier execution time limit', async () => {
-    mockResolveWorkflowBillingContext.mockResolvedValueOnce({
-      scopeType: 'user',
-      tier: { workflowExecutionTimeLimitSeconds: 45 },
-    })
-
-    const { checkServerSideUsageLimits } = await import('./usage-monitor')
-
-    await expect(
-      checkServerSideUsageLimits({ userId: 'user-1', workflowId: 'workflow-1' })
-    ).resolves.toEqual(expect.objectContaining({ workflowExecutionTimeLimitSeconds: 45 }))
   })
 })

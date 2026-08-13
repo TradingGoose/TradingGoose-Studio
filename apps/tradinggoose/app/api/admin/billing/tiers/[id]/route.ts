@@ -174,7 +174,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
     }
 
-    if (!parsed.data.isPublic) {
+    const activatesPrivateCheckout =
+      parsed.data.status === 'active' &&
+      !parsed.data.isPublic &&
+      Boolean(parsed.data.stripeMonthlyPriceId) &&
+      (existingTier.status !== 'active' ||
+        existingTier.isPublic ||
+        existingTier.stripeMonthlyPriceId !== parsed.data.stripeMonthlyPriceId)
+
+    if (activatesPrivateCheckout) {
       await ensureRestrictedBillingPortalConfiguration(requireStripeClient())
     }
 

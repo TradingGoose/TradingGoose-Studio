@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!parsed.data.isPublic) {
+    if (parsed.data.status === 'active' && !parsed.data.isPublic) {
       await ensureRestrictedBillingPortalConfiguration(requireStripeClient())
     }
 

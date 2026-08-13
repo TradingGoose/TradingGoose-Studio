@@ -133,10 +133,45 @@ describe('validateAdminBillingTierInput', () => {
     ).toBe('Private tiers with an access code must configure a Stripe monthly price ID')
   })
 
-  it('requires positive workflow execution time limits', () => {
-    const input = createTierInput({ workflowExecutionTimeLimitSeconds: 0 })
+  it('allows an existing non-Stripe enterprise placeholder to remain active', () => {
+    expect(
+      validateAdminBillingTierInput(
+        createTierInput({
+          isDefault: false,
+          isPublic: false,
+          status: 'active',
+          ownerType: 'organization',
+          usageScope: 'pooled',
+          seatCount: 10,
+          storageLimitGb: 10,
+          concurrencyLimit: 3,
+          syncRateLimitPerMinute: 30,
+          asyncRateLimitPerMinute: 15,
+          apiEndpointRateLimitPerMinute: 30,
+        })
+      )
+    ).toBeNull()
+  })
 
-    expect(adminBillingTierMutationSchema.safeParse(input).success).toBe(false)
+  it('requires private tier workflow execution time limits to be at least five seconds', () => {
+    const privateTier = { isDefault: false, isPublic: false }
+
+    expect(
+      adminBillingTierMutationSchema.safeParse(
+        createTierInput({
+          ...privateTier,
+          workflowExecutionTimeLimitSeconds: 4,
+        })
+      ).success
+    ).toBe(false)
+    expect(
+      adminBillingTierMutationSchema.safeParse(
+        createTierInput({
+          ...privateTier,
+          workflowExecutionTimeLimitSeconds: 5,
+        })
+      ).success
+    ).toBe(true)
   })
 
   it('requires private access codes to be at least 16 characters', () => {

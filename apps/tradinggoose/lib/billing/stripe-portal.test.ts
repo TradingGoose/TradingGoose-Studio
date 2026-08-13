@@ -17,27 +17,25 @@ const defaultFeatures = {
 
 function createStripe(configurations: unknown[]) {
   const list = vi.fn().mockResolvedValue({ data: configurations })
-  const updateConfiguration = vi.fn().mockResolvedValue({ id: 'bpc_restricted' })
-  const createConfiguration = vi.fn().mockResolvedValue({ id: 'bpc_restricted' })
+  const updateConfiguration = vi.fn().mockResolvedValue({ id: 'bpc_default' })
   const createSession = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.test/session' })
 
   return {
     stripe: {
       billingPortal: {
-        configurations: { list, update: updateConfiguration, create: createConfiguration },
+        configurations: { list, update: updateConfiguration },
         sessions: { create: createSession },
       },
     } as unknown as Stripe,
     list,
     updateConfiguration,
-    createConfiguration,
     createSession,
   }
 }
 
 describe('createRestrictedBillingPortalSession', () => {
-  it('clones the default portal without plan switching', async () => {
-    const { stripe, list, updateConfiguration, createConfiguration, createSession } = createStripe([
+  it('disables direct login and plan switching on the default portal', async () => {
+    const { stripe, list, updateConfiguration, createSession } = createStripe([
       {
         id: 'bpc_default',
         is_default: true,
@@ -55,43 +53,31 @@ describe('createRestrictedBillingPortalSession', () => {
     expect(list).toHaveBeenCalledWith({ active: true, limit: 100 })
     expect(updateConfiguration).toHaveBeenCalledWith('bpc_default', {
       login_page: { enabled: false },
+      features: { subscription_update: { enabled: false } },
     })
-    expect(createConfiguration).toHaveBeenCalledWith(
-      expect.objectContaining({
-        features: expect.objectContaining({ subscription_update: { enabled: false } }),
-        metadata: { tradinggoose_portal_policy: 'private-tier-grants-v1' },
-      }),
-      { idempotencyKey: 'tradinggoose-private-tier-portal-v1' }
-    )
     expect(createSession).toHaveBeenCalledWith({
       customer: 'cus_123',
       return_url: 'https://example.com/billing',
-      configuration: 'bpc_restricted',
+      configuration: 'bpc_default',
     })
   })
 
-  it('reuses an existing restricted portal configuration', async () => {
-    const { stripe, updateConfiguration, createConfiguration, createSession } = createStripe([
+  it('reuses an already restricted default portal configuration', async () => {
+    const { stripe, updateConfiguration, createSession } = createStripe([
       {
         id: 'bpc_default',
         is_default: true,
         login_page: { enabled: false },
-        features: defaultFeatures,
-      },
-      {
-        id: 'bpc_restricted',
-        metadata: { tradinggoose_portal_policy: 'private-tier-grants-v1' },
-        features: { subscription_update: { enabled: false } },
+        features: { ...defaultFeatures, subscription_update: { enabled: false } },
       },
     ])
 
     await createRestrictedBillingPortalSession(stripe, { customer: 'cus_123' })
 
     expect(updateConfiguration).not.toHaveBeenCalled()
-    expect(createConfiguration).not.toHaveBeenCalled()
     expect(createSession).toHaveBeenCalledWith({
       customer: 'cus_123',
-      configuration: 'bpc_restricted',
+      configuration: 'bpc_default',
     })
   })
 })

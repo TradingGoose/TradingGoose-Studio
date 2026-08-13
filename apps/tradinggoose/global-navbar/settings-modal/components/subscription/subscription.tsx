@@ -282,7 +282,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
   const [accessCode, setAccessCode] = useState('')
-  const [accessGranted, setAccessGranted] = useState(false)
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
 
   const availableTiers = useMemo(() => {
@@ -299,11 +298,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         left.displayOrder - right.displayOrder || left.id.localeCompare(right.id),
     )
   }, [privateTierAccess.data?.privateTiers, publicBillingCatalog?.publicTiers])
-  const grantedPrivateTierIds = useMemo(
-    () => new Set(privateTierAccess.data?.privateTiers.map((tier) => tier.id) ?? []),
-    [privateTierAccess.data?.privateTiers]
-  )
-
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
   const organizationBillingPayload =
     (organizationBillingData as any)?.data ?? organizationBillingData
@@ -340,7 +334,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
       isTeamAdmin,
     },
     publicTiers: availableTiers,
-    grantedPrivateTierIds,
     enterprisePlaceholder: publicBillingCatalog?.enterprisePlaceholder ?? null,
   })
 
@@ -522,21 +515,16 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     }
   }
 
-  async function handlePrivateTierAccess(event: FormEvent<HTMLFormElement>) {
+  function handlePrivateTierAccess(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const code = accessCode.trim()
     if (!code) {
       return
     }
 
-    setAccessGranted(false)
-    try {
-      await privateTierAccessMutation.mutateAsync(code)
-      setAccessCode('')
-      setAccessGranted(true)
-    } catch {
-      setAccessGranted(false)
-    }
+    privateTierAccessMutation.mutate(code, {
+      onSuccess: () => setAccessCode(''),
+    })
   }
 
   const isLoading =
@@ -644,7 +632,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               autoComplete='off'
               onChange={(event) => {
                 setAccessCode(event.target.value)
-                setAccessGranted(false)
                 privateTierAccessMutation.reset()
               }}
             />
@@ -667,7 +654,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
               {privateTierAccessMutation.error.message}
             </p>
           ) : null}
-          {accessGranted ? (
+          {privateTierAccessMutation.isSuccess ? (
             <p role='status' className='text-muted-foreground text-xs'>
               {copy('privateAccess.success')}
             </p>
@@ -698,7 +685,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                           ? 'Current'
                           : subscription.isFree
                             ? 'Upgrade'
-                            : `Upgrade to ${tier.displayName}`
+                            : `Change to ${tier.displayName}`
                       }
                       onButtonClick={
                         isCurrentTier
@@ -766,7 +753,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                     : 'Manage Subscription'}
                 </span>
                 <p className='mt-1 text-muted-foreground text-xs'>
-                  Open Stripe Billing Portal to cancel, restore, or update your subscription.
+                  Open Stripe Billing Portal to cancel, restore, or update payment details.
                 </p>
               </div>
               <Button

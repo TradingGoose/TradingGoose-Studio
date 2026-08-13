@@ -1476,7 +1476,7 @@ export function TierEditorFormSurface({
                         name='workflowExecutionTimeLimitSeconds'
                         aria-labelledby='workflowExecutionTimeLimitSeconds-label'
                         type='number'
-                        min='1'
+                        min='5'
                         max='2147483'
                         defaultValue={
                           initialValues.workflowExecutionTimeLimitSeconds

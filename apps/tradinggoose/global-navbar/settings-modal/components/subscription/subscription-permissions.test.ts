@@ -6,7 +6,6 @@ import { getSubscriptionSurfaceState } from './subscription-permissions'
 
 const adminRole = { isTeamAdmin: true }
 const memberRole = { isTeamAdmin: false }
-const noGrantedPrivateTiers = new Set<string>()
 
 function buildTier(overrides: Partial<PublicBillingTierDisplay>): PublicBillingTierDisplay {
   return {
@@ -78,7 +77,6 @@ describe('getSubscriptionSurfaceState', () => {
       },
       userRole: adminRole,
       publicTiers,
-      grantedPrivateTierIds: noGrantedPrivateTiers,
       enterprisePlaceholder: null,
     })
 
@@ -99,7 +97,6 @@ describe('getSubscriptionSurfaceState', () => {
       },
       userRole: adminRole,
       publicTiers,
-      grantedPrivateTierIds: noGrantedPrivateTiers,
       enterprisePlaceholder: null,
     })
 
@@ -123,7 +120,6 @@ describe('getSubscriptionSurfaceState', () => {
       },
       userRole: adminRole,
       publicTiers: [freeTier, privateTier, proTier, teamTier],
-      grantedPrivateTierIds: new Set([privateTier.id]),
       enterprisePlaceholder: null,
     })
 
@@ -155,11 +151,34 @@ describe('getSubscriptionSurfaceState', () => {
       },
       userRole: adminRole,
       publicTiers: [freeTier, proTier, privateTier],
-      grantedPrivateTierIds: new Set([privateTier.id]),
       enterprisePlaceholder: null,
     })
 
-    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([privateTier.id])
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([proTier.id, privateTier.id])
+  })
+
+  it('lets organization admins leave an archived Stripe-backed tier', () => {
+    const state = getSubscriptionSurfaceState({
+      subscription: {
+        isFree: false,
+        isPaid: true,
+        tier: {
+          ...EMPTY_BILLING_TIER_SUMMARY,
+          id: 'tier_organization_archived',
+          displayName: 'Archived organization tier',
+          ownerType: 'organization',
+          usageScope: 'pooled',
+          seatMode: 'adjustable',
+          hasStripeMonthlyPriceId: true,
+        },
+      },
+      userRole: adminRole,
+      publicTiers,
+      enterprisePlaceholder: null,
+    })
+
+    expect(state.isCustomOrganizationPlan).toBe(false)
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([proTier.id, teamTier.id])
   })
 
   it('keeps organization team members out of the tier chooser', () => {
@@ -181,7 +200,6 @@ describe('getSubscriptionSurfaceState', () => {
       },
       userRole: memberRole,
       publicTiers: [...publicTiers, orgTier],
-      grantedPrivateTierIds: noGrantedPrivateTiers,
       enterprisePlaceholder: null,
     })
 
@@ -206,7 +224,6 @@ describe('getSubscriptionSurfaceState', () => {
       },
       userRole: adminRole,
       publicTiers,
-      grantedPrivateTierIds: noGrantedPrivateTiers,
       enterprisePlaceholder: {
         displayName: 'Enterprise',
         description: 'Custom billing',

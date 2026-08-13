@@ -28,13 +28,10 @@ vi.mock('@/lib/billing/catalog', () => ({
 }))
 
 vi.mock('@/lib/billing/private-tier-access', () => ({
+  checkPrivateTierAccessRateLimit: (userId: string) => mockCheckPrivateTierAccessRateLimit(userId),
   getGrantedPrivateBillingTiers: (userId: string) => mockGetGrantedPrivateBillingTiers(userId),
   grantPrivateBillingTier: (userId: string, accessCode: string) =>
     mockGrantPrivateBillingTier(userId, accessCode),
-}))
-
-vi.mock('@/lib/api/rate-limit', () => ({
-  checkPrivateTierAccessRateLimit: (userId: string) => mockCheckPrivateTierAccessRateLimit(userId),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
