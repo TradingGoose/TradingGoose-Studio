@@ -4,6 +4,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import {
   completePendingExecution,
   isPendingExecutionPayload,
+  listChildPendingWorkflowExecutions,
   PENDING_EXECUTION_LOCK_NAMESPACE,
   type PendingExecutionPayload,
 } from '@/lib/execution/pending-execution'
@@ -197,18 +198,19 @@ export async function cancelPendingWorkflowExecution(params: {
       throw error
     }
 
-    await completePendingExecution({ pendingExecutionId: claimed.id })
+    if ((await listChildPendingWorkflowExecutions(claimed.id)).length === 0) {
+      await completePendingExecution({ pendingExecutionId: claimed.id })
+    }
     return { status: 'cancelling' }
   }
 
   if (row.status === 'processing') {
-    const cancelledAt = new Date().toISOString()
-    const payload = withCancellationRequest(row.payload, cancelledAt)
+    const cancelRequestedAt = new Date().toISOString()
 
     const cancellingRows = await db
       .update(pendingExecution)
       .set({
-        payload,
+        payload: sql`${pendingExecution.payload} || jsonb_build_object('cancelRequestedAt', ${cancelRequestedAt})`,
         updatedAt: new Date(),
       })
       .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))

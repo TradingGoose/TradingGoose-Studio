@@ -7,6 +7,7 @@ import {
 } from '@/lib/admin/system-settings/mutations'
 import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
 import { getBillingGateState, isBillingConfigurationReady } from '@/lib/billing/settings'
+import { hasPendingExecutions } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getResolvedSystemSettings,
@@ -167,6 +168,19 @@ export async function PATCH(request: NextRequest) {
       hasPayloadField(payload, 'triggerDevEnabled') &&
       payload.triggerDevEnabled &&
       !currentSettings.triggerDevEnabled
+    const isChangingTriggerDev =
+      hasPayloadField(payload, 'triggerDevEnabled') &&
+      payload.triggerDevEnabled !== currentSettings.triggerDevEnabled
+
+    if (isChangingTriggerDev && (await hasPendingExecutions())) {
+      return NextResponse.json(
+        {
+          error: 'Trigger.dev execution mode cannot change while executions are queued or running.',
+          code: 'trigger_execution_busy',
+        },
+        { status: 409, headers: NO_STORE_HEADERS }
+      )
+    }
 
     if (isEnablingTriggerDev && !triggerReady) {
       return NextResponse.json(

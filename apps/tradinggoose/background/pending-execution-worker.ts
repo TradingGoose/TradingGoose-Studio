@@ -1,13 +1,17 @@
 import { db } from '@tradinggoose/db'
-import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { runs, schedules, task } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import {
   completePendingExecution,
   getPendingExecutionTriggerKey,
   getProcessingPendingExecution,
-  isPendingExecutionPayload,
+  isPendingWorkflowExecutionCancellationRequested,
   isTierLimitedPendingExecution,
+  listChildPendingWorkflowExecutions,
+  listPendingExecutionBillingScopes,
+  listProcessingPendingExecutions,
+  markPendingExecutionOwnerCompleted,
   PENDING_EXECUTION_TASK_ID,
   type PendingExecutionClaim,
   triggerPendingExecution,
@@ -16,6 +20,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import type { ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
+import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import {
   dispatchQueuedDocumentProcessingJob,
   failQueuedDocumentProcessingJob,
@@ -27,6 +32,11 @@ import { executeWorkflowJob, isWorkflowExecutionPayload } from './workflow-execu
 
 const logger = createLogger('PendingExecutionWorker')
 const TIME_LIMIT_ERROR = 'Workflow execution time limit exceeded'
+const CANCELLATION_ERROR = 'Workflow execution was cancelled'
+const EXPIRED_ERROR = 'Workflow execution expired before it started'
+const WORKER_FAILURE_ERROR = 'Workflow execution stopped before it could finish'
+const RECOVERY_PAGE_SIZE = 50
+const RECOVERY_CONCURRENCY = 5
 const ACTIVE_RUN_STATUSES = new Set([
   'PENDING_VERSION',
   'QUEUED',
@@ -74,85 +84,48 @@ function getWorkflowState(row: PendingExecutionClaim): WorkflowState {
   }
 }
 
-async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boolean> {
+async function dispatchPendingExecution(row: PendingExecutionClaim) {
+  const payload = { ...row.payload, executionId: row.id }
   switch (row.executionType) {
-    case 'workflow': {
-      if (!isWorkflowExecutionPayload(row.payload)) {
-        throw new Error('Invalid workflow pending payload')
-      }
-
-      await executeWorkflowJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+    case 'workflow':
+      if (isWorkflowExecutionPayload(payload)) await executeWorkflowJob(payload)
+      else throw new Error('Invalid workflow pending payload')
       break
-    }
-
-    case 'webhook': {
-      if (!isWebhookExecutionPayload(row.payload)) {
-        throw new Error('Invalid webhook pending payload')
-      }
-
-      await executeWebhookJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+    case 'webhook':
+      if (isWebhookExecutionPayload(payload)) await executeWebhookJob(payload)
+      else throw new Error('Invalid webhook pending payload')
       break
-    }
-
-    case 'schedule': {
-      if (!isScheduleExecutionPayload(row.payload)) {
-        throw new Error('Invalid schedule pending payload')
-      }
-
-      await executeScheduleJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+    case 'schedule':
+      if (isScheduleExecutionPayload(payload)) await executeScheduleJob(payload)
+      else throw new Error('Invalid schedule pending payload')
       break
-    }
-
-    case 'monitor': {
-      if (!isMonitorExecutionPayload(row.payload)) {
-        throw new Error('Invalid monitor pending payload')
-      }
-
-      await executeMonitorJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+    case 'monitor':
+      if (isMonitorExecutionPayload(payload)) await executeMonitorJob(payload)
+      else throw new Error('Invalid monitor pending payload')
       break
-    }
-
-    case 'document': {
-      try {
-        await dispatchQueuedDocumentProcessingJob(row.payload)
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
-        await failQueuedDocumentProcessingJob(row.payload, errorMessage)
-        await completePendingExecution({ pendingExecutionId: row.id })
-        return false
-      }
-      break
-    }
-
-    default:
-      throw new Error(`Unsupported pending execution type: ${row.executionType}`)
+    case 'document':
+      await dispatchQueuedDocumentProcessingJob(row.payload)
   }
 
-  await completePendingExecution({ pendingExecutionId: row.id })
-  return true
+  if ((await listChildPendingWorkflowExecutions(row.id)).length === 0) {
+    await completePendingExecution({ pendingExecutionId: row.id })
+  } else {
+    await markPendingExecutionOwnerCompleted(row)
+  }
 }
 
-export async function executePendingExecution(payload: PendingExecutionTaskPayload) {
+export async function executePendingExecution(
+  payload: PendingExecutionTaskPayload,
+  options: { triggerRuntime?: boolean } = {}
+) {
   const row = await getProcessingPendingExecution(payload.pendingExecutionId)
   if (!row) {
     return { success: true, skipped: 'not_processing' as const }
   }
 
   try {
-    const success = await dispatchPendingExecution(row)
-    return { success, pendingExecutionId: row.id }
+    await dispatchPendingExecution(row)
+    return { success: true, pendingExecutionId: row.id }
   } catch (error) {
     logger.error('Pending execution failed', {
       pendingExecutionId: row.id,
@@ -160,24 +133,37 @@ export async function executePendingExecution(payload: PendingExecutionTaskPaylo
       workflowId: row.workflowId,
       error,
     })
+    const message = error instanceof Error ? error.message : WORKER_FAILURE_ERROR
+    await finalizePendingExecutionFailure(row, message, 1, {
+      cancelTriggerRuns: options.triggerRuntime === true,
+    })
     throw error
   }
 }
 
-export const pendingExecutionTask = task({
+export const pendingExecutionTask = task<
+  typeof PENDING_EXECUTION_TASK_ID,
+  PendingExecutionTaskPayload
+>({
   id: PENDING_EXECUTION_TASK_ID,
   retry: {
     maxAttempts: 1,
   },
-  run: executePendingExecution,
+  run: (payload) => executePendingExecution(payload, { triggerRuntime: true }),
 })
 
-async function getWorkflowExecutionLog(row: PendingExecutionClaim) {
-  if (!isTierLimitedPendingExecution(row)) {
-    return undefined
+async function terminalizeWorkflowExecution(
+  row: PendingExecutionClaim,
+  durationMs: number,
+  message: string,
+  billable = true
+) {
+  if (!isTierLimitedPendingExecution(row)) return
+  if (!row.workflowId || !row.workspaceId) {
+    throw new Error(`Execution ${row.id} is missing workflow scope`)
   }
 
-  const [log] = await db
+  const [existingLog] = await db
     .select({
       id: workflowExecutionLogs.id,
       endedAt: workflowExecutionLogs.endedAt,
@@ -185,20 +171,6 @@ async function getWorkflowExecutionLog(row: PendingExecutionClaim) {
     .from(workflowExecutionLogs)
     .where(eq(workflowExecutionLogs.executionId, row.id))
     .limit(1)
-
-  return log ?? null
-}
-
-async function terminalizeWorkflowExecution(
-  row: PendingExecutionClaim,
-  durationMs: number,
-  message: string,
-  existingLog: Awaited<ReturnType<typeof getWorkflowExecutionLog>>
-) {
-  if (!row.workflowId || !row.workspaceId) {
-    throw new Error(`Execution ${row.id} is missing workflow scope`)
-  }
-
   if (existingLog?.endedAt) {
     return
   }
@@ -227,10 +199,82 @@ async function terminalizeWorkflowExecution(
     error: { message },
     workspaceId: row.workspaceId,
     actorUserId: row.userId,
+    billable,
   })
 }
 
+async function mapWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  callback: (item: T) => Promise<void>
+) {
+  for (let index = 0; index < items.length; index += concurrency) {
+    await Promise.all(items.slice(index, index + concurrency).map(callback))
+  }
+}
+
+async function cancelTriggerRun(row: PendingExecutionClaim) {
+  const page = await runs.list({
+    tag: getPendingExecutionTriggerKey(row.id),
+    taskIdentifier: PENDING_EXECUTION_TASK_ID,
+    limit: 1,
+  })
+  const run = page.data[0]
+  if (run && ACTIVE_RUN_STATUSES.has(run.status)) {
+    await runs.cancel(run.id)
+  }
+}
+
+async function cancelPendingExecutionDescendants(
+  parentExecutionId: string,
+  cancelTriggerRuns: boolean
+) {
+  const children = await listChildPendingWorkflowExecutions(parentExecutionId)
+
+  await mapWithConcurrency(children, RECOVERY_CONCURRENCY, async (child) => {
+    await cancelPendingExecutionDescendants(child.id, cancelTriggerRuns)
+    await cancelPendingWorkflowExecution({
+      pendingExecutionId: child.id,
+      userId: child.userId,
+    })
+    if (cancelTriggerRuns) {
+      await cancelTriggerRun(child)
+    }
+  })
+
+  return (await listChildPendingWorkflowExecutions(parentExecutionId)).length > 0
+}
+
+export async function finalizePendingExecutionFailure(
+  row: PendingExecutionClaim,
+  message: string,
+  durationMs: number,
+  options: { cancelTriggerRuns?: boolean; billable?: boolean } = {}
+) {
+  if (row.executionType === 'document') {
+    await failQueuedDocumentProcessingJob(row.payload, message)
+  }
+
+  await terminalizeWorkflowExecution(row, durationMs, message, options.billable !== false)
+
+  const hasDescendants = await cancelPendingExecutionDescendants(
+    row.id,
+    options.cancelTriggerRuns === true
+  )
+  if (hasDescendants) {
+    return false
+  }
+
+  await completePendingExecution({ pendingExecutionId: row.id })
+  return true
+}
+
+function getProcessingDurationMs(row: PendingExecutionClaim) {
+  return row.processingStartedAt ? Date.now() - row.processingStartedAt.getTime() : 1
+}
+
 async function reconcileProcessingExecution(row: PendingExecutionClaim) {
+  const cancellationRequested = await isPendingWorkflowExecutionCancellationRequested(row.id)
   const triggerKey = getPendingExecutionTriggerKey(row.id)
   const page = await runs.list({
     tag: triggerKey,
@@ -240,39 +284,61 @@ async function reconcileProcessingExecution(row: PendingExecutionClaim) {
   const run = page.data[0]
 
   if (!run) {
+    if (cancellationRequested) {
+      await finalizePendingExecutionFailure(row, CANCELLATION_ERROR, getProcessingDurationMs(row), {
+        cancelTriggerRuns: true,
+        billable: false,
+      })
+      return
+    }
     await triggerPendingExecution(row)
     return
   }
 
   if (ACTIVE_RUN_STATUSES.has(run.status)) {
+    if (cancellationRequested) {
+      await runs.cancel(run.id)
+    }
     return
   }
 
   if (run.status === 'TIMED_OUT') {
-    const workflowLog = await getWorkflowExecutionLog(row)
-    if (workflowLog !== undefined) {
-      await terminalizeWorkflowExecution(row, run.durationMs, TIME_LIMIT_ERROR, workflowLog)
-    }
+    await finalizePendingExecutionFailure(row, TIME_LIMIT_ERROR, run.durationMs, {
+      cancelTriggerRuns: true,
+    })
+    return
   }
 
-  // Trigger owns retries. Every terminal run releases its queue capacity exactly once.
+  if (run.status !== 'COMPLETED') {
+    const cancelled = run.status === 'CANCELED'
+    const message = cancelled
+      ? CANCELLATION_ERROR
+      : run.status === 'EXPIRED'
+        ? EXPIRED_ERROR
+        : WORKER_FAILURE_ERROR
+    await finalizePendingExecutionFailure(row, message, run.durationMs, {
+      cancelTriggerRuns: true,
+      billable: !cancelled,
+    })
+    return
+  }
+
+  if ((await listChildPendingWorkflowExecutions(row.id)).length > 0) {
+    return
+  }
+
   await completePendingExecution({ pendingExecutionId: row.id })
 }
 
 export async function recoverPendingExecutions() {
-  const processingRows = await db
-    .select()
-    .from(pendingExecution)
-    .where(eq(pendingExecution.status, 'processing'))
-
   let reconciledCount = 0
-  await Promise.all(
-    processingRows.map(async (rawRow) => {
-      const row = {
-        ...rawRow,
-        payload: isPendingExecutionPayload(rawRow.payload) ? rawRow.payload : {},
-      } as PendingExecutionClaim
-
+  let processingCursor: string | undefined
+  while (true) {
+    const rows = await listProcessingPendingExecutions({
+      afterId: processingCursor,
+      limit: RECOVERY_PAGE_SIZE,
+    })
+    await mapWithConcurrency(rows, RECOVERY_CONCURRENCY, async (row) => {
       try {
         await reconcileProcessingExecution(row)
         reconciledCount += 1
@@ -283,19 +349,27 @@ export async function recoverPendingExecutions() {
         })
       }
     })
-  )
+    if (rows.length < RECOVERY_PAGE_SIZE) break
+    processingCursor = rows.at(-1)?.id
+  }
 
-  const pendingScopes = await db
-    .selectDistinct({ billingScopeId: pendingExecution.billingScopeId })
-    .from(pendingExecution)
-    .where(eq(pendingExecution.status, 'pending'))
-
-  await Promise.all(
-    pendingScopes.map(({ billingScopeId }) => wakePendingExecution({ billingScopeId }))
-  )
+  let pendingScopeCount = 0
+  let scopeCursor: string | undefined
+  while (true) {
+    const scopes = await listPendingExecutionBillingScopes({
+      afterBillingScopeId: scopeCursor,
+      limit: RECOVERY_PAGE_SIZE,
+    })
+    await mapWithConcurrency(scopes, RECOVERY_CONCURRENCY, ({ billingScopeId }) =>
+      wakePendingExecution({ billingScopeId }).then(() => undefined)
+    )
+    pendingScopeCount += scopes.length
+    if (scopes.length < RECOVERY_PAGE_SIZE) break
+    scopeCursor = scopes.at(-1)?.billingScopeId
+  }
 
   return {
-    pendingScopeCount: pendingScopes.length,
+    pendingScopeCount,
     reconciledCount,
   }
 }
@@ -303,5 +377,9 @@ export async function recoverPendingExecutions() {
 export const pendingExecutionRecoverySweep = schedules.task({
   id: 'pending-execution-recovery-sweep',
   cron: '* * * * *',
+  queue: {
+    name: 'pending-execution-recovery',
+    concurrencyLimit: 1,
+  },
   run: recoverPendingExecutions,
 })

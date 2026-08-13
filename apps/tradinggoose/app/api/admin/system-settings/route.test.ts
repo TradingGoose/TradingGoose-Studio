@@ -9,6 +9,7 @@ const {
   mockGetSystemAdminAccess,
   mockClaimFirstSystemAdmin,
   mockGetBillingGateState,
+  mockHasPendingExecutions,
   mockGetResolvedSystemSettings,
   mockIsBillingConfigurationReady,
   mockIsTriggerConfigurationReady,
@@ -19,6 +20,7 @@ const {
   mockGetSystemAdminAccess: vi.fn(),
   mockClaimFirstSystemAdmin: vi.fn(),
   mockGetBillingGateState: vi.fn(),
+  mockHasPendingExecutions: vi.fn(),
   mockGetResolvedSystemSettings: vi.fn(),
   mockIsBillingConfigurationReady: vi.fn(),
   mockIsTriggerConfigurationReady: vi.fn(),
@@ -43,6 +45,10 @@ vi.mock('@/lib/billing/core/subscription', () => ({
 vi.mock('@/lib/billing/settings', () => ({
   getBillingGateState: mockGetBillingGateState,
   isBillingConfigurationReady: mockIsBillingConfigurationReady,
+}))
+
+vi.mock('@/lib/execution/pending-execution', () => ({
+  hasPendingExecutions: mockHasPendingExecutions,
 }))
 
 vi.mock('@/lib/trigger/settings', () => ({
@@ -76,6 +82,7 @@ describe('/api/admin/system-settings route', () => {
       billingEnabled: true,
       stripeConfigured: true,
     })
+    mockHasPendingExecutions.mockResolvedValue(false)
     mockIsBillingConfigurationReady.mockResolvedValue(true)
     mockIsTriggerConfigurationReady.mockResolvedValue(true)
     mockGetResolvedSystemSettings.mockResolvedValue({
@@ -346,6 +353,31 @@ describe('/api/admin/system-settings route', () => {
         'Trigger.dev cannot be enabled until TRIGGER_PROJECT_ID and TRIGGER_SECRET_KEY are configured.',
       code: ADMIN_ERROR_CODES.TRIGGER_NOT_READY,
     })
+    expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+  })
+
+  it('rejects changing execution mode while work is queued or running', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValueOnce({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: false,
+      triggerDevEnabled: false,
+      allowPromotionCodes: true,
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: '',
+    })
+    mockHasPendingExecutions.mockResolvedValueOnce(true)
+
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ triggerDevEnabled: true }),
+      }) as any
+    )
+
+    await expect(response.json()).resolves.toMatchObject({ code: 'trigger_execution_busy' })
+    expect(response.status).toBe(409)
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })
 
