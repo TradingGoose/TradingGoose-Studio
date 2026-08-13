@@ -39,6 +39,7 @@ export interface UsageLimitInfo {
 export interface BillingTierSummary {
   id: string | null
   displayName: string
+  status: 'active' | 'draft' | 'archived' | null
   ownerType: 'user' | 'organization'
   usageScope: 'individual' | 'pooled'
   seatMode: 'fixed' | 'adjustable'

@@ -179,6 +179,7 @@ export function toBillingTierSummary(
   return {
     id: tier.id,
     displayName: tier.displayName,
+    status: tier.status,
     ownerType: tier.ownerType,
     usageScope: tier.usageScope,
     seatMode: tier.seatMode,

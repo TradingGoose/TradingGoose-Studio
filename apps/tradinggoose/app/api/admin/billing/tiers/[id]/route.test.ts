@@ -194,4 +194,83 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
       expect(mockTransaction).not.toHaveBeenCalled()
     },
   )
+
+  it('archives a tier that still has subscriptions', async () => {
+    const updateWhere = vi.fn().mockResolvedValue(undefined)
+    const updateSet = vi.fn(() => ({ where: updateWhere }))
+    const update = vi.fn(() => ({ set: updateSet }))
+    mockTransaction.mockImplementationOnce(
+      async (callback: (tx: { update: typeof update }) => Promise<void>) => callback({ update })
+    )
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
+        method: 'PATCH',
+        body: JSON.stringify({ ...createPayload(), status: 'archived' }),
+      }) as any,
+      { params: Promise.resolve({ id: 'tier-pro' }) },
+    )
+
+    await expect(response.json()).resolves.toEqual({ success: true })
+    expect(response.status).toBe(200)
+    expect(mockCountWhere).toHaveBeenCalled()
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived' }))
+    expect(updateWhere).toHaveBeenCalledOnce()
+  })
+
+  it('does not expose a hard-delete handler', async () => {
+    await expect(import('./route')).resolves.not.toHaveProperty('DELETE')
+  })
+
+  it('does not archive the default tier', async () => {
+    mockTierLimit.mockResolvedValueOnce([
+      {
+        id: 'tier-default',
+        isDefault: true,
+      },
+    ])
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/billing/tiers/tier-default', {
+        method: 'PATCH',
+        body: JSON.stringify({ ...createPayload(), status: 'archived' }),
+      }) as any,
+      { params: Promise.resolve({ id: 'tier-default' }) },
+    )
+
+    await expect(response.json()).resolves.toEqual({ error: 'The default tier cannot be archived' })
+    expect(response.status).toBe(409)
+    expect(mockCountWhere).not.toHaveBeenCalled()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('does not make an archived tier the default tier', async () => {
+    mockIsBillingEnabledForRuntime.mockResolvedValueOnce(false)
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...createPayload(),
+          status: 'archived',
+          ownerType: 'user',
+          usageScope: 'individual',
+          seatMode: 'fixed',
+          monthlyPriceUsd: 0,
+          yearlyPriceUsd: null,
+          seatCount: null,
+          seatMaximum: null,
+          canConfigureSso: false,
+          isDefault: true,
+        }),
+      }) as any,
+      { params: Promise.resolve({ id: 'tier-pro' }) },
+    )
+
+    await expect(response.json()).resolves.toEqual({ error: 'The default tier cannot be archived' })
+    expect(response.status).toBe(409)
+    expect(mockCountWhere).not.toHaveBeenCalled()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
 })

@@ -3,6 +3,7 @@ import type { BillingTierSummary } from '@/lib/billing/types'
 export const EMPTY_BILLING_TIER_SUMMARY: BillingTierSummary = {
   id: null,
   displayName: 'Billing tier',
+  status: null,
   ownerType: 'user',
   usageScope: 'individual',
   seatMode: 'fixed',

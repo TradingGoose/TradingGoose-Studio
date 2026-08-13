@@ -32,6 +32,7 @@ function toSummary(tier: PublicBillingTierDisplay): BillingTierSummary {
     ...EMPTY_BILLING_TIER_SUMMARY,
     id: tier.id,
     displayName: tier.displayName,
+    status: 'active',
     ownerType: tier.ownerType,
     usageScope: tier.usageScope,
     seatMode: tier.seatMode,
@@ -146,6 +147,7 @@ describe('getSubscriptionSurfaceState', () => {
           ...EMPTY_BILLING_TIER_SUMMARY,
           id: 'tier_private_archived',
           displayName: 'Archived private tier',
+          status: 'archived',
           ownerType: 'user',
         },
       },
@@ -154,7 +156,12 @@ describe('getSubscriptionSurfaceState', () => {
       enterprisePlaceholder: null,
     })
 
-    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([proTier.id, privateTier.id])
+    expect(state.currentTier?.id).toBe('tier_private_archived')
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([
+      'tier_private_archived',
+      proTier.id,
+      privateTier.id,
+    ])
   })
 
   it('lets organization admins leave an archived Stripe-backed tier', () => {
@@ -166,6 +173,7 @@ describe('getSubscriptionSurfaceState', () => {
           ...EMPTY_BILLING_TIER_SUMMARY,
           id: 'tier_organization_archived',
           displayName: 'Archived organization tier',
+          status: 'archived',
           ownerType: 'organization',
           usageScope: 'pooled',
           seatMode: 'adjustable',
@@ -178,7 +186,12 @@ describe('getSubscriptionSurfaceState', () => {
     })
 
     expect(state.isCustomOrganizationPlan).toBe(false)
-    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([proTier.id, teamTier.id])
+    expect(state.currentTier?.id).toBe('tier_organization_archived')
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([
+      'tier_organization_archived',
+      proTier.id,
+      teamTier.id,
+    ])
   })
 
   it('keeps organization team members out of the tier chooser', () => {
@@ -216,6 +229,7 @@ describe('getSubscriptionSurfaceState', () => {
           ...EMPTY_BILLING_TIER_SUMMARY,
           id: 'tier_enterprise_contract',
           displayName: 'Enterprise Contract',
+          status: 'active',
           ownerType: 'organization',
           usageScope: 'pooled',
           seatMode: 'fixed',

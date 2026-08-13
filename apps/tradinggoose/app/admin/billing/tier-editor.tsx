@@ -381,6 +381,22 @@ export function buildTierMutationInput(formData: FormData): AdminBillingTierMuta
   }
 }
 
+export function buildTierMutationInputFromDefaults(
+  defaults: TierFormDefaults
+): AdminBillingTierMutationInput {
+  const formData = new FormData()
+
+  for (const [key, value] of Object.entries(defaults)) {
+    if (typeof value === 'boolean') {
+      if (value) formData.set(key, 'on')
+    } else {
+      formData.set(key === 'displayName' ? 'tierLabel' : key, value)
+    }
+  }
+
+  return buildTierMutationInput(formData)
+}
+
 function getOptionLabel(
   options: ReadonlyArray<{ value: string; label: string }>,
   value: string,

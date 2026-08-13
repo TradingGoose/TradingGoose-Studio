@@ -46,6 +46,25 @@ function getCurrentTier(
     return matchedTier
   }
 
+  if (subscription.tier.id && subscription.tier.status === 'archived') {
+    return {
+      id: subscription.tier.id,
+      displayName: subscription.tier.displayName,
+      description: '',
+      ownerType: subscription.tier.ownerType,
+      seatMode: subscription.tier.seatMode,
+      usageScope: subscription.tier.usageScope,
+      displayOrder: subscription.tier.displayOrder,
+      monthlyPriceUsd: subscription.tier.monthlyPriceUsd,
+      yearlyPriceUsd: subscription.tier.yearlyPriceUsd,
+      seatCount: subscription.tier.seatCount,
+      seatMaximum: subscription.tier.seatMaximum,
+      canEditUsageLimit: subscription.tier.canEditUsageLimit,
+      pricingFeatures: subscription.tier.pricingFeatures,
+      isDefault: false,
+    }
+  }
+
   if (!subscription.isFree) {
     return null
   }

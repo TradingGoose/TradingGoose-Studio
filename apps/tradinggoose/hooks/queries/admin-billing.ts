@@ -46,7 +46,7 @@ export function useAdminBillingSnapshot() {
 
 export async function sendAdminBillingMutationRequest(
   url: string,
-  method: 'POST' | 'PATCH' | 'DELETE',
+  method: 'POST' | 'PATCH',
   body?: unknown
 ) {
   const response = await fetch(url, {
