@@ -1990,7 +1990,16 @@
           "label": "Private tier access code",
           "placeholder": "Enter access code",
           "validate": "Validate",
-          "success": "Private tier access unlocked."
+          "success": "Private tier access unlocked.",
+          "errors": {
+            "unauthorized": "Sign in again to manage private tier access.",
+            "rateLimited": "Too many access code attempts. Please try again later.",
+            "unavailable": "Private tier validation is temporarily unavailable.",
+            "required": "Enter an access code.",
+            "invalid": "That access code is invalid.",
+            "loadFailed": "Could not load your private tier access.",
+            "validateFailed": "Could not validate the access code."
+          }
         },
         "titles": {
           "manage": "Manage Subscription",
@@ -2009,7 +2018,8 @@
           "manage": "Open Stripe Billing Portal to cancel, restore, or update your subscription.",
           "usageNotifications": "Email me when usage reaches the billing warning threshold",
           "customPlan": "Contact your account team for billing tier and usage limit changes",
-          "teamMemberView": "Contact your team admin to increase limits"
+          "teamMemberView": "Contact your team admin to increase limits",
+          "otherBillingOwner": "This workspace's billing is managed by another workspace administrator."
         },
         "notifications": {
           "pending": "Saving usage notification preference…",

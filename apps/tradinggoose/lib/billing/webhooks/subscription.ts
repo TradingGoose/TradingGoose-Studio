@@ -286,10 +286,14 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
   let settlementError: unknown = null
 
   try {
-    await syncSubscriptionBillingTierFromStripeSubscription(
-      resolvedSubscription.id,
-      stripeSubscription
-    )
+    if (!resolvedSubscription.billingTierId) {
+      throw new Error(`Subscription ${resolvedSubscription.id} has no persisted billing tier`)
+    }
+    await syncSubscriptionBillingTierFromStripeSubscription({
+      subscriptionId: resolvedSubscription.id,
+      billingTierId: resolvedSubscription.billingTierId,
+      stripeSubscription,
+    })
   } catch (error) {
     settlementError = error
     logger.error('Failed to sync billing tier for a cancelled subscription', {

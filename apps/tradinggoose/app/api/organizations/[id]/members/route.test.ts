@@ -3,6 +3,7 @@
  */
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 
 function createSelectChain(result: any) {
   const limitedChain: any = {
@@ -132,6 +133,7 @@ describe('Organization members GET route', () => {
       organizationId: 'org-1',
       organizationName: 'Org',
       subscriptionTier: {
+        ...EMPTY_BILLING_TIER_SUMMARY,
         id: 'tier-org',
         displayName: 'Org',
         ownerType: 'organization',
@@ -238,6 +240,7 @@ describe('Organization members GET route', () => {
       organizationId: 'org-1',
       organizationName: 'Org',
       subscriptionTier: {
+        ...EMPTY_BILLING_TIER_SUMMARY,
         id: 'tier-org',
         displayName: 'Org',
         ownerType: 'organization',

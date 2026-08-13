@@ -4,7 +4,12 @@ import { NextResponse } from 'next/server'
 import { isPrivateTierAccessCodeConflict } from '@/lib/admin/billing/access-code'
 import { requireAdminBillingUserId } from '@/lib/admin/billing/authorization'
 import {
+  assertBillingTierStripeIdentifiers,
+  isBillingTierStripeIdentifierError,
+} from '@/lib/admin/billing/stripe-identifiers'
+import {
   adminBillingTierMutationSchema,
+  toBillingTierMutationValues,
   validateAdminBillingTierInput,
 } from '@/lib/admin/billing/tier-mutations'
 import {
@@ -12,15 +17,9 @@ import {
   getBillingGateState,
   isBillingEnabledForRuntime,
 } from '@/lib/billing/settings'
-import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { ensureRestrictedBillingPortalConfiguration } from '@/lib/billing/stripe-portal'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('AdminBillingTierCreateAPI')
-
-function toDecimalString(value: number | null) {
-  return value === null ? null : value.toString()
-}
 
 export const dynamic = 'force-dynamic'
 
@@ -29,10 +28,7 @@ export async function POST(request: Request) {
     const userId = await requireAdminBillingUserId()
     const { stripeConfigured } = await getBillingGateState()
     if (!stripeConfigured) {
-      return NextResponse.json(
-        { error: ADMIN_BILLING_UNAVAILABLE_ERROR },
-        { status: 409 },
-      )
+      return NextResponse.json({ error: ADMIN_BILLING_UNAVAILABLE_ERROR }, { status: 409 })
     }
     const body = await request.json()
     const parsed = adminBillingTierMutationSchema.safeParse(body)
@@ -40,10 +36,9 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json(
         {
-          error:
-            parsed.error.issues[0]?.message ?? 'Invalid billing tier payload',
+          error: parsed.error.issues[0]?.message ?? 'Invalid billing tier payload',
         },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -63,68 +58,21 @@ export async function POST(request: Request) {
         {
           error: 'The default tier must stay active while billing is enabled.',
         },
-        { status: 409 },
+        { status: 409 }
       )
-    }
-
-    if (parsed.data.status === 'active' && !parsed.data.isPublic) {
-      await ensureRestrictedBillingPortalConfiguration(requireStripeClient())
     }
 
     const tierId = `tier_${crypto.randomUUID()}`
 
     await db.transaction(async (tx) => {
+      await assertBillingTierStripeIdentifiers(tx, parsed.data)
+
       if (parsed.data.isDefault) {
         await tx.update(systemBillingTier).set({ isDefault: false })
       }
       await tx.insert(systemBillingTier).values({
         id: tierId,
-        displayName: parsed.data.displayName,
-        description: parsed.data.description,
-        accessCode: parsed.data.accessCode,
-        status: parsed.data.status,
-        ownerType: parsed.data.ownerType,
-        usageScope: parsed.data.usageScope,
-        seatMode: parsed.data.seatMode,
-        monthlyPriceUsd: toDecimalString(parsed.data.monthlyPriceUsd),
-        yearlyPriceUsd: toDecimalString(parsed.data.yearlyPriceUsd),
-        includedUsageLimitUsd: toDecimalString(
-          parsed.data.includedUsageLimitUsd,
-        ),
-        storageLimitGb: parsed.data.storageLimitGb,
-        concurrencyLimit: parsed.data.concurrencyLimit,
-        workflowExecutionTimeLimitSeconds:
-          parsed.data.workflowExecutionTimeLimitSeconds,
-        seatCount: parsed.data.seatCount,
-        seatMaximum: parsed.data.seatMaximum,
-        stripeMonthlyPriceId: parsed.data.stripeMonthlyPriceId,
-        stripeYearlyPriceId: parsed.data.stripeYearlyPriceId,
-        stripeProductId: parsed.data.stripeProductId,
-        syncRateLimitPerMinute: parsed.data.syncRateLimitPerMinute,
-        asyncRateLimitPerMinute: parsed.data.asyncRateLimitPerMinute,
-        apiEndpointRateLimitPerMinute:
-          parsed.data.apiEndpointRateLimitPerMinute,
-        maxPendingAgeSeconds: parsed.data.maxPendingAgeSeconds,
-        maxPendingCount: parsed.data.maxPendingCount,
-        canEditUsageLimit: parsed.data.canEditUsageLimit,
-        canConfigureSso: parsed.data.canConfigureSso,
-        logRetentionDays: parsed.data.logRetentionDays,
-        workflowExecutionMultiplier: String(
-          parsed.data.workflowExecutionMultiplier ?? 1,
-        ),
-        workflowModelCostMultiplier: String(
-          parsed.data.workflowModelCostMultiplier ?? 1,
-        ),
-        functionExecutionMultiplier: String(
-          parsed.data.functionExecutionMultiplier ?? 1,
-        ),
-        copilotCostMultiplier: String(parsed.data.copilotCostMultiplier ?? 1),
-        pricingFeatures: parsed.data.pricingFeatures,
-        isPublic: parsed.data.isPublic,
-        isDefault: parsed.data.isDefault,
-        displayOrder: parsed.data.displayOrder,
-        updatedByUserId: userId,
-        updatedAt: new Date(),
+        ...toBillingTierMutationValues(parsed.data, userId),
       })
     })
 
@@ -141,14 +89,15 @@ export async function POST(request: Request) {
     if (isPrivateTierAccessCodeConflict(error)) {
       return NextResponse.json(
         { error: 'Private tier access code is already in use' },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
+    if (isBillingTierStripeIdentifierError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+
     logger.error('Failed to create billing tier', { error })
-    return NextResponse.json(
-      { error: 'Failed to create billing tier' },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: 'Failed to create billing tier' }, { status: 500 })
   }
 }

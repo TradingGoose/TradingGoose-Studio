@@ -427,6 +427,21 @@ export async function getActiveStripeBillingTiers(): Promise<
     .orderBy(asc(systemBillingTier.displayOrder))
 }
 
+export async function getResolvableStripeBillingTiers(): Promise<
+  BillingTierRecord[]
+> {
+  return db
+    .select()
+    .from(systemBillingTier)
+    .where(
+      and(
+        inArray(systemBillingTier.status, ['active', 'archived']),
+        isNotNull(systemBillingTier.stripeMonthlyPriceId),
+      ),
+    )
+    .orderBy(asc(systemBillingTier.displayOrder))
+}
+
 export async function getPrimaryPublicUserUpgradeTier(): Promise<BillingTierRecord | null> {
   const tiers = await getPublicBillingTiers()
   const tier = tiers.find(

@@ -259,6 +259,7 @@ describe('/api/billing route', () => {
       subscriptionTier: {
         id: 'tier_org',
         displayName: 'Team',
+        status: 'archived',
         ownerType: 'organization',
         usageScope: 'pooled',
         seatMode: 'adjustable',
@@ -267,6 +268,7 @@ describe('/api/billing route', () => {
         seatMaximum: 10,
         canEditUsageLimit: true,
         canConfigureSso: true,
+        hasStripeMonthlyPriceId: true,
       },
       subscriptionStatus: 'active',
       seatPriceUsd: 20,
@@ -311,6 +313,8 @@ describe('/api/billing route', () => {
     expect(payload.userRole).toBe('admin')
     expect(payload.data.organizationId).toBe('org-1')
     expect(payload.data.subscriptionTier.ownerType).toBe('organization')
+    expect(payload.data.subscriptionTier.status).toBe('archived')
+    expect(payload.data.subscriptionTier.hasStripeMonthlyPriceId).toBe(true)
     expect(payload.data.minimumUsageLimit).toBe(90)
     expect(payload.data.members[0].joinedAt).toBe('2026-04-01T00:00:00.000Z')
   })

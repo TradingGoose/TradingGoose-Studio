@@ -12,6 +12,8 @@ const {
   mockGetSession,
   mockGetBillingTierById,
   mockHasPrivateBillingTierAccess,
+  mockAuthorizeSubscriptionReference,
+  mockEnsurePlanChangePortalConfiguration,
 } = vi.hoisted(() => ({
   mockAuthHandler: vi.fn(),
   mockLoadSystemOAuthClientCredentials: vi.fn(),
@@ -22,6 +24,8 @@ const {
   mockGetSession: vi.fn(),
   mockGetBillingTierById: vi.fn(),
   mockHasPrivateBillingTierAccess: vi.fn(),
+  mockAuthorizeSubscriptionReference: vi.fn(),
+  mockEnsurePlanChangePortalConfiguration: vi.fn(),
 }))
 
 vi.mock('better-auth/next-js', () => ({
@@ -40,6 +44,20 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/billing/private-tier-access', () => ({
   hasPrivateBillingTierAccess: (...args: unknown[]) => mockHasPrivateBillingTierAccess(...args),
+}))
+
+vi.mock('@/lib/billing/authorization', () => ({
+  authorizeSubscriptionReference: (...args: unknown[]) =>
+    mockAuthorizeSubscriptionReference(...args),
+}))
+
+vi.mock('@/lib/billing/stripe-client', () => ({
+  requireStripeClient: () => ({ id: 'stripe-client' }),
+}))
+
+vi.mock('@/lib/billing/stripe-portal', () => ({
+  ensurePlanChangePortalConfiguration: (...args: unknown[]) =>
+    mockEnsurePlanChangePortalConfiguration(...args),
 }))
 
 vi.mock('@/lib/billing/tiers', () => ({
@@ -66,6 +84,8 @@ describe('/api/auth/[...all] route', () => {
     mockLoadSystemOAuthClientCredentials.mockResolvedValue({})
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockHasPrivateBillingTierAccess.mockResolvedValue(false)
+    mockAuthorizeSubscriptionReference.mockResolvedValue(true)
+    mockEnsurePlanChangePortalConfiguration.mockResolvedValue('bpc_default')
     mockRunWithSystemOAuthClientCredentials.mockImplementation(async (callback: () => Response) =>
       callback()
     )
@@ -108,19 +128,49 @@ describe('/api/auth/[...all] route', () => {
       id: 'public-tier',
       status: 'active',
       isPublic: true,
+      ownerType: 'user',
     })
 
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
       new Request('http://localhost/api/auth/subscription/upgrade', {
         method: 'POST',
-        body: JSON.stringify({ plan: 'public-tier', referenceId: 'user-1' }),
+        body: JSON.stringify({
+          plan: 'public-tier',
+          referenceId: 'user-1',
+          customerType: 'user',
+        }),
       })
     )
 
     expect(response.status).toBe(204)
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
     expect(mockHasPrivateBillingTierAccess).not.toHaveBeenCalled()
+    expect(mockEnsurePlanChangePortalConfiguration).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects an upgrade when the requested billing subject type does not match the tier', async () => {
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'team-tier',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'organization',
+    })
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan: 'team-tier',
+          referenceId: 'user-1',
+          customerType: 'user',
+        }),
+      })
+    )
+
+    expect(response.status).toBe(403)
+    expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
   it('disables the unrestricted Better Auth billing portal endpoint', async () => {
@@ -138,13 +188,18 @@ describe('/api/auth/[...all] route', () => {
       id: 'private-tier',
       status: 'active',
       isPublic: false,
+      ownerType: 'user',
     })
 
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
       new Request('http://localhost/api/auth/subscription/upgrade', {
         method: 'POST',
-        body: JSON.stringify({ plan: 'private-tier', referenceId: 'user-1' }),
+        body: JSON.stringify({
+          plan: 'private-tier',
+          referenceId: 'user-1',
+          customerType: 'user',
+        }),
       })
     )
 
@@ -159,6 +214,7 @@ describe('/api/auth/[...all] route', () => {
       id: 'private-tier',
       status: 'active',
       isPublic: false,
+      ownerType: 'user',
     })
     mockHasPrivateBillingTierAccess.mockResolvedValue(true)
 
@@ -166,7 +222,11 @@ describe('/api/auth/[...all] route', () => {
     const response = await handleAuthRequest(
       new Request('http://localhost/api/auth/subscription/upgrade', {
         method: 'POST',
-        body: JSON.stringify({ plan: 'private-tier' }),
+        body: JSON.stringify({
+          plan: 'private-tier',
+          referenceId: 'user-1',
+          customerType: 'user',
+        }),
       })
     )
 

@@ -61,6 +61,26 @@ export const adminBillingTierMutationSchema = z.object({
 
 export type AdminBillingTierMutationInput = z.infer<typeof adminBillingTierMutationSchema>
 
+export function toBillingTierMutationValues(
+  input: AdminBillingTierMutationInput,
+  updatedByUserId: string
+) {
+  const toDecimalString = (value: number | null) => (value === null ? null : value.toString())
+
+  return {
+    ...input,
+    monthlyPriceUsd: toDecimalString(input.monthlyPriceUsd),
+    yearlyPriceUsd: toDecimalString(input.yearlyPriceUsd),
+    includedUsageLimitUsd: toDecimalString(input.includedUsageLimitUsd),
+    workflowExecutionMultiplier: String(input.workflowExecutionMultiplier ?? 1),
+    workflowModelCostMultiplier: String(input.workflowModelCostMultiplier ?? 1),
+    functionExecutionMultiplier: String(input.functionExecutionMultiplier ?? 1),
+    copilotCostMultiplier: String(input.copilotCostMultiplier ?? 1),
+    updatedByUserId,
+    updatedAt: new Date(),
+  }
+}
+
 type AdminBillingTierValidationOptions = {
   requireStripeMonthlyPriceId?: boolean
 }
@@ -75,6 +95,22 @@ export function validateAdminBillingTierInput(
 
   if (input.accessCode && !input.stripeMonthlyPriceId) {
     return 'Private tiers with an access code must configure a Stripe monthly price ID'
+  }
+
+  if (input.stripeYearlyPriceId && !input.stripeMonthlyPriceId) {
+    return 'Stripe yearly prices require a Stripe monthly price ID'
+  }
+
+  if (input.stripeProductId && !input.stripeMonthlyPriceId) {
+    return 'Stripe products require a Stripe monthly price ID'
+  }
+
+  if (input.stripeMonthlyPriceId && !input.stripeProductId) {
+    return 'Stripe-backed tiers must configure a Stripe product ID'
+  }
+
+  if (input.stripeMonthlyPriceId && input.stripeMonthlyPriceId === input.stripeYearlyPriceId) {
+    return 'Stripe monthly and yearly price IDs must be different'
   }
 
   if (input.isDefault) {

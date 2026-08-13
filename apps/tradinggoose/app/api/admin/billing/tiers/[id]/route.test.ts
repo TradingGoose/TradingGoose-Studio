@@ -13,6 +13,7 @@ const {
   mockTierLimit,
   mockCountWhere,
   mockTransaction,
+  mockAssertBillingTierStripeIdentifiers,
 } = vi.hoisted(() => ({
   mockRequireAdminBillingUserId: vi.fn(),
   mockGetBillingGateState: vi.fn(),
@@ -28,6 +29,7 @@ const {
   mockTierLimit: vi.fn(),
   mockCountWhere: vi.fn(),
   mockTransaction: vi.fn(),
+  mockAssertBillingTierStripeIdentifiers: vi.fn(),
 }))
 
 const tierSelectChain = {
@@ -44,7 +46,7 @@ const countSelectChain = {
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: vi.fn((selection?: unknown) =>
-      selection === undefined ? tierSelectChain : countSelectChain,
+      selection === undefined ? tierSelectChain : countSelectChain
     ),
     transaction: mockTransaction,
   },
@@ -66,6 +68,11 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@/lib/admin/billing/authorization', () => ({
   requireAdminBillingUserId: mockRequireAdminBillingUserId,
+}))
+
+vi.mock('@/lib/admin/billing/stripe-identifiers', () => ({
+  assertBillingTierStripeIdentifiers: mockAssertBillingTierStripeIdentifiers,
+  isBillingTierStripeIdentifierError: () => false,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -132,6 +139,7 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
     mockTierLimit.mockResolvedValue([
       {
         id: 'tier-pro',
+        status: 'active',
         isDefault: false,
         ownerType: 'organization',
         usageScope: 'pooled',
@@ -157,14 +165,12 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
         method: 'PATCH',
         body: JSON.stringify(payload),
       }) as any,
-      { params: Promise.resolve({ id: 'tier-pro' }) },
+      { params: Promise.resolve({ id: 'tier-pro' }) }
     )
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe(
-      'Public tiers with a recurring monthly price must configure a Stripe monthly price ID'
-    )
+    expect(data.error).toBe('Stripe yearly prices require a Stripe monthly price ID')
     expect(mockTierLimit).not.toHaveBeenCalled()
     expect(mockTransaction).not.toHaveBeenCalled()
   })
@@ -172,28 +178,25 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
   it.each([
     ['workflowExecutionMultiplier', 'workflow execution multiplier'],
     ['functionExecutionMultiplier', 'function execution multiplier'],
-  ])(
-    'rejects zero %s for tiers that already have subscriptions',
-    async (field, label) => {
-      const { PATCH } = await import('./route')
-      const payload = createPayload()
-      payload[field as 'workflowExecutionMultiplier' | 'functionExecutionMultiplier'] = 0
+  ])('rejects zero %s for tiers that already have subscriptions', async (field, label) => {
+    const { PATCH } = await import('./route')
+    const payload = createPayload()
+    payload[field as 'workflowExecutionMultiplier' | 'functionExecutionMultiplier'] = 0
 
-      const response = await PATCH(
-        new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
-          method: 'PATCH',
-          body: JSON.stringify(payload),
-        }) as any,
-        { params: Promise.resolve({ id: 'tier-pro' }) },
-      )
-      const data = await response.json()
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }) as any,
+      { params: Promise.resolve({ id: 'tier-pro' }) }
+    )
+    const data = await response.json()
 
-      expect(response.status).toBe(409)
-      expect(data.error).toContain(label)
-      expect(data.error).toContain('Create a separate free tier')
-      expect(mockTransaction).not.toHaveBeenCalled()
-    },
-  )
+    expect(response.status).toBe(409)
+    expect(data.error).toContain(label)
+    expect(data.error).toContain('Create a separate free tier')
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
 
   it('archives a tier that still has subscriptions', async () => {
     const updateWhere = vi.fn().mockResolvedValue(undefined)
@@ -208,7 +211,7 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
         method: 'PATCH',
         body: JSON.stringify({ ...createPayload(), status: 'archived' }),
       }) as any,
-      { params: Promise.resolve({ id: 'tier-pro' }) },
+      { params: Promise.resolve({ id: 'tier-pro' }) }
     )
 
     await expect(response.json()).resolves.toEqual({ success: true })
@@ -217,6 +220,28 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
     expect(mockTransaction).toHaveBeenCalledOnce()
     expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived' }))
     expect(updateWhere).toHaveBeenCalledOnce()
+  })
+
+  it('keeps Stripe identity immutable after activation even without persisted subscribers', async () => {
+    mockCountWhere.mockResolvedValueOnce([{ count: 0 }])
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...createPayload(),
+          stripeMonthlyPriceId: 'price_replacement',
+        }),
+      }) as any,
+      { params: Promise.resolve({ id: 'tier-pro' }) }
+    )
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error:
+        'Cannot change stripeMonthlyPriceId after a tier has been activated. Duplicate the tier and archive the old tier instead.',
+    })
+    expect(mockTransaction).not.toHaveBeenCalled()
   })
 
   it('does not expose a hard-delete handler', async () => {
@@ -236,7 +261,7 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
         method: 'PATCH',
         body: JSON.stringify({ ...createPayload(), status: 'archived' }),
       }) as any,
-      { params: Promise.resolve({ id: 'tier-default' }) },
+      { params: Promise.resolve({ id: 'tier-default' }) }
     )
 
     await expect(response.json()).resolves.toEqual({ error: 'The default tier cannot be archived' })
@@ -265,7 +290,7 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
           isDefault: true,
         }),
       }) as any,
-      { params: Promise.resolve({ id: 'tier-pro' }) },
+      { params: Promise.resolve({ id: 'tier-pro' }) }
     )
 
     await expect(response.json()).resolves.toEqual({ error: 'The default tier cannot be archived' })

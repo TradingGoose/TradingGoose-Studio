@@ -18,7 +18,6 @@ export interface UserRole {
 export interface SubscriptionSurfaceState {
   currentTier: PublicBillingTierDisplay | null
   isOrganizationPlan: boolean
-  isAdjustableSeatPlan: boolean
   isCustomOrganizationPlan: boolean
   canManageOrganizationPlan: boolean
   canEditUsageLimit: boolean
@@ -46,22 +45,12 @@ function getCurrentTier(
     return matchedTier
   }
 
-  if (subscription.tier.id && subscription.tier.status === 'archived') {
+  if (subscription.tier.id) {
     return {
+      ...subscription.tier,
       id: subscription.tier.id,
-      displayName: subscription.tier.displayName,
       description: '',
-      ownerType: subscription.tier.ownerType,
-      seatMode: subscription.tier.seatMode,
-      usageScope: subscription.tier.usageScope,
-      displayOrder: subscription.tier.displayOrder,
-      monthlyPriceUsd: subscription.tier.monthlyPriceUsd,
-      yearlyPriceUsd: subscription.tier.yearlyPriceUsd,
-      seatCount: subscription.tier.seatCount,
-      seatMaximum: subscription.tier.seatMaximum,
-      canEditUsageLimit: subscription.tier.canEditUsageLimit,
-      pricingFeatures: subscription.tier.pricingFeatures,
-      isDefault: false,
+      isDefault: subscription.isFree,
     }
   }
 
@@ -79,23 +68,22 @@ export function getSubscriptionSurfaceState({
   enterprisePlaceholder,
 }: SubscriptionSurfaceInput): SubscriptionSurfaceState {
   const currentTier = getCurrentTier(subscription, publicTiers)
-  const effectiveTier = currentTier ?? subscription.tier
-  const isCurrentOrganizationPlan = effectiveTier.ownerType === 'organization'
+  const isCurrentOrganizationPlan = subscription.tier.ownerType === 'organization'
   const isCurrentCustomOrganizationPlan =
-    isCurrentOrganizationPlan &&
-    !currentTier &&
-    !subscription.isFree &&
-    !subscription.tier.hasStripeMonthlyPriceId
-  const isCurrentAdjustableSeatPlan =
-    isCurrentOrganizationPlan && effectiveTier.seatMode === 'adjustable'
-  const canEditUsageLimit = canTierEditUsageLimit(effectiveTier)
+    isCurrentOrganizationPlan && subscription.isPaid && !subscription.tier.hasStripeMonthlyPriceId
+  const canEditUsageLimit = canTierEditUsageLimit(subscription.tier)
   const isTeamMemberView = isCurrentOrganizationPlan && !userRole.isTeamAdmin
 
   let visiblePlanTiers: PublicBillingTierDisplay[] = []
 
-  if (!isTeamMemberView && !isCurrentCustomOrganizationPlan) {
+  if (isCurrentCustomOrganizationPlan) {
+    visiblePlanTiers = currentTier ? [currentTier] : []
+  } else if (!isTeamMemberView) {
     const alternativeTiers = publicTiers.filter(
-      (tier) => !tier.isDefault && tier.id !== currentTier?.id
+      (tier) =>
+        !tier.isDefault &&
+        tier.id !== currentTier?.id &&
+        tier.ownerType === subscription.tier.ownerType
     )
 
     visiblePlanTiers = currentTier ? [currentTier, ...alternativeTiers] : alternativeTiers
@@ -108,7 +96,6 @@ export function getSubscriptionSurfaceState({
   return {
     currentTier,
     isOrganizationPlan: isCurrentOrganizationPlan,
-    isAdjustableSeatPlan: isCurrentAdjustableSeatPlan,
     isCustomOrganizationPlan: isCurrentCustomOrganizationPlan,
     canManageOrganizationPlan: isCurrentOrganizationPlan && userRole.isTeamAdmin,
     canEditUsageLimit: canEditUsageLimit && (!isCurrentOrganizationPlan || userRole.isTeamAdmin),

@@ -104,7 +104,13 @@ async function fetchOrganizationBilling(orgId: string) {
     throw new Error('Failed to fetch organization billing data')
   }
   const payload = await response.json()
-  return payload?.data ?? payload
+  const billingData = payload?.data ?? null
+  return billingData
+    ? {
+        ...billingData,
+        userRole: typeof payload?.userRole === 'string' ? payload.userRole : null,
+      }
+    : null
 }
 
 /**

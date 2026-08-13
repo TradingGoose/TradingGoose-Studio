@@ -11,11 +11,12 @@ import { and, eq } from 'drizzle-orm'
 import { getBillingTierPricing, getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import {
-  canTierConfigureSso,
   canTierEditUsageLimit,
   getSubscriptionUsageAllowanceUsd,
   getTierUsageAllowanceUsd,
+  toBillingTierSummary,
 } from '@/lib/billing/tiers'
+import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('OrganizationBilling')
@@ -240,18 +241,7 @@ function mapOrganizationMemberBillingLedgerRow(
 interface OrganizationUsageData {
   organizationId: string
   organizationName: string
-  subscriptionTier: {
-    id: string
-    displayName: string
-    ownerType: 'organization'
-    usageScope: 'individual' | 'pooled'
-    seatMode: 'fixed' | 'adjustable'
-    monthlyPriceUsd: number
-    seatCount: number | null
-    seatMaximum: number | null
-    canEditUsageLimit: boolean
-    canConfigureSso: boolean
-  } | null
+  subscriptionTier: BillingTierSummary | null
   subscriptionStatus: string | null
   seatPriceUsd: number
   seatCount: number | null
@@ -321,10 +311,10 @@ export async function getOrganizationBillingData(
     // Get organization subscription directly (referenceId = organizationId)
     const [{ billingEnabled, usageWarningThresholdPercent }, subscription, billingLedger] =
       await Promise.all([
-      getResolvedBillingSettings(),
-      getOrganizationSubscription(organizationId),
-      getOrganizationBillingLedger(organizationId),
-    ])
+        getResolvedBillingSettings(),
+        getOrganizationSubscription(organizationId),
+        getOrganizationBillingLedger(organizationId),
+      ])
 
     if (!billingLedger) {
       logger.warn('Organization billing ledger not found', { organizationId })
@@ -472,18 +462,7 @@ export async function getOrganizationBillingData(
     return {
       organizationId,
       organizationName: organizationData.name || '',
-      subscriptionTier: {
-        id: subscription.tier.id,
-        displayName: subscription.tier.displayName,
-        ownerType: 'organization',
-        usageScope: subscription.tier.usageScope,
-        seatMode: subscription.tier.seatMode,
-        monthlyPriceUsd: roundCurrency(recurringPrice),
-        seatCount: subscription.tier.seatCount ?? null,
-        seatMaximum: subscription.tier.seatMaximum ?? null,
-        canEditUsageLimit: canTierEditUsageLimit(subscription.tier),
-        canConfigureSso: canTierConfigureSso(subscription.tier),
-      },
+      subscriptionTier: toBillingTierSummary(subscription.tier),
       subscriptionStatus: subscription.status || 'inactive',
       seatPriceUsd: roundCurrency(recurringPrice),
       seatCount: subscription.tier.seatCount ?? null,

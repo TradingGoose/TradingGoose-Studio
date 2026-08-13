@@ -7,7 +7,7 @@ import { isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { ensureStripeUserCustomer } from '@/lib/billing/stripe-customers'
-import { createRestrictedBillingPortalSession } from '@/lib/billing/stripe-portal'
+import { createBillingManagementPortalSession } from '@/lib/billing/stripe-portal'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Stripe customer not found' }, { status: 404 })
     }
 
-    const portal = await createRestrictedBillingPortalSession(stripe, {
+    const portal = await createBillingManagementPortalSession(stripe, {
       customer: stripeCustomerId,
       return_url: returnUrl,
     })

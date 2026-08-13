@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { syncUsageLimitsFromSubscription } from '@/lib/billing/core/usage'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -15,8 +15,6 @@ type SubscriptionData = {
   seats?: number | null
   tier?: BillingTierRecord | null
 }
-
-const ENTITLED_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due'] as const
 
 async function getUserOwnedOrganization(userId: string): Promise<string | null> {
   const existingMemberships = await db
@@ -117,141 +115,6 @@ export async function createOrganizationForOrganizationTier(
       error,
     })
     throw error
-  }
-}
-
-export async function ensureOrganizationForOrganizationSubscription(
-  subscription: SubscriptionData
-): Promise<SubscriptionData> {
-  if (subscription.tier?.ownerType !== 'organization') {
-    return subscription
-  }
-
-  if (subscription.referenceId.startsWith('org_')) {
-    return subscription
-  }
-
-  const userId = subscription.referenceId
-
-  logger.info('Ensuring organization for organization-tier subscription', {
-    subscriptionId: subscription.id,
-    userId,
-  })
-
-  const memberships = await db
-    .select({
-      id: schema.member.id,
-      organizationId: schema.member.organizationId,
-      role: schema.member.role,
-    })
-    .from(schema.member)
-    .where(eq(schema.member.userId, userId))
-  const administrableMemberships = memberships.filter(
-    (membership) => membership.role === 'owner' || membership.role === 'admin'
-  )
-
-  if (administrableMemberships.length > 0) {
-    const existingOrgSubscriptions = await db
-      .select({
-        id: schema.subscription.id,
-        organizationId: schema.subscription.referenceId,
-      })
-      .from(schema.subscription)
-      .where(
-        and(
-          eq(schema.subscription.referenceType, 'organization'),
-          inArray(
-            schema.subscription.referenceId,
-            administrableMemberships.map((membership) => membership.organizationId)
-          ),
-          inArray(schema.subscription.status, [...ENTITLED_SUBSCRIPTION_STATUSES])
-        )
-      )
-
-    const organizationsWithActiveSubscriptions = new Set(
-      existingOrgSubscriptions
-        .filter((record) => record.id !== subscription.id)
-        .map((record) => record.organizationId)
-    )
-    const membership = administrableMemberships.find(
-      (candidate) => !organizationsWithActiveSubscriptions.has(candidate.organizationId)
-    )
-
-    if (!membership) {
-      logger.error('Organization already has an active subscription', {
-        userId,
-        organizationIds: administrableMemberships.map((candidate) => candidate.organizationId),
-        newSubscriptionId: subscription.id,
-      })
-      throw new Error('Organization already has an active subscription')
-    }
-
-    logger.info('User already owns/admins an organization, using it', {
-      userId,
-      organizationId: membership.organizationId,
-    })
-
-    await db.transaction(async (tx) => {
-      await tx
-        .update(schema.subscription)
-        .set({
-          referenceType: 'organization',
-          referenceId: membership.organizationId,
-        })
-        .where(eq(schema.subscription.id, subscription.id))
-
-      await tx
-        .update(schema.session)
-        .set({ activeOrganizationId: membership.organizationId })
-        .where(eq(schema.session.userId, userId))
-    })
-
-    return {
-      ...subscription,
-      referenceType: 'organization',
-      referenceId: membership.organizationId,
-    }
-  }
-
-  if (memberships.length > 0) {
-    logger.error('User is member of another organization and cannot create a paid org tier', {
-      userId,
-      existingOrganizationIds: memberships.map((membership) => membership.organizationId),
-      subscriptionId: subscription.id,
-    })
-    throw new Error('User is already member of another organization')
-  }
-
-  const [userData] = await db
-    .select({ name: schema.user.name, email: schema.user.email })
-    .from(schema.user)
-    .where(eq(schema.user.id, userId))
-    .limit(1)
-
-  const organizationId = await createOrganizationForOrganizationTier(
-    userId,
-    userData?.name || undefined,
-    userData?.email || undefined
-  )
-
-  await db
-    .update(schema.subscription)
-    .set({
-      referenceType: 'organization',
-      referenceId: organizationId,
-    })
-    .where(eq(schema.subscription.id, subscription.id))
-
-  logger.info('Created organization and updated subscription reference', {
-    subscriptionId: subscription.id,
-    userId,
-    organizationId,
-  })
-
-  return {
-    ...subscription,
-    referenceType: 'organization',
-    referenceId: organizationId,
   }
 }
 

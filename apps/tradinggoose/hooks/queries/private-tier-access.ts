@@ -1,4 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  isPrivateTierAccessErrorCode,
+  PRIVATE_TIER_ACCESS_ERROR_CODES,
+  type PrivateTierAccessErrorCode,
+} from '@/lib/billing/private-tier-access-contract'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 
 const PRIVATE_TIER_ACCESS_ENDPOINT = '/api/billing/private-tier-access'
@@ -7,42 +12,41 @@ export interface PrivateTierAccessResponse {
   privateTiers: PublicBillingTierDisplay[]
 }
 
-export const privateTierAccessKeys = {
-  all: ['private-tier-access'] as const,
-  current: () => [...privateTierAccessKeys.all, 'current'] as const,
+export const privateTierAccessKey = ['private-tier-access'] as const
+
+export function getPrivateTierAccessErrorCode(error: unknown): PrivateTierAccessErrorCode | null {
+  return error instanceof Error && isPrivateTierAccessErrorCode(error.message)
+    ? error.message
+    : null
 }
 
-async function parseResponse(response: Response) {
+async function assertResponseOk(response: Response, failureCode: PrivateTierAccessErrorCode) {
+  if (response.ok) return
+
   const payload = await response.json().catch(() => null)
-  if (!response.ok) {
-    const message =
-      payload && typeof payload.error === 'string'
-        ? payload.error
-        : 'Private tier access request failed'
-    throw new Error(message)
-  }
-
-  return payload as PrivateTierAccessResponse
+  const code = payload && isPrivateTierAccessErrorCode(payload.code) ? payload.code : failureCode
+  throw new Error(code)
 }
 
-async function fetchPrivateTierAccess() {
-  return parseResponse(await fetch(PRIVATE_TIER_ACCESS_ENDPOINT))
+async function fetchPrivateTierAccess(signal: AbortSignal) {
+  const response = await fetch(PRIVATE_TIER_ACCESS_ENDPOINT, { signal })
+  await assertResponseOk(response, PRIVATE_TIER_ACCESS_ERROR_CODES.loadFailed)
+  return response.json() as Promise<PrivateTierAccessResponse>
 }
 
 async function requestPrivateTierAccess(accessCode: string) {
-  return parseResponse(
-    await fetch(PRIVATE_TIER_ACCESS_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accessCode }),
-    })
-  )
+  const response = await fetch(PRIVATE_TIER_ACCESS_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accessCode }),
+  })
+  return assertResponseOk(response, PRIVATE_TIER_ACCESS_ERROR_CODES.validateFailed)
 }
 
 export function usePrivateTierAccess() {
   return useQuery({
-    queryKey: privateTierAccessKeys.current(),
-    queryFn: fetchPrivateTierAccess,
+    queryKey: privateTierAccessKey,
+    queryFn: ({ signal }) => fetchPrivateTierAccess(signal),
     staleTime: 30 * 1000,
   })
 }
@@ -52,8 +56,7 @@ export function usePrivateTierAccessMutation() {
 
   return useMutation({
     mutationFn: requestPrivateTierAccess,
-    onSuccess: (response) => {
-      queryClient.setQueryData(privateTierAccessKeys.current(), response)
-    },
+    onMutate: () => queryClient.cancelQueries({ queryKey: privateTierAccessKey }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: privateTierAccessKey }),
   })
 }

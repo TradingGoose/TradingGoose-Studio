@@ -1,0 +1,289 @@
+/** @vitest-environment jsdom */
+
+import { act } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { NextIntlClientProvider } from 'next-intl'
+import { createRoot, type Root } from 'react-dom/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PRIVATE_TIER_ACCESS_ERROR_CODES } from '@/lib/billing/private-tier-access-contract'
+import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
+import { Subscription } from './subscription'
+
+const mocks = vi.hoisted(() => ({
+  organizationBilling: null as Record<string, unknown> | null,
+  organizationBillingId: '',
+  organizationBillingPlaceholder: false,
+  personalBilling: null as Record<string, unknown> | null,
+  privateTierAccessError: null as Error | null,
+  workspaceId: 'workspace-1',
+  workspaceSettings: null as Record<string, unknown> | null,
+}))
+
+vi.mock('next/navigation', () => ({
+  useParams: () => ({ workspaceId: mocks.workspaceId }),
+}))
+
+vi.mock('@/lib/auth-client', () => ({
+  useSession: () => ({ data: { user: { id: 'user-1', email: 'user@example.com' } } }),
+}))
+
+vi.mock('@/lib/subscription/upgrade', () => ({
+  useSubscriptionUpgrade: () => ({ handleUpgrade: vi.fn() }),
+}))
+
+vi.mock('@/hooks/queries/subscription', () => ({
+  useSubscriptionData: () => ({
+    data: mocks.personalBilling,
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  }),
+  useUsageLimitData: () => ({ data: null, isLoading: false, refetch: vi.fn() }),
+}))
+
+vi.mock('@/hooks/queries/workspace', () => ({
+  useWorkspaceSettings: () => ({
+    data: mocks.workspaceSettings,
+    isLoading: false,
+    isError: false,
+  }),
+  workspaceMutationOptions: { updateSettings: vi.fn() },
+}))
+
+vi.mock('@/hooks/queries/organization', () => ({
+  useOrganizationBilling: (id: string) => {
+    mocks.organizationBillingId = id
+    return {
+      data: mocks.organizationBilling,
+      isLoading: false,
+      isError: false,
+      isPlaceholderData: mocks.organizationBillingPlaceholder,
+    }
+  },
+  useOrganizations: () => ({ data: { activeOrganization: null } }),
+  organizationMutationOptions: { assignWorkspace: vi.fn() },
+}))
+
+vi.mock('@/hooks/queries/public-billing-catalog', () => ({
+  usePublicBillingCatalog: () => ({
+    data: { publicTiers: [], enterprisePlaceholder: null, enterpriseContactUrl: null },
+    isLoading: false,
+  }),
+}))
+
+vi.mock('@/hooks/queries/private-tier-access', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/hooks/queries/private-tier-access')>()
+  return {
+    ...original,
+    usePrivateTierAccess: () => ({
+      data: { privateTiers: [] },
+      isLoading: false,
+      isError: Boolean(mocks.privateTierAccessError),
+      error: mocks.privateTierAccessError,
+    }),
+    usePrivateTierAccessMutation: () => ({
+      mutate: vi.fn(),
+      reset: vi.fn(),
+      isPending: false,
+      isError: false,
+      isSuccess: false,
+      error: null,
+    }),
+  }
+})
+
+vi.mock('./components', () => ({
+  PlanCard: ({ name, buttonText }: { name: string; buttonText: string }) => (
+    <div data-testid='plan-card'>{`${name}:${buttonText}`}</div>
+  ),
+  UsageLimit: () => null,
+  WorkspaceBillingOwnerEditor: () => <div data-testid='billing-owner-editor' />,
+}))
+
+vi.mock('../shared/usage-header', () => ({
+  UsageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
+}))
+
+vi.mock('@/stores/settings/general/store', () => ({
+  useGeneralStore: () => false,
+}))
+
+function tier(
+  id: string,
+  displayName: string,
+  ownerType: 'user' | 'organization',
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    ...EMPTY_BILLING_TIER_SUMMARY,
+    id,
+    displayName,
+    status: 'active',
+    ownerType,
+    isPublic: true,
+    hasStripeMonthlyPriceId: true,
+    ...overrides,
+  }
+}
+
+function personalPayload() {
+  return {
+    data: {
+      isPaid: true,
+      status: 'active',
+      seats: null,
+      stripeSubscriptionId: 'sub-personal',
+      periodEnd: null,
+      tier: tier('tier-personal', 'Personal Pro', 'user'),
+      usage: {
+        current: 2,
+        limit: 20,
+        percentUsed: 10,
+        isWarning: false,
+        isExceeded: false,
+        billingPeriodStart: null,
+        billingPeriodEnd: null,
+        lastPeriodCost: 0,
+      },
+    },
+  }
+}
+
+function organizationPayload() {
+  return {
+    organizationId: 'org-billing',
+    subscriptionTier: tier('tier-org', 'Organization Pro', 'organization', {
+      usageScope: 'pooled',
+      seatMode: 'adjustable',
+      seatCount: 3,
+    }),
+    subscriptionStatus: 'active',
+    totalSeats: 3,
+    totalCurrentUsage: 10,
+    totalUsageLimit: 100,
+    minimumUsageLimit: 100,
+    warningThresholdPercent: 80,
+    billingPeriodEnd: null,
+    billingBlocked: false,
+    userRole: 'admin',
+  }
+}
+
+function workspaceBillingOwner(
+  billingOwner: { type: 'user'; userId: string } | { type: 'organization'; organizationId: string }
+) {
+  return {
+    settings: {
+      workspace: {
+        id: 'workspace-1',
+        ownerId: 'user-1',
+        permissions: 'admin',
+        billingOwner,
+      },
+    },
+    permissions: { users: [], currentUserPermission: 'admin' },
+  }
+}
+
+describe('Subscription billing subject', () => {
+  let container: HTMLDivElement
+  let queryClient: QueryClient
+  let root: Root
+
+  beforeEach(() => {
+    ;(
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true
+    mocks.organizationBilling = organizationPayload()
+    mocks.organizationBillingId = ''
+    mocks.organizationBillingPlaceholder = false
+    mocks.personalBilling = personalPayload()
+    mocks.privateTierAccessError = null
+    mocks.workspaceSettings = workspaceBillingOwner({ type: 'user', userId: 'user-1' })
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+  })
+
+  afterEach(() => {
+    act(() => root.unmount())
+    queryClient.clear()
+    container.remove()
+    vi.clearAllMocks()
+  })
+
+  function render(locale: LocaleCode = 'en') {
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+            <Subscription onOpenChange={vi.fn()} />
+          </NextIntlClientProvider>
+        </QueryClientProvider>
+      )
+    })
+  }
+
+  it('uses the exact workspace billing organization instead of personal billing', () => {
+    mocks.workspaceSettings = workspaceBillingOwner({
+      type: 'organization',
+      organizationId: 'org-billing',
+    })
+
+    render()
+
+    expect(mocks.organizationBillingId).toBe('org-billing')
+    expect(container.textContent).toContain('Organization Pro')
+    expect(container.textContent).not.toContain('Personal Pro')
+  })
+
+  it('uses personal billing when the workspace billing owner is the session user', () => {
+    render()
+
+    expect(container.textContent).toContain('Personal Pro')
+    expect(container.textContent).not.toContain('Organization Pro')
+  })
+
+  it('does not render keep-previous billing data while the organization owner changes', () => {
+    mocks.workspaceSettings = workspaceBillingOwner({
+      type: 'organization',
+      organizationId: 'org-billing',
+    })
+    mocks.organizationBilling = {
+      ...organizationPayload(),
+      organizationId: 'org-previous',
+      subscriptionTier: tier('tier-previous', 'Previous Organization', 'organization'),
+    }
+    mocks.organizationBillingPlaceholder = true
+
+    render()
+
+    expect(container.textContent).not.toContain('Previous Organization')
+    expect(container.textContent).not.toContain('Personal Pro')
+  })
+
+  it('does not substitute viewer billing when another user owns billing', () => {
+    mocks.workspaceSettings = workspaceBillingOwner({ type: 'user', userId: 'user-2' })
+
+    render()
+
+    expect(container.textContent).toContain(
+      "This workspace's billing is managed by another workspace administrator."
+    )
+    expect(container.textContent).not.toContain('Personal Pro')
+    expect(container.querySelector('[data-testid="billing-owner-editor"]')).not.toBeNull()
+  })
+
+  it('renders private access errors through locale copy', () => {
+    mocks.privateTierAccessError = new Error(PRIVATE_TIER_ACCESS_ERROR_CODES.loadFailed)
+
+    render('es')
+
+    expect(container.textContent).toContain('No se pudo cargar su acceso a niveles privados.')
+  })
+})

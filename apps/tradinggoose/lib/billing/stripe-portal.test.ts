@@ -1,6 +1,11 @@
 import type Stripe from 'stripe'
-import { describe, expect, it, vi } from 'vitest'
-import { createRestrictedBillingPortalSession } from './stripe-portal'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { getActiveStripeBillingTiers } = vi.hoisted(() => ({
+  getActiveStripeBillingTiers: vi.fn(),
+}))
+
+vi.mock('@/lib/billing/tiers', () => ({ getActiveStripeBillingTiers }))
 
 const defaultFeatures = {
   customer_update: { enabled: true, allowed_updates: ['email'] },
@@ -12,72 +17,104 @@ const defaultFeatures = {
     proration_behavior: 'none',
     cancellation_reason: { enabled: false, options: [] },
   },
-  subscription_update: { enabled: true },
+  subscription_update: {
+    enabled: false,
+    default_allowed_updates: [],
+    proration_behavior: 'none',
+    products: [],
+  },
 }
 
 function createStripe(configurations: unknown[]) {
   const list = vi.fn().mockResolvedValue({ data: configurations })
-  const updateConfiguration = vi.fn().mockResolvedValue({ id: 'bpc_default' })
+  const update = vi.fn().mockResolvedValue({ id: 'bpc_default' })
+  const create = vi.fn().mockResolvedValue({ id: 'bpc_management' })
   const createSession = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.test/session' })
 
   return {
     stripe: {
       billingPortal: {
-        configurations: { list, update: updateConfiguration },
+        configurations: { create, list, update },
         sessions: { create: createSession },
       },
     } as unknown as Stripe,
-    list,
-    updateConfiguration,
+    create,
     createSession,
+    update,
   }
 }
 
-describe('createRestrictedBillingPortalSession', () => {
-  it('disables direct login and plan switching on the default portal', async () => {
-    const { stripe, list, updateConfiguration, createSession } = createStripe([
+describe('Stripe portal configurations', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getActiveStripeBillingTiers.mockResolvedValue([
+      {
+        id: 'private-team',
+        stripeProductId: 'prod_team',
+        stripeMonthlyPriceId: 'price_monthly',
+        stripeYearlyPriceId: 'price_yearly',
+      },
+    ])
+  })
+
+  it('enrolls every active tier price in the default plan-change catalog', async () => {
+    const { stripe, update } = createStripe([
       {
         id: 'bpc_default',
         is_default: true,
         business_profile: {},
-        login_page: { enabled: true },
+        login_page: { enabled: false },
         features: defaultFeatures,
       },
     ])
+    const { ensurePlanChangePortalConfiguration } = await import('./stripe-portal')
 
-    await createRestrictedBillingPortalSession(stripe, {
-      customer: 'cus_123',
-      return_url: 'https://example.com/billing',
-    })
+    await ensurePlanChangePortalConfiguration(stripe)
 
-    expect(list).toHaveBeenCalledWith({ active: true, limit: 100 })
-    expect(updateConfiguration).toHaveBeenCalledWith('bpc_default', {
+    expect(update).toHaveBeenCalledWith('bpc_default', {
       login_page: { enabled: false },
-      features: { subscription_update: { enabled: false } },
-    })
-    expect(createSession).toHaveBeenCalledWith({
-      customer: 'cus_123',
-      return_url: 'https://example.com/billing',
-      configuration: 'bpc_default',
+      features: {
+        subscription_update: {
+          enabled: true,
+          default_allowed_updates: ['price'],
+          proration_behavior: 'create_prorations',
+          products: [
+            {
+              product: 'prod_team',
+              prices: ['price_monthly', 'price_yearly'],
+            },
+          ],
+        },
+      },
     })
   })
 
-  it('reuses an already restricted default portal configuration', async () => {
-    const { stripe, updateConfiguration, createSession } = createStripe([
+  it('creates a marked non-default configuration for generic management', async () => {
+    const { stripe, create, createSession } = createStripe([
       {
         id: 'bpc_default',
         is_default: true,
+        business_profile: {},
         login_page: { enabled: false },
-        features: { ...defaultFeatures, subscription_update: { enabled: false } },
+        features: defaultFeatures,
       },
     ])
+    const { createBillingManagementPortalSession } = await import('./stripe-portal')
 
-    await createRestrictedBillingPortalSession(stripe, { customer: 'cus_123' })
+    await createBillingManagementPortalSession(stripe, { customer: 'cus_123' })
 
-    expect(updateConfiguration).not.toHaveBeenCalled()
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        features: expect.objectContaining({
+          subscription_update: { enabled: false },
+        }),
+        login_page: { enabled: false },
+        metadata: { tradinggoose_purpose: 'billing_management' },
+      })
+    )
     expect(createSession).toHaveBeenCalledWith({
       customer: 'cus_123',
-      configuration: 'bpc_default',
+      configuration: 'bpc_management',
     })
   })
 })

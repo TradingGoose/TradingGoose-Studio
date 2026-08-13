@@ -13,6 +13,7 @@ const mockEnsureStripeUserCustomer = vi.fn()
 const mockStripeBillingPortalSessionsCreate = vi.fn()
 const mockStripeBillingPortalConfigurationsList = vi.fn()
 const mockStripeBillingPortalConfigurationsUpdate = vi.fn()
+const mockStripeBillingPortalConfigurationsCreate = vi.fn()
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, value }))
 const mockAnd = vi.fn((...conditions: unknown[]) => conditions)
 const mockOr = vi.fn((...conditions: unknown[]) => conditions)
@@ -124,7 +125,7 @@ function expectPortalSession(customer: string) {
   expect(mockStripeBillingPortalSessionsCreate).toHaveBeenCalledWith({
     customer,
     return_url: 'https://example.com/workspace?billing=updated',
-    configuration: 'bpc_default',
+    configuration: 'bpc_management',
   })
 }
 
@@ -146,6 +147,7 @@ describe('/api/billing/portal route', () => {
     mockRequireStripeClient.mockReturnValue({
       billingPortal: {
         configurations: {
+          create: mockStripeBillingPortalConfigurationsCreate,
           list: mockStripeBillingPortalConfigurationsList,
           update: mockStripeBillingPortalConfigurationsUpdate,
         },
@@ -160,13 +162,30 @@ describe('/api/billing/portal route', () => {
     mockStripeBillingPortalSessionsCreate.mockResolvedValue({
       url: 'https://billing.stripe.test/session',
     })
+    mockStripeBillingPortalConfigurationsCreate.mockResolvedValue({ id: 'bpc_management' })
     mockStripeBillingPortalConfigurationsList.mockResolvedValue({
       data: [
         {
           id: 'bpc_default',
           is_default: true,
+          business_profile: {
+            headline: null,
+            privacy_policy_url: null,
+            terms_of_service_url: null,
+          },
           login_page: { enabled: false },
-          features: { subscription_update: { enabled: false } },
+          features: {
+            customer_update: { enabled: true, allowed_updates: ['email'] },
+            invoice_history: { enabled: true },
+            payment_method_update: { enabled: true },
+            subscription_cancel: {
+              enabled: true,
+              mode: 'at_period_end',
+              proration_behavior: 'none',
+              cancellation_reason: { enabled: false, options: [] },
+            },
+            subscription_update: { enabled: false },
+          },
         },
       ],
     })

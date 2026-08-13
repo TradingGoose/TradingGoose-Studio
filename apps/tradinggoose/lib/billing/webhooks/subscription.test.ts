@@ -170,6 +170,7 @@ function createDeletedSubscriptionEvent(stripeSubscription = createDeletedStripe
 function createDefaultSubscription(
   overrides: Partial<{
     id: string
+    billingTierId: string | null
     metadata: Record<string, unknown>
     referenceId: string
     referenceType: 'user' | 'organization'
@@ -180,6 +181,7 @@ function createDefaultSubscription(
 ) {
   return {
     id: overrides.id ?? 'sub_default_user-1',
+    billingTierId: overrides.billingTierId ?? 'tier_default',
     referenceType: overrides.referenceType ?? 'user',
     referenceId: overrides.referenceId ?? 'user-1',
     status: overrides.status ?? 'active',
@@ -306,10 +308,11 @@ describe('handleStripeSubscriptionDeleted', () => {
 
     expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
     expect(mockEq).not.toHaveBeenCalledWith('subscription.id', 'metadata_is_not_identity')
-    expect(mockSyncSubscriptionBillingTierFromStripeSubscription).toHaveBeenCalledWith(
-      'sub_default_user-1',
-      expect.objectContaining({ id: 'sub_stripe_123' })
-    )
+    expect(mockSyncSubscriptionBillingTierFromStripeSubscription).toHaveBeenCalledWith({
+      subscriptionId: 'sub_default_user-1',
+      billingTierId: 'tier_default',
+      stripeSubscription: expect.objectContaining({ id: 'sub_stripe_123' }),
+    })
     expect(mockCalculateSubscriptionOverage).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'sub_default_user-1',

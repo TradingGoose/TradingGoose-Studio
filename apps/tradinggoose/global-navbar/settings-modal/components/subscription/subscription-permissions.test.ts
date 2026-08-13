@@ -131,6 +131,50 @@ describe('getSubscriptionSurfaceState', () => {
     ])
   })
 
+  it('keeps an authoritative active current tier visible after it becomes private', () => {
+    const state = getSubscriptionSurfaceState({
+      subscription: {
+        isFree: false,
+        isPaid: true,
+        tier: {
+          ...toSummary(proTier),
+          isPublic: false,
+        },
+      },
+      userRole: adminRole,
+      publicTiers: [freeTier, teamTier],
+      enterprisePlaceholder: null,
+    })
+
+    expect(state.currentTier?.id).toBe(proTier.id)
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([proTier.id, teamTier.id])
+  })
+
+  it('offers alternatives only for the authoritative subscription owner type', () => {
+    const organizationTier = buildTier({
+      id: 'tier_org',
+      displayName: 'Organization',
+      ownerType: 'organization',
+      usageScope: 'pooled',
+      seatMode: 'adjustable',
+      monthlyPriceUsd: 100,
+      seatCount: 3,
+    })
+
+    const state = getSubscriptionSurfaceState({
+      subscription: {
+        isFree: false,
+        isPaid: true,
+        tier: toSummary(proTier),
+      },
+      userRole: adminRole,
+      publicTiers: [freeTier, proTier, teamTier, organizationTier],
+      enterprisePlaceholder: null,
+    })
+
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([proTier.id, teamTier.id])
+  })
+
   it('shows active granted alternatives when the current private tier is archived', () => {
     const privateTier = buildTier({
       id: 'tier_private_active',
@@ -165,6 +209,15 @@ describe('getSubscriptionSurfaceState', () => {
   })
 
   it('lets organization admins leave an archived Stripe-backed tier', () => {
+    const replacementOrganizationTier = buildTier({
+      id: 'tier_organization_replacement',
+      displayName: 'Replacement organization tier',
+      ownerType: 'organization',
+      usageScope: 'pooled',
+      seatMode: 'adjustable',
+      monthlyPriceUsd: 120,
+      seatCount: 3,
+    })
     const state = getSubscriptionSurfaceState({
       subscription: {
         isFree: false,
@@ -181,7 +234,7 @@ describe('getSubscriptionSurfaceState', () => {
         },
       },
       userRole: adminRole,
-      publicTiers,
+      publicTiers: [...publicTiers, replacementOrganizationTier],
       enterprisePlaceholder: null,
     })
 
@@ -189,8 +242,7 @@ describe('getSubscriptionSurfaceState', () => {
     expect(state.currentTier?.id).toBe('tier_organization_archived')
     expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([
       'tier_organization_archived',
-      proTier.id,
-      teamTier.id,
+      replacementOrganizationTier.id,
     ])
   })
 
@@ -220,7 +272,7 @@ describe('getSubscriptionSurfaceState', () => {
     expect(state.visiblePlanTiers).toEqual([])
   })
 
-  it('does not invent a public current-tier card for custom organization plans', () => {
+  it('shows the authoritative custom organization tier without self-service alternatives', () => {
     const state = getSubscriptionSurfaceState({
       subscription: {
         isFree: false,
@@ -246,9 +298,41 @@ describe('getSubscriptionSurfaceState', () => {
       },
     })
 
-    expect(state.currentTier).toBeNull()
+    expect(state.currentTier?.id).toBe('tier_enterprise_contract')
     expect(state.isCustomOrganizationPlan).toBe(true)
-    expect(state.visiblePlanTiers).toEqual([])
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual(['tier_enterprise_contract'])
+    expect(state.showEnterprisePlaceholder).toBe(false)
+  })
+
+  it('shows an archived custom organization contract without self-service actions', () => {
+    const state = getSubscriptionSurfaceState({
+      subscription: {
+        isFree: false,
+        isPaid: true,
+        tier: {
+          ...EMPTY_BILLING_TIER_SUMMARY,
+          id: 'tier_archived_contract',
+          displayName: 'Archived Contract',
+          status: 'archived',
+          ownerType: 'organization',
+          usageScope: 'pooled',
+          seatMode: 'fixed',
+          hasStripeMonthlyPriceId: false,
+        },
+      },
+      userRole: adminRole,
+      publicTiers,
+      enterprisePlaceholder: {
+        displayName: 'Enterprise',
+        description: 'Custom billing',
+        pricingFeatures: [],
+        contactUrl: null,
+      },
+    })
+
+    expect(state.currentTier?.id).toBe('tier_archived_contract')
+    expect(state.isCustomOrganizationPlan).toBe(true)
+    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual(['tier_archived_contract'])
     expect(state.showEnterprisePlaceholder).toBe(false)
   })
 })

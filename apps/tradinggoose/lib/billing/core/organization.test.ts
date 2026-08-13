@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockAnd,
-  mockCanTierConfigureSso,
   mockCanTierEditUsageLimit,
   mockDb,
   mockEq,
@@ -15,9 +14,9 @@ const {
   mockGetResolvedBillingSettings,
   mockGetSubscriptionUsageAllowanceUsd,
   mockGetTierUsageAllowanceUsd,
+  mockToBillingTierSummary,
 } = vi.hoisted(() => ({
   mockAnd: vi.fn(),
-  mockCanTierConfigureSso: vi.fn(),
   mockCanTierEditUsageLimit: vi.fn(),
   mockDb: {
     insert: vi.fn(),
@@ -30,6 +29,7 @@ const {
   mockGetResolvedBillingSettings: vi.fn(),
   mockGetSubscriptionUsageAllowanceUsd: vi.fn(),
   mockGetTierUsageAllowanceUsd: vi.fn(),
+  mockToBillingTierSummary: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -80,10 +80,10 @@ vi.mock('@/lib/billing/settings', () => ({
 }))
 
 vi.mock('@/lib/billing/tiers', () => ({
-  canTierConfigureSso: mockCanTierConfigureSso,
   canTierEditUsageLimit: mockCanTierEditUsageLimit,
   getSubscriptionUsageAllowanceUsd: mockGetSubscriptionUsageAllowanceUsd,
   getTierUsageAllowanceUsd: mockGetTierUsageAllowanceUsd,
+  toBillingTierSummary: mockToBillingTierSummary,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -203,9 +203,13 @@ describe('getOrganizationBillingData', () => {
       basePrice: 99,
     })
     mockCanTierEditUsageLimit.mockReturnValue(false)
-    mockCanTierConfigureSso.mockReturnValue(true)
     mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(80)
     mockGetTierUsageAllowanceUsd.mockReturnValue(80)
+    mockToBillingTierSummary.mockImplementation((tier) => ({
+      ...tier,
+      status: tier.status ?? 'active',
+      hasStripeMonthlyPriceId: Boolean(tier.stripeMonthlyPriceId),
+    }))
   })
 
   it('sums member allowances for individual-scope organization totals', async () => {
@@ -218,11 +222,13 @@ describe('getOrganizationBillingData', () => {
       tier: {
         id: 'tier_org_individual',
         displayName: 'Team Individual',
+        status: 'archived',
         ownerType: 'organization',
         usageScope: 'individual',
         seatMode: 'adjustable',
         seatCount: null,
         seatMaximum: null,
+        stripeMonthlyPriceId: 'price_team',
       },
     })
 
@@ -282,6 +288,11 @@ describe('getOrganizationBillingData', () => {
     expect(result?.totalCurrentUsage).toBe(120)
     expect(result?.totalUsageLimit).toBe(160)
     expect(result?.minimumUsageLimit).toBe(80)
+    expect(result?.subscriptionTier?.status).toBe('archived')
+    expect(result?.subscriptionTier?.hasStripeMonthlyPriceId).toBe(true)
+    expect(mockToBillingTierSummary).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'tier_org_individual' })
+    )
 
     const percentUsed = ((result?.totalCurrentUsage ?? 0) / (result?.totalUsageLimit ?? 1)) * 100
 

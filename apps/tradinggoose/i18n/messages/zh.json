@@ -1977,7 +1977,16 @@
           "label": "私有层级访问码",
           "placeholder": "输入访问码",
           "validate": "验证",
-          "success": "已解锁私有层级访问。"
+          "success": "已解锁私有层级访问。",
+          "errors": {
+            "unauthorized": "请重新登录以管理私有层级访问。",
+            "rateLimited": "访问码尝试次数过多，请稍后再试。",
+            "unavailable": "私有层级验证暂时不可用。",
+            "required": "请输入访问码。",
+            "invalid": "该访问码无效。",
+            "loadFailed": "无法加载您的私有层级访问权限。",
+            "validateFailed": "无法验证访问码。"
+          }
         },
         "titles": {
           "manage": "管理订阅",
@@ -1996,7 +2005,8 @@
           "manage": "打开 Stripe 结算门户以取消、恢复或更新您的订阅。",
           "usageNotifications": "当用量达到结算警告阈值时发送邮件通知我",
           "customPlan": "联系您的客户团队以更改结算层级和用量限制",
-          "teamMemberView": "联系您的团队管理员以增加限额"
+          "teamMemberView": "联系您的团队管理员以增加限额",
+          "otherBillingOwner": "此工作区的结算由另一位工作区管理员管理。"
         },
         "notifications": {
           "pending": "正在保存用量通知偏好设置…",

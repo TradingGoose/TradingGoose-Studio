@@ -91,9 +91,13 @@ describe('validateAdminBillingTierInput', () => {
 
   it('accepts new tiers when the Stripe monthly price ID is configured', () => {
     expect(
-      validateAdminBillingTierInput(createTierInput({ stripeMonthlyPriceId: 'price_monthly' }), {
-        requireStripeMonthlyPriceId: true,
-      })
+      validateAdminBillingTierInput(
+        createTierInput({
+          stripeMonthlyPriceId: 'price_monthly',
+          stripeProductId: 'prod_tier',
+        }),
+        { requireStripeMonthlyPriceId: true }
+      )
     ).toBeNull()
   })
 
@@ -109,6 +113,7 @@ describe('validateAdminBillingTierInput', () => {
           asyncRateLimitPerMinute: 15,
           apiEndpointRateLimitPerMinute: 30,
           stripeMonthlyPriceId: 'price_monthly',
+          stripeProductId: 'prod_default',
         }),
         {
           requireStripeMonthlyPriceId: true,
@@ -179,5 +184,20 @@ describe('validateAdminBillingTierInput', () => {
       adminBillingTierMutationSchema.safeParse(createTierInput({ accessCode: 'short-code' }))
         .success
     ).toBe(false)
+  })
+
+  it('requires a complete and distinct Stripe catalog identity', () => {
+    expect(
+      validateAdminBillingTierInput(createTierInput({ stripeMonthlyPriceId: 'price_monthly' }))
+    ).toBe('Stripe-backed tiers must configure a Stripe product ID')
+    expect(
+      validateAdminBillingTierInput(
+        createTierInput({
+          stripeMonthlyPriceId: 'price_same',
+          stripeYearlyPriceId: 'price_same',
+          stripeProductId: 'prod_tier',
+        })
+      )
+    ).toBe('Stripe monthly and yearly price IDs must be different')
   })
 })

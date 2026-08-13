@@ -5,7 +5,12 @@ import { NextResponse } from 'next/server'
 import { isPrivateTierAccessCodeConflict } from '@/lib/admin/billing/access-code'
 import { requireAdminBillingUserId } from '@/lib/admin/billing/authorization'
 import {
+  assertBillingTierStripeIdentifiers,
+  isBillingTierStripeIdentifierError,
+} from '@/lib/admin/billing/stripe-identifiers'
+import {
   adminBillingTierMutationSchema,
+  toBillingTierMutationValues,
   validateAdminBillingTierInput,
 } from '@/lib/admin/billing/tier-mutations'
 import {
@@ -13,15 +18,9 @@ import {
   getBillingGateState,
   isBillingEnabledForRuntime,
 } from '@/lib/billing/settings'
-import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { ensureRestrictedBillingPortalConfiguration } from '@/lib/billing/stripe-portal'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('AdminBillingTierMutationAPI')
-
-function toDecimalString(value: number | null) {
-  return value === null ? null : value.toString()
-}
 
 export const dynamic = 'force-dynamic'
 
@@ -60,10 +59,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Billing tier not found' }, { status: 404 })
     }
 
-    if (
-      parsed.data.status === 'archived' &&
-      (existingTier.isDefault || parsed.data.isDefault)
-    ) {
+    if (existingTier.status !== 'draft' && parsed.data.status === 'draft') {
+      return NextResponse.json(
+        { error: 'Only tiers that have never been activated can be drafts.' },
+        { status: 409 }
+      )
+    }
+
+    if (parsed.data.status === 'archived' && (existingTier.isDefault || parsed.data.isDefault)) {
       return NextResponse.json({ error: 'The default tier cannot be archived' }, { status: 409 })
     }
 
@@ -94,38 +97,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const referencedSubscriptionCount = Number(subscriptionCount)
 
-    if (referencedSubscriptionCount > 0) {
-      if (parsed.data.status === 'draft') {
-        return NextResponse.json(
-          {
-            error:
-              'A tier with subscriptions cannot be moved back to draft. Archive it or keep it active.',
-          },
-          { status: 409 }
-        )
-      }
+    const structuralFields: Array<keyof typeof existingTier> = [
+      'ownerType',
+      'usageScope',
+      'seatMode',
+      'stripeMonthlyPriceId',
+      'stripeYearlyPriceId',
+      'stripeProductId',
+    ]
+    const changedStructuralField = structuralFields.find(
+      (field) => existingTier[field] !== (parsed.data as any)[field]
+    )
 
-      const structuralFields: Array<keyof typeof existingTier> = [
-        'ownerType',
-        'usageScope',
-        'seatMode',
-        'stripeMonthlyPriceId',
-        'stripeYearlyPriceId',
-        'stripeProductId',
-      ]
-
-      const changedField = structuralFields.find(
-        (field) => existingTier[field] !== (parsed.data as any)[field]
+    if (existingTier.status !== 'draft' && changedStructuralField) {
+      return NextResponse.json(
+        {
+          error: `Cannot change ${changedStructuralField} after a tier has been activated. Duplicate the tier and archive the old tier instead.`,
+        },
+        { status: 409 }
       )
-      if (changedField) {
-        return NextResponse.json(
-          {
-            error: `Cannot change ${changedField} for a tier that already has subscriptions. Duplicate the tier, migrate subscribers, and archive the old tier instead.`,
-          },
-          { status: 409 }
-        )
-      }
+    }
 
+    if (referencedSubscriptionCount > 0) {
       if (
         parsed.data.syncRateLimitPerMinute === null ||
         parsed.data.asyncRateLimitPerMinute === null ||
@@ -181,64 +174,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
     }
 
-    const activatesPrivateCheckout =
-      parsed.data.status === 'active' &&
-      !parsed.data.isPublic &&
-      Boolean(parsed.data.stripeMonthlyPriceId) &&
-      (existingTier.status !== 'active' ||
-        existingTier.isPublic ||
-        existingTier.stripeMonthlyPriceId !== parsed.data.stripeMonthlyPriceId)
-
-    if (activatesPrivateCheckout) {
-      await ensureRestrictedBillingPortalConfiguration(requireStripeClient())
-    }
-
     await db.transaction(async (tx) => {
+      await assertBillingTierStripeIdentifiers(tx, {
+        ...parsed.data,
+        excludeTierId: id,
+      })
+
       if (parsed.data.isDefault) {
         await tx.update(systemBillingTier).set({ isDefault: false })
       }
 
       await tx
         .update(systemBillingTier)
-        .set({
-          displayName: parsed.data.displayName,
-          description: parsed.data.description,
-          accessCode: parsed.data.accessCode,
-          status: parsed.data.status,
-          ownerType: parsed.data.ownerType,
-          usageScope: parsed.data.usageScope,
-          seatMode: parsed.data.seatMode,
-          monthlyPriceUsd: toDecimalString(parsed.data.monthlyPriceUsd),
-          yearlyPriceUsd: toDecimalString(parsed.data.yearlyPriceUsd),
-          includedUsageLimitUsd: toDecimalString(parsed.data.includedUsageLimitUsd),
-          storageLimitGb: parsed.data.storageLimitGb,
-          concurrencyLimit: parsed.data.concurrencyLimit,
-          workflowExecutionTimeLimitSeconds:
-            parsed.data.workflowExecutionTimeLimitSeconds,
-          seatCount: parsed.data.seatCount,
-          seatMaximum: parsed.data.seatMaximum,
-          stripeMonthlyPriceId: parsed.data.stripeMonthlyPriceId,
-          stripeYearlyPriceId: parsed.data.stripeYearlyPriceId,
-          stripeProductId: parsed.data.stripeProductId,
-          syncRateLimitPerMinute: parsed.data.syncRateLimitPerMinute,
-          asyncRateLimitPerMinute: parsed.data.asyncRateLimitPerMinute,
-          apiEndpointRateLimitPerMinute: parsed.data.apiEndpointRateLimitPerMinute,
-          maxPendingAgeSeconds: parsed.data.maxPendingAgeSeconds,
-          maxPendingCount: parsed.data.maxPendingCount,
-          canEditUsageLimit: parsed.data.canEditUsageLimit,
-          canConfigureSso: parsed.data.canConfigureSso,
-          logRetentionDays: parsed.data.logRetentionDays,
-          workflowExecutionMultiplier: String(parsed.data.workflowExecutionMultiplier ?? 1),
-          workflowModelCostMultiplier: String(parsed.data.workflowModelCostMultiplier ?? 1),
-          functionExecutionMultiplier: String(parsed.data.functionExecutionMultiplier ?? 1),
-          copilotCostMultiplier: String(parsed.data.copilotCostMultiplier ?? 1),
-          pricingFeatures: parsed.data.pricingFeatures,
-          isPublic: parsed.data.isPublic,
-          isDefault: parsed.data.isDefault,
-          displayOrder: parsed.data.displayOrder,
-          updatedByUserId: userId,
-          updatedAt: new Date(),
-        })
+        .set(toBillingTierMutationValues(parsed.data, userId))
         .where(eq(systemBillingTier.id, id))
     })
 
@@ -255,8 +203,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (isPrivateTierAccessCodeConflict(error)) {
       return NextResponse.json(
         { error: 'Private tier access code is already in use' },
-        { status: 409 },
+        { status: 409 }
       )
+    }
+
+    if (isBillingTierStripeIdentifierError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
     }
 
     logger.error('Failed to update billing tier', { error })

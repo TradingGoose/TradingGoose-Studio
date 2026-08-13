@@ -1,6 +1,9 @@
 import { toNextJsHandler } from 'better-auth/next-js'
 import { auth, getSession } from '@/lib/auth'
+import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import { hasPrivateBillingTierAccess } from '@/lib/billing/private-tier-access'
+import { requireStripeClient } from '@/lib/billing/stripe-client'
+import { ensurePlanChangePortalConfiguration } from '@/lib/billing/stripe-portal'
 import { getBillingTierById } from '@/lib/billing/tiers'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
 import {
@@ -57,6 +60,11 @@ async function authorizeSubscriptionUpgrade(request: Request): Promise<Response 
     .json()
     .catch(() => null)
   const billingTierId = body && typeof body.plan === 'string' ? body.plan.trim() : ''
+  const referenceId = body && typeof body.referenceId === 'string' ? body.referenceId.trim() : ''
+  const customerType =
+    body && (body.customerType === 'user' || body.customerType === 'organization')
+      ? body.customerType
+      : null
 
   if (!billingTierId) {
     return Response.json({ error: 'Billing tier is required' }, { status: 400 })
@@ -72,8 +80,26 @@ async function authorizeSubscriptionUpgrade(request: Request): Promise<Response 
     return Response.json({ error: 'Billing tier is unavailable' }, { status: 403 })
   }
 
+  if (!referenceId || customerType !== tier.ownerType) {
+    return Response.json({ error: 'Billing subject does not match the tier' }, { status: 403 })
+  }
+
+  const canManageReference = await authorizeSubscriptionReference(session.user.id, {
+    referenceType: tier.ownerType,
+    referenceId,
+  })
+  if (!canManageReference) {
+    return Response.json({ error: 'Billing subject does not match the tier' }, { status: 403 })
+  }
+
   if (!tier.isPublic && !(await hasPrivateBillingTierAccess(session.user.id, tier.id))) {
     return Response.json({ error: 'Billing tier is unavailable' }, { status: 403 })
+  }
+
+  try {
+    await ensurePlanChangePortalConfiguration(requireStripeClient())
+  } catch {
+    return Response.json({ error: 'Stripe Billing Portal is unavailable' }, { status: 503 })
   }
 
   return null
@@ -81,13 +107,12 @@ async function authorizeSubscriptionUpgrade(request: Request): Promise<Response 
 
 export const handleAuthRequest = async (request: Request) => {
   const pathname = new URL(request.url).pathname
-  const subscriptionPathname = pathname.replace(/\/+$/, '')
 
-  if (request.method === 'POST' && subscriptionPathname === SUBSCRIPTION_BILLING_PORTAL_PATH) {
+  if (request.method === 'POST' && pathname === SUBSCRIPTION_BILLING_PORTAL_PATH) {
     return Response.json({ error: 'Not found' }, { status: 404 })
   }
 
-  if (request.method === 'POST' && subscriptionPathname === SUBSCRIPTION_UPGRADE_PATH) {
+  if (request.method === 'POST' && pathname === SUBSCRIPTION_UPGRADE_PATH) {
     const deniedResponse = await authorizeSubscriptionUpgrade(request)
     if (deniedResponse) {
       return deniedResponse

@@ -6,17 +6,13 @@ import {
   getGrantedPrivateBillingTiers,
   grantPrivateBillingTier,
 } from '@/lib/billing/private-tier-access'
+import { PRIVATE_TIER_ACCESS_ERROR_CODES } from '@/lib/billing/private-tier-access-contract'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('PrivateTierAccessAPI')
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' }
 
 export const dynamic = 'force-dynamic'
-
-async function getPrivateTiers(userId: string) {
-  const tiers = await getGrantedPrivateBillingTiers(userId)
-  return { privateTiers: tiers.map(toBillingTierDisplay) }
-}
 
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: NO_STORE_HEADERS })
@@ -26,13 +22,14 @@ export async function GET() {
   try {
     const session = await getSession()
     if (!session?.user?.id) {
-      return json({ error: 'Unauthorized' }, 401)
+      return json({ code: PRIVATE_TIER_ACCESS_ERROR_CODES.unauthorized }, 401)
     }
 
-    return json(await getPrivateTiers(session.user.id))
+    const tiers = await getGrantedPrivateBillingTiers(session.user.id)
+    return json({ privateTiers: tiers.map(toBillingTierDisplay) })
   } catch (error) {
     logger.error('Failed to load private tier access', { error })
-    return json({ error: 'Failed to load private tiers' }, 500)
+    return json({ code: PRIVATE_TIER_ACCESS_ERROR_CODES.loadFailed }, 500)
   }
 }
 
@@ -40,14 +37,19 @@ export async function POST(request: Request) {
   try {
     const session = await getSession()
     if (!session?.user?.id) {
-      return json({ error: 'Unauthorized' }, 401)
+      return json({ code: PRIVATE_TIER_ACCESS_ERROR_CODES.unauthorized }, 401)
     }
 
     const rateLimit = await checkPrivateTierAccessRateLimit(session.user.id)
     if (!rateLimit.allowed) {
+      const isUnavailable = rateLimit.failureKind === 'dependency'
       return json(
-        { error: rateLimit.error || 'Too many access-code attempts' },
-        rateLimit.failureKind === 'dependency' ? 503 : 429
+        {
+          code: isUnavailable
+            ? PRIVATE_TIER_ACCESS_ERROR_CODES.unavailable
+            : PRIVATE_TIER_ACCESS_ERROR_CODES.rateLimited,
+        },
+        isUnavailable ? 503 : 429
       )
     }
 
@@ -55,17 +57,17 @@ export async function POST(request: Request) {
     const accessCode = body && typeof body.accessCode === 'string' ? body.accessCode.trim() : ''
 
     if (!accessCode) {
-      return json({ error: 'Access code is required' }, 400)
+      return json({ code: PRIVATE_TIER_ACCESS_ERROR_CODES.required }, 400)
     }
 
     const tier = await grantPrivateBillingTier(session.user.id, accessCode)
     if (!tier) {
-      return json({ error: 'Invalid access code' }, 404)
+      return json({ code: PRIVATE_TIER_ACCESS_ERROR_CODES.invalid }, 404)
     }
 
-    return json(await getPrivateTiers(session.user.id))
+    return new Response(null, { status: 204, headers: NO_STORE_HEADERS })
   } catch (error) {
     logger.error('Failed to grant private tier access', { error })
-    return json({ error: 'Failed to validate access code' }, 500)
+    return json({ code: PRIVATE_TIER_ACCESS_ERROR_CODES.validateFailed }, 500)
   }
 }

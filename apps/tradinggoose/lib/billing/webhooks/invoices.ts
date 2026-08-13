@@ -13,7 +13,7 @@ import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
 import { getSubscriptionByStripeSubscriptionId } from '@/lib/billing/core/subscription'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { createRestrictedBillingPortalSession } from '@/lib/billing/stripe-portal'
+import { createBillingManagementPortalSession } from '@/lib/billing/stripe-portal'
 import {
   type BillingTierRecord,
   isOrganizationSubscription,
@@ -51,7 +51,7 @@ async function createBillingPortalUrl(stripeCustomerId: string): Promise<string>
   try {
     const stripe = requireStripeClient()
     const baseUrl = getBaseUrl()
-    const portal = await createRestrictedBillingPortalSession(stripe, {
+    const portal = await createBillingManagementPortalSession(stripe, {
       customer: stripeCustomerId,
       return_url: `${baseUrl}/workspace?billing=updated`,
     })
