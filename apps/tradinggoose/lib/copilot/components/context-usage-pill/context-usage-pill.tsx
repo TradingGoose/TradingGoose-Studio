@@ -19,7 +19,7 @@ export const ContextUsagePill = memo(
     const copilotCopy = useCopilotMessages()
 
     // Don't render if invalid (but DO render if 0 or very small)
-    if (percentage === null || percentage === undefined || Number.isNaN(percentage)) return null
+    if (!Number.isFinite(percentage)) return null
 
     const isHighUsage = percentage >= 75
 
