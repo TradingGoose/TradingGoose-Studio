@@ -4,6 +4,10 @@ let syncStateFn: ((toolCallId: string, nextState: any, options?: { result?: any 
   null
 
 export function registerClientTool(toolCallId: string, instance: any) {
+  if (instances.get(toolCallId) === instance) return
+  if (instances.has(toolCallId)) {
+    unregisterClientTool(toolCallId)
+  }
   instances.set(toolCallId, instance)
 }
 
