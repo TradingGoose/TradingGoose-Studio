@@ -123,7 +123,6 @@ async function getHydratedSubscriptionById(subscriptionId: string) {
 
 async function syncBillingTierAndRequireSubscription(input: {
   subscriptionId: string
-  billingTierId: string
   stripeSubscription: Stripe.Subscription
 }) {
   await syncSubscriptionBillingTierFromStripeSubscription(input)
@@ -138,7 +137,6 @@ async function syncBillingTierAndRequireSubscription(input: {
 
 async function handleCompletedSubscription(input: {
   subscriptionId: string
-  billingTierId: string
   stripeSubscription: Stripe.Subscription
 }) {
   const subscription = await syncBillingTierAndRequireSubscription(input)
@@ -1664,11 +1662,9 @@ export const auth = betterAuth({
         onSubscriptionCreated: async ({
           stripeSubscription,
           subscription,
-          plan,
         }: {
           stripeSubscription: Stripe.Subscription
           subscription: any
-          plan: { name: string }
         }) => {
           logger.info('[onSubscriptionCreated] Direct Stripe subscription created', {
             subscriptionId: subscription.id,
@@ -1678,18 +1674,15 @@ export const auth = betterAuth({
 
           await handleCompletedSubscription({
             subscriptionId: subscription.id,
-            billingTierId: plan.name,
             stripeSubscription,
           })
         },
         onSubscriptionComplete: async ({
           stripeSubscription,
           subscription,
-          plan,
         }: {
           stripeSubscription: Stripe.Subscription
           subscription: any
-          plan: { name: string }
         }) => {
           logger.info('[onSubscriptionComplete] Subscription created', {
             subscriptionId: subscription.id,
@@ -1700,7 +1693,6 @@ export const auth = betterAuth({
 
           await handleCompletedSubscription({
             subscriptionId: subscription.id,
-            billingTierId: plan.name,
             stripeSubscription,
           })
         },
@@ -1718,7 +1710,6 @@ export const auth = betterAuth({
 
           const resolvedSubscription = await syncBillingTierAndRequireSubscription({
             subscriptionId: subscription.id,
-            billingTierId: subscription.plan,
             stripeSubscription: event.data.object as Stripe.Subscription,
           })
 

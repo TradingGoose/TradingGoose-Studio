@@ -3,7 +3,11 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { select, update } = vi.hoisted(() => ({
+const { and, eq, inArray, or, select, update } = vi.hoisted(() => ({
+  and: vi.fn((...conditions: unknown[]) => ({ and: conditions })),
+  eq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
+  inArray: vi.fn((field: unknown, values: unknown[]) => ({ field, values })),
+  or: vi.fn((...conditions: unknown[]) => ({ or: conditions })),
   select: vi.fn(),
   update: vi.fn(),
 }))
@@ -17,21 +21,25 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'tier.id',
     displayName: 'tier.displayName',
     ownerType: 'tier.ownerType',
+    status: 'tier.status',
     stripeMonthlyPriceId: 'tier.stripeMonthlyPriceId',
     stripeYearlyPriceId: 'tier.stripeYearlyPriceId',
   },
 }))
 vi.mock('drizzle-orm', () => ({
-  eq: (field: unknown, value: unknown) => ({ field, value }),
+  and,
+  eq,
+  inArray,
+  or,
 }))
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ error: vi.fn(), info: vi.fn() }),
 }))
 
-function stripeSubscription(priceId: string) {
+function stripeSubscription(priceId: string, recurring = true) {
   return {
     id: 'sub_stripe',
-    items: { data: [{ price: { id: priceId } }] },
+    items: { data: [{ price: { id: priceId, recurring: recurring ? {} : null } }] },
   } as never
 }
 
@@ -58,32 +66,62 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
     update.mockReturnValue({ set })
   })
 
-  it('uses the callback-provided tier ID and verifies its Stripe price', async () => {
+  it('resolves the tier from the signed recurring Stripe price', async () => {
     const { syncSubscriptionBillingTierFromStripeSubscription } = await import('./persistence')
 
     await syncSubscriptionBillingTierFromStripeSubscription({
       subscriptionId: 'sub_local',
-      billingTierId: 'tier_team',
       stripeSubscription: stripeSubscription('price_yearly'),
     })
 
+    expect(inArray).toHaveBeenCalledWith('tier.status', ['active', 'archived'])
+    expect(inArray).toHaveBeenCalledWith('tier.stripeMonthlyPriceId', ['price_yearly'])
+    expect(inArray).toHaveBeenCalledWith('tier.stripeYearlyPriceId', ['price_yearly'])
     expect(set).toHaveBeenCalledWith({
       billingTierId: 'tier_team',
       referenceType: 'organization',
     })
   })
 
-  it('rejects a Stripe price that does not belong to the known tier', async () => {
+  it('rejects a signed recurring price that matches no tier', async () => {
+    selectResults = [[]]
     const { syncSubscriptionBillingTierFromStripeSubscription } = await import('./persistence')
 
     await expect(
       syncSubscriptionBillingTierFromStripeSubscription({
         subscriptionId: 'sub_local',
-        billingTierId: 'tier_team',
         stripeSubscription: stripeSubscription('price_other'),
       })
-    ).rejects.toThrow('does not match billing tier tier_team')
+    ).rejects.toThrow('matched 0 billing tiers')
 
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('rejects a signed recurring price that matches multiple tiers', async () => {
+    selectResults = [[tier, { ...tier, id: 'tier_other' }]]
+    const { syncSubscriptionBillingTierFromStripeSubscription } = await import('./persistence')
+
+    await expect(
+      syncSubscriptionBillingTierFromStripeSubscription({
+        subscriptionId: 'sub_local',
+        stripeSubscription: stripeSubscription('price_monthly'),
+      })
+    ).rejects.toThrow('matched 2 billing tiers')
+
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('rejects a Stripe subscription without a recurring price', async () => {
+    const { syncSubscriptionBillingTierFromStripeSubscription } = await import('./persistence')
+
+    await expect(
+      syncSubscriptionBillingTierFromStripeSubscription({
+        subscriptionId: 'sub_local',
+        stripeSubscription: stripeSubscription('price_one_time', false),
+      })
+    ).rejects.toThrow('has no recurring price')
+
+    expect(select).not.toHaveBeenCalled()
     expect(update).not.toHaveBeenCalled()
   })
 
@@ -94,7 +132,6 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
     await expect(
       syncSubscriptionBillingTierFromStripeSubscription({
         subscriptionId: 'sub_local',
-        billingTierId: 'tier_team',
         stripeSubscription: stripeSubscription('price_monthly'),
       })
     ).rejects.toThrow('does not reference an organization')

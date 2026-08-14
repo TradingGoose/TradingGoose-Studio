@@ -93,7 +93,7 @@ vi.mock('@/lib/billing/stripe-customers', () => ({
 }))
 
 vi.mock('@/lib/billing/subscriptions/utils', () => ({
-  BILLING_ACTIVE_SUBSCRIPTION_STATUSES: ['active', 'trialing'],
+  BILLING_ENTITLED_SUBSCRIPTION_STATUSES: ['active', 'trialing', 'past_due'],
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -238,6 +238,11 @@ describe('/api/billing/portal route', () => {
     expect(response.status).toBe(200)
     expect(payload.url).toBe('https://billing.stripe.test/session')
     expect(mockEnsureStripeUserCustomer).not.toHaveBeenCalled()
+    expect(mockInArray).toHaveBeenCalledWith(subscriptionTable.status, [
+      'active',
+      'trialing',
+      'past_due',
+    ])
     expectPortalSession('cus_org_123')
   })
 })
