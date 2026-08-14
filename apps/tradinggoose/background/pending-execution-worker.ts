@@ -78,8 +78,11 @@ function getWorkflowState(row: PendingExecutionClaim): WorkflowState {
   }
 }
 
-async function dispatchPendingExecution(row: PendingExecutionClaim) {
-  await executePendingExecutionJob(row, { triggerRuntime: true })
+async function dispatchPendingExecution(
+  row: PendingExecutionClaim,
+  options: { triggerRuntime: boolean }
+) {
+  await executePendingExecutionJob(row, options)
   if ((await listChildPendingWorkflowExecutions(row.id)).length === 0) {
     await completePendingExecution({ pendingExecutionId: row.id })
   } else {
@@ -96,8 +99,9 @@ export async function executePendingExecution(
     return { success: true, skipped: 'not_processing' as const }
   }
 
+  const triggerRuntime = options.triggerRuntime === true
   try {
-    await dispatchPendingExecution(row)
+    await dispatchPendingExecution(row, { triggerRuntime })
     return { success: true, pendingExecutionId: row.id }
   } catch (error) {
     logger.error('Pending execution failed', {
@@ -108,7 +112,7 @@ export async function executePendingExecution(
     })
     const message = error instanceof Error ? error.message : WORKER_FAILURE_ERROR
     await finalizePendingExecutionFailure(row, message, 1, {
-      cancelTriggerRuns: options.triggerRuntime === true,
+      cancelTriggerRuns: triggerRuntime,
     })
     throw error
   }
@@ -235,6 +239,7 @@ export async function finalizePendingExecutionFailure(
     options.cancelTriggerRuns === true
   )
   if (hasDescendants) {
+    await markPendingExecutionOwnerCompleted(row)
     return false
   }
 

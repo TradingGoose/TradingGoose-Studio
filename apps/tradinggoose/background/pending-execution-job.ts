@@ -5,7 +5,6 @@ import type {
 import {
   executeDocumentProcessingJob,
   executeTriggeredDocumentProcessingJob,
-  markDocumentProcessingJobFailed,
 } from './knowledge-processing'
 import { executeMonitorJob, isMonitorExecutionPayload } from './monitor-execution'
 import { executeScheduleJob, isScheduleExecutionPayload } from './schedule-execution'
@@ -38,16 +37,8 @@ export async function executePendingExecutionJob(
       if (isMonitorExecutionPayload(payload)) return executeMonitorJob(payload)
       throw new Error('Invalid monitor pending payload')
     case 'document':
-      try {
-        return options.triggerRuntime
-          ? await executeTriggeredDocumentProcessingJob(job.payload)
-          : await executeDocumentProcessingJob(job.payload)
-      } catch (error) {
-        if (!options.triggerRuntime) {
-          const message = error instanceof Error ? error.message : 'Document processing failed'
-          await markDocumentProcessingJobFailed(job.payload, message)
-        }
-        throw error
-      }
+      return options.triggerRuntime
+        ? executeTriggeredDocumentProcessingJob(job.payload)
+        : executeDocumentProcessingJob(job.payload)
   }
 }

@@ -158,8 +158,8 @@ vi.mock('@/lib/trigger/settings', () => ({
   },
 }))
 
-vi.mock('@/background/pending-execution-job', () => ({
-  executePendingExecutionJob: executePendingExecutionMock,
+vi.mock('@/background/pending-execution-worker', () => ({
+  executePendingExecution: executePendingExecutionMock,
 }))
 
 vi.mock('@/lib/logs/execution/logging-session', () => ({
@@ -238,6 +238,7 @@ function mockClaimableRow(row: ReturnType<typeof createPendingRow>) {
 beforeEach(() => {
   txSelectLimitMock.mockReset().mockResolvedValue([])
   txSelectRowsMock.mockReset().mockResolvedValue([])
+  selectLimitMock.mockReset().mockResolvedValue([])
 })
 
 describe('dispatchNextPendingExecution', () => {
@@ -449,7 +450,15 @@ describe('enqueuePendingExecution', () => {
     configureTransactionMock()
   })
 
-  it('awaits the shared job directly in local mode without billing or queue access', async () => {
+  it('persists streamed local work before starting its non-blocking worker', async () => {
+    let finishWorker: (() => void) | undefined
+    executePendingExecutionMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishWorker = () => resolve({ success: true })
+        })
+    )
+
     const result = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId: 'pending-local-1',
@@ -459,6 +468,7 @@ describe('enqueuePendingExecution', () => {
       source: 'workflow_api',
       payload: {
         executionId: 'pending-local-1',
+        stream: true,
       },
     })
 
@@ -469,22 +479,104 @@ describe('enqueuePendingExecution', () => {
     })
     expect(triggerMock).not.toHaveBeenCalled()
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
-    expect(executePendingExecutionMock).toHaveBeenCalledWith(
-      {
+    await vi.waitFor(() =>
+      expect(executePendingExecutionMock).toHaveBeenCalledWith(
+        { pendingExecutionId: 'pending-local-1' },
+        { triggerRuntime: false }
+      )
+    )
+    expect(txInsertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
         id: 'pending-local-1',
-        executionType: 'workflow',
-        payload: { executionId: 'pending-local-1' },
-      },
-      { triggerRuntime: false }
+        billingScopeId: 'user-1',
+        billingScopeType: 'user',
+        status: 'processing',
+        processingStartedAt: expect.any(Date),
+        payload: { executionId: 'pending-local-1', stream: true },
+      })
+    )
+    expect(txInsertValuesMock.mock.invocationCallOrder[0]).toBeLessThan(
+      executePendingExecutionMock.mock.invocationCallOrder[0] ?? 0
     )
     expect(transactionMock).toHaveBeenCalledOnce()
-    expect(txExecuteMock).toHaveBeenCalledOnce()
-    expect(txInsertValuesMock).not.toHaveBeenCalled()
+    expect(txExecuteMock).toHaveBeenCalledTimes(2)
     expect(resolveServerExecutionBillingContextMock).not.toHaveBeenCalled()
     expect(resolveServerExecutionBillingTierForScopeMock).not.toHaveBeenCalled()
+
+    finishWorker?.()
   })
 
-  it('propagates direct local job failures without inserting a queue row', async () => {
+  it('does not relaunch a duplicate local execution', async () => {
+    txSelectLimitMock.mockResolvedValueOnce([{ id: 'pending-local-1' }])
+
+    await expect(
+      enqueuePendingExecution({
+        executionType: 'workflow',
+        pendingExecutionId: 'pending-local-1',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        source: 'workflow_api',
+        payload: { executionId: 'pending-local-1' },
+      })
+    ).resolves.toEqual({
+      pendingExecutionId: 'pending-local-1',
+      billingScopeId: 'user-1',
+      inserted: false,
+    })
+
+    expect(txInsertValuesMock).not.toHaveBeenCalled()
+    expect(executePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
+  it('does not overlap local work with the same ordering key', async () => {
+    txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'pending-existing' }])
+
+    await expect(
+      enqueuePendingExecution({
+        executionType: 'schedule',
+        pendingExecutionId: 'pending-schedule-1',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        source: 'schedule',
+        orderingKey: 'schedule:schedule-1',
+        payload: { executionId: 'pending-schedule-1' },
+      })
+    ).resolves.toEqual({
+      pendingExecutionId: 'pending-schedule-1',
+      billingScopeId: 'user-1',
+      inserted: false,
+    })
+
+    expect(txInsertValuesMock).not.toHaveBeenCalled()
+    expect(executePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
+  it('does not relaunch a local workflow with a durable execution log', async () => {
+    txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'log-1' }])
+
+    await expect(
+      enqueuePendingExecution({
+        executionType: 'workflow',
+        pendingExecutionId: 'pending-local-1',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        source: 'workflow_api',
+        payload: { executionId: 'pending-local-1' },
+      })
+    ).resolves.toEqual({
+      pendingExecutionId: 'pending-local-1',
+      billingScopeId: 'user-1',
+      inserted: false,
+    })
+
+    expect(txInsertValuesMock).not.toHaveBeenCalled()
+    expect(executePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
+  it('returns before a local worker failure', async () => {
     executePendingExecutionMock.mockRejectedValueOnce(new Error('Local workflow failed'))
 
     await expect(
@@ -497,11 +589,16 @@ describe('enqueuePendingExecution', () => {
         source: 'workflow_api',
         payload: { executionId: 'pending-local-1' },
       })
-    ).rejects.toThrow('Local workflow failed')
+    ).resolves.toEqual({
+      pendingExecutionId: 'pending-local-1',
+      billingScopeId: 'user-1',
+      inserted: true,
+    })
 
-    expect(transactionMock).toHaveBeenCalledOnce()
-    expect(txExecuteMock).toHaveBeenCalledOnce()
-    expect(txInsertValuesMock).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(executePendingExecutionMock).toHaveBeenCalledOnce())
+    expect(txInsertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'processing' })
+    )
   })
 
   it('stores the resolved billing scope when billing is enabled', async () => {
@@ -925,11 +1022,40 @@ describe('completePendingExecution', () => {
 
     expect(deleteReturningMock).toHaveBeenCalledWith({
       billingScopeId: 'pendingExecution.billingScopeId',
+      parentExecutionId: expect.anything(),
     })
     expect(eqMock).toHaveBeenCalledWith('pendingExecution.billingScopeId', 'scope-1')
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
     expect(executePendingExecutionMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
+  })
+
+  it('releases a completed parent after its last child is removed', async () => {
+    deleteReturningMock
+      .mockResolvedValueOnce([
+        {
+          billingScopeId: 'scope-1',
+          parentExecutionId: 'parent-1',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          billingScopeId: 'scope-1',
+          parentExecutionId: null,
+        },
+      ])
+    selectLimitMock.mockResolvedValueOnce([
+      createPendingRow({
+        id: 'parent-1',
+        status: 'processing',
+        payload: { ownerCompletedAt: '2026-01-01T00:00:00.000Z' },
+      }),
+    ])
+
+    await completePendingExecution({ pendingExecutionId: 'child-1' })
+
+    expect(deleteReturningMock).toHaveBeenCalledTimes(2)
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.id', 'parent-1')
   })
 })
 
@@ -938,6 +1064,9 @@ describe('markPendingExecutionOwnerCompleted', () => {
     vi.clearAllMocks()
     updateChain.set.mockReturnThis()
     updateChain.where.mockReturnThis()
+    deleteWhereMock.mockReturnValue(deleteChain)
+    deleteReturningMock.mockResolvedValue([])
+    getTriggerExecutionStateMock.mockResolvedValue(directExecutionState)
   })
 
   it('atomically merges the owner marker into the current database payload', async () => {
@@ -953,6 +1082,29 @@ describe('markPendingExecutionOwnerCompleted', () => {
     expect(updateChain.set).toHaveBeenCalledWith(
       expect.objectContaining({ payload: sqlMock.mock.results[0]?.value })
     )
+  })
+
+  it('removes the owner when its last child finished before the marker was written', async () => {
+    selectLimitMock.mockResolvedValueOnce([
+      createPendingRow({
+        id: 'parent-1',
+        status: 'processing',
+        payload: { ownerCompletedAt: '2026-01-01T00:00:00.000Z' },
+      }),
+    ])
+    deleteReturningMock.mockResolvedValueOnce([
+      {
+        billingScopeId: 'scope-1',
+        parentExecutionId: null,
+      },
+    ])
+
+    await markPendingExecutionOwnerCompleted(
+      createPendingRow({ id: 'parent-1', status: 'processing' })
+    )
+
+    expect(deleteReturningMock).toHaveBeenCalledOnce()
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.id', 'parent-1')
   })
 })
 

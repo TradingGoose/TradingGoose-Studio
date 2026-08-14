@@ -229,17 +229,17 @@ export async function enqueuePendingExecution(
     if (triggerState.mode === 'unavailable') {
       throw new TriggerExecutionUnavailableError()
     }
-    if (triggerState.mode === 'local') {
-      return { mode: 'local' as const }
-    }
 
-    const billingContext = await resolveServerExecutionBillingContext({
-      actorUserId: params.userId,
-      workflowId: params.workflowId,
-      workspaceId: params.workspaceId,
-      requestId: params.requestId,
-      source: params.source,
-    })
+    const billingContext =
+      triggerState.mode === 'trigger'
+        ? await resolveServerExecutionBillingContext({
+            actorUserId: params.userId,
+            workflowId: params.workflowId,
+            workspaceId: params.workspaceId,
+            requestId: params.requestId,
+            source: params.source,
+          })
+        : null
     const billingScopeId = billingContext ? billingContext.scopeId : params.userId
     const billingScopeType = billingContext ? billingContext.scopeType : 'user'
     const limits = billingContext
@@ -274,7 +274,7 @@ export async function enqueuePendingExecution(
       .limit(1)
 
     if (existingRow) {
-      return { mode: 'trigger' as const, billingScopeId, inserted: false, triggerState }
+      return { mode: triggerState.mode, billingScopeId, inserted: false, triggerState }
     }
 
     if (params.executionType === 'workflow') {
@@ -285,7 +285,7 @@ export async function enqueuePendingExecution(
         .limit(1)
 
       if (existingLog) {
-        return { mode: 'trigger' as const, billingScopeId, inserted: false, triggerState }
+        return { mode: triggerState.mode, billingScopeId, inserted: false, triggerState }
       }
     }
 
@@ -303,7 +303,7 @@ export async function enqueuePendingExecution(
         .limit(1)
 
       if (overlappingRow) {
-        return { mode: 'trigger' as const, billingScopeId, inserted: false, triggerState }
+        return { mode: triggerState.mode, billingScopeId, inserted: false, triggerState }
       }
     }
 
@@ -338,23 +338,34 @@ export async function enqueuePendingExecution(
       workflowId: params.workflowId ?? null,
       workspaceId: params.workspaceId ?? null,
       payload: params.payload,
+      ...(triggerState.mode === 'local'
+        ? {
+            status: 'processing' as const,
+            processingStartedAt: new Date(),
+          }
+        : {}),
     })
-    return { mode: 'trigger' as const, billingScopeId, inserted: true, triggerState }
+    return { mode: triggerState.mode, billingScopeId, inserted: true, triggerState }
   })
 
-  if (queueResult.mode === 'local') {
-    return executeLocalPendingExecution(params)
-  }
-
-  const { billingScopeId, inserted, triggerState } = queueResult
+  const { billingScopeId, inserted, mode, triggerState } = queueResult
 
   if (!inserted) {
-    if (params.orderingKey) {
+    if (mode === 'trigger' && params.orderingKey) {
       await wakePendingExecution({
         billingScopeId,
         requestId: params.requestId,
       })
     }
+    return {
+      pendingExecutionId: params.pendingExecutionId,
+      billingScopeId,
+      inserted,
+    }
+  }
+
+  if (mode === 'local') {
+    startLocalPendingExecution(params.pendingExecutionId, params.requestId)
     return {
       pendingExecutionId: params.pendingExecutionId,
       billingScopeId,
@@ -387,24 +398,20 @@ export async function enqueuePendingExecution(
   }
 }
 
-async function executeLocalPendingExecution(
-  params: PendingExecutionInsert
-): Promise<PendingExecutionHandle> {
-  const { executePendingExecutionJob } = await import('@/background/pending-execution-job')
-  await executePendingExecutionJob(
-    {
-      id: params.pendingExecutionId,
-      executionType: params.executionType,
-      payload: params.payload,
-    },
-    { triggerRuntime: false }
-  )
-
-  return {
-    pendingExecutionId: params.pendingExecutionId,
-    billingScopeId: params.userId,
-    inserted: true,
-  }
+function startLocalPendingExecution(pendingExecutionId: string, requestId?: string) {
+  void import('@/background/pending-execution-worker')
+    .then(({ executePendingExecution }) => {
+      void executePendingExecution({ pendingExecutionId }, { triggerRuntime: false }).catch(
+        () => undefined
+      )
+    })
+    .catch((error) => {
+      logger.error('Local pending execution could not start', {
+        pendingExecutionId,
+        requestId,
+        error,
+      })
+    })
 }
 
 export async function claimNextPendingExecution(
@@ -526,6 +533,8 @@ export async function markPendingExecutionOwnerCompleted(row: PendingExecutionCl
       updatedAt: new Date(),
     })
     .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))
+
+  await completeOwnerWithoutChildren(row.id)
 }
 
 function asPendingExecutionClaim(row: typeof pendingExecution.$inferSelect): PendingExecutionClaim {
@@ -609,11 +618,27 @@ export async function completePendingExecution(params: { pendingExecutionId: str
   const [deleted] = await db
     .delete(pendingExecution)
     .where(eq(pendingExecution.id, params.pendingExecutionId))
-    .returning({ billingScopeId: pendingExecution.billingScopeId })
+    .returning({
+      billingScopeId: pendingExecution.billingScopeId,
+      parentExecutionId: sql<
+        string | null
+      >`case when ${pendingExecution.source} = ${WORKFLOW_BLOCK_SOURCE} then ${pendingExecution.payload}->'metadata'->>'parentExecutionId' else null end`,
+    })
 
   if (deleted?.billingScopeId) {
     await wakePendingExecution({
       billingScopeId: deleted.billingScopeId,
     })
   }
+
+  if (deleted?.parentExecutionId) {
+    await completeOwnerWithoutChildren(deleted.parentExecutionId)
+  }
+}
+
+async function completeOwnerWithoutChildren(pendingExecutionId: string) {
+  const owner = await getProcessingPendingExecution(pendingExecutionId)
+  if (typeof owner?.payload.ownerCompletedAt !== 'string') return
+  if ((await listChildPendingWorkflowExecutions(pendingExecutionId)).length > 0) return
+  await completePendingExecution({ pendingExecutionId })
 }

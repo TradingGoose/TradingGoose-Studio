@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   cancelPendingWorkflowExecution: vi.fn(),
   completePendingExecution: vi.fn(),
+  executeDocumentProcessingJob: vi.fn(),
   executeTriggeredDocumentProcessingJob: vi.fn(),
   executeMonitorJob: vi.fn(),
   executeScheduleJob: vi.fn(),
@@ -100,6 +101,7 @@ vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
 }))
 
 vi.mock('./knowledge-processing', () => ({
+  executeDocumentProcessingJob: mocks.executeDocumentProcessingJob,
   executeTriggeredDocumentProcessingJob: mocks.executeTriggeredDocumentProcessingJob,
   markDocumentProcessingJobFailed: mocks.markDocumentProcessingJobFailed,
 }))
@@ -125,6 +127,7 @@ vi.mock('./workflow-execution', () => ({
 }))
 
 import {
+  executePendingExecution,
   finalizePendingExecutionFailure,
   pendingExecutionRecoverySweep,
   pendingExecutionTask,
@@ -165,6 +168,7 @@ describe('pending execution worker', () => {
     vi.clearAllMocks()
     mocks.cancelPendingWorkflowExecution.mockResolvedValue({ status: 'cancelling' })
     mocks.completePendingExecution.mockResolvedValue(undefined)
+    mocks.executeDocumentProcessingJob.mockResolvedValue(undefined)
     mocks.executeTriggeredDocumentProcessingJob.mockResolvedValue(undefined)
     mocks.executeMonitorJob.mockResolvedValue({ success: true })
     mocks.executeScheduleJob.mockResolvedValue({ success: true })
@@ -257,6 +261,45 @@ describe('pending execution worker', () => {
     expect(mocks.completePendingExecution).toHaveBeenCalledWith({ pendingExecutionId: row.id })
   })
 
+  it('uses direct document processing outside the Trigger runtime', async () => {
+    const row = processingRow({
+      id: 'pending-document-local-1',
+      executionType: 'document',
+      workflowId: null,
+      workspaceId: null,
+      payload: { documentId: 'document-1' },
+    })
+    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+
+    await expect(
+      executePendingExecution({ pendingExecutionId: row.id }, { triggerRuntime: false })
+    ).resolves.toMatchObject({ success: true })
+
+    expect(mocks.executeDocumentProcessingJob).toHaveBeenCalledWith(row.payload)
+    expect(mocks.executeTriggeredDocumentProcessingJob).not.toHaveBeenCalled()
+  })
+
+  it('owns direct document failure finalization without calling Trigger', async () => {
+    const row = processingRow({
+      id: 'pending-document-local-1',
+      executionType: 'document',
+      workflowId: null,
+      workspaceId: null,
+      payload: { documentId: 'document-1' },
+    })
+    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+    mocks.executeDocumentProcessingJob.mockRejectedValueOnce(new Error('PDF parse failed'))
+
+    await expect(
+      executePendingExecution({ pendingExecutionId: row.id }, { triggerRuntime: false })
+    ).rejects.toThrow('PDF parse failed')
+
+    expect(mocks.markDocumentProcessingJobFailed).toHaveBeenCalledOnce()
+    expect(mocks.completePendingExecution).toHaveBeenCalledWith({ pendingExecutionId: row.id })
+    expect(mocks.runsList).not.toHaveBeenCalled()
+    expect(mocks.runsCancel).not.toHaveBeenCalled()
+  })
+
   it('retains parent capacity until a processing child is gone', async () => {
     const parent = processingRow()
     const child = processingRow({ id: 'child-1', source: 'workflow_block' })
@@ -280,6 +323,7 @@ describe('pending execution worker', () => {
       userId: child.userId,
     })
     expect(mocks.runsCancel).toHaveBeenCalledWith('run-EXECUTING')
+    expect(mocks.markPendingExecutionOwnerCompleted).toHaveBeenCalledWith(parent)
     expect(mocks.completePendingExecution).not.toHaveBeenCalled()
   })
 

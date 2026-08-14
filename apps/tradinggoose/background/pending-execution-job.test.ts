@@ -11,13 +11,11 @@ const mocks = vi.hoisted(() => ({
   isScheduleExecutionPayload: vi.fn(),
   isWebhookExecutionPayload: vi.fn(),
   isWorkflowExecutionPayload: vi.fn(),
-  markDocumentProcessingJobFailed: vi.fn(),
 }))
 
 vi.mock('./knowledge-processing', () => ({
   executeDocumentProcessingJob: mocks.executeDocumentProcessingJob,
   executeTriggeredDocumentProcessingJob: mocks.executeTriggeredDocumentProcessingJob,
-  markDocumentProcessingJobFailed: mocks.markDocumentProcessingJobFailed,
 }))
 
 vi.mock('./monitor-execution', () => ({
@@ -66,7 +64,6 @@ describe('pending execution job', () => {
     vi.clearAllMocks()
     mocks.executeDocumentProcessingJob.mockResolvedValue(undefined)
     mocks.executeTriggeredDocumentProcessingJob.mockResolvedValue(undefined)
-    mocks.markDocumentProcessingJobFailed.mockResolvedValue(undefined)
   })
 
   it('executes documents directly when Trigger is disabled', async () => {
@@ -89,7 +86,7 @@ describe('pending execution job', () => {
     expect(mocks.executeDocumentProcessingJob).not.toHaveBeenCalled()
   })
 
-  it('marks direct document failures and propagates them to the caller', async () => {
+  it('propagates direct document failures to the worker lifecycle', async () => {
     const error = new Error('Document parsing failed')
     mocks.executeDocumentProcessingJob.mockRejectedValueOnce(error)
 
@@ -99,10 +96,5 @@ describe('pending execution job', () => {
         { triggerRuntime: false }
       )
     ).rejects.toThrow(error.message)
-
-    expect(mocks.markDocumentProcessingJobFailed).toHaveBeenCalledWith(
-      documentPayload,
-      error.message
-    )
   })
 })
