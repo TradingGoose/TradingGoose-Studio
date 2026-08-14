@@ -127,7 +127,6 @@ vi.mock('./workflow-execution', () => ({
 }))
 
 import {
-  executePendingExecution,
   finalizePendingExecutionFailure,
   pendingExecutionRecoverySweep,
   pendingExecutionTask,
@@ -259,45 +258,6 @@ describe('pending execution worker', () => {
       'PDF parse failed'
     )
     expect(mocks.completePendingExecution).toHaveBeenCalledWith({ pendingExecutionId: row.id })
-  })
-
-  it('uses direct document processing outside the Trigger runtime', async () => {
-    const row = processingRow({
-      id: 'pending-document-local-1',
-      executionType: 'document',
-      workflowId: null,
-      workspaceId: null,
-      payload: { documentId: 'document-1' },
-    })
-    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
-
-    await expect(
-      executePendingExecution({ pendingExecutionId: row.id }, { triggerRuntime: false })
-    ).resolves.toMatchObject({ success: true })
-
-    expect(mocks.executeDocumentProcessingJob).toHaveBeenCalledWith(row.payload)
-    expect(mocks.executeTriggeredDocumentProcessingJob).not.toHaveBeenCalled()
-  })
-
-  it('owns direct document failure finalization without calling Trigger', async () => {
-    const row = processingRow({
-      id: 'pending-document-local-1',
-      executionType: 'document',
-      workflowId: null,
-      workspaceId: null,
-      payload: { documentId: 'document-1' },
-    })
-    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
-    mocks.executeDocumentProcessingJob.mockRejectedValueOnce(new Error('PDF parse failed'))
-
-    await expect(
-      executePendingExecution({ pendingExecutionId: row.id }, { triggerRuntime: false })
-    ).rejects.toThrow('PDF parse failed')
-
-    expect(mocks.markDocumentProcessingJobFailed).toHaveBeenCalledOnce()
-    expect(mocks.completePendingExecution).toHaveBeenCalledWith({ pendingExecutionId: row.id })
-    expect(mocks.runsList).not.toHaveBeenCalled()
-    expect(mocks.runsCancel).not.toHaveBeenCalled()
   })
 
   it('retains parent capacity until a processing child is gone', async () => {

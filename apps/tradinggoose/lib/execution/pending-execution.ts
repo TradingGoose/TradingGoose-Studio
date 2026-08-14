@@ -229,17 +229,17 @@ export async function enqueuePendingExecution(
     if (triggerState.mode === 'unavailable') {
       throw new TriggerExecutionUnavailableError()
     }
+    if (triggerState.mode === 'local') {
+      return { mode: 'local' as const }
+    }
 
-    const billingContext =
-      triggerState.mode === 'trigger'
-        ? await resolveServerExecutionBillingContext({
-            actorUserId: params.userId,
-            workflowId: params.workflowId,
-            workspaceId: params.workspaceId,
-            requestId: params.requestId,
-            source: params.source,
-          })
-        : null
+    const billingContext = await resolveServerExecutionBillingContext({
+      actorUserId: params.userId,
+      workflowId: params.workflowId,
+      workspaceId: params.workspaceId,
+      requestId: params.requestId,
+      source: params.source,
+    })
     const billingScopeId = billingContext ? billingContext.scopeId : params.userId
     const billingScopeType = billingContext ? billingContext.scopeType : 'user'
     const limits = billingContext
@@ -274,7 +274,7 @@ export async function enqueuePendingExecution(
       .limit(1)
 
     if (existingRow) {
-      return { mode: triggerState.mode, billingScopeId, inserted: false, triggerState }
+      return { mode: 'trigger' as const, billingScopeId, inserted: false, triggerState }
     }
 
     if (params.executionType === 'workflow') {
@@ -285,7 +285,7 @@ export async function enqueuePendingExecution(
         .limit(1)
 
       if (existingLog) {
-        return { mode: triggerState.mode, billingScopeId, inserted: false, triggerState }
+        return { mode: 'trigger' as const, billingScopeId, inserted: false, triggerState }
       }
     }
 
@@ -303,7 +303,7 @@ export async function enqueuePendingExecution(
         .limit(1)
 
       if (overlappingRow) {
-        return { mode: triggerState.mode, billingScopeId, inserted: false, triggerState }
+        return { mode: 'trigger' as const, billingScopeId, inserted: false, triggerState }
       }
     }
 
@@ -338,34 +338,23 @@ export async function enqueuePendingExecution(
       workflowId: params.workflowId ?? null,
       workspaceId: params.workspaceId ?? null,
       payload: params.payload,
-      ...(triggerState.mode === 'local'
-        ? {
-            status: 'processing' as const,
-            processingStartedAt: new Date(),
-          }
-        : {}),
     })
-    return { mode: triggerState.mode, billingScopeId, inserted: true, triggerState }
+    return { mode: 'trigger' as const, billingScopeId, inserted: true, triggerState }
   })
 
-  const { billingScopeId, inserted, mode, triggerState } = queueResult
+  if (queueResult.mode === 'local') {
+    return executeLocalPendingExecution(params)
+  }
+
+  const { billingScopeId, inserted, triggerState } = queueResult
 
   if (!inserted) {
-    if (mode === 'trigger' && params.orderingKey) {
+    if (params.orderingKey) {
       await wakePendingExecution({
         billingScopeId,
         requestId: params.requestId,
       })
     }
-    return {
-      pendingExecutionId: params.pendingExecutionId,
-      billingScopeId,
-      inserted,
-    }
-  }
-
-  if (mode === 'local') {
-    startLocalPendingExecution(params.pendingExecutionId, params.requestId)
     return {
       pendingExecutionId: params.pendingExecutionId,
       billingScopeId,
@@ -398,20 +387,24 @@ export async function enqueuePendingExecution(
   }
 }
 
-function startLocalPendingExecution(pendingExecutionId: string, requestId?: string) {
-  void import('@/background/pending-execution-worker')
-    .then(({ executePendingExecution }) => {
-      void executePendingExecution({ pendingExecutionId }, { triggerRuntime: false }).catch(
-        () => undefined
-      )
-    })
-    .catch((error) => {
-      logger.error('Local pending execution could not start', {
-        pendingExecutionId,
-        requestId,
-        error,
-      })
-    })
+async function executeLocalPendingExecution(
+  params: PendingExecutionInsert
+): Promise<PendingExecutionHandle> {
+  const { executePendingExecutionJob } = await import('@/background/pending-execution-job')
+  await executePendingExecutionJob(
+    {
+      id: params.pendingExecutionId,
+      executionType: params.executionType,
+      payload: params.payload,
+    },
+    { triggerRuntime: false }
+  )
+
+  return {
+    pendingExecutionId: params.pendingExecutionId,
+    billingScopeId: params.userId,
+    inserted: true,
+  }
 }
 
 export async function claimNextPendingExecution(

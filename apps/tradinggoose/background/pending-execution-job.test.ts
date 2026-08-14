@@ -86,7 +86,7 @@ describe('pending execution job', () => {
     expect(mocks.executeDocumentProcessingJob).not.toHaveBeenCalled()
   })
 
-  it('propagates direct document failures to the worker lifecycle', async () => {
+  it('propagates direct document failures to the local caller', async () => {
     const error = new Error('Document parsing failed')
     mocks.executeDocumentProcessingJob.mockRejectedValueOnce(error)
 
