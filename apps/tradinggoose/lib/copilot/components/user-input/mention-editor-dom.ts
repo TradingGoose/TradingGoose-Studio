@@ -82,8 +82,18 @@ export function getMentionTextareaCaretClientRect(
   mirror.style.whiteSpace = 'pre-wrap'
   mirror.style.wordWrap = 'break-word'
   mirror.style.overflowWrap = styles.overflowWrap
-  mirror.style.boxSizing = styles.boxSizing
-  mirror.style.font = styles.font
+  mirror.style.wordBreak = styles.wordBreak
+  mirror.style.boxSizing = 'content-box'
+  mirror.style.fontFamily = styles.fontFamily
+  mirror.style.fontFeatureSettings = styles.fontFeatureSettings
+  mirror.style.fontKerning = styles.fontKerning
+  mirror.style.fontSize = styles.fontSize
+  mirror.style.fontSizeAdjust = styles.fontSizeAdjust
+  mirror.style.fontStretch = styles.fontStretch
+  mirror.style.fontStyle = styles.fontStyle
+  mirror.style.fontVariant = styles.fontVariant
+  mirror.style.fontVariationSettings = styles.fontVariationSettings
+  mirror.style.fontWeight = styles.fontWeight
   mirror.style.letterSpacing = styles.letterSpacing
   mirror.style.padding = styles.padding
   mirror.style.border = styles.border
@@ -92,7 +102,10 @@ export function getMentionTextareaCaretClientRect(
   mirror.style.textIndent = styles.textIndent
   mirror.style.textTransform = styles.textTransform
   mirror.style.tabSize = styles.tabSize
-  mirror.style.width = `${textarea.clientWidth}px`
+  mirror.style.wordSpacing = styles.wordSpacing
+  const horizontalPadding =
+    (Number.parseFloat(styles.paddingLeft) || 0) + (Number.parseFloat(styles.paddingRight) || 0)
+  mirror.style.width = `${Math.max(0, textarea.clientWidth - horizontalPadding)}px`
 
   const marker = document.createElement('span')
   marker.textContent = '\u200B'

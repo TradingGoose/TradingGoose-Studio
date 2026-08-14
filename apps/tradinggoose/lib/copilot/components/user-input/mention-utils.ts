@@ -89,9 +89,11 @@ export function upsertMentionContextByTextOrder(
   text: string,
   mentionStart: number
 ): ChatContext[] {
-  const nextContextKey = buildCopilotContextIdentityKey(nextContext)
+  const nextContextKey = readMentionContextIdentityKey(nextContext)
+  if (nextContextKey === null) return contexts
+
   const existingIndex = contexts.findIndex(
-    (context) => buildCopilotContextIdentityKey(context) === nextContextKey
+    (context) => readMentionContextIdentityKey(context) === nextContextKey
   )
 
   if (existingIndex !== -1) {

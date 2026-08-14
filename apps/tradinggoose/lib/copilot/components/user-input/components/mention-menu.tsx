@@ -1,6 +1,6 @@
 'use client'
 
-import type { MouseEvent, ReactNode, RefObject } from 'react'
+import type { MouseEvent, RefObject } from 'react'
 import {
   Activity,
   Blocks,
@@ -126,7 +126,7 @@ const renderEntityBadge = ({
   )
 }
 
-const WORKSPACE_ENTITY_MAIN_OPTION_ICONS: Record<CopilotWorkspaceEntityKind, LucideIcon> = {
+const WORKSPACE_ENTITY_ICONS: Record<CopilotWorkspaceEntityKind, LucideIcon> = {
   workflow: Workflow,
   skill: ToolCase,
   indicator: Activity,
@@ -138,62 +138,24 @@ const WORKSPACE_ENTITY_MAIN_OPTION_ICONS: Record<CopilotWorkspaceEntityKind, Luc
 }
 
 const renderWorkspaceEntityMainOptionIcon = (entityKind: CopilotWorkspaceEntityKind) => {
-  const Icon = WORKSPACE_ENTITY_MAIN_OPTION_ICONS[entityKind]
+  const Icon = WORKSPACE_ENTITY_ICONS[entityKind]
   return <Icon className='h-3.5 w-3.5 text-muted-foreground' />
 }
 
-const WORKSPACE_ENTITY_ITEM_RENDERERS: Record<
-  CopilotWorkspaceEntityKind,
-  (entity: WorkspaceEntityItem, label: string) => ReactNode
-> = {
-  workflow: (entity, label) => (
+const renderWorkspaceEntityItem = (entity: WorkspaceEntityItem, label: string) => {
+  const color =
+    entity.entityKind === 'workflow' || entity.entityKind === 'indicator' ? entity.color : undefined
+
+  return (
     <>
-      {renderEntityBadge({ icon: Workflow, entityId: entity.id, color: entity.color })}
+      {renderEntityBadge({
+        icon: WORKSPACE_ENTITY_ICONS[entity.entityKind],
+        entityId: entity.id,
+        color,
+      })}
       <span className='truncate'>{label}</span>
     </>
-  ),
-  skill: (entity, label) => (
-    <>
-      {renderEntityBadge({ icon: ToolCase, entityId: entity.id })}
-      <span className='truncate'>{label}</span>
-    </>
-  ),
-  indicator: (entity, label) => (
-    <>
-      {renderEntityBadge({ icon: Activity, entityId: entity.id, color: entity.color })}
-      <span className='truncate'>{label}</span>
-    </>
-  ),
-  custom_tool: (entity, label) => (
-    <>
-      {renderEntityBadge({ icon: Wrench, entityId: entity.id })}
-      <span className='truncate'>{label}</span>
-    </>
-  ),
-  mcp_server: (entity, label) => (
-    <>
-      {renderEntityBadge({ icon: Server, entityId: entity.id })}
-      <span className='truncate'>{label}</span>
-    </>
-  ),
-  watchlist: (entity, label) => (
-    <>
-      {renderEntityBadge({ icon: ListChecks, entityId: entity.id })}
-      <span className='truncate'>{label}</span>
-    </>
-  ),
-  dashboard_layout: (entity, label) => (
-    <>
-      {renderEntityBadge({ icon: Grid2x2, entityId: entity.id })}
-      <span className='truncate'>{label}</span>
-    </>
-  ),
-  knowledge_base: (entity, label) => (
-    <>
-      {renderEntityBadge({ icon: LibraryBig, entityId: entity.id })}
-      <span className='truncate'>{label}</span>
-    </>
-  ),
+  )
 }
 
 const renderMainOptionIcon = (option: MentionOption) => {
@@ -244,10 +206,7 @@ const renderMentionItemContent = (
 
   if (isCopilotWorkspaceEntityMentionOption(type)) {
     const entity = item as WorkspaceEntityItem
-    return WORKSPACE_ENTITY_ITEM_RENDERERS[entity.entityKind](
-      entity,
-      getWorkspaceEntityMentionLabel(mentionCopy, entity)
-    )
+    return renderWorkspaceEntityItem(entity, getWorkspaceEntityMentionLabel(mentionCopy, entity))
   }
 
   if (type === 'blocks') {

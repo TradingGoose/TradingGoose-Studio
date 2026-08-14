@@ -20,8 +20,8 @@ const revokePreviewUrls = (files: AttachedFile[]) => {
 export function useUserInputAttachments({ userId }: { userId?: string }) {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
-  const [, setDragCounter] = useState(0)
   const attachedFilesRef = useRef<AttachedFile[]>([])
+  const dragDepthRef = useRef(0)
 
   useEffect(() => {
     attachedFilesRef.current = attachedFiles
@@ -95,7 +95,10 @@ export function useUserInputAttachments({ userId }: { userId?: string }) {
             multipart: file.size > 8 * 1024 * 1024,
           })
         } else if (presignedData.directUploadSupported !== false) {
-          logger.info(`Uploading file: ${presignedData.presignedUrl}`)
+          logger.info('Uploading Copilot file', {
+            fileName: file.name,
+            fileKey: presignedData.fileInfo.key,
+          })
           const uploadResponse = await fetch(presignedData.presignedUrl, {
             method: 'PUT',
             headers: {
@@ -170,30 +173,16 @@ export function useUserInputAttachments({ userId }: { userId?: string }) {
     event.preventDefault()
     event.stopPropagation()
 
-    setDragCounter((prev) => {
-      const nextCount = prev + 1
-
-      if (nextCount === 1) {
-        setIsDragging(true)
-      }
-
-      return nextCount
-    })
+    dragDepthRef.current += 1
+    if (dragDepthRef.current === 1) setIsDragging(true)
   }
 
   const handleDragLeave = (event: DragEvent) => {
     event.preventDefault()
     event.stopPropagation()
 
-    setDragCounter((prev) => {
-      const nextCount = Math.max(0, prev - 1)
-
-      if (nextCount === 0) {
-        setIsDragging(false)
-      }
-
-      return nextCount
-    })
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+    setIsDragging(dragDepthRef.current > 0)
   }
 
   const handleDragOver = (event: DragEvent) => {
@@ -205,8 +194,8 @@ export function useUserInputAttachments({ userId }: { userId?: string }) {
   const handleDrop = async (event: DragEvent) => {
     event.preventDefault()
     event.stopPropagation()
+    dragDepthRef.current = 0
     setIsDragging(false)
-    setDragCounter(0)
 
     if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
       await processFiles(event.dataTransfer.files)

@@ -296,7 +296,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         setIsNearTop(showBelow)
       }
 
-      let rafId: number | null = null
       if (showMentionMenu) {
         updatePosition()
         window.addEventListener('resize', updatePosition)
@@ -306,20 +305,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           scrollContainer.addEventListener('scroll', updatePosition, { passive: true })
         }
 
-        const loop = () => {
-          updatePosition()
-          rafId = requestAnimationFrame(loop)
-        }
-
-        rafId = requestAnimationFrame(loop)
-
         return () => {
           window.removeEventListener('resize', updatePosition)
           if (scrollContainer) {
             scrollContainer.removeEventListener('scroll', updatePosition)
-          }
-          if (rafId) {
-            cancelAnimationFrame(rafId)
           }
         }
       }
