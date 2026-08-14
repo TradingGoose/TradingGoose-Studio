@@ -1,9 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
-import CopilotMarkdownRenderer from './markdown-renderer'
-import { SmoothStreamingText } from './smooth-streaming'
 
 /**
  * Plan step can be either a string or an object with title and plan
@@ -14,6 +12,14 @@ type PlanStep = string | { title: string; plan?: string }
  * Option can be either a string or an object with title and description
  */
 type OptionItem = string | { title: string; description?: string }
+
+function decodePartialJsonString(value: string): string {
+  try {
+    return JSON.parse(`"${value}"`)
+  } catch {
+    return value
+  }
+}
 
 export interface ParsedTags {
   plan?: Record<string, PlanStep>
@@ -37,16 +43,16 @@ function parsePartialOptionsJson(jsonStr: string): Record<string, OptionItem> | 
 
   const result: Record<string, OptionItem> = {}
   // Match complete string values: "key": "value"
-  const stringPattern = /"(\d+)":\s*"([^"]*?)"/g
+  const stringPattern = /"(\d+)":\s*"((?:[^"\\]|\\.)*)"/g
   let match
   while ((match = stringPattern.exec(jsonStr)) !== null) {
-    result[match[1]] = match[2]
+    result[match[1]] = decodePartialJsonString(match[2])
   }
 
   // Match complete object values: "key": {"title": "value"}
-  const objectPattern = /"(\d+)":\s*\{[^}]*"title":\s*"([^"]*)"[^}]*\}/g
+  const objectPattern = /"(\d+)":\s*\{[^{}]*"title":\s*"((?:[^"\\]|\\.)*)"/g
   while ((match = objectPattern.exec(jsonStr)) !== null) {
-    result[match[1]] = { title: match[2] }
+    result[match[1]] = { title: decodePartialJsonString(match[2]) }
   }
 
   return Object.keys(result).length > 0 ? result : null
@@ -69,13 +75,13 @@ function parsePartialPlanJson(jsonStr: string): Record<string, PlanStep> | null 
   const stringPattern = /"(\d+)":\s*"((?:[^"\\]|\\.)*)"/g
   let match
   while ((match = stringPattern.exec(jsonStr)) !== null) {
-    result[match[1]] = match[2].replace(/\\"/g, '"').replace(/\\n/g, '\n')
+    result[match[1]] = decodePartialJsonString(match[2])
   }
 
   // Match complete object values: "key": {"title": "value"}
   const objectPattern = /"(\d+)":\s*\{[^{}]*"title":\s*"((?:[^"\\]|\\.)*)"/g
   while ((match = objectPattern.exec(jsonStr)) !== null) {
-    result[match[1]] = { title: match[2].replace(/\\"/g, '"').replace(/\\n/g, '\n') }
+    result[match[1]] = { title: decodePartialJsonString(match[2]) }
   }
 
   return Object.keys(result).length > 0 ? result : null
@@ -180,8 +186,6 @@ export function OptionsSelector({
 
   const [hoveredIndex, setHoveredIndex] = useState(0)
   const [chosenKey, setChosenKey] = useState<string | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-
   const isLocked = chosenKey !== null
 
   // Handle keyboard navigation - only for the active options selector
@@ -194,6 +198,9 @@ export function OptionsSelector({
       const isInputFocused =
         activeElement?.tagName === 'INPUT' ||
         activeElement?.tagName === 'TEXTAREA' ||
+        activeElement?.tagName === 'BUTTON' ||
+        activeElement?.tagName === 'SELECT' ||
+        activeElement?.tagName === 'A' ||
         activeElement?.getAttribute('contenteditable') === 'true'
 
       if (isInputFocused) return
@@ -230,15 +237,18 @@ export function OptionsSelector({
   if (sortedOptions.length === 0) return null
 
   return (
-    <div ref={containerRef} className='flex flex-col gap-1 pb-1'>
+    <div className='flex flex-col gap-1 pb-1'>
       {sortedOptions.map((option, index) => {
         const isHovered = index === hoveredIndex && !isLocked
         const isChosen = option.key === chosenKey
         const isRejected = isLocked && !isChosen
 
         return (
-          <div
+          <button
+            type='button'
             key={option.key}
+            disabled={isInteractionDisabled || isLocked}
+            aria-pressed={isChosen}
             onClick={() => {
               if (!isInteractionDisabled && !isLocked) {
                 setChosenKey(option.key)
@@ -249,7 +259,7 @@ export function OptionsSelector({
               if (!isLocked && !streaming) setHoveredIndex(index)
             }}
             className={cn(
-              'group flex cursor-pointer items-start gap-2 rounded-md p-1 transition-colors items-center',
+              'group flex w-full cursor-pointer items-center gap-2 rounded-md p-1 text-left transition-colors',
               'hover:bg-muted/60',
               disabled && !isChosen && 'cursor-not-allowed opacity-50',
               streaming && 'pointer-events-none',
@@ -259,7 +269,7 @@ export function OptionsSelector({
           >
             <span
               className={cn(
-                'flex h-5 w-5 items-center justify-center rounded border border-border bg-background text-[11px] font-semibold text-muted-foreground transition-all',
+                'flex h-5 w-5 items-center justify-center rounded border border-border bg-background font-semibold text-[11px] text-muted-foreground transition-all',
                 (isHovered || isChosen) && 'text-foreground shadow-sm'
               )}
             >
@@ -268,18 +278,14 @@ export function OptionsSelector({
 
             <span
               className={cn(
-                'min-w-0 flex-1 pt-0.5 text-xs text-muted-foreground leading-5 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[11px] [&_p]:m-0 [&_p]:leading-5',
+                'min-w-0 flex-1 pt-0.5 text-muted-foreground text-xs leading-5 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[11px] [&_p]:m-0 [&_p]:leading-5',
                 isRejected && 'line-through opacity-50',
                 (isHovered || isChosen) && 'text-foreground'
               )}
             >
-              {streaming ? (
-                <SmoothStreamingText content={option.title} isStreaming={true} />
-              ) : (
-                <CopilotMarkdownRenderer content={option.title} />
-              )}
+              {option.title}
             </span>
-          </div>
+          </button>
         )
       })}
     </div>
