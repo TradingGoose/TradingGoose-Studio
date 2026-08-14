@@ -28,12 +28,6 @@ function getThinkingDuration(block: ThinkingContentBlock): number | null {
   if (typeof block.duration === 'number' && block.duration > 0) {
     return block.duration
   }
-
-  if (typeof block.startTime === 'number') {
-    const duration = Date.now() - block.startTime
-    return duration > 0 ? duration : null
-  }
-
   return null
 }
 
@@ -80,6 +74,7 @@ export function ThinkingGroup({ blocks, isStreaming = false }: ThinkingGroupProp
     <div className='w-full rounded-md border border-border/60 bg-muted/30'>
       <button
         type='button'
+        aria-expanded={isExpanded}
         onClick={() => {
           setIsExpanded((current) => {
             const next = !current

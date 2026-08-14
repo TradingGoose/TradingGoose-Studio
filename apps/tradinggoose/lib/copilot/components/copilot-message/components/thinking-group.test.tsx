@@ -48,6 +48,7 @@ describe('ThinkingGroup', () => {
 
     expect(container.textContent).toContain('Thinking...')
     expect(container.textContent).toContain('Inspecting the workflow.')
+    expect(container.querySelector('button')?.getAttribute('aria-expanded')).toBe('true')
 
     await act(async () => {
       root.render(<ThinkingGroup blocks={blocks} isStreaming={false} />)
@@ -55,6 +56,7 @@ describe('ThinkingGroup', () => {
 
     expect(container.textContent).toContain('Thought for 1.3s')
     expect(container.textContent).not.toContain('Thinking...')
+    expect(container.querySelector('button')?.getAttribute('aria-expanded')).toBe('false')
   })
 
   it('does not show a fake zero duration when timing is unavailable', async () => {
@@ -73,6 +75,25 @@ describe('ThinkingGroup', () => {
 
     expect(container.textContent).toContain('Finished thinking')
     expect(container.textContent).not.toContain('Thought for 0ms')
+  })
+
+  it('does not derive a finalized duration from a stale start time', async () => {
+    const blocks = [
+      {
+        type: 'thinking' as const,
+        content: 'Historical reasoning.',
+        timestamp: 1,
+        itemId: 'thinking-1',
+        startTime: 1,
+      },
+    ]
+
+    await act(async () => {
+      root.render(<ThinkingGroup blocks={blocks} isStreaming={false} />)
+    })
+
+    expect(container.textContent).toContain('Finished thinking')
+    expect(container.textContent).not.toContain('Thought for')
   })
 
   it('renders expanded thinking content as markdown', async () => {
