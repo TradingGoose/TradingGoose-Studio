@@ -28,7 +28,6 @@ describe('OutputPanel', () => {
       <OutputPanel
         entry={{
           ...baseEntry,
-          error: 'persisted English deadline error',
           code: 'WORKFLOW_EXECUTION_TIME_LIMIT_EXCEEDED',
           deadline: {
             appliedTierId: 'tier-pro',
@@ -45,7 +44,9 @@ describe('OutputPanel', () => {
     expect(markup).toContain('Workflow execution time limit exceeded')
     expect(markup).toContain('Applied limit: 20 seconds')
     expect(markup).toContain('Applied tier: Pro')
-    expect(markup).not.toContain('persisted English deadline error')
+    expect(markup).toContain('role="alert"')
+    expect(markup).toContain('>error</span>')
+    expect(markup).not.toContain('>noOutput</div>')
   })
 
   it('preserves generic error rendering', () => {

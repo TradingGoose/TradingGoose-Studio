@@ -205,6 +205,7 @@ export function OutputPanel({
   const displayError = useMemo(() => {
     return formatWorkflowExecutionDeadline(entry, tDeadline)?.text ?? entry.error
   }, [entry.code, entry.deadline, entry.error, tDeadline])
+  const hasDisplayError = Boolean(displayError)
 
   // Check if entry has audio data
   const hasAudio = useMemo(() => {
@@ -382,7 +383,7 @@ export function OutputPanel({
 
   const isRunning = Boolean(entry.isRunning)
   const isCanceled = Boolean(entry.isCanceled)
-  const isOutputError = !showInput && Boolean(entry.error)
+  const isOutputError = !showInput && hasDisplayError
   const isOutputRunning = !showInput && isRunning
   const hasDisplayData = showInput ? hasInputData : displayData !== undefined
 
@@ -445,10 +446,10 @@ export function OutputPanel({
       <div className='flex flex-wrap items-center gap-2'>
         <div
           className={`flex h-5 items-center rounded-lg px-2 ${
-            entry.error ? 'bg-[#F6D2D2] dark:bg-[#442929]' : 'bg-secondary'
+            hasDisplayError ? 'bg-[#F6D2D2] dark:bg-[#442929]' : 'bg-secondary'
           }`}
         >
-          {entry.error ? (
+          {hasDisplayError ? (
             <div className='flex items-center gap-1'>
               <AlertCircle className='h-3 w-3 text-[#DC2626] dark:text-[#F87171]' />
               <span className='font-normal text-[#DC2626] text-xs leading-normal dark:text-[#F87171]'>
@@ -535,7 +536,7 @@ export function OutputPanel({
       {/* Response area */}
       <div className={isDetailView ? 'flex min-h-0 flex-1 flex-col' : 'space-y-2 pb-2'}>
         {/* Error display */}
-        {entry.error && !showInput && !isDetailView && (
+        {hasDisplayError && !showInput && !isDetailView && (
           <div className='rounded-lg bg-[#F6D2D2] p-3 dark:bg-[#442929]'>
             <div className='overflow-hidden whitespace-pre-wrap break-all font-normal text-[#DC2626] text-sm leading-normal dark:text-[#F87171]'>
               {displayError}
@@ -679,7 +680,7 @@ export function OutputPanel({
         )}
 
         {/* No output message */}
-        {!showInput && entry.output == null && !entry.error && (
+        {!showInput && entry.output == null && !hasDisplayError && (
           <div className='rounded-lg bg-secondary/50 p-3'>
             <div className='text-center font-normal text-muted-foreground text-sm leading-normal'>
               {isRunning ? copy.runningEllipsis : isCanceled ? copy.canceled : copy.noOutput}
