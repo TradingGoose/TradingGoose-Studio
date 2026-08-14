@@ -19,6 +19,7 @@ import {
 } from '@/lib/copilot/auth'
 import { replaceCopilotWorkspaceEntityMentionsWithIds } from '@/lib/copilot/chat-contexts'
 import { mirrorLocalCopilotCompletionUsageReports } from '@/lib/copilot/completion-usage-billing'
+import { MAX_COPILOT_CONTEXTS_PER_TURN } from '@/lib/copilot/context-limits'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import {
   mapSessionToApiResponse,
@@ -731,7 +732,7 @@ const ChatMessageSchema = z.object({
   provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
   conversationId: z.string().optional(),
   workspaceId: z.string().optional(),
-  contexts: z.array(ChatContextSchema).optional(),
+  contexts: z.array(ChatContextSchema).max(MAX_COPILOT_CONTEXTS_PER_TURN).optional(),
 })
 
 /** POST /api/copilot/chat */
@@ -831,10 +832,31 @@ export async function POST(req: NextRequest) {
         .orderBy(asc(copilotReviewItems.sequence))
 
       conversationHistory = existingMessages.map(mapReviewItemToApi)
-    } else {
-      if (!model || typeof model !== 'string') {
-        return createBadRequestResponse('model is required when creating a new review session')
+    } else if (!model || typeof model !== 'string') {
+      return createBadRequestResponse('model is required when creating a new review session')
+    }
+
+    let agentContexts: Array<{ type: string; tag?: string; content: string }> = []
+    if (Array.isArray(contexts) && contexts.length > 0) {
+      const { processContextsServer } = await import('@/lib/copilot/process-contents')
+      agentContexts = await processContextsServer(
+        contexts as any,
+        authenticatedUserId,
+        message,
+        activeWorkspaceId,
+        { signal: upstreamAbortController.signal }
+      )
+      logger.info(`[${tracker.requestId}] Contexts processed for request`, {
+        processedCount: agentContexts.length,
+        kinds: agentContexts.map((c) => c.type),
+        lengthPreview: agentContexts.map((c) => c.content?.length ?? 0),
+      })
+      if (agentContexts.length === 0) {
+        logger.warn(`[${tracker.requestId}] Contexts provided but none processed.`)
       }
+    }
+
+    if (!incomingReviewSessionId) {
       const [newSession] = await db
         .insert(copilotReviewSessions)
         .values({
@@ -852,25 +874,6 @@ export async function POST(req: NextRequest) {
         currentSession = newSession
         actualReviewSessionId = newSession.id
         sessionCreatedThisRequest = true
-      }
-    }
-
-    let agentContexts: Array<{ type: string; tag?: string; content: string }> = []
-    if (Array.isArray(contexts) && contexts.length > 0) {
-      const { processContextsServer } = await import('@/lib/copilot/process-contents')
-      agentContexts = await processContextsServer(
-        contexts as any,
-        authenticatedUserId,
-        message,
-        activeWorkspaceId
-      )
-      logger.info(`[${tracker.requestId}] Contexts processed for request`, {
-        processedCount: agentContexts.length,
-        kinds: agentContexts.map((c) => c.type),
-        lengthPreview: agentContexts.map((c) => c.content?.length ?? 0),
-      })
-      if (agentContexts.length === 0) {
-        logger.warn(`[${tracker.requestId}] Contexts provided but none processed.`)
       }
     }
 
@@ -955,10 +958,6 @@ export async function POST(req: NextRequest) {
         timestamp: new Date().toISOString(),
         ...(fileAttachments && fileAttachments.length > 0 && { fileAttachments }),
         ...(Array.isArray(contexts) && contexts.length > 0 && { contexts }),
-        ...(Array.isArray(contexts) &&
-          contexts.length > 0 && {
-            contentBlocks: [{ type: 'contexts', contexts: contexts as any, timestamp: Date.now() }],
-          }),
       }
 
       let reader: ReadableStreamDefaultReader<Uint8Array> | null = null

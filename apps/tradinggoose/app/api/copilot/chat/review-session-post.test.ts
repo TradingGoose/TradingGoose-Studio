@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest, mockAuth, setupCommonApiMocks } from '@/app/api/__test-utils__/utils'
 
@@ -497,6 +497,8 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const response = await POST(request)
 
     expect(response.status).toBe(200)
+    const contextSignal = mockProcessContextsServer.mock.calls[0]?.[4]?.signal
+    expect(contextSignal).toBeInstanceOf(AbortSignal)
     expect(mockProcessContextsServer).toHaveBeenCalledWith(
       [
         {
@@ -508,7 +510,8 @@ describe('Copilot Chat POST Generic Sessions', () => {
       ],
       'collaborator-user',
       'Update the current indicator',
-      'workspace-1'
+      'workspace-1',
+      { signal: contextSignal }
     )
     expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -528,7 +531,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
             },
           ],
         }),
-        signal: expect.any(AbortSignal),
+        signal: contextSignal,
       })
     )
   })
@@ -568,6 +571,68 @@ describe('Copilot Chat POST Generic Sessions', () => {
     })
     expect(mockProcessContextsServer).not.toHaveBeenCalled()
     expect(mockProxyCopilotRequest).not.toHaveBeenCalled()
+  })
+
+  it('does not create a new chat when context hydration is aborted', async () => {
+    const controller = new AbortController()
+    mockProcessContextsServer.mockImplementation(
+      (...args: unknown[]) =>
+        new Promise((_resolve, reject) => {
+          const signal = (args[4] as { signal: AbortSignal }).signal
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+        })
+    )
+    const request = new NextRequest('http://localhost:3000/api/copilot/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: 'Read the current monitor',
+        model: 'claude-sonnet-4.6',
+        stream: false,
+        workspaceId: 'workspace-1',
+        contexts: [
+          {
+            kind: 'current_monitor',
+            monitorId: 'monitor-1',
+            workspaceId: 'workspace-1',
+            label: 'Current monitor',
+          },
+        ],
+      }),
+      signal: controller.signal,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const pending = POST(request)
+    await vi.waitFor(() => expect(mockProcessContextsServer).toHaveBeenCalled())
+    expect(mockInsert).not.toHaveBeenCalled()
+
+    controller.abort()
+    const response = await pending
+
+    expect(response.status).toBe(204)
+    expect(mockInsert).not.toHaveBeenCalled()
+    expect(mockProxyCopilotRequest).not.toHaveBeenCalled()
+  })
+
+  it('rejects context arrays above the per-turn limit before creating a chat', async () => {
+    const request = createMockRequest('POST', {
+      message: 'Read these contexts',
+      model: 'claude-sonnet-4.6',
+      stream: false,
+      workspaceId: 'workspace-1',
+      contexts: Array.from({ length: 17 }, (_, index) => ({
+        kind: 'blocks',
+        blockTypes: [`block-${index}`],
+        label: `Block ${index}`,
+      })),
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(400)
+    expect(mockProcessContextsServer).not.toHaveBeenCalled()
+    expect(mockInsert).not.toHaveBeenCalled()
   })
 
   it('keeps entity labels in the saved message but sends ordered ids to the model', async () => {
