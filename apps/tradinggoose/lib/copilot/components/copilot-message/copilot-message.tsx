@@ -531,7 +531,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             >
               <SmoothStreamingText
                 content={cleanBlockContent}
-                isStreaming={Boolean(isStreaming)}
                 typingKey={segment.key}
                 onTypingStateChange={handleTypingStateChange}
               />

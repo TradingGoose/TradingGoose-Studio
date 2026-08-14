@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import CopilotMarkdownRenderer from './markdown-renderer'
 
 export const StreamingIndicator = memo(() => (
@@ -24,7 +25,6 @@ StreamingIndicator.displayName = 'StreamingIndicator'
 
 interface SmoothStreamingTextProps {
   content: string
-  isStreaming: boolean
   typingKey?: string
   onTypingStateChange?: (typingKey: string, isTyping: boolean) => void
 }
@@ -33,7 +33,7 @@ const REVEAL_CHARS_PER_SECOND = 60
 const REVEAL_CHARS_PER_MS = REVEAL_CHARS_PER_SECOND / 1000
 
 export const SmoothStreamingText = memo(
-  ({ content, isStreaming, typingKey, onTypingStateChange }: SmoothStreamingTextProps) => {
+  ({ content, typingKey, onTypingStateChange }: SmoothStreamingTextProps) => {
     const [displayedLength, setDisplayedLength] = useState(content.length)
     const frameRef = useRef<number | null>(null)
     const lastFrameTimeRef = useRef<number | null>(null)
@@ -41,17 +41,21 @@ export const SmoothStreamingText = memo(
     const displayedLengthRef = useRef(content.length)
     const targetContentRef = useRef(content)
     const isTypingRef = useRef(false)
+    const onTypingStateChangeRef = useLatestRef(onTypingStateChange)
+    const typingKeyRef = useLatestRef(typingKey)
 
     useEffect(() => {
       return () => {
         if (frameRef.current !== null) {
           cancelAnimationFrame(frameRef.current)
+          frameRef.current = null
         }
-        if (typingKey && isTypingRef.current) {
-          onTypingStateChange?.(typingKey, false)
+        const latestTypingKey = typingKeyRef.current
+        if (latestTypingKey && isTypingRef.current) {
+          onTypingStateChangeRef.current?.(latestTypingKey, false)
         }
       }
-    }, [onTypingStateChange, typingKey])
+    }, [onTypingStateChangeRef, typingKeyRef])
 
     useEffect(() => {
       targetContentRef.current = content
@@ -59,8 +63,9 @@ export const SmoothStreamingText = memo(
       const setTypingState = (isTyping: boolean) => {
         if (isTypingRef.current === isTyping) return
         isTypingRef.current = isTyping
-        if (typingKey) {
-          onTypingStateChange?.(typingKey, isTyping)
+        const latestTypingKey = typingKeyRef.current
+        if (latestTypingKey) {
+          onTypingStateChangeRef.current?.(latestTypingKey, isTyping)
         }
       }
 
@@ -126,7 +131,7 @@ export const SmoothStreamingText = memo(
         setTypingState(true)
         frameRef.current = requestAnimationFrame(tick)
       }
-    }, [content, isStreaming, onTypingStateChange, typingKey])
+    }, [content, onTypingStateChangeRef, typingKeyRef])
 
     const displayedContent = content.slice(0, displayedLength)
 

@@ -24,13 +24,8 @@ const getTextContent = (element: React.ReactNode): string => {
   return ''
 }
 
-// Fix for code block text rendering issues
-if (typeof document !== 'undefined') {
-  const styleId = 'copilot-markdown-fix'
-  if (!document.getElementById(styleId)) {
-    const style = document.createElement('style')
-    style.id = styleId
-    style.textContent = `
+const COPILOT_MARKDOWN_STYLE_ID = 'copilot-markdown-fix'
+const COPILOT_MARKDOWN_STYLES = `
       .copilot-markdown-wrapper pre {
         color: #e5e7eb !important;
         font-weight: 400 !important;
@@ -100,9 +95,6 @@ if (typeof document !== 'undefined') {
         margin-top: 0.25rem !important;
       }
     `
-    document.head.appendChild(style)
-  }
-}
 
 // Link component with preview
 function LinkWithPreview({ href, children }: { href: string; children: React.ReactNode }) {
@@ -135,6 +127,17 @@ interface CopilotMarkdownRendererProps {
 export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRendererProps) {
   const copilotCopy = useCopilotMessages()
   const [copiedCodeBlocks, setCopiedCodeBlocks] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || document.getElementById(COPILOT_MARKDOWN_STYLE_ID)) {
+      return
+    }
+
+    const style = document.createElement('style')
+    style.id = COPILOT_MARKDOWN_STYLE_ID
+    style.textContent = COPILOT_MARKDOWN_STYLES
+    document.head.appendChild(style)
+  }, [])
 
   // Reset copy success state after 2 seconds
   useEffect(() => {
@@ -202,14 +205,8 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
           {children}
         </ol>
       ),
-      li: ({
-        children,
-        ordered,
-      }: React.LiHTMLAttributes<HTMLLIElement> & { ordered?: boolean }) => (
-        <li
-          className='space-b-1 font-sans text-gray-800 dark:text-gray-200'
-          style={{ display: 'list-item' }}
-        >
+      li: ({ children }: React.LiHTMLAttributes<HTMLLIElement>) => (
+        <li className='font-sans text-gray-800 dark:text-gray-200' style={{ display: 'list-item' }}>
           {children}
         </li>
       ),
@@ -228,7 +225,7 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
             children?: React.ReactNode
           }>
           codeContent = childElement.props.children
-          language = childElement.props.className?.replace('language-', '') || 'code'
+          language = childElement.props.className?.match(/(?:^|\s)language-([^\s]+)/)?.[1] ?? 'code'
         }
 
         // Extract actual text content
@@ -259,12 +256,14 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
 
         const showCopySuccess = copiedCodeBlocks[codeBlockKey] || false
 
-        const handleCopy = () => {
+        const handleCopy = async () => {
           const textToCopy = actualCodeText
-          if (textToCopy) {
-            navigator.clipboard.writeText(textToCopy)
+          if (!textToCopy) return
+
+          try {
+            await navigator.clipboard.writeText(textToCopy)
             setCopiedCodeBlocks((prev) => ({ ...prev, [codeBlockKey]: true }))
-          }
+          } catch {}
         }
 
         return (
@@ -272,6 +271,7 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
             <div className='flex items-center justify-between border-gray-700 border-b px-4 py-1.5 dark:border-gray-800'>
               <span className='font-geist-sans text-gray-400 text-xs'>{language}</span>
               <button
+                type='button'
                 onClick={handleCopy}
                 className='text-muted-foreground transition-colors hover:text-gray-300'
                 title={copilotCopy.message.copy}
@@ -294,17 +294,15 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
 
       // Inline code
       code: ({
-        inline,
         className,
         children,
         node: _node,
         ...props
       }: React.HTMLAttributes<HTMLElement> & {
         className?: string
-        inline?: boolean
         node?: unknown
       }) => {
-        if (inline) {
+        if (!className?.includes('language-')) {
           return (
             <code
               className='whitespace-normal break-all rounded bg-gray-200 px-1 py-0.5 font-mono text-[0.9em] text-gray-800 dark:bg-gray-700 dark:text-gray-200'
