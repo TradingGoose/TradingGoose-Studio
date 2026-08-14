@@ -24,8 +24,8 @@ export function isMonitorExecutionPayload(value: unknown): value is MonitorExecu
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const source = (value as { source?: unknown }).source
   if (typeof source !== 'string') return false
-  const isPayload = monitorExecutionHandlers[source as keyof typeof monitorExecutionHandlers]
-  return isPayload ? isPayload(value) : false
+  if (!Object.hasOwn(monitorExecutionHandlers, source)) return false
+  return monitorExecutionHandlers[source as keyof typeof monitorExecutionHandlers](value)
 }
 
 export async function executeMonitorJob(
