@@ -4,6 +4,7 @@ import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { registerClientTool, unregisterClientTool } from '@/lib/copilot/tools/client/manager'
 import { encodeSSE } from '@/lib/utils'
 import { environmentKeys } from '@/hooks/queries/environment'
+import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
 import { getCopilotStore } from '@/stores/copilot/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { createExecutionContext } from '@/stores/copilot/tool-registry'
@@ -2659,8 +2660,18 @@ describe('copilot streaming regressions', () => {
 
   it('keeps stores isolated even when they reference the same review session', () => {
     const reviewSessionId = 'review-isolated-session'
-    const primaryStore = getCopilotStore('copilot-isolated-primary')
-    const secondaryStore = getCopilotStore('copilot-isolated-secondary')
+    const primaryStore = getCopilotStore(
+      buildCopilotWorkspaceChannelId({
+        authenticatedUserId: 'user-isolated',
+        workspaceId: 'workspace-isolated-primary',
+      })
+    )
+    const secondaryStore = getCopilotStore(
+      buildCopilotWorkspaceChannelId({
+        authenticatedUserId: 'user-isolated',
+        workspaceId: 'workspace-isolated-secondary',
+      })
+    )
     const sharedChat = {
       reviewSessionId,
       workspaceId: 'workspace-1',
@@ -2678,12 +2689,65 @@ describe('copilot streaming regressions', () => {
 
     primaryStore.setState({ currentChat: sharedChat, chats: [sharedChat] })
     secondaryStore.setState({ currentChat: sharedChat, chats: [sharedChat] })
+    expect(primaryStore.getState().draft).not.toBe(secondaryStore.getState().draft)
+    expect(primaryStore.getState().draft.contexts).not.toBe(
+      secondaryStore.getState().draft.contexts
+    )
+
     primaryStore.getState().setDraft({
       text: 'private @Documentation draft',
       contexts: [{ kind: 'docs', label: 'Documentation' }],
     })
 
     expect(secondaryStore.getState().draft).toEqual({ text: '', contexts: [] })
+  })
+
+  it('cancels pending persistence when deleting a non-current chat', async () => {
+    vi.useFakeTimers()
+    try {
+      const deletedReviewSessionId = 'review-delete-pending'
+      const store = getCopilotStore(
+        buildCopilotWorkspaceChannelId({
+          authenticatedUserId: 'user-delete-pending',
+          workspaceId: 'workspace-delete-pending',
+        })
+      )
+      const saveChatMessages = vi.fn(async () => undefined)
+      const fetchMock = vi.fn(async () => Response.json({ success: true }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      await store
+        .getState()
+        .handleNewReviewSessionCreation(deletedReviewSessionId, 'workspace-delete-pending')
+      const deletedChat = store.getState().currentChat
+      if (!deletedChat) throw new Error('Expected the pending chat')
+      const retainedChat = {
+        ...deletedChat,
+        reviewSessionId: 'review-current-retained',
+      }
+      const retainedAbortController = new AbortController()
+
+      store.setState({
+        currentChat: retainedChat,
+        chats: [deletedChat, retainedChat],
+        abortController: retainedAbortController,
+        saveChatMessages,
+      })
+
+      await store.getState().deleteChat(deletedReviewSessionId)
+      await vi.advanceTimersByTimeAsync(60)
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/copilot/chat/delete',
+        expect.objectContaining({ method: 'DELETE' })
+      )
+      expect(saveChatMessages).not.toHaveBeenCalled()
+      expect(retainedAbortController.signal.aborted).toBe(false)
+      expect(store.getState().currentChat?.reviewSessionId).toBe(retainedChat.reviewSessionId)
+    } finally {
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
   })
 
   it('keeps abort terminal when a live stream is still readable', async () => {

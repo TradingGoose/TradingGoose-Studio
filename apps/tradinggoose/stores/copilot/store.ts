@@ -374,6 +374,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
   const store = create<CopilotStore>()(
     devtools((set, get) => ({
       ...initialState,
+      draft: createEmptyCopilotDraft(),
 
       // Access policy controls
       setAccessLevel: (accessLevel) => {
@@ -547,9 +548,9 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
             ? (state.currentChat?.workspaceId ?? null)
             : undefined
 
+          clearPendingChatPersistence(reviewSessionId)
           if (deletingCurrentChat) {
             state.abortController?.abort()
-            clearPendingChatPersistence(reviewSessionId)
             for (const toolCallId of Object.keys(state.toolCallsById)) {
               unregisterClientTool(toolCallId)
             }
