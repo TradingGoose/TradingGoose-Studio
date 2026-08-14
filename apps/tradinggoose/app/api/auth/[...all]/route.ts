@@ -7,6 +7,7 @@ import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { ensurePlanChangePortalConfiguration } from '@/lib/billing/stripe-portal'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { getBillingTierById } from '@/lib/billing/tiers'
+import { getOccupiedSeatCount } from '@/lib/billing/validation/seat-management'
 import { isSignInOAuthProviderId } from '@/lib/oauth'
 import {
   loadSystemOAuthClientCredentials,
@@ -56,19 +57,21 @@ async function getRequestedSystemOAuthProviderId(request: Request, pathname: str
   return ''
 }
 
-async function authorizeSubscriptionUpgrade(request: Request): Promise<Response | null> {
-  const body = await request
+async function prepareSubscriptionUpgrade(request: Request): Promise<Request | Response> {
+  const parsedBody = await request
     .clone()
     .json()
     .catch(() => null)
-  const billingTierId = body && typeof body.plan === 'string' ? body.plan.trim() : ''
-  const referenceId = body && typeof body.referenceId === 'string' ? body.referenceId.trim() : ''
+  const body: Record<string, unknown> =
+    parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody) ? parsedBody : {}
+  let preparedBody = body
+  const billingTierId = typeof body.plan === 'string' ? body.plan.trim() : ''
+  const referenceId = typeof body.referenceId === 'string' ? body.referenceId.trim() : ''
   const requestedSubscriptionId =
-    body && typeof body.subscriptionId === 'string' ? body.subscriptionId.trim() : ''
+    typeof body.subscriptionId === 'string' ? body.subscriptionId.trim() : ''
+  const requestedSeats = typeof body.seats === 'number' ? body.seats : null
   const customerType =
-    body && (body.customerType === 'user' || body.customerType === 'organization')
-      ? body.customerType
-      : null
+    body.customerType === 'user' || body.customerType === 'organization' ? body.customerType : null
 
   if (!billingTierId) {
     return Response.json({ error: 'Billing tier is required' }, { status: 400 })
@@ -113,18 +116,52 @@ async function authorizeSubscriptionUpgrade(request: Request): Promise<Response 
       { status: 403 }
     )
   }
-  const activeStripeSubscription =
+  const activeStripeSubscriptionId =
     existingSubscription?.stripeSubscriptionId &&
     BILLING_ACTIVE_SUBSCRIPTION_STATUSES.includes(
       existingSubscription.status as (typeof BILLING_ACTIVE_SUBSCRIPTION_STATUSES)[number]
     )
-  if (existingSubscription?.stripeSubscriptionId && !activeStripeSubscription) {
+      ? existingSubscription.stripeSubscriptionId
+      : null
+  if (existingSubscription?.stripeSubscriptionId && !activeStripeSubscriptionId) {
     return Response.json(
       { error: 'Resolve the current subscription before changing plans' },
       { status: 409 }
     )
   }
-  if (activeStripeSubscription) {
+  if (activeStripeSubscriptionId) {
+    preparedBody = { ...preparedBody, subscriptionId: activeStripeSubscriptionId }
+  }
+  if (tier.ownerType === 'organization') {
+    if (!Number.isSafeInteger(requestedSeats) || requestedSeats === null || requestedSeats < 1) {
+      return Response.json({ error: 'Organization seat count is required' }, { status: 400 })
+    }
+
+    const occupiedSeats = await getOccupiedSeatCount(referenceId)
+    const tierMinimumSeats = Math.max(tier.seatCount ?? 1, 1)
+    const currentLicensedSeats = existingSubscription
+      ? Math.max(existingSubscription.seats ?? existingSubscription.tier.seatCount ?? 1, 1)
+      : 0
+    const authorizedSeats = Math.max(
+      requestedSeats,
+      tierMinimumSeats,
+      occupiedSeats,
+      currentLicensedSeats
+    )
+
+    const tierMaximumSeats = tier.seatMode === 'fixed' ? tierMinimumSeats : tier.seatMaximum
+    if (tierMaximumSeats !== null && authorizedSeats > tierMaximumSeats) {
+      return Response.json(
+        { error: `Organization plan supports at most ${tierMaximumSeats} seats` },
+        { status: 409 }
+      )
+    }
+
+    if (authorizedSeats !== requestedSeats) {
+      preparedBody = { ...preparedBody, seats: authorizedSeats }
+    }
+  }
+  if (activeStripeSubscriptionId) {
     try {
       await ensurePlanChangePortalConfiguration(requireStripeClient())
     } catch {
@@ -132,25 +169,35 @@ async function authorizeSubscriptionUpgrade(request: Request): Promise<Response 
     }
   }
 
-  return null
+  if (preparedBody === body) return request
+
+  const headers = new Headers(request.headers)
+  headers.delete('content-length')
+  headers.set('content-type', 'application/json')
+  return new Request(request, {
+    headers,
+    body: JSON.stringify(preparedBody),
+  })
 }
 
 export const handleAuthRequest = async (request: Request) => {
   const pathname = new URL(request.url).pathname
+  let requestToHandle = request
 
   if (request.method === 'POST' && pathname === SUBSCRIPTION_BILLING_PORTAL_PATH) {
     return Response.json({ error: 'Not found' }, { status: 404 })
   }
 
   if (request.method === 'POST' && pathname === SUBSCRIPTION_UPGRADE_PATH) {
-    const deniedResponse = await authorizeSubscriptionUpgrade(request)
-    if (deniedResponse) {
-      return deniedResponse
+    const preparedRequest = await prepareSubscriptionUpgrade(request)
+    if (preparedRequest instanceof Response) {
+      return preparedRequest
     }
+    requestToHandle = preparedRequest
   }
 
   if (!shouldHydrateSystemOAuthCredentials(pathname)) {
-    return auth.handler(request)
+    return auth.handler(requestToHandle)
   }
 
   const providerId = await getRequestedSystemOAuthProviderId(request, pathname)
@@ -167,7 +214,7 @@ export const handleAuthRequest = async (request: Request) => {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
   }
 
-  return runWithSystemOAuthClientCredentials(() => auth.handler(request), credentials)
+  return runWithSystemOAuthClientCredentials(() => auth.handler(requestToHandle), credentials)
 }
 
 export const { GET, POST } = toNextJsHandler(handleAuthRequest)

@@ -1,8 +1,7 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { client, useSession, useSubscription } from '@/lib/auth-client'
+import { useSession, useSubscription } from '@/lib/auth-client'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
-import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { organizationKeys } from '@/hooks/queries/organization'
 import { resolveOrganizationUpgradeReference } from './upgrade-target'
@@ -66,26 +65,6 @@ export function useSubscriptionUpgrade() {
         }
       }
 
-      const listResult = await client.subscription.list({
-        query: {
-          referenceId,
-          customerType: targetTier.ownerType,
-        },
-      })
-      if (listResult.error) {
-        throw new Error(listResult.error.message || 'Failed to load subscriptions')
-      }
-      const subscriptions = listResult.data ?? []
-
-      const existingStripeSubscriptionId = subscriptions.find(
-        (subscription: any) =>
-          BILLING_ACTIVE_SUBSCRIPTION_STATUSES.includes(
-            subscription.status as (typeof BILLING_ACTIVE_SUBSCRIPTION_STATUSES)[number]
-          ) &&
-          subscription.referenceId === referenceId &&
-          subscription.referenceType === targetTier.ownerType
-      )?.stripeSubscriptionId
-
       const currentUrl = `${window.location.origin}${window.location.pathname}`
       const initialSeats = Math.max(options?.seats ?? 0, targetTier.seatCount ?? 1, 1)
 
@@ -99,25 +78,18 @@ export function useSubscriptionUpgrade() {
           ...(targetTier.ownerType === 'organization' && { seats: initialSeats }),
         } as const
 
-        const finalParams = existingStripeSubscriptionId
-          ? { ...upgradeParams, subscriptionId: existingStripeSubscriptionId }
-          : upgradeParams
+        logger.info('Requesting subscription upgrade', {
+          billingTierId: targetTier.billingTierId,
+          billingTier: targetTier.displayName,
+          usageScope: targetTier.usageScope,
+          seatMode: targetTier.seatMode,
+          referenceId,
+        })
 
-        logger.info(
-          existingStripeSubscriptionId
-            ? 'Upgrading existing subscription'
-            : 'Creating new subscription',
-          {
-            billingTierId: targetTier.billingTierId,
-            billingTier: targetTier.displayName,
-            stripeSubscriptionId: existingStripeSubscriptionId,
-            usageScope: targetTier.usageScope,
-            seatMode: targetTier.seatMode,
-            referenceId,
-          }
-        )
-
-        await betterAuthSubscription.upgrade(finalParams)
+        const upgradeResult = await betterAuthSubscription.upgrade(upgradeParams)
+        if (upgradeResult.error) {
+          throw new Error(upgradeResult.error.message || 'Failed to initiate subscription upgrade')
+        }
 
         if (targetTier.ownerType === 'organization') {
           try {

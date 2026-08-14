@@ -5,6 +5,8 @@ import { Button, Input, Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
 import { PRIVATE_TIER_ACCESS_ERROR_CODES } from '@/lib/billing/private-tier-access-contract'
 import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
+import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
+import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateSlug, getUsedSeats, getUserRole, isAdminOrOwner } from '@/lib/organization'
 import { getOrganizationAccessState } from '@/lib/organization/access'
@@ -27,7 +29,7 @@ import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { useAdminWorkspaces } from '@/hooks/queries/workspace'
 import type { LocaleCode } from '@/i18n/utils'
 import { toUpgradeTarget } from '../subscription/plan-configs'
-import { getSubscriptionTierAlternatives } from '../subscription/subscription-permissions'
+import { getSubscriptionSurfaceState } from '../subscription/subscription-permissions'
 import {
   MemberInvitationCard,
   NoOrganizationView,
@@ -43,18 +45,6 @@ const logger = createLogger('TeamManagement')
 const safeNumber = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0
 
-type TeamBillingTier = {
-  id?: string | null
-  displayName: string
-  ownerType: 'user' | 'organization'
-  seatMode: 'fixed' | 'adjustable'
-  monthlyPriceUsd: number | null
-  seatCount: number | null
-  seatMaximum: number | null
-  canEditUsageLimit: boolean
-  canConfigureSso: boolean
-}
-
 type TeamSubscriptionData = {
   id: string
   billingEnabled?: boolean
@@ -66,7 +56,7 @@ type TeamSubscriptionData = {
   stripeSubscriptionId: string | null
   periodEnd?: number | Date
   cancelAtPeriodEnd: boolean
-  tier: TeamBillingTier | null
+  tier: BillingTierSummary | null
   usage: {
     current: number
     limit: number
@@ -109,9 +99,11 @@ export function TeamManagement() {
   const {
     data: organizationBillingData,
     isLoading: isLoadingOrganizationBilling,
+    isPlaceholderData: isOrganizationBillingPlaceholder,
     error: organizationBillingError,
   } = useOrganizationBilling(activeOrgId || '')
-  const { data: publicBillingCatalog } = usePublicBillingCatalog()
+  const { data: publicBillingCatalog, isLoading: isLoadingPublicBillingCatalog } =
+    usePublicBillingCatalog()
   const privateTierAccess = usePrivateTierAccess()
   const privateTierAccessMutation = usePrivateTierAccessMutation()
 
@@ -199,77 +191,87 @@ export function TeamManagement() {
   )
 
   const personalBillingPayload = (userSubscriptionData as any)?.data ?? userSubscriptionData
-  const organizationSubscriptionTier = organizationBillingData?.subscriptionTier ?? null
-  const organizationSubscriptionData: TeamSubscriptionData | null = organizationBillingData
+  const organizationBillingPayload =
+    organizationBillingData?.organizationId === activeOrgId ? organizationBillingData : null
+  const organizationBillingPending =
+    isLoadingOrganizationBilling || Boolean(activeOrgId && isOrganizationBillingPlaceholder)
+  const organizationSubscriptionTier = organizationBillingPayload?.subscriptionTier ?? null
+  const organizationSubscriptionData: TeamSubscriptionData | null = organizationBillingPayload
     ? {
-        id: organizationBillingData.organizationId,
-        billingEnabled: organizationBillingData.billingEnabled,
-        isPaid: safeNumber(organizationSubscriptionTier?.monthlyPriceUsd) > 0,
-        status: organizationBillingData.subscriptionStatus,
-        seats: organizationBillingData.totalSeats,
-        referenceId: organizationBillingData.organizationId,
+        id: organizationBillingPayload.organizationId,
+        billingEnabled: organizationBillingPayload.billingEnabled,
+        isPaid: Boolean(organizationSubscriptionTier),
+        status: organizationBillingPayload.subscriptionStatus,
+        seats: organizationBillingPayload.totalSeats,
+        referenceId: organizationBillingPayload.organizationId,
         metadata: null,
         stripeSubscriptionId: null,
-        periodEnd: organizationBillingData.billingPeriodEnd
-          ? new Date(organizationBillingData.billingPeriodEnd)
+        periodEnd: organizationBillingPayload.billingPeriodEnd
+          ? new Date(organizationBillingPayload.billingPeriodEnd)
           : undefined,
         cancelAtPeriodEnd: false,
-        tier: organizationSubscriptionTier
-          ? {
-              id: organizationSubscriptionTier.id,
-              displayName: organizationSubscriptionTier.displayName,
-              ownerType: organizationSubscriptionTier.ownerType,
-              seatMode:
-                organizationSubscriptionTier.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
-              monthlyPriceUsd: organizationSubscriptionTier.monthlyPriceUsd,
-              seatCount: organizationSubscriptionTier.seatCount,
-              seatMaximum: organizationSubscriptionTier.seatMaximum,
-              canEditUsageLimit: organizationSubscriptionTier.canEditUsageLimit,
-              canConfigureSso: organizationSubscriptionTier.canConfigureSso,
-            }
-          : null,
+        tier: organizationSubscriptionTier,
         usage: {
-          current: organizationBillingData.totalCurrentUsage,
-          limit: organizationBillingData.totalUsageLimit,
+          current: organizationBillingPayload.totalCurrentUsage,
+          limit: organizationBillingPayload.totalUsageLimit,
           percentUsed:
-            organizationBillingData.totalUsageLimit > 0
-              ? (organizationBillingData.totalCurrentUsage /
-                  organizationBillingData.totalUsageLimit) *
+            organizationBillingPayload.totalUsageLimit > 0
+              ? (organizationBillingPayload.totalCurrentUsage /
+                  organizationBillingPayload.totalUsageLimit) *
                 100
               : 0,
           isWarning:
-            organizationBillingData.totalUsageLimit > 0 &&
-            (organizationBillingData.totalCurrentUsage / organizationBillingData.totalUsageLimit) *
+            organizationBillingPayload.totalUsageLimit > 0 &&
+            (organizationBillingPayload.totalCurrentUsage /
+              organizationBillingPayload.totalUsageLimit) *
               100 >=
-              organizationBillingData.warningThresholdPercent,
+              organizationBillingPayload.warningThresholdPercent,
           isExceeded:
-            organizationBillingData.totalUsageLimit > 0 &&
-            organizationBillingData.totalCurrentUsage >= organizationBillingData.totalUsageLimit,
-          billingPeriodStart: organizationBillingData.billingPeriodStart
-            ? new Date(organizationBillingData.billingPeriodStart)
+            organizationBillingPayload.totalUsageLimit > 0 &&
+            organizationBillingPayload.totalCurrentUsage >=
+              organizationBillingPayload.totalUsageLimit,
+          billingPeriodStart: organizationBillingPayload.billingPeriodStart
+            ? new Date(organizationBillingPayload.billingPeriodStart)
             : null,
-          billingPeriodEnd: organizationBillingData.billingPeriodEnd
-            ? new Date(organizationBillingData.billingPeriodEnd)
+          billingPeriodEnd: organizationBillingPayload.billingPeriodEnd
+            ? new Date(organizationBillingPayload.billingPeriodEnd)
             : null,
-          lastPeriodCost: organizationBillingData.lastPeriodCost ?? 0,
-          lastPeriodCopilotCost: organizationBillingData.lastPeriodCopilotCost ?? 0,
-          copilotCost: organizationBillingData.currentPeriodCopilotCost ?? 0,
+          lastPeriodCost: organizationBillingPayload.lastPeriodCost ?? 0,
+          lastPeriodCopilotCost: organizationBillingPayload.lastPeriodCopilotCost ?? 0,
+          copilotCost: organizationBillingPayload.currentPeriodCopilotCost ?? 0,
         },
-        billingBlocked: organizationBillingData.billingBlocked,
+        billingBlocked: organizationBillingPayload.billingBlocked,
       }
     : null
   const billingPayload = displayOrganization ? organizationSubscriptionData : personalBillingPayload
   const subscriptionData = billingPayload as TeamSubscriptionData | null
   const currentTier = subscriptionData?.tier ?? null
   const billingEnabled =
-    organizationBillingData?.billingEnabled ??
+    organizationBillingPayload?.billingEnabled ??
     personalBillingPayload?.billingEnabled ??
     organizationsData?.billingData?.data?.billingEnabled ??
     true
-  const organizationPlanTiers = getSubscriptionTierAlternatives(
-    [...(publicBillingCatalog?.publicTiers ?? []), ...(privateTierAccess.data?.privateTiers ?? [])],
-    'organization'
-  ).sort((left, right) => left.displayOrder - right.displayOrder || left.id.localeCompare(right.id))
+  const availableOrganizationTiers = [
+    ...(publicBillingCatalog?.publicTiers ?? []),
+    ...(privateTierAccess.data?.privateTiers ?? []),
+  ].sort((left, right) => left.displayOrder - right.displayOrder || left.id.localeCompare(right.id))
+  const organizationPlanSurface = getSubscriptionSurfaceState({
+    subscription: {
+      isFree: false,
+      isPaid: Boolean(organizationSubscriptionTier),
+      tier:
+        organizationSubscriptionTier ??
+        ({
+          ...EMPTY_BILLING_TIER_SUMMARY,
+          ownerType: 'organization',
+          usageScope: 'pooled',
+        } satisfies BillingTierSummary),
+    },
+    userRole: { isTeamAdmin: adminOrOwner },
+    publicTiers: availableOrganizationTiers,
+    enterprisePlaceholder: publicBillingCatalog?.enterprisePlaceholder ?? null,
+  })
+  const organizationPlanTiers = organizationPlanSurface.visiblePlanTiers
   const organizationAccess = getOrganizationAccessState({
     billingEnabled,
     hasOrganization: Boolean(displayOrganization),
@@ -277,7 +279,7 @@ export function TeamManagement() {
     organizationTier: organizationSubscriptionTier,
   })
   const isLoadingSubscription = displayOrganization
-    ? isLoadingOrganizationBilling
+    ? organizationBillingPending
     : isLoadingPersonalSubscription
   const isAdjustableSeatTier =
     currentTier?.ownerType === 'organization' && currentTier.seatMode === 'adjustable'
@@ -289,6 +291,19 @@ export function TeamManagement() {
     safeNumber(currentTier?.monthlyPriceUsd) || safeNumber(adjustableSeatTier?.monthlyPriceUsd)
   const seatCount = currentTier?.seatCount ?? adjustableSeatTier?.seatCount ?? 1
   const seatMaximum = currentTier?.seatMaximum ?? adjustableSeatTier?.seatMaximum ?? null
+  const organizationPlanCatalogPending =
+    isLoadingPublicBillingCatalog || privateTierAccess.isLoading
+  const canShowOrganizationPlans = Boolean(
+    billingEnabled &&
+      adminOrOwner &&
+      !organizationBillingPending &&
+      !organizationBillingError &&
+      !organizationPlanCatalogPending &&
+      organizationBillingPayload
+  )
+  const showOrganizationBillingError = Boolean(
+    billingEnabled && adminOrOwner && !organizationBillingPending && organizationBillingError
+  )
 
   const usedSeats = getUsedSeats(displayOrganization)
   const canInviteMembers = Boolean(currentTier?.ownerType === 'organization')
@@ -558,7 +573,9 @@ export function TeamManagement() {
     actionError?.action === action ? actionError.message : null
   const privateAccessErrorCode =
     getPrivateTierAccessErrorCode(privateTierAccessMutation.error) ??
-    (privateTierAccessMutation.isError ? PRIVATE_TIER_ACCESS_ERROR_CODES.validateFailed : null)
+    (privateTierAccessMutation.isError ? PRIVATE_TIER_ACCESS_ERROR_CODES.validateFailed : null) ??
+    getPrivateTierAccessErrorCode(privateTierAccess.error) ??
+    (privateTierAccess.isError ? PRIVATE_TIER_ACCESS_ERROR_CODES.loadFailed : null)
   const handlePrivateTierAccess = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     privateTierAccessMutation.mutate(accessCode.trim(), {
@@ -620,12 +637,14 @@ export function TeamManagement() {
           </div>
         )}
 
-        {billingEnabled && adminOrOwner && !currentTier ? (
+        {canShowOrganizationPlans ? (
           <div className='space-y-3 rounded-sm border bg-background p-4 shadow-xs'>
             <div>
-              <h4 className='font-medium text-sm'>Choose an organization plan</h4>
+              <h4 className='font-medium text-sm'>Organization plans</h4>
               <p className='mt-1 text-muted-foreground text-xs'>
-                Subscribe this organization before assigning workspace billing or inviting members.
+                {currentTier
+                  ? 'Review the current plan or change to another available organization tier.'
+                  : 'Subscribe this organization before assigning workspace billing or inviting members.'}
               </p>
             </div>
 
@@ -657,32 +676,35 @@ export function TeamManagement() {
               </p>
             ) : null}
 
-            {organizationBillingError ? (
-              <p role='alert' className='text-destructive text-xs'>
-                Failed to load organization billing. Try again before selecting a plan.
-              </p>
-            ) : organizationPlanTiers.length > 0 ? (
+            {organizationPlanTiers.length > 0 ? (
               <div className='flex flex-wrap gap-2'>
-                {organizationPlanTiers.map((tier) => (
-                  <Button
-                    key={tier.id}
-                    variant='outline'
-                    disabled={isPending || !activeOrgId}
-                    onClick={() =>
-                      void runAction(`subscribe:${tier.id}`, () =>
-                        handleUpgrade(toUpgradeTarget(tier), {
-                          organizationId: activeOrgId,
-                          seats: Math.max(tier.seatCount ?? 1, 1),
-                        })
-                      )
-                    }
-                  >
-                    {tier.displayName} · {formatBillingPriceLabel(tier)}
-                    {formatBillingPricePeriod(tier)}
-                  </Button>
-                ))}
+                {organizationPlanTiers.map((tier) => {
+                  const isCurrentTier = tier.id === organizationPlanSurface.currentTier?.id
+
+                  return (
+                    <Button
+                      key={tier.id}
+                      variant='outline'
+                      disabled={isCurrentTier || isPending || !activeOrgId}
+                      onClick={() => {
+                        if (isCurrentTier) return
+
+                        void runAction(`subscribe:${tier.id}`, () =>
+                          handleUpgrade(toUpgradeTarget(tier), {
+                            organizationId: activeOrgId,
+                            seats: Math.max(tier.seatCount ?? 1, 1),
+                          })
+                        )
+                      }}
+                    >
+                      {tier.displayName} · {formatBillingPriceLabel(tier)}
+                      {formatBillingPricePeriod(tier)}
+                      {isCurrentTier ? ' · Current' : null}
+                    </Button>
+                  )
+                })}
               </div>
-            ) : (
+            ) : privateTierAccess.isError ? null : (
               <p className='text-muted-foreground text-xs'>
                 No organization plans are currently available.
               </p>
@@ -693,6 +715,12 @@ export function TeamManagement() {
               </p>
             ) : null}
           </div>
+        ) : null}
+
+        {showOrganizationBillingError ? (
+          <p role='alert' className='text-destructive text-xs'>
+            Failed to load organization billing. Try again before selecting a plan.
+          </p>
         ) : null}
 
         <WorkspaceBilling

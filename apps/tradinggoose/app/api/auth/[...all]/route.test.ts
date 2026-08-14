@@ -15,6 +15,7 @@ const {
   mockHasPrivateBillingTierAccess,
   mockAuthorizeSubscriptionReference,
   mockEnsurePlanChangePortalConfiguration,
+  mockGetOccupiedSeatCount,
 } = vi.hoisted(() => ({
   mockAuthHandler: vi.fn(),
   mockLoadSystemOAuthClientCredentials: vi.fn(),
@@ -28,6 +29,7 @@ const {
   mockHasPrivateBillingTierAccess: vi.fn(),
   mockAuthorizeSubscriptionReference: vi.fn(),
   mockEnsurePlanChangePortalConfiguration: vi.fn(),
+  mockGetOccupiedSeatCount: vi.fn(),
 }))
 
 vi.mock('better-auth/next-js', () => ({
@@ -71,6 +73,10 @@ vi.mock('@/lib/billing/tiers', () => ({
   getBillingTierById: (...args: unknown[]) => mockGetBillingTierById(...args),
 }))
 
+vi.mock('@/lib/billing/validation/seat-management', () => ({
+  getOccupiedSeatCount: (...args: unknown[]) => mockGetOccupiedSeatCount(...args),
+}))
+
 vi.mock('@/lib/oauth', () => ({
   isSignInOAuthProviderId: (providerId: string) => mockIsSignInOAuthProviderId(providerId),
 }))
@@ -94,6 +100,7 @@ describe('/api/auth/[...all] route', () => {
     mockGetActiveSubscriptionForReference.mockResolvedValue(null)
     mockAuthorizeSubscriptionReference.mockResolvedValue(true)
     mockEnsurePlanChangePortalConfiguration.mockResolvedValue('bpc_default')
+    mockGetOccupiedSeatCount.mockResolvedValue(1)
     mockRunWithSystemOAuthClientCredentials.mockImplementation(async (callback: () => Response) =>
       callback()
     )
@@ -192,6 +199,10 @@ describe('/api/auth/[...all] route', () => {
     })
     expect(mockEnsurePlanChangePortalConfiguration).toHaveBeenCalledTimes(1)
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
+    const delegatedRequest = mockAuthHandler.mock.calls[0]?.[0] as Request
+    await expect(delegatedRequest.json()).resolves.toMatchObject({
+      subscriptionId: 'sub_existing',
+    })
   })
 
   it('rejects a supplied subscription outside the subject current subscription', async () => {
@@ -250,6 +261,178 @@ describe('/api/auth/[...all] route', () => {
     expect(response.status).toBe(409)
     expect(mockEnsurePlanChangePortalConfiguration).not.toHaveBeenCalled()
     expect(mockAuthHandler).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    {
+      name: 'configured minimum',
+      tier: { seatMode: 'adjustable', seatCount: 3, seatMaximum: 10 },
+      occupiedSeats: 1,
+      requestedSeats: 2,
+      authorizedSeats: 3,
+    },
+    {
+      name: 'occupied seats',
+      tier: { seatMode: 'adjustable', seatCount: 2, seatMaximum: 10 },
+      occupiedSeats: 4,
+      requestedSeats: 3,
+      authorizedSeats: 4,
+    },
+  ])('normalizes organization seats to the $name', async (testCase) => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'team-tier',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'organization',
+      ...testCase.tier,
+    })
+    mockGetOccupiedSeatCount.mockResolvedValue(testCase.occupiedSeats)
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan: 'team-tier',
+          referenceId: 'org-1',
+          customerType: 'organization',
+          seats: testCase.requestedSeats,
+        }),
+      })
+    )
+
+    expect(response.status).toBe(204)
+    expect(mockGetOccupiedSeatCount).toHaveBeenCalledWith('org-1')
+    expect(mockAuthHandler).toHaveBeenCalledOnce()
+    const delegatedRequest = mockAuthHandler.mock.calls[0]?.[0] as Request
+    await expect(delegatedRequest.json()).resolves.toMatchObject({
+      seats: testCase.authorizedSeats,
+    })
+  })
+
+  it.each([
+    {
+      name: 'adjustable maximum',
+      tier: { seatMode: 'adjustable', seatCount: 2, seatMaximum: 5 },
+      occupiedSeats: 1,
+      requestedSeats: 6,
+      error: 'Organization plan supports at most 5 seats',
+    },
+    {
+      name: 'fixed tier seat count',
+      tier: { seatMode: 'fixed', seatCount: 2, seatMaximum: null },
+      occupiedSeats: 1,
+      requestedSeats: 3,
+      error: 'Organization plan supports at most 2 seats',
+    },
+  ])('rejects organization seats above the $name', async (testCase) => {
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'team-tier',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'organization',
+      ...testCase.tier,
+    })
+    mockGetOccupiedSeatCount.mockResolvedValue(testCase.occupiedSeats)
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan: 'team-tier',
+          referenceId: 'org-1',
+          customerType: 'organization',
+          seats: testCase.requestedSeats,
+        }),
+      })
+    )
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({ error: testCase.error })
+    expect(mockGetOccupiedSeatCount).toHaveBeenCalledWith('org-1')
+    expect(mockEnsurePlanChangePortalConfiguration).not.toHaveBeenCalled()
+    expect(mockAuthHandler).not.toHaveBeenCalled()
+  })
+
+  it('preserves licensed seats when changing organization tiers', async () => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'team-new',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'organization',
+      seatMode: 'adjustable',
+      seatCount: 2,
+      seatMaximum: 10,
+    })
+    mockGetActiveSubscriptionForReference.mockResolvedValue({
+      status: 'active',
+      stripeSubscriptionId: 'sub_current',
+      seats: 8,
+      tier: { id: 'team-old', seatCount: 2 },
+    })
+    mockGetOccupiedSeatCount.mockResolvedValue(3)
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan: 'team-new',
+          referenceId: 'org-1',
+          customerType: 'organization',
+          subscriptionId: 'sub_current',
+          seats: 7,
+        }),
+      })
+    )
+
+    expect(response.status).toBe(204)
+    expect(mockAuthHandler).toHaveBeenCalledOnce()
+    const delegatedRequest = mockAuthHandler.mock.calls[0]?.[0] as Request
+    await expect(delegatedRequest.json()).resolves.toMatchObject({ seats: 8 })
+  })
+
+  it('keeps seat reductions on the organization seat-management endpoint', async () => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'team-current',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'organization',
+      seatMode: 'adjustable',
+      seatCount: 2,
+      seatMaximum: 10,
+    })
+    mockGetActiveSubscriptionForReference.mockResolvedValue({
+      status: 'active',
+      stripeSubscriptionId: 'sub_current',
+      seats: 8,
+      tier: { id: 'team-current', seatCount: 2 },
+    })
+    mockGetOccupiedSeatCount.mockResolvedValue(3)
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan: 'team-current',
+          referenceId: 'org-1',
+          customerType: 'organization',
+          subscriptionId: 'sub_current',
+          seats: 3,
+        }),
+      })
+    )
+
+    expect(response.status).toBe(204)
+    expect(mockEnsurePlanChangePortalConfiguration).toHaveBeenCalledTimes(1)
+    expect(mockAuthHandler).toHaveBeenCalledOnce()
+    const delegatedRequest = mockAuthHandler.mock.calls[0]?.[0] as Request
+    await expect(delegatedRequest.json()).resolves.toMatchObject({ seats: 8 })
   })
 
   it('rejects an upgrade when the requested billing subject type does not match the tier', async () => {
