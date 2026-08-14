@@ -54,6 +54,28 @@ describe('security redaction', () => {
     })
   })
 
+  it('redacts generic and camel-case token assignments in free-form text', () => {
+    expect(
+      deepRedactSecrets({
+        errorMessage:
+          'request failed: token=raw-token-value; idToken=raw-id-value; password=[redacted]; tokenCount=12',
+        query: 'https://example.test/path?token=raw-query-token&safe=visible',
+        json: '{"token":"raw-json-token","idToken":"raw-json-id","totalTokens":42,"safe":"visible"}',
+        escapedJson: '{"token":"raw-json-\\"suffix","safe":"visible"}',
+        markerPrefix: 'token=[redacted]raw-marker-secret; safe=visible',
+        bracketed: 'token=abc]raw-bracket-secret; safe=visible',
+      })
+    ).toEqual({
+      errorMessage:
+        'request failed: token=[redacted]; idToken=[redacted]; password=[redacted]; tokenCount=12',
+      query: 'https://example.test/path?token=[redacted]&safe=visible',
+      json: '{"token":[redacted],"idToken":[redacted],"totalTokens":42,"safe":"visible"}',
+      escapedJson: '{"token":[redacted],"safe":"visible"}',
+      markerPrefix: 'token=[redacted]; safe=visible',
+      bracketed: 'token=[redacted]; safe=visible',
+    })
+  })
+
   it('truncates multibyte strings on valid UTF-8 boundaries', () => {
     const result = projectBoundedRedactedJson('🪿'.repeat(100), {
       maxArrayItems: 4,

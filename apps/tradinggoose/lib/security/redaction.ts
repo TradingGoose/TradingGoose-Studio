@@ -27,7 +27,7 @@ const SAFE_TOKEN_METRIC_FIELDS = new Set([
 const SECRET_KEY_PATTERN =
   /^(?:accountid|accountnumber|serviceid)$|accesskey|apikey|apisecret|authkey|cookie|credential|privatekey|secretkey|secret|password|passwd|authorization|token/
 const SECRET_TEXT_PATTERN =
-  /((?:access[-_ ]?key|api[-_ ]?key|api[-_ ]?secret|auth[-_ ]?key|authorization|client[-_ ]?secret|cookie|credential|password|passwd|private[-_ ]?key|refresh[-_ ]?token|secret[-_ ]?key|secret|session[-_ ]?token|access[-_ ]?token|auth[-_ ]?token)\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^,;\r\n}\]]+)/giu
+  /((?:["'])?(?:access[-_ ]?key|api[-_ ]?key|api[-_ ]?secret|auth[-_ ]?key|authorization|client[-_ ]?secret|cookie|credential|password|passwd|private[-_ ]?key|secret[-_ ]?key|secret|token)(?:["'])?\s*[:=]\s*)(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|[^,;&\r\n}]+)/giu
 const AUTH_VALUE_PATTERN = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/giu
 const URL_CREDENTIAL_PATTERN = /(https?:\/\/)[^/@\s:]+:[^/@\s]+@/giu
 

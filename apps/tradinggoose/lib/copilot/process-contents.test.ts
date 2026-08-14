@@ -563,7 +563,8 @@ describe('processContextsServer', () => {
                 authToken: 'raw-auth-token',
                 idToken: 'raw-id-token',
                 headers: { Authorization: 'Bearer raw-header-token' },
-                note: 'password=raw-inline-password',
+                note: 'request failed: token=raw-generic-token; idToken=raw-inline-id-token; password=[redacted]',
+                serialized: '{"token":"raw-json-token","idToken":"raw-json-id","safe":"visible"}',
                 longText: 'x'.repeat(5_000),
                 values: Array.from({ length: 40 }, (_, index) => index),
                 deep: { a: { b: { c: { d: { e: { value: 'too deep' } } } } } },
@@ -588,14 +589,17 @@ describe('processContextsServer', () => {
     expect(input.authToken).toBe('[redacted]')
     expect(input.idToken).toBe('[redacted]')
     expect(input.headers.Authorization).toBe('[redacted]')
-    expect(input.note).toBe('password=[redacted]')
+    expect(input.note).toBe(
+      'request failed: token=[redacted]; idToken=[redacted]; password=[redacted]'
+    )
+    expect(input.serialized).toBe('{"token":[redacted],"idToken":[redacted],"safe":"visible"}')
     expect(input.longText).toContain('[truncated]')
     expect(input.values).toHaveLength(25)
     expect(input.deep.a).toBe('[truncated]')
     expect(content.executionData.traceSpans[0].output.apiSecret).toBe('[redacted]')
     expect(content.contextTruncated).toBe(true)
     expect(Buffer.byteLength(result!.content, 'utf8')).toBeLessThanOrEqual(16_384)
-    expect(result!.content).not.toMatch(/raw-(?:auth|id|header|inline|output)/)
+    expect(result!.content).not.toMatch(/raw-(?:auth|generic|id|header|inline|json|output)/)
   })
 
   it('falls back deterministically when bounded explicit details still exceed the byte cap', async () => {
