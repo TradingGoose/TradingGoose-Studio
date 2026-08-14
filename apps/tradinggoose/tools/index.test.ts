@@ -613,7 +613,6 @@ describe('executeTool Function', () => {
         parentWorkflowId: 'test-workflow',
         parentBlockId: 'agent-1',
         timePolicy,
-        timePolicyCapturedAt: '2026-01-01T00:00:05.000Z',
       }
       expect(vi.mocked(generateInternalToken)).toHaveBeenNthCalledWith(1, undefined, {
         workflowExecution,

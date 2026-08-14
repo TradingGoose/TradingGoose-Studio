@@ -203,7 +203,6 @@ describe('WorkflowBlockHandler', () => {
         parentExecutionId: 'execution-1',
         parentBlockId: 'workflow-block-1',
         timePolicy: mockContext.workflowExecutionTimeBudget?.snapshotPolicy(),
-        timePolicyCapturedAt: expect.any(String),
       },
     })
     expect(generateInternalToken).toHaveBeenCalledTimes(2)

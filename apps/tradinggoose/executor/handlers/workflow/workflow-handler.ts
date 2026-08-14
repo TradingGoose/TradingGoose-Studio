@@ -109,14 +109,12 @@ export class WorkflowBlockHandler implements BlockHandler {
       try {
         timeBudget.markQueuedChildWait(activitySlotId)
         const timePolicy = timeBudget.snapshotPolicy()
-        const timePolicyCapturedAt = new Date().toISOString()
         const workflowExecution: InternalWorkflowExecutionContext = {
           source: 'workflow_block',
           parentWorkflowId: context.workflowId,
           parentExecutionId: context.executionId,
           parentBlockId: block.id,
           timePolicy,
-          timePolicyCapturedAt,
         }
         const headers = () => this.buildHeaders(context, workflowExecution)
         const queueResponse = await this.queueChildWorkflowExecution({

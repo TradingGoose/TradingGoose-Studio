@@ -3,6 +3,7 @@ import { organizationBillingLedger, subscription, userStats } from '@tradinggoos
 import { and, eq, ne } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
+import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
 import {
   ensureDefaultUserSubscription,
   getSubscriptionByStripeSubscriptionId,
@@ -358,6 +359,8 @@ export async function handleStripeSubscriptionDeleted(event: Stripe.Event) {
       return nextSubscription
     })
   } else {
+    await getOrganizationBillingLedger(subscriptionToSettle.referenceId)
+
     await db
       .update(organizationBillingLedger)
       .set({ billingBlocked: false, updatedAt: new Date() })

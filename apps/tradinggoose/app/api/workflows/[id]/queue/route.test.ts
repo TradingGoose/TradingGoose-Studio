@@ -199,7 +199,6 @@ describe('POST /api/workflows/[id]/queue', () => {
         parentWorkflowId: 'parent-1',
         parentExecutionId: 'execution-1',
         parentBlockId: 'block-1',
-        timePolicyCapturedAt: '2026-01-01T00:00:02.000Z',
         timePolicy: {
           kind: 'bounded',
           processingStartedAt: '2026-01-01T00:00:00.000Z',
@@ -240,11 +239,11 @@ describe('POST /api/workflows/[id]/queue', () => {
         workspaceId: 'workspace-1',
         userId: 'user-1',
         source: 'workflow_block',
-        payload: expect.any(Function),
+        payload: expect.any(Object),
       })
     )
     const queued = enqueuePendingExecutionMock.mock.calls[0][0]
-    expect(queued.payload('2026-01-01T00:00:05.000Z')).toMatchObject({
+    expect(queued.payload).toMatchObject({
       input: { symbol: 'AAPL' },
       executionTarget: 'live',
       workflowDepth: 2,
@@ -254,7 +253,7 @@ describe('POST /api/workflows/[id]/queue', () => {
         parentExecutionId: 'execution-1',
         parentBlockId: 'block-1',
         timePolicy: {
-          accounting: { mode: 'remaining', remainingMilliseconds: 5_000 },
+          accounting: { mode: 'remaining', remainingMilliseconds: 8_000 },
         },
       },
     })

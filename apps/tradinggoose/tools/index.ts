@@ -52,7 +52,6 @@ function resolveExecutionScope(
   workflowExecutionTimePolicy?: ReturnType<
     NonNullable<ExecutionContext['workflowExecutionTimeBudget']>['snapshotPolicy']
   >
-  workflowExecutionTimePolicyCapturedAt?: string
 } {
   const context = params._context || {}
   const workflowExecutionTimePolicy =
@@ -68,9 +67,6 @@ function resolveExecutionScope(
     submissionSource: executionContext?.submissionSource ?? context.submissionSource,
     isDeployedContext: executionContext?.isDeployedContext ?? context.isDeployedContext,
     workflowExecutionTimePolicy,
-    workflowExecutionTimePolicyCapturedAt: workflowExecutionTimePolicy
-      ? new Date().toISOString()
-      : undefined,
   }
 }
 
@@ -214,15 +210,13 @@ function generateScopedInternalToken(scope: ExecutionScope) {
     !scope.userId &&
     scope.workflowId &&
     scope.toolExecutionId &&
-    scope.workflowExecutionTimePolicy &&
-    scope.workflowExecutionTimePolicyCapturedAt
+    scope.workflowExecutionTimePolicy
       ? {
           source: 'workflow_block' as const,
           parentWorkflowId: scope.workflowId,
           ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
           parentBlockId: scope.toolExecutionId,
           timePolicy: scope.workflowExecutionTimePolicy,
-          timePolicyCapturedAt: scope.workflowExecutionTimePolicyCapturedAt,
         }
       : undefined
   return workflowExecution

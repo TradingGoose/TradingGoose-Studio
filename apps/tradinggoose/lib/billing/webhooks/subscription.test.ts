@@ -12,6 +12,7 @@ const {
   mockEnsureDefaultUserSubscription,
   mockEq,
   mockGetBilledOverageForSubscription,
+  mockGetOrganizationBillingLedger,
   mockGetSubscriptionByStripeSubscriptionId,
   mockIsPaidBillingTier,
   mockNe,
@@ -32,6 +33,7 @@ const {
   mockEnsureDefaultUserSubscription: vi.fn(),
   mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockGetBilledOverageForSubscription: vi.fn(),
+  mockGetOrganizationBillingLedger: vi.fn(),
   mockGetSubscriptionByStripeSubscriptionId: vi.fn(),
   mockIsPaidBillingTier: vi.fn(),
   mockNe: vi.fn((field: unknown, value: unknown) => ({ field, value })),
@@ -81,6 +83,10 @@ vi.mock('@/lib/billing/core/usage', () => ({
 vi.mock('@/lib/billing/core/subscription', () => ({
   ensureDefaultUserSubscription: mockEnsureDefaultUserSubscription,
   getSubscriptionByStripeSubscriptionId: mockGetSubscriptionByStripeSubscriptionId,
+}))
+
+vi.mock('@/lib/billing/core/organization', () => ({
+  getOrganizationBillingLedger: mockGetOrganizationBillingLedger,
 }))
 
 vi.mock('@/lib/billing/tiers', () => ({
@@ -289,6 +295,7 @@ describe('handleStripeSubscriptionDeleted', () => {
     mockDb.update.mockImplementation(() => createUpdateQueryMock())
     mockCalculateSubscriptionOverage.mockResolvedValue(0)
     mockGetBilledOverageForSubscription.mockResolvedValue(0)
+    mockGetOrganizationBillingLedger.mockResolvedValue({ organizationId: 'org-1' })
     mockGetSubscriptionByStripeSubscriptionId.mockReset().mockResolvedValue(null)
     mockRequireStripeClient.mockReturnValue({})
     mockSyncSubscriptionUsageLimits.mockResolvedValue(undefined)
@@ -471,6 +478,10 @@ describe('handleStripeSubscriptionDeleted', () => {
     expect(mockEnsureDefaultUserSubscription).not.toHaveBeenCalled()
     expect(mockGetSubscriptionByStripeSubscriptionId).toHaveBeenCalledWith('sub_stripe_123')
     expect(mockResetUserDefaultUsageToOnboardingAllowanceBalance).not.toHaveBeenCalled()
+    expect(mockGetOrganizationBillingLedger).toHaveBeenCalledWith('org-1')
+    expect(mockGetOrganizationBillingLedger.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDb.update.mock.invocationCallOrder[mockDb.update.mock.invocationCallOrder.length - 1]
+    )
     expect(mockDb.update).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: 'organizationBillingLedger.organizationId',

@@ -169,32 +169,6 @@ export function getWorkflowExecutionTimeLimitMilliseconds(
     : Math.max(0, new Date(policy.accounting.expiresAt).getTime() - Date.now())
 }
 
-export function materializeInheritedWorkflowExecutionTimePolicy(params: {
-  policy: WorkflowExecutionTimePolicy
-  capturedAt: string
-  materializedAt: string
-}): WorkflowExecutionTimePolicy {
-  const { policy } = params
-  if (policy.kind !== 'bounded' || policy.accounting.mode !== 'remaining') return policy
-
-  const capturedAt = Date.parse(params.capturedAt)
-  const materializedAt = Date.parse(params.materializedAt)
-  if (!Number.isFinite(capturedAt) || !Number.isFinite(materializedAt)) {
-    throw new Error('Inherited workflow execution time policy has an invalid timestamp')
-  }
-
-  return {
-    ...policy,
-    accounting: {
-      mode: 'remaining',
-      remainingMilliseconds: Math.max(
-        0,
-        policy.accounting.remainingMilliseconds - Math.max(0, materializedAt - capturedAt)
-      ),
-    },
-  }
-}
-
 export function createWorkflowExecutionDeadlineResult(
   policy: Extract<WorkflowExecutionTimePolicy, { kind: 'bounded' }>,
   terminatedAt: string,

@@ -6,7 +6,6 @@ import {
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
 import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
-import { materializeInheritedWorkflowExecutionTimePolicy } from '@/lib/execution/workflow-execution-time-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId, SSE_HEADERS } from '@/lib/utils'
@@ -210,17 +209,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       source,
       requestId,
       payload: childWorkflowExecution
-        ? (materializedAt) => ({
+        ? {
             ...payload,
             metadata: {
               ...payload.metadata,
-              timePolicy: materializeInheritedWorkflowExecutionTimePolicy({
-                policy: childWorkflowExecution.timePolicy,
-                capturedAt: childWorkflowExecution.timePolicyCapturedAt,
-                materializedAt,
-              }),
+              timePolicy: childWorkflowExecution.timePolicy,
             },
-          })
+          }
         : payload,
     })
     if (!handle.inserted) {

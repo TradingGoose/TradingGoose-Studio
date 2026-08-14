@@ -212,45 +212,6 @@ describe('enqueuePendingExecution', () => {
     })
   })
 
-  it('materializes a deferred payload only at the successful insert boundary', async () => {
-    const materializePayload = vi.fn(() => ({ executionId: 'pending-materialized-1' }))
-
-    await enqueuePendingExecution({
-      executionType: 'workflow',
-      pendingExecutionId: 'pending-materialized-1',
-      workflowId: 'workflow-1',
-      workspaceId: 'workspace-1',
-      userId: 'user-1',
-      source: 'workflow_block',
-      payload: materializePayload,
-    })
-
-    expect(materializePayload).toHaveBeenCalledOnce()
-    expect(materializePayload).toHaveBeenCalledWith(expect.any(String))
-    expect(txInsertValuesMock).toHaveBeenCalledWith(
-      expect.objectContaining({ payload: { executionId: 'pending-materialized-1' } })
-    )
-  })
-
-  it('does not materialize a deferred payload for a duplicate execution', async () => {
-    txSelectLimitMock.mockResolvedValueOnce([{ id: 'pending-existing-1' }])
-    const materializePayload = vi.fn(() => ({ executionId: 'pending-existing-1' }))
-
-    const result = await enqueuePendingExecution({
-      executionType: 'workflow',
-      pendingExecutionId: 'pending-existing-1',
-      workflowId: 'workflow-1',
-      workspaceId: 'workspace-1',
-      userId: 'user-1',
-      source: 'workflow_block',
-      payload: materializePayload,
-    })
-
-    expect(result.inserted).toBe(false)
-    expect(materializePayload).not.toHaveBeenCalled()
-    expect(txInsertValuesMock).not.toHaveBeenCalled()
-  })
-
   it('stores the resolved billing scope when billing is enabled', async () => {
     const { resolveServerExecutionBillingContext } = await import(
       '@/lib/execution/execution-concurrency-limit'

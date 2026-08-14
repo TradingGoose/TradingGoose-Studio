@@ -5,7 +5,6 @@ import {
   createWorkflowExecutionTimePolicy,
   getWorkflowExecutionTimeLimitMilliseconds,
   isWorkflowExecutionTimePolicy,
-  materializeInheritedWorkflowExecutionTimePolicy,
 } from './workflow-execution-time-policy'
 
 const tier = (limit: number | null) =>
@@ -40,33 +39,6 @@ describe('workflow execution time policy', () => {
       accounting: { mode: 'remaining', remainingMilliseconds: 1_500 },
     })
     expect(getWorkflowExecutionTimeLimitMilliseconds(policy)).toBe(1_500)
-  })
-
-  it('charges dispatch time before materializing inherited remaining accounting', () => {
-    const policy = createWorkflowExecutionTimePolicy({ ...base, tier: tier(10) })
-    expect(
-      materializeInheritedWorkflowExecutionTimePolicy({
-        policy,
-        capturedAt: '2026-01-01T00:00:02.000Z',
-        materializedAt: '2026-01-01T00:00:05.500Z',
-      })
-    ).toMatchObject({
-      accounting: { mode: 'remaining', remainingMilliseconds: 6_500 },
-      processingStartedAt: base.processingStartedAt,
-      tier: { appliedTierId: 'tier-1', appliedTierName: 'Pro' },
-      limitSeconds: 10,
-    })
-  })
-
-  it('clamps inherited remaining accounting at zero', () => {
-    const policy = createWorkflowExecutionTimePolicy({ ...base, tier: tier(1) })
-    expect(
-      materializeInheritedWorkflowExecutionTimePolicy({
-        policy,
-        capturedAt: base.processingStartedAt,
-        materializedAt: '2026-01-01T00:00:02.000Z',
-      })
-    ).toMatchObject({ accounting: { mode: 'remaining', remainingMilliseconds: 0 } })
   })
 
   it('creates a clear user-facing deadline error with the captured tier and limit', () => {
