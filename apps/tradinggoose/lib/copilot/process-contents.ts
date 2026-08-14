@@ -20,6 +20,7 @@ import { projectExecutionLogContext } from '@/lib/copilot/execution-log-context'
 import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
+import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { projectBoundedRedactedJson } from '@/lib/security/redaction'
@@ -27,7 +28,6 @@ import { escapeRegExp } from '@/lib/utils'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { ChatContext } from '@/stores/copilot/types'
-import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 type AgentContextType = ChatContext['kind']
 

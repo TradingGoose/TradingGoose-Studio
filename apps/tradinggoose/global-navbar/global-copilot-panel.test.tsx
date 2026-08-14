@@ -69,14 +69,14 @@ vi.mock('@/widgets/widgets/components/pair-color-dropdown', () => ({
   ),
 }))
 
-vi.mock('@/widgets/widgets/copilot/components/copilot-app', () => ({
+vi.mock('@/lib/copilot/components/copilot-app', () => ({
   CopilotApp: (props: Record<string, unknown>) => {
     mocks.copilotProps = props
     return <div data-testid='copilot-app' />
   },
 }))
 
-vi.mock('@/widgets/widgets/copilot/components/copilot/copilot-header', () => ({
+vi.mock('@/lib/copilot/components/copilot/copilot-header', () => ({
   CopilotHeader: () => <div data-testid='copilot-header' />,
   CopilotHeaderActions: () => <div data-testid='copilot-actions' />,
 }))

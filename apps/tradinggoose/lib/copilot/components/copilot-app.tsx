@@ -1,11 +1,11 @@
 'use client'
 
 import { useSession } from '@/lib/auth-client'
+import { resolveCopilotWorkflowId } from '@/lib/copilot/live-contexts'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { CopilotStoreProvider } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
-import { resolveCopilotWorkflowId } from '@/widgets/widgets/copilot/live-contexts'
 import { Copilot } from './copilot/copilot'
 
 type CopilotAppUser =

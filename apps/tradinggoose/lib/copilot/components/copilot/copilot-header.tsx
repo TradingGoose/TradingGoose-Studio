@@ -309,7 +309,7 @@ export function CopilotHeader({
             <button
               type='button'
               className={widgetHeaderControlClassName(
-                'group flex w-[240px] shrink-0 items-center justify-between gap-1'
+                'group flex w-full min-w-0 max-w-[240px] items-center justify-between gap-1'
               )}
               aria-label={historyCopy.openChatHistory}
             />

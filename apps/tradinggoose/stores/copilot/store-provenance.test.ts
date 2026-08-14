@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
+import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import {
   buildTurnProvenanceFromContexts,
   withPinnedToolExecutionProvenance,

@@ -5,6 +5,11 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import {
+  CopilotHeader,
+  CopilotHeaderActions,
+} from '@/lib/copilot/components/copilot/copilot-header'
+import { CopilotApp } from '@/lib/copilot/components/copilot-app'
 import { useDashboardColorPair } from '@/lib/yjs/use-dashboard-color-pair'
 import {
   useGlobalCopilotActiveDashboardLayout,
@@ -12,11 +17,6 @@ import {
 } from '@/global-navbar/copilot-context'
 import type { PairColor } from '@/widgets/pair-colors'
 import { PairColorDropdown } from '@/widgets/widgets/components/pair-color-dropdown'
-import {
-  CopilotHeader,
-  CopilotHeaderActions,
-} from '@/widgets/widgets/copilot/components/copilot/copilot-header'
-import { CopilotApp } from '@/widgets/widgets/copilot/components/copilot-app'
 
 const DEFAULT_PANEL_WIDTH = 1200
 

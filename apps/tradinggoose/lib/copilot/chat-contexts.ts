@@ -1,5 +1,5 @@
+import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import type { ChatContext } from '@/stores/copilot/types'
-import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 export const isHiddenCopilotContext = (
   context: Pick<ChatContext, 'kind'> | null | undefined

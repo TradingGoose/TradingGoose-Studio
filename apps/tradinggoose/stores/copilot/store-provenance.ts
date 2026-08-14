@@ -2,6 +2,7 @@
 
 import { DASHBOARD_LAYOUT_TOOL_NAMES } from '@/lib/copilot/registry'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { normalizeOptionalString } from '@/lib/utils'
 import type {
   ChatContext,
@@ -10,7 +11,6 @@ import type {
   CopilotToolCall,
   CopilotToolExecutionProvenance,
 } from '@/stores/copilot/types'
-import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 type ContextTurnProvenance = {
   workspaceId?: string

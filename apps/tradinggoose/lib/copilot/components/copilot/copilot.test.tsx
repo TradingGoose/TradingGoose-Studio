@@ -70,7 +70,7 @@ vi.mock('@/stores/copilot/store-state', () => ({
   hasUiActiveToolCalls: () => false,
 }))
 
-vi.mock('@/widgets/widgets/copilot/live-contexts', () => ({
+vi.mock('@/lib/copilot/live-contexts', () => ({
   buildImplicitCopilotContexts: () => [],
   resolveCopilotWorkflowId: () => null,
 }))

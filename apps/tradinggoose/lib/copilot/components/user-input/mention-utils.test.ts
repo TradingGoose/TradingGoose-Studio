@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { replaceCopilotWorkspaceEntityMentionsWithIds } from '@/lib/copilot/chat-contexts'
-import enMessages from '../../../../../i18n/messages/en.json'
-import esMessages from '../../../../../i18n/messages/es.json'
-import zhMessages from '../../../../../i18n/messages/zh.json'
+import enMessages from '@/i18n/messages/en.json'
+import esMessages from '@/i18n/messages/es.json'
+import zhMessages from '@/i18n/messages/zh.json'
 import {
   getCopilotMentionCopy,
   getMentionOptionLabel,

@@ -2,6 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { registerClientTool, unregisterClientTool } from '@/lib/copilot/tools/client/manager'
+import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { encodeSSE } from '@/lib/utils'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
@@ -10,7 +11,6 @@ import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { createExecutionContext } from '@/stores/copilot/tool-registry'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { resetCopilotWorkspaceSelectionState } from '@/stores/copilot/workspace-selection'
-import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 type FetchCall = readonly [input: RequestInfo | URL, init?: RequestInit]
 

@@ -11,9 +11,9 @@ import {
   useRef,
   useState,
 } from 'react'
+import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import type { DashboardLayoutTab } from '@/lib/dashboard-layouts/operations'
 import type { ChatContext } from '@/stores/copilot/types'
-import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 type PublishedContext = { owner: symbol; context: ChatContext }
 type PublishedActiveDashboardLayout = { owner: symbol; activeLayout: DashboardLayoutTab }

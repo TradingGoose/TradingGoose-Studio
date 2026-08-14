@@ -7,7 +7,7 @@ import {
   MAX_COPILOT_CONTEXT_BYTES_PER_ITEM,
   MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
 } from '@/lib/copilot/context-limits'
-import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
+import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 
 const WORKSPACE_CONTEXT_ENTITY_KINDS = [
   'workflow',

@@ -13,6 +13,7 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { buildImplicitCopilotContexts, resolveCopilotWorkflowId } from '@/lib/copilot/live-contexts'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -21,10 +22,6 @@ import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
-import {
-  buildImplicitCopilotContexts,
-  resolveCopilotWorkflowId,
-} from '@/widgets/widgets/copilot/live-contexts'
 import { CopilotMessage, CopilotWelcome, TodoList, UserInput } from '..'
 import type { MessageFileAttachment, UserInputRef } from '../user-input/user-input'
 
