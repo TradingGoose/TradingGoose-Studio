@@ -1,5 +1,6 @@
 import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import type { ChatContext } from '@/stores/copilot/types'
+import { MAX_COPILOT_CONTEXTS_PER_TURN } from './context-limits'
 
 export const isHiddenCopilotContext = (
   context: Pick<ChatContext, 'kind'> | null | undefined
@@ -155,5 +156,5 @@ export const mergeCopilotContexts = ({
       : []
   )
 
-  return [...explicit, ...implicit]
+  return [...explicit, ...implicit].slice(0, MAX_COPILOT_CONTEXTS_PER_TURN)
 }

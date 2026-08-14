@@ -4,6 +4,7 @@ import {
   isHiddenCopilotContext,
   mergeCopilotContexts,
 } from './chat-contexts'
+import { MAX_COPILOT_CONTEXTS_PER_TURN } from './context-limits'
 
 describe('Copilot context identity', () => {
   it('deduplicates explicit and current knowledge through the shared entity identity', () => {
@@ -49,5 +50,29 @@ describe('Copilot context identity', () => {
     expect(isHiddenCopilotContext({ kind: 'current_knowledge_base' })).toBe(true)
     expect(isHiddenCopilotContext({ kind: 'current_logs' })).toBe(true)
     expect(isHiddenCopilotContext({ kind: 'current_monitor' })).toBe(true)
+  })
+
+  it('caps deduplicated contexts with explicit mentions taking priority', () => {
+    const explicit = Array.from({ length: MAX_COPILOT_CONTEXTS_PER_TURN }, (_, index) => ({
+      kind: 'workflow' as const,
+      workflowId: `workflow-${index}`,
+      label: `Workflow ${index}`,
+    }))
+    const currentLog = {
+      kind: 'current_logs' as const,
+      logId: 'log-1',
+      workspaceId: 'workspace-1',
+      label: 'Current log',
+    }
+
+    expect(
+      mergeCopilotContexts({ explicitContexts: explicit, implicitContexts: [currentLog] })
+    ).toEqual(explicit)
+    expect(
+      mergeCopilotContexts({
+        explicitContexts: explicit.slice(0, -1),
+        implicitContexts: [explicit[0], currentLog],
+      })
+    ).toEqual([...explicit.slice(0, -1), currentLog])
   })
 })
