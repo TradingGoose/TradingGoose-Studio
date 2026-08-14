@@ -112,9 +112,7 @@ export async function upsertSystemSettings(
   input: UpsertSystemSettingsInput
 ): Promise<ResolvedSystemSettings> {
   return db.transaction(async (tx) => {
-    if (hasInputKey(input, 'triggerDevEnabled')) {
-      await lockPendingExecutionMode(tx)
-    }
+    await lockPendingExecutionMode(tx)
 
     const existing = await getSystemSettingsRecord(tx)
     const currentTriggerDevEnabled =

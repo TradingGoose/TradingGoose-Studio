@@ -33,10 +33,7 @@ export type DocumentProcessingPayload = {
 }
 
 function isDocumentProcessingPayload(value: unknown): value is DocumentProcessingPayload {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
+  if (!value || typeof value !== 'object') return false
   const candidate = value as Record<string, unknown>
   return (
     typeof candidate.knowledgeBaseId === 'string' &&
@@ -47,7 +44,13 @@ function isDocumentProcessingPayload(value: unknown): value is DocumentProcessin
   )
 }
 
-async function executeDocumentProcessingJob(payload: DocumentProcessingPayload) {
+function requireDocumentProcessingPayload(value: unknown): DocumentProcessingPayload {
+  if (isDocumentProcessingPayload(value)) return value
+  throw new Error('Invalid document pending payload')
+}
+
+export async function executeDocumentProcessingJob(value: unknown) {
+  const payload = requireDocumentProcessingPayload(value)
   const { knowledgeBaseId, documentId, docData, processingOptions, requestId } = payload
 
   logger.info(`[${requestId}] Starting document pending execution: ${docData.filename}`)
@@ -78,21 +81,16 @@ export const processDocument = task({
     concurrencyLimit: envNumber(env.KB_CONFIG_CONCURRENCY_LIMIT, 20),
     name: 'document-processing-queue',
   },
-  run: executeDocumentProcessingJob,
+  run: (payload: DocumentProcessingPayload) => executeDocumentProcessingJob(payload),
 })
 
-export async function dispatchQueuedDocumentProcessingJob(payload: unknown) {
-  if (!isDocumentProcessingPayload(payload)) {
-    throw new Error('Invalid document pending payload')
-  }
-
+export async function executeTriggeredDocumentProcessingJob(value: unknown) {
+  const payload = requireDocumentProcessingPayload(value)
   await processDocument.triggerAndWait(payload).unwrap()
 }
 
-export async function failQueuedDocumentProcessingJob(payload: unknown, errorMessage: string) {
-  if (!isDocumentProcessingPayload(payload)) {
-    return
+export async function markDocumentProcessingJobFailed(value: unknown, errorMessage: string) {
+  if (isDocumentProcessingPayload(value)) {
+    await markDocumentProcessingFailed(value.documentId, errorMessage)
   }
-
-  await markDocumentProcessingFailed(payload.documentId, errorMessage)
 }

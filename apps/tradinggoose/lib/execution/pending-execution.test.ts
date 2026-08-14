@@ -14,7 +14,6 @@ const {
   resolveServerExecutionBillingTierForScopeMock,
   andMock,
   eqMock,
-  neMock,
   selectLimitMock,
   txExecuteMock,
   txSelectDistinctLimitMock,
@@ -34,7 +33,6 @@ const {
   resolveServerExecutionBillingTierForScopeMock: vi.fn(),
   andMock: vi.fn((...args) => ({ args })),
   eqMock: vi.fn((field, value) => ({ field, value })),
-  neMock: vi.fn((field, value) => ({ field, value, op: 'ne' })),
   selectLimitMock: vi.fn(),
   txExecuteMock: vi.fn(),
   txSelectDistinctLimitMock: vi.fn(),
@@ -49,11 +47,13 @@ const {
 }))
 
 const txSelectLimitMock = vi.fn()
+const txSelectRowsMock = vi.fn().mockResolvedValue([])
 const txSelectChain = {
   from: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
   orderBy: vi.fn().mockReturnThis(),
   limit: txSelectLimitMock,
+  execute: txSelectRowsMock,
 }
 
 const txSelectDistinctChain = {
@@ -137,7 +137,6 @@ vi.mock('drizzle-orm', () => ({
   asc: vi.fn(),
   eq: eqMock,
   lte: vi.fn(),
-  ne: neMock,
   sql: sqlMock,
 }))
 
@@ -159,8 +158,8 @@ vi.mock('@/lib/trigger/settings', () => ({
   },
 }))
 
-vi.mock('@/background/pending-execution-worker', () => ({
-  executePendingExecution: executePendingExecutionMock,
+vi.mock('@/background/pending-execution-job', () => ({
+  executePendingExecutionJob: executePendingExecutionMock,
 }))
 
 vi.mock('@/lib/logs/execution/logging-session', () => ({
@@ -175,7 +174,6 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
 
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import {
-  claimNextLocalPendingExecutionBatch,
   claimNextPendingExecution,
   completePendingExecution,
   dispatchNextPendingExecution,
@@ -236,6 +234,11 @@ function mockClaimableRow(row: ReturnType<typeof createPendingRow>) {
     },
   ])
 }
+
+beforeEach(() => {
+  txSelectLimitMock.mockReset().mockResolvedValue([])
+  txSelectRowsMock.mockReset().mockResolvedValue([])
+})
 
 describe('dispatchNextPendingExecution', () => {
   beforeEach(() => {
@@ -327,11 +330,11 @@ describe('dispatchNextPendingExecution', () => {
     expect(triggerMock.mock.calls[0]?.[2]).not.toHaveProperty('maxDuration')
   })
 
-  it('leaves local work pending for the supervised dispatcher', async () => {
+  it('does not inspect the Trigger queue in local mode', async () => {
     getTriggerExecutionStateMock.mockResolvedValue(directExecutionState)
 
     await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
-      status: 'local_pending',
+      status: 'empty',
     })
 
     expect(updateReturningMock).not.toHaveBeenCalled()
@@ -358,7 +361,10 @@ describe('dispatchNextPendingExecution', () => {
       displayName: 'Starter',
       workflowExecutionTimeLimitSeconds: 45,
     })
-    txSelectLimitMock.mockResolvedValueOnce([row]).mockResolvedValueOnce([{ count: 1 }])
+    txSelectLimitMock.mockResolvedValueOnce([row])
+    txSelectRowsMock.mockResolvedValueOnce([
+      { id: 'processing-1', source: 'workflow_api', payload: {} },
+    ])
 
     await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
       status: 'capacity_blocked',
@@ -397,11 +403,15 @@ describe('wakePendingExecution', () => {
     const blocked = createPendingRow({ id: 'pending-3' })
     txSelectLimitMock
       .mockResolvedValueOnce([first])
-      .mockResolvedValueOnce([{ count: 0 }])
       .mockResolvedValueOnce([second])
-      .mockResolvedValueOnce([{ count: 1 }])
       .mockResolvedValueOnce([blocked])
-      .mockResolvedValueOnce([{ count: 2 }])
+    txSelectRowsMock
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: first.id, source: first.source, payload: first.payload }])
+      .mockResolvedValueOnce([
+        { id: first.id, source: first.source, payload: first.payload },
+        { id: second.id, source: second.source, payload: second.payload },
+      ])
     updateReturningMock
       .mockResolvedValueOnce([{ ...first, status: 'processing' }])
       .mockResolvedValueOnce([{ ...second, status: 'processing' }])
@@ -439,9 +449,7 @@ describe('enqueuePendingExecution', () => {
     configureTransactionMock()
   })
 
-  it('leaves an inserted local row pending for the supervised dispatcher', async () => {
-    txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([])
-
+  it('awaits the shared job directly in local mode without billing or queue access', async () => {
     const result = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId: 'pending-local-1',
@@ -461,11 +469,43 @@ describe('enqueuePendingExecution', () => {
     })
     expect(triggerMock).not.toHaveBeenCalled()
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
-    expect(executePendingExecutionMock).not.toHaveBeenCalled()
+    expect(executePendingExecutionMock).toHaveBeenCalledWith(
+      {
+        id: 'pending-local-1',
+        executionType: 'workflow',
+        payload: { executionId: 'pending-local-1' },
+      },
+      { triggerRuntime: false }
+    )
+    expect(transactionMock).toHaveBeenCalledOnce()
+    expect(txExecuteMock).toHaveBeenCalledOnce()
+    expect(txInsertValuesMock).not.toHaveBeenCalled()
+    expect(resolveServerExecutionBillingContextMock).not.toHaveBeenCalled()
     expect(resolveServerExecutionBillingTierForScopeMock).not.toHaveBeenCalled()
   })
 
+  it('propagates direct local job failures without inserting a queue row', async () => {
+    executePendingExecutionMock.mockRejectedValueOnce(new Error('Local workflow failed'))
+
+    await expect(
+      enqueuePendingExecution({
+        executionType: 'workflow',
+        pendingExecutionId: 'pending-local-1',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        source: 'workflow_api',
+        payload: { executionId: 'pending-local-1' },
+      })
+    ).rejects.toThrow('Local workflow failed')
+
+    expect(transactionMock).toHaveBeenCalledOnce()
+    expect(txExecuteMock).toHaveBeenCalledOnce()
+    expect(txInsertValuesMock).not.toHaveBeenCalled()
+  })
+
   it('stores the resolved billing scope when billing is enabled', async () => {
+    getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
     const { resolveServerExecutionBillingContext } = await import(
       '@/lib/execution/execution-concurrency-limit'
     )
@@ -706,7 +746,10 @@ describe('claimNextPendingExecution', () => {
       concurrencyLimit: 2,
       displayName: 'Pro',
     } as any)
-    txSelectLimitMock.mockResolvedValueOnce([pendingRow]).mockResolvedValueOnce([{ count: 1 }])
+    txSelectLimitMock.mockResolvedValueOnce([pendingRow])
+    txSelectRowsMock.mockResolvedValueOnce([
+      { id: 'processing-1', source: 'workflow_api', payload: {} },
+    ])
     updateReturningMock.mockResolvedValueOnce([
       {
         ...pendingRow,
@@ -762,25 +805,38 @@ describe('claimNextPendingExecution', () => {
       concurrencyLimit: 1,
       displayName: 'Starter',
     } as any)
-    txSelectLimitMock.mockResolvedValueOnce([pendingRow]).mockResolvedValueOnce([{ count: 1 }])
+    txSelectLimitMock.mockResolvedValueOnce([pendingRow])
+    txSelectRowsMock.mockResolvedValueOnce([
+      { id: 'processing-1', source: 'workflow_api', payload: {} },
+    ])
 
     await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
       status: 'capacity_blocked',
       pendingExecutionId: 'pending-1',
     })
     expect(updateReturningMock).not.toHaveBeenCalled()
-    expect(neMock).toHaveBeenCalledWith('pendingExecution.source', 'workflow_block')
   })
 
   it('claims child workflow rows under the parent workflow capacity marker', async () => {
     const { resolveServerExecutionBillingTierForScope } = await import(
       '@/lib/execution/execution-concurrency-limit'
     )
-    txSelectLimitMock.mockResolvedValueOnce([{ ...pendingRow, source: 'workflow_block' }])
+    vi.mocked(resolveServerExecutionBillingTierForScope).mockResolvedValueOnce({
+      concurrencyLimit: 1,
+      displayName: 'Starter',
+    } as any)
+    const childRow = {
+      ...pendingRow,
+      source: 'workflow_block',
+      payload: { metadata: { parentExecutionId: 'parent-1' } },
+    }
+    txSelectLimitMock.mockResolvedValueOnce([childRow])
+    txSelectRowsMock.mockResolvedValueOnce([
+      { id: 'parent-1', source: 'workflow_api', payload: {} },
+    ])
     updateReturningMock.mockResolvedValueOnce([
       {
-        ...pendingRow,
-        source: 'workflow_block',
+        ...childRow,
         status: 'processing',
         processingStartedAt: new Date(),
       },
@@ -794,75 +850,61 @@ describe('claimNextPendingExecution', () => {
         status: 'processing',
       }),
     })
-    expect(resolveServerExecutionBillingTierForScope).not.toHaveBeenCalled()
+    expect(resolveServerExecutionBillingTierForScope).toHaveBeenCalledOnce()
   })
 
-  it('claims child workflow rows while older non-child rows wait for capacity', async () => {
+  it('counts a child without a processing same-scope parent against capacity', async () => {
     const { resolveServerExecutionBillingTierForScope } = await import(
       '@/lib/execution/execution-concurrency-limit'
     )
+    vi.mocked(resolveServerExecutionBillingTierForScope).mockResolvedValueOnce({
+      concurrencyLimit: 1,
+      displayName: 'Starter',
+    } as any)
     txSelectLimitMock.mockResolvedValueOnce([
-      { ...pendingRow, id: 'child-1', source: 'workflow_block' },
-    ])
-    updateReturningMock.mockResolvedValueOnce([
       {
         ...pendingRow,
         id: 'child-1',
         source: 'workflow_block',
-        status: 'processing',
-        processingStartedAt: new Date(),
+        payload: { metadata: { parentExecutionId: 'missing-parent' } },
       },
+    ])
+    txSelectRowsMock.mockResolvedValueOnce([
+      { id: 'processing-1', source: 'workflow_api', payload: {} },
     ])
 
     await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
-      status: 'claimed',
-      row: expect.objectContaining({
-        id: 'child-1',
-        source: 'workflow_block',
-        status: 'processing',
-      }),
+      status: 'capacity_blocked',
+      pendingExecutionId: 'child-1',
     })
-    expect(resolveServerExecutionBillingTierForScope).not.toHaveBeenCalled()
+    expect(updateReturningMock).not.toHaveBeenCalled()
     expect(sqlMock.mock.calls.some(([strings]) => strings.join('').includes('case when'))).toBe(
       true
     )
   })
 
-  it('attempts one claim per scope and continues after a full scope', async () => {
+  it('counts an already-processing child whose parent row is absent', async () => {
     const { resolveServerExecutionBillingTierForScope } = await import(
       '@/lib/execution/execution-concurrency-limit'
     )
-    getTriggerExecutionStateMock.mockResolvedValueOnce(directExecutionState)
-    vi.mocked(resolveServerExecutionBillingTierForScope).mockResolvedValue({
+    vi.mocked(resolveServerExecutionBillingTierForScope).mockResolvedValueOnce({
       concurrencyLimit: 1,
       displayName: 'Starter',
     } as any)
-    txSelectDistinctLimitMock.mockResolvedValueOnce([
-      { billingScopeId: 'scope-1' },
-      { billingScopeId: 'scope-2' },
-    ])
-    txSelectLimitMock
-      .mockResolvedValueOnce([pendingRow])
-      .mockResolvedValueOnce([{ count: 1 }])
-      .mockResolvedValueOnce([{ ...pendingRow, id: 'pending-2', billingScopeId: 'scope-2' }])
-      .mockResolvedValueOnce([{ count: 0 }])
-    updateReturningMock.mockResolvedValueOnce([
+    txSelectLimitMock.mockResolvedValueOnce([pendingRow])
+    txSelectRowsMock.mockResolvedValueOnce([
       {
-        ...pendingRow,
-        id: 'pending-2',
-        billingScopeId: 'scope-2',
-        status: 'processing',
-        processingStartedAt: new Date(),
+        id: 'orphan-child',
+        source: 'workflow_block',
+        payload: { metadata: { parentExecutionId: 'missing-parent' } },
       },
     ])
 
-    await expect(claimNextLocalPendingExecutionBatch({ limit: 50 })).resolves.toMatchObject({
-      nextBillingScopeId: 'scope-2',
-      rows: [{ id: 'pending-2', billingScopeId: 'scope-2', status: 'processing' }],
+    await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
+      status: 'capacity_blocked',
+      pendingExecutionId: 'pending-1',
     })
-
-    expect(resolveServerExecutionBillingTierForScope).toHaveBeenCalledTimes(2)
-    expect(updateReturningMock).toHaveBeenCalledOnce()
+    expect(updateReturningMock).not.toHaveBeenCalled()
   })
 })
 

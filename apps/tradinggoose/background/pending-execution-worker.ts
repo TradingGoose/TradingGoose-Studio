@@ -21,14 +21,8 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import type { ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
-import {
-  dispatchQueuedDocumentProcessingJob,
-  failQueuedDocumentProcessingJob,
-} from './knowledge-processing'
-import { executeMonitorJob, isMonitorExecutionPayload } from './monitor-execution'
-import { executeScheduleJob, isScheduleExecutionPayload } from './schedule-execution'
-import { executeWebhookJob, isWebhookExecutionPayload } from './webhook-execution'
-import { executeWorkflowJob, isWorkflowExecutionPayload } from './workflow-execution'
+import { markDocumentProcessingJobFailed } from './knowledge-processing'
+import { executePendingExecutionJob } from './pending-execution-job'
 
 const logger = createLogger('PendingExecutionWorker')
 const TIME_LIMIT_ERROR = 'Workflow execution time limit exceeded'
@@ -85,28 +79,7 @@ function getWorkflowState(row: PendingExecutionClaim): WorkflowState {
 }
 
 async function dispatchPendingExecution(row: PendingExecutionClaim) {
-  const payload = { ...row.payload, executionId: row.id }
-  switch (row.executionType) {
-    case 'workflow':
-      if (isWorkflowExecutionPayload(payload)) await executeWorkflowJob(payload)
-      else throw new Error('Invalid workflow pending payload')
-      break
-    case 'webhook':
-      if (isWebhookExecutionPayload(payload)) await executeWebhookJob(payload)
-      else throw new Error('Invalid webhook pending payload')
-      break
-    case 'schedule':
-      if (isScheduleExecutionPayload(payload)) await executeScheduleJob(payload)
-      else throw new Error('Invalid schedule pending payload')
-      break
-    case 'monitor':
-      if (isMonitorExecutionPayload(payload)) await executeMonitorJob(payload)
-      else throw new Error('Invalid monitor pending payload')
-      break
-    case 'document':
-      await dispatchQueuedDocumentProcessingJob(row.payload)
-  }
-
+  await executePendingExecutionJob(row, { triggerRuntime: true })
   if ((await listChildPendingWorkflowExecutions(row.id)).length === 0) {
     await completePendingExecution({ pendingExecutionId: row.id })
   } else {
@@ -252,7 +225,7 @@ export async function finalizePendingExecutionFailure(
   options: { cancelTriggerRuns?: boolean; billable?: boolean } = {}
 ) {
   if (row.executionType === 'document') {
-    await failQueuedDocumentProcessingJob(row.payload, message)
+    await markDocumentProcessingJobFailed(row.payload, message)
   }
 
   await terminalizeWorkflowExecution(row, durationMs, message, options.billable !== false)
@@ -337,7 +310,6 @@ export async function recoverPendingExecutions() {
     const batch = await listProcessingPendingExecutions({
       afterId: processingCursor,
       limit: RECOVERY_PAGE_SIZE,
-      mode: 'trigger',
     })
     if (!batch) {
       return { pendingScopeCount: 0, reconciledCount }
@@ -365,7 +337,6 @@ export async function recoverPendingExecutions() {
     const batch = await listPendingExecutionBillingScopes({
       afterBillingScopeId: scopeCursor,
       limit: RECOVERY_PAGE_SIZE,
-      mode: 'trigger',
     })
     if (!batch) {
       return { pendingScopeCount, reconciledCount }

@@ -1,6 +1,5 @@
 import { DiagConsoleLogger, DiagLogLevel, diag } from '@opentelemetry/api'
 import { env } from './lib/env'
-import { isHosted } from './lib/environment'
 import { createLogger } from './lib/logs/console/logger'
 
 const logger = createLogger('OTelInstrumentation')
@@ -21,35 +20,20 @@ const telemetryState = globalThis as typeof globalThis & {
   __TRADINGGOOSE_OTEL__?: {
     initialized: boolean
     shutdownRegistered: boolean
-    localRuntimeShutdown?: () => Promise<void>
     shutdown?: () => Promise<void>
   }
 }
 
 export async function register() {
-  const state = (telemetryState.__TRADINGGOOSE_OTEL__ ??= {
-    initialized: false,
-    shutdownRegistered: false,
-  })
-
-  if (!isHosted && !state.localRuntimeShutdown) {
-    const runtime = await import('./lib/execution/local-pending-execution-runtime')
-    runtime.startLocalPendingExecutionRuntime()
-    state.localRuntimeShutdown = runtime.stopLocalPendingExecutionRuntime
-  }
-  if (!state.shutdownRegistered) {
-    const shutdown = () => {
-      void Promise.all([state.localRuntimeShutdown?.(), state.shutdown?.()])
-    }
-    process.once('SIGTERM', shutdown)
-    process.once('SIGINT', shutdown)
-    state.shutdownRegistered = true
-  }
-
   if (env.NEXT_TELEMETRY_DISABLED === '1') {
     logger.info('OpenTelemetry disabled via NEXT_TELEMETRY_DISABLED=1')
     return
   }
+
+  const state = (telemetryState.__TRADINGGOOSE_OTEL__ ??= {
+    initialized: false,
+    shutdownRegistered: false,
+  })
 
   if (state.initialized) {
     return
@@ -102,6 +86,12 @@ export async function register() {
       } finally {
         state.initialized = false
       }
+    }
+
+    if (!state.shutdownRegistered) {
+      process.once('SIGTERM', () => void state.shutdown?.())
+      process.once('SIGINT', () => void state.shutdown?.())
+      state.shutdownRegistered = true
     }
 
     logger.info('OpenTelemetry instrumentation initialized')

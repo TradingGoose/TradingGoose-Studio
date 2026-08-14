@@ -1,0 +1,108 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  executeDocumentProcessingJob: vi.fn(),
+  executeMonitorJob: vi.fn(),
+  executeScheduleJob: vi.fn(),
+  executeTriggeredDocumentProcessingJob: vi.fn(),
+  executeWebhookJob: vi.fn(),
+  executeWorkflowJob: vi.fn(),
+  isMonitorExecutionPayload: vi.fn(),
+  isScheduleExecutionPayload: vi.fn(),
+  isWebhookExecutionPayload: vi.fn(),
+  isWorkflowExecutionPayload: vi.fn(),
+  markDocumentProcessingJobFailed: vi.fn(),
+}))
+
+vi.mock('./knowledge-processing', () => ({
+  executeDocumentProcessingJob: mocks.executeDocumentProcessingJob,
+  executeTriggeredDocumentProcessingJob: mocks.executeTriggeredDocumentProcessingJob,
+  markDocumentProcessingJobFailed: mocks.markDocumentProcessingJobFailed,
+}))
+
+vi.mock('./monitor-execution', () => ({
+  executeMonitorJob: mocks.executeMonitorJob,
+  isMonitorExecutionPayload: mocks.isMonitorExecutionPayload,
+}))
+
+vi.mock('./schedule-execution', () => ({
+  executeScheduleJob: mocks.executeScheduleJob,
+  isScheduleExecutionPayload: mocks.isScheduleExecutionPayload,
+}))
+
+vi.mock('./webhook-execution', () => ({
+  executeWebhookJob: mocks.executeWebhookJob,
+  isWebhookExecutionPayload: mocks.isWebhookExecutionPayload,
+}))
+
+vi.mock('./workflow-execution', () => ({
+  executeWorkflowJob: mocks.executeWorkflowJob,
+  isWorkflowExecutionPayload: mocks.isWorkflowExecutionPayload,
+}))
+
+import { executePendingExecutionJob } from './pending-execution-job'
+
+const documentPayload = {
+  knowledgeBaseId: 'knowledge-base-1',
+  documentId: 'document-1',
+  userId: 'user-1',
+  workspaceId: 'workspace-1',
+  docData: {
+    filename: 'document.pdf',
+    fileUrl: 'https://example.com/document.pdf',
+    fileSize: 100,
+    mimeType: 'application/pdf',
+  },
+  processingOptions: {
+    chunkSize: 512,
+    minCharactersPerChunk: 24,
+    chunkOverlap: 100,
+  },
+  requestId: 'request-1',
+}
+
+describe('pending execution job', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.executeDocumentProcessingJob.mockResolvedValue(undefined)
+    mocks.executeTriggeredDocumentProcessingJob.mockResolvedValue(undefined)
+    mocks.markDocumentProcessingJobFailed.mockResolvedValue(undefined)
+  })
+
+  it('executes documents directly when Trigger is disabled', async () => {
+    await executePendingExecutionJob(
+      { id: 'document-job-1', executionType: 'document', payload: documentPayload },
+      { triggerRuntime: false }
+    )
+
+    expect(mocks.executeDocumentProcessingJob).toHaveBeenCalledWith(documentPayload)
+    expect(mocks.executeTriggeredDocumentProcessingJob).not.toHaveBeenCalled()
+  })
+
+  it('uses the document Trigger task only inside the Trigger worker', async () => {
+    await executePendingExecutionJob(
+      { id: 'document-job-1', executionType: 'document', payload: documentPayload },
+      { triggerRuntime: true }
+    )
+
+    expect(mocks.executeTriggeredDocumentProcessingJob).toHaveBeenCalledWith(documentPayload)
+    expect(mocks.executeDocumentProcessingJob).not.toHaveBeenCalled()
+  })
+
+  it('marks direct document failures and propagates them to the caller', async () => {
+    const error = new Error('Document parsing failed')
+    mocks.executeDocumentProcessingJob.mockRejectedValueOnce(error)
+
+    await expect(
+      executePendingExecutionJob(
+        { id: 'document-job-1', executionType: 'document', payload: documentPayload },
+        { triggerRuntime: false }
+      )
+    ).rejects.toThrow(error.message)
+
+    expect(mocks.markDocumentProcessingJobFailed).toHaveBeenCalledWith(
+      documentPayload,
+      error.message
+    )
+  })
+})

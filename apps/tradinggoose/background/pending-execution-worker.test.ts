@@ -6,12 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   cancelPendingWorkflowExecution: vi.fn(),
   completePendingExecution: vi.fn(),
-  dispatchQueuedDocumentProcessingJob: vi.fn(),
+  executeTriggeredDocumentProcessingJob: vi.fn(),
   executeMonitorJob: vi.fn(),
   executeScheduleJob: vi.fn(),
   executeWebhookJob: vi.fn(),
   executeWorkflowJob: vi.fn(),
-  failQueuedDocumentProcessingJob: vi.fn(),
+  markDocumentProcessingJobFailed: vi.fn(),
   getProcessingPendingExecution: vi.fn(),
   isCancellationRequested: vi.fn(),
   isMonitorExecutionPayload: vi.fn(),
@@ -100,8 +100,8 @@ vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
 }))
 
 vi.mock('./knowledge-processing', () => ({
-  dispatchQueuedDocumentProcessingJob: mocks.dispatchQueuedDocumentProcessingJob,
-  failQueuedDocumentProcessingJob: mocks.failQueuedDocumentProcessingJob,
+  executeTriggeredDocumentProcessingJob: mocks.executeTriggeredDocumentProcessingJob,
+  markDocumentProcessingJobFailed: mocks.markDocumentProcessingJobFailed,
 }))
 
 vi.mock('./monitor-execution', () => ({
@@ -165,12 +165,12 @@ describe('pending execution worker', () => {
     vi.clearAllMocks()
     mocks.cancelPendingWorkflowExecution.mockResolvedValue({ status: 'cancelling' })
     mocks.completePendingExecution.mockResolvedValue(undefined)
-    mocks.dispatchQueuedDocumentProcessingJob.mockResolvedValue(undefined)
+    mocks.executeTriggeredDocumentProcessingJob.mockResolvedValue(undefined)
     mocks.executeMonitorJob.mockResolvedValue({ success: true })
     mocks.executeScheduleJob.mockResolvedValue({ success: true })
     mocks.executeWebhookJob.mockResolvedValue({ success: true })
     mocks.executeWorkflowJob.mockResolvedValue({ success: true })
-    mocks.failQueuedDocumentProcessingJob.mockResolvedValue(undefined)
+    mocks.markDocumentProcessingJobFailed.mockResolvedValue(undefined)
     mocks.getProcessingPendingExecution.mockResolvedValue(null)
     mocks.isCancellationRequested.mockResolvedValue(false)
     mocks.isMonitorExecutionPayload.mockReturnValue(false)
@@ -247,10 +247,10 @@ describe('pending execution worker', () => {
       payload: { documentId: 'document-1' },
     })
     mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
-    mocks.dispatchQueuedDocumentProcessingJob.mockRejectedValueOnce(new Error('PDF parse failed'))
+    mocks.executeTriggeredDocumentProcessingJob.mockRejectedValueOnce(new Error('PDF parse failed'))
 
     await expect(runTask(row.id)).rejects.toThrow('PDF parse failed')
-    expect(mocks.failQueuedDocumentProcessingJob).toHaveBeenCalledWith(
+    expect(mocks.markDocumentProcessingJobFailed).toHaveBeenCalledWith(
       row.payload,
       'PDF parse failed'
     )
@@ -323,7 +323,6 @@ describe('recoverPendingExecutions', () => {
     expect(mocks.listProcessingPendingExecutions).toHaveBeenCalledWith({
       afterId: undefined,
       limit: 50,
-      mode: 'trigger',
     })
   })
 
@@ -338,7 +337,6 @@ describe('recoverPendingExecutions', () => {
     expect(mocks.listProcessingPendingExecutions).toHaveBeenCalledWith({
       afterId: undefined,
       limit: 50,
-      mode: 'trigger',
     })
     expect(mocks.listPendingExecutionBillingScopes).not.toHaveBeenCalled()
     expect(mocks.runsList).not.toHaveBeenCalled()
@@ -402,12 +400,10 @@ describe('recoverPendingExecutions', () => {
     expect(mocks.listProcessingPendingExecutions).toHaveBeenNthCalledWith(2, {
       afterId: 'row-49',
       limit: 50,
-      mode: 'trigger',
     })
     expect(mocks.listPendingExecutionBillingScopes).toHaveBeenNthCalledWith(2, {
       afterBillingScopeId: 'scope-49',
       limit: 50,
-      mode: 'trigger',
     })
     expect(mocks.wakePendingExecution).toHaveBeenCalledTimes(51)
   })

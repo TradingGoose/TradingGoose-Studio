@@ -117,13 +117,12 @@ describe('system settings service', () => {
           updatedAt: now,
         },
       ])
-      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         {
           id: 'global',
           registrationMode: 'waitlist',
           billingEnabled: true,
-          triggerDevEnabled: true,
+          triggerDevEnabled: false,
           allowPromotionCodes: false,
           emailDomain: 'mail.example.com',
           fromEmailAddress: null,
@@ -134,7 +133,6 @@ describe('system settings service', () => {
 
     const result = await upsertSystemSettings({
       billingEnabled: true,
-      triggerDevEnabled: true,
       emailDomain: 'mail.example.com',
       fromEmailAddress: '',
     })
@@ -146,7 +144,7 @@ describe('system settings service', () => {
       id: 'global',
       registrationMode: 'waitlist',
       billingEnabled: true,
-      triggerDevEnabled: true,
+      triggerDevEnabled: false,
       allowPromotionCodes: false,
       emailDomain: 'mail.example.com',
       fromEmailAddress: null,
@@ -158,7 +156,7 @@ describe('system settings service', () => {
       set: {
         registrationMode: 'waitlist',
         billingEnabled: true,
-        triggerDevEnabled: true,
+        triggerDevEnabled: false,
         allowPromotionCodes: false,
         emailDomain: 'mail.example.com',
         fromEmailAddress: null,
@@ -168,7 +166,7 @@ describe('system settings service', () => {
     expect(result).toMatchObject({
       registrationMode: 'waitlist',
       billingEnabled: true,
-      triggerDevEnabled: true,
+      triggerDevEnabled: false,
       allowPromotionCodes: false,
       emailDomain: 'mail.example.com',
       fromEmailAddress: null,
@@ -177,7 +175,7 @@ describe('system settings service', () => {
     expect(mockTransactionExecute.mock.invocationCallOrder[0]).toBeLessThan(
       mockSelect.mock.invocationCallOrder[0]
     )
-    expect(mockSelect.mock.invocationCallOrder[1]).toBeLessThan(
+    expect(mockSelect.mock.invocationCallOrder[0]).toBeLessThan(
       mockInsert.mock.invocationCallOrder[0]
     )
   })
