@@ -2,11 +2,11 @@
  * @vitest-environment jsdom
  */
 
-import { act, useState } from 'react'
+import { act, useEffect, useState } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SidebarProvider } from '@/components/ui/sidebar'
+import { SidebarProvider, useSidebar } from '@/components/ui/sidebar'
 import { CopilotSidebarToggle } from '@/global-navbar/components/copilot-sidebar-toggle'
 import { getPublicCopy } from '@/i18n/public-copy'
 
@@ -24,6 +24,20 @@ const matchMedia = vi.fn().mockImplementation((query: string) => ({
 function ControlledToggle({ initialOpen }: { initialOpen: boolean }) {
   const [open, setOpen] = useState(initialOpen)
   return <CopilotSidebarToggle open={open} onOpenChange={setOpen} />
+}
+
+function MobileControlledToggle() {
+  const { openMobile, setOpenMobile } = useSidebar()
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => setOpenMobile(true), [setOpenMobile])
+
+  return (
+    <>
+      <CopilotSidebarToggle open={open} onOpenChange={setOpen} />
+      <output data-testid='mobile-sidebar-state'>{String(openMobile)}</output>
+    </>
+  )
 }
 
 describe('CopilotSidebarToggle', () => {
@@ -114,5 +128,35 @@ describe('CopilotSidebarToggle', () => {
     expect(button.getAttribute('aria-pressed')).toBe('true')
     expect(button.getAttribute('data-active')).toBe('true')
     expect(button.getAttribute('aria-label')).toBe('Hide Copilot')
+  })
+
+  it('closes the mobile sidebar before opening Copilot', async () => {
+    window.innerWidth = 375
+
+    await act(async () => {
+      root.render(
+        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
+          <SidebarProvider open={false} onOpenChange={() => undefined}>
+            <MobileControlledToggle />
+          </SidebarProvider>
+        </NextIntlClientProvider>
+      )
+    })
+
+    const toggle = container.querySelector('button[aria-pressed]')
+    if (!(toggle instanceof HTMLButtonElement)) {
+      throw new Error('Expected a mobile copilot toggle')
+    }
+
+    expect(container.querySelector('[data-testid="mobile-sidebar-state"]')).toHaveTextContent(
+      'true'
+    )
+
+    await act(async () => toggle.click())
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(container.querySelector('[data-testid="mobile-sidebar-state"]')).toHaveTextContent(
+      'false'
+    )
   })
 })

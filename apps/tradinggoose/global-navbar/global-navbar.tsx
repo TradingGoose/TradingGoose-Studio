@@ -122,7 +122,7 @@ export function GlobalNavbar({
   const [activeSettingsSection, setActiveSettingsSection] =
     React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
-  const [isCopilotOpen, setIsCopilotOpen] = React.useState(true)
+  const [isCopilotOpen, setIsCopilotOpen] = React.useState(false)
 
   const userId = sessionData?.user?.id ?? null
   const userName = sessionData?.user?.name ?? brand.name

@@ -17,9 +17,13 @@ export function CopilotSidebarToggle({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { state } = useSidebar()
+  const { isMobile, setOpenMobile, state } = useSidebar()
   const tCopilot = useTranslations('workspace.nav.copilot')
   const actionLabel = open ? tCopilot('hide') : tCopilot('show')
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (isMobile && nextOpen) setOpenMobile(false)
+    onOpenChange(nextOpen)
+  }
 
   if (state === 'collapsed') {
     return (
@@ -32,7 +36,7 @@ export function CopilotSidebarToggle({
             tooltip={actionLabel}
             aria-label={actionLabel}
             aria-pressed={open}
-            onClick={() => onOpenChange(!open)}
+            onClick={() => handleOpenChange(!open)}
           >
             <BotMessageSquare />
             <span>{tCopilot('label')}</span>
@@ -48,7 +52,7 @@ export function CopilotSidebarToggle({
         <BotMessageSquare className='h-4 w-4 shrink-0' aria-hidden='true' />
         <span className='truncate'>{tCopilot('label')}</span>
       </span>
-      <Switch checked={open} onCheckedChange={onOpenChange} aria-label={actionLabel} />
+      <Switch checked={open} onCheckedChange={handleOpenChange} aria-label={actionLabel} />
     </div>
   )
 }
