@@ -27,6 +27,7 @@ import type { PairColor } from '@/widgets/pair-colors'
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
+const copilotContextMocks = vi.hoisted(() => ({ publishActiveLayout: vi.fn() }))
 
 const mockFetch = vi.fn()
 let mockSelectLayout: ((layoutId: string) => void) | null = null
@@ -148,6 +149,17 @@ vi.mock(
 
 vi.mock('@/global-navbar', () => ({
   GlobalNavbarHeader: ({ center }: { center?: ReactNode }) => <>{center}</>,
+}))
+
+vi.mock('@/global-navbar/copilot-context', () => ({
+  GlobalCopilotActiveDashboardLayoutPublisher: ({
+    activeLayout,
+  }: {
+    activeLayout: DashboardLayoutTab | null
+  }) => {
+    copilotContextMocks.publishActiveLayout(activeLayout)
+    return null
+  },
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/layout-tabs', () => ({
@@ -313,6 +325,9 @@ describe('DashboardClient', () => {
   it('rebinds widget data and runtime context when the dashboard identity changes', async () => {
     await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
 
+    expect(copilotContextMocks.publishActiveLayout).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'layout-a', isActive: true })
+    )
     expect(readWidgetSurface(container)).toEqual({
       workflowId: 'wf-a',
       workspaceId: 'ws-a',
@@ -442,6 +457,7 @@ describe('DashboardClient', () => {
     await act(async () => resolveActivation({ ok: true, json: () => Promise.resolve(projected) }))
     expect(mockLayoutDocumentLayoutId).toBe('layout-b')
     expect(mockLayoutTabsLayouts).toEqual(projected)
+    expect(copilotContextMocks.publishActiveLayout).toHaveBeenLastCalledWith(projected[1])
 
     mockDashboardLayoutList = {
       layouts: projected.filter((layout) => layout.id !== 'layout-a'),

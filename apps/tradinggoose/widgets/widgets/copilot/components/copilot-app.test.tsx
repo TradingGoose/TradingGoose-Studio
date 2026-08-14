@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
+import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CopilotApp } from './copilot-app'
@@ -13,16 +13,21 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 const mocks = vi.hoisted(() => ({
   sessionUser: undefined as { id: string; email: string; name: string } | undefined,
 }))
+let nextCopilotInstanceId = 0
 
-const mockCopilot = vi.fn((props: any) => (
-  <div
-    data-testid='copilot'
-    data-input-disabled={String(Boolean(props.inputDisabled))}
-    data-review-session-id={props.reviewTarget?.reviewSessionId ?? ''}
-  >
-    copilot
-  </div>
-))
+const mockCopilot = vi.fn((props: any) => {
+  const [instanceId] = useState(() => ++nextCopilotInstanceId)
+  return (
+    <div
+      data-testid='copilot'
+      data-instance-id={instanceId}
+      data-input-disabled={String(Boolean(props.inputDisabled))}
+      data-review-session-id={props.reviewTarget?.reviewSessionId ?? ''}
+    >
+      copilot
+    </div>
+  )
+})
 const mockProviders = vi.fn(
   ({ children }: { children: React.ReactNode; workspaceId: string; userId?: string }) => (
     <>{children}</>
@@ -45,16 +50,15 @@ vi.mock('@/lib/yjs/workflow-session-host', () => ({
     workflowId,
   }: {
     children: React.ReactNode
-    workflowId: string
+    workflowId: string | null
   }) => (
-    <div data-testid='workflow-session-host' data-workflow-id={workflowId}>
+    <div data-testid='workflow-session-host' data-workflow-id={workflowId ?? ''}>
       {children}
     </div>
   ),
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
-  DEFAULT_COPILOT_CHANNEL_ID: 'default',
   CopilotStoreProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
@@ -69,7 +73,12 @@ describe('CopilotApp', () => {
   const renderApp = async (effectiveParams?: Record<string, unknown> | null) => {
     await act(async () => {
       root.render(
-        <CopilotApp workspaceId='ws-1' panelWidth={480} effectiveParams={effectiveParams} />
+        <CopilotApp
+          workspaceId='ws-1'
+          panelWidth={480}
+          channelId='copilot:user:user-1:workspace:ws-1'
+          effectiveParams={effectiveParams}
+        />
       )
     })
   }
@@ -81,6 +90,7 @@ describe('CopilotApp', () => {
     root = createRoot(container)
     mockCopilot.mockClear()
     mockProviders.mockClear()
+    nextCopilotInstanceId = 0
     mocks.sessionUser = { id: 'user-1', email: 'user@example.com', name: 'User' }
   })
 
@@ -92,10 +102,13 @@ describe('CopilotApp', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('renders copilot without session hosts when no shared workflow is pinned', async () => {
+  it('renders copilot through the stable session host when no workflow is pinned', async () => {
     await renderApp()
 
-    expect(container.querySelector('[data-testid="workflow-session-host"]')).toBeNull()
+    expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
+      'data-workflow-id',
+      ''
+    )
     expect(container.querySelector('[data-testid="copilot"]')).not.toBeNull()
     expect(mockProviders).toHaveBeenCalledWith(
       expect.objectContaining({ workspaceId: 'ws-1', userId: 'user-1' })
@@ -121,6 +134,24 @@ describe('CopilotApp', () => {
     expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
       'data-workflow-id',
       'workflow-current'
+    )
+  })
+
+  it('preserves the Copilot instance while the effective workflow changes', async () => {
+    await renderApp()
+    const initialInstanceId = container
+      .querySelector('[data-testid="copilot"]')
+      ?.getAttribute('data-instance-id')
+
+    await renderApp({ workflowId: 'workflow-current' })
+
+    expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
+      'data-workflow-id',
+      'workflow-current'
+    )
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-instance-id',
+      initialInstanceId
     )
   })
 

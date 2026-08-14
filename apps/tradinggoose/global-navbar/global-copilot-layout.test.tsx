@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 
-import { act, forwardRef, type ReactNode, useImperativeHandle } from 'react'
+import { act, forwardRef, type ReactNode, useImperativeHandle, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GlobalCopilotLayout } from '@/global-navbar/global-copilot-layout'
@@ -15,6 +15,7 @@ const panelState = vi.hoisted(() => ({
   resize: vi.fn(() => {
     panelState.collapsed = false
   }),
+  nextCopilotInstanceId: 0,
 }))
 
 vi.mock('next/navigation', () => ({
@@ -22,9 +23,22 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/global-navbar/global-copilot-panel', () => ({
-  GlobalCopilotPanel: ({ dashboardMode }: { dashboardMode: boolean }) => (
-    <div data-testid='global-copilot-panel' data-dashboard-mode={String(dashboardMode)} />
-  ),
+  GlobalCopilotPanel: ({ dashboardMode }: { dashboardMode: boolean }) => {
+    const [instanceId] = useState(() => ++panelState.nextCopilotInstanceId)
+    const [stagedLocalInput, setStagedLocalInput] = useState('')
+    return (
+      <div
+        data-testid='global-copilot-panel'
+        data-dashboard-mode={String(dashboardMode)}
+        data-instance-id={instanceId}
+        data-staged-local-input={stagedLocalInput}
+      >
+        <button type='button' onClick={() => setStagedLocalInput('staged-user-input')}>
+          Stage local input
+        </button>
+      </div>
+    )
+  },
 }))
 
 vi.mock('@/components/ui/resizable', () => ({
@@ -32,7 +46,17 @@ vi.mock('@/components/ui/resizable', () => ({
     <div data-testid='copilot-split'>{children}</div>
   ),
   ResizablePanel: forwardRef(function MockResizablePanel(
-    { children, id }: { children: ReactNode; id?: string },
+    {
+      children,
+      id,
+      inert,
+      ...props
+    }: {
+      children: ReactNode
+      id?: string
+      inert?: boolean
+      'aria-hidden'?: boolean
+    },
     ref
   ) {
     useImperativeHandle(ref, () => ({
@@ -44,9 +68,28 @@ vi.mock('@/components/ui/resizable', () => ({
       isExpanded: () => !panelState.collapsed,
       resize: panelState.resize,
     }))
-    return <div data-testid={id}>{children}</div>
+    return (
+      <div data-testid={id} inert={inert} {...props}>
+        {children}
+      </div>
+    )
   }),
-  ResizableHandle: () => <div data-testid='copilot-resize-handle' />,
+  ResizableHandle: ({
+    disabled,
+    tabIndex,
+    'aria-hidden': ariaHidden,
+  }: {
+    disabled?: boolean
+    tabIndex?: number
+    'aria-hidden'?: boolean
+  }) => (
+    <div
+      data-testid='copilot-resize-handle'
+      data-disabled={String(disabled)}
+      tabIndex={tabIndex}
+      aria-hidden={ariaHidden}
+    />
+  ),
 }))
 
 describe('GlobalCopilotLayout', () => {
@@ -64,6 +107,7 @@ describe('GlobalCopilotLayout', () => {
     panelState.collapsed = false
     panelState.collapse.mockClear()
     panelState.resize.mockClear()
+    panelState.nextCopilotInstanceId = 0
   })
 
   afterEach(() => {
@@ -96,6 +140,50 @@ describe('GlobalCopilotLayout', () => {
     )
   })
 
+  it('remounts user-owned local state only when the authenticated channel changes', async () => {
+    const render = (ownerUserId: string, dashboardMode: boolean) =>
+      root.render(
+        <GlobalCopilotLayout
+          workspaceId='ws-1'
+          ownerUserId={ownerUserId}
+          dashboardMode={dashboardMode}
+          open
+          onOpenChange={() => undefined}
+        >
+          Page
+        </GlobalCopilotLayout>
+      )
+
+    await act(async () => render('user-1', true))
+    const initialPanel = container.querySelector('[data-testid="global-copilot-panel"]')
+    const initialInstanceId = initialPanel?.getAttribute('data-instance-id')
+    const stageButton = initialPanel?.querySelector('button')
+    if (!(stageButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected the local input staging control')
+    }
+
+    await act(async () => stageButton.click())
+    await act(async () => render('user-1', false))
+    expect(container.querySelector('[data-testid="global-copilot-panel"]')).toHaveAttribute(
+      'data-instance-id',
+      initialInstanceId
+    )
+    expect(container.querySelector('[data-testid="global-copilot-panel"]')).toHaveAttribute(
+      'data-staged-local-input',
+      'staged-user-input'
+    )
+
+    await act(async () => render('user-2', false))
+    expect(container.querySelector('[data-testid="global-copilot-panel"]')).not.toHaveAttribute(
+      'data-instance-id',
+      initialInstanceId
+    )
+    expect(container.querySelector('[data-testid="global-copilot-panel"]')).toHaveAttribute(
+      'data-staged-local-input',
+      ''
+    )
+  })
+
   it('collapses and restores the mounted panel from controlled visibility', async () => {
     const render = (open: boolean) =>
       root.render(
@@ -119,5 +207,38 @@ describe('GlobalCopilotLayout', () => {
 
     await act(async () => render(true))
     expect(panelState.resize).toHaveBeenCalledWith(25)
+  })
+
+  it('removes the closed panel and resize handle from interaction', async () => {
+    const render = (open: boolean) =>
+      root.render(
+        <GlobalCopilotLayout
+          workspaceId='ws-1'
+          ownerUserId='user-1'
+          dashboardMode={false}
+          open={open}
+          onOpenChange={() => undefined}
+        >
+          Page
+        </GlobalCopilotLayout>
+      )
+
+    await act(async () => render(false))
+
+    const panel = container.querySelector('[data-testid="workspace-copilot"]')
+    const handle = container.querySelector('[data-testid="copilot-resize-handle"]')
+    expect(panel).toHaveAttribute('inert')
+    expect(panel).toHaveAttribute('aria-hidden', 'true')
+    expect(handle).toHaveAttribute('data-disabled', 'true')
+    expect(handle).toHaveAttribute('tabindex', '-1')
+    expect(handle).toHaveAttribute('aria-hidden', 'true')
+
+    await act(async () => render(true))
+
+    expect(panel).not.toHaveAttribute('inert')
+    expect(panel).not.toHaveAttribute('aria-hidden')
+    expect(handle).toHaveAttribute('data-disabled', 'false')
+    expect(handle).toHaveAttribute('tabindex', '0')
+    expect(handle).not.toHaveAttribute('aria-hidden')
   })
 })

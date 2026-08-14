@@ -2657,98 +2657,10 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().isLoadingChats).toBe(false)
   })
 
-  it('lets multiple copilot widgets resume the same workspace chat', async () => {
-    const workspaceId = 'workspace-resume-history'
-    const chat = {
-      reviewSessionId: 'review-resume-history',
-      workspaceId,
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      latestTurnStatus: 'completed',
-      title: 'Resume chat',
-      conversationId: null,
-      messages: [],
-      messageCount: 0,
-      createdAt: '2026-03-30T00:00:00.000Z',
-      updatedAt: '2026-03-30T00:00:00.000Z',
-    }
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === `/api/copilot/chat?workspaceId=${workspaceId}`) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            success: true,
-            chats: [chat],
-          }),
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    const primaryStore = getCopilotStore('pair-blue')
-    const resumedStore = getCopilotStore('copilot-panel-9')
-
-    primaryStore.setState({
-      currentChat: null,
-      chats: [],
-      messages: [],
-      toolCallsById: {},
-      isLoadingChats: false,
-      isSendingMessage: false,
-      abortController: null,
-    })
-    resumedStore.setState({
-      currentChat: null,
-      chats: [],
-      messages: [],
-      toolCallsById: {},
-      isLoadingChats: false,
-      isSendingMessage: false,
-      abortController: null,
-    })
-
-    await primaryStore.getState().loadChats({ workspaceId })
-    await resumedStore.getState().loadChats({ workspaceId })
-
-    expect(primaryStore.getState().currentChat?.reviewSessionId).toBe(chat.reviewSessionId)
-    expect(resumedStore.getState().currentChat?.reviewSessionId).toBe(chat.reviewSessionId)
-  })
-
-  it('mirrors same-session drafts and streaming updates across copilot widgets', async () => {
-    const reviewSessionId = 'review-shared-session-stream'
-    const toolCallId = 'shared-session-tool'
-    const deferredStream = createDeferredSseStream()
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat') {
-        return {
-          ok: true,
-          status: 200,
-          body: deferredStream.stream,
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    const primaryStore = getCopilotStore('pair-blue')
-    const secondaryStore = getCopilotStore('pair-red')
+  it('keeps stores isolated even when they reference the same review session', () => {
+    const reviewSessionId = 'review-isolated-session'
+    const primaryStore = getCopilotStore('copilot-isolated-primary')
+    const secondaryStore = getCopilotStore('copilot-isolated-secondary')
     const sharedChat = {
       reviewSessionId,
       workspaceId: 'workspace-1',
@@ -2756,100 +2668,22 @@ describe('copilot streaming regressions', () => {
       entityId: null,
       draftSessionId: null,
       latestTurnStatus: 'completed',
-      title: 'Shared chat',
-      conversationId: 'conversation-shared-session',
+      title: 'Shared chat identity',
+      conversationId: 'conversation-isolated-session',
       messages: [],
       messageCount: 0,
       createdAt: new Date('2026-04-17T00:00:00.000Z'),
       updatedAt: new Date('2026-04-17T00:00:00.000Z'),
     }
 
-    primaryStore.setState({
-      currentChat: sharedChat,
-      chats: [sharedChat],
-      messages: [],
-      toolCallsById: {},
-      inputValue: '',
-    })
-    secondaryStore.setState({
-      currentChat: sharedChat,
-      chats: [sharedChat],
-      messages: [],
-      toolCallsById: {},
-      inputValue: '',
+    primaryStore.setState({ currentChat: sharedChat, chats: [sharedChat] })
+    secondaryStore.setState({ currentChat: sharedChat, chats: [sharedChat] })
+    primaryStore.getState().setDraft({
+      text: 'private @Documentation draft',
+      contexts: [{ kind: 'docs', label: 'Documentation' }],
     })
 
-    primaryStore.getState().setInputValue('shared draft')
-    expect(secondaryStore.getState().inputValue).toBe('shared draft')
-
-    const sendPromise = primaryStore.getState().sendMessage('Continue this session', {
-      runtimeContext: createRuntimeContext({
-        workspaceId: 'workspace-1',
-        workflowId: 'wf-blue',
-      }),
-    })
-    await deferredStream.ready
-
-    deferredStream.push({
-      type: 'response.output_item.added',
-      item: {
-        id: 'assistant-stream-item',
-        type: 'message',
-        role: 'assistant',
-        content: [{ type: 'output_text', text: '' }],
-      },
-    })
-    deferredStream.push({
-      type: 'response.output_text.delta',
-      item_id: 'assistant-stream-item',
-      delta: 'Shared reply',
-    })
-    deferredStream.push({
-      type: 'response.output_item.done',
-      item: {
-        id: 'assistant-stream-item',
-        type: 'message',
-        role: 'assistant',
-        content: [{ type: 'output_text', text: 'Shared reply' }],
-      },
-    })
-    deferredStream.push({
-      type: 'response.output_item.done',
-      item: {
-        type: 'function_call',
-        call_id: toolCallId,
-        name: 'list_workflows',
-        arguments: {},
-      },
-    })
-
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      await Promise.resolve()
-      await new Promise((resolve) => setTimeout(resolve, 5))
-      if (secondaryStore.getState().messages.length === 2) {
-        break
-      }
-    }
-    expect(secondaryStore.getState().messages).toHaveLength(2)
-    expect(secondaryStore.getState().messages.at(-1)?.role).toBe('assistant')
-    expect(secondaryStore.getState().isSendingMessage).toBe(true)
-    deferredStream.push({
-      type: 'response.completed',
-      response: { id: 'response-shared-session' },
-    })
-    deferredStream.close()
-
-    await sendPromise
-
-    expect(secondaryStore.getState().messages.at(-1)?.content).toBe('Shared reply')
-    expect(secondaryStore.getState().toolCallsById[toolCallId]?.provenance).toMatchObject({
-      workspaceId: 'workspace-1',
-      contextEntityKind: 'workflow',
-      contextEntityId: 'wf-blue',
-    })
-    expect(secondaryStore.getState().isSendingMessage).toBe(
-      primaryStore.getState().isSendingMessage
-    )
+    expect(secondaryStore.getState().draft).toEqual({ text: '', contexts: [] })
   })
 
   it('keeps abort terminal when a live stream is still readable', async () => {

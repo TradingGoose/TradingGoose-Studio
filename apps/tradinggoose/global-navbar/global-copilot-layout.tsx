@@ -10,6 +10,7 @@ import {
   resolveGlobalCopilotRouteContext,
 } from '@/global-navbar/copilot-context'
 import { GlobalCopilotPanel } from '@/global-navbar/global-copilot-panel'
+import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
 
 const COPILOT_PANEL_SIZE = 25
 const COPILOT_PANEL_MIN_SIZE = 5
@@ -45,6 +46,10 @@ export function GlobalCopilotLayout({
     [routeEntityId, routeSection, routeWorkspaceId, workspaceId]
   )
   const copilotPanelRef = useRef<ImperativePanelHandle>(null)
+  const channelId = buildCopilotWorkspaceChannelId({
+    authenticatedUserId: ownerUserId,
+    workspaceId,
+  })
 
   useEffect(() => {
     const panel = copilotPanelRef.current
@@ -54,7 +59,7 @@ export function GlobalCopilotLayout({
   }, [open])
 
   return (
-    <GlobalCopilotContextProvider key={workspaceId}>
+    <GlobalCopilotContextProvider key={channelId}>
       <GlobalCopilotContextPublisher context={routeContext} />
       <ResizablePanelGroup direction='horizontal' className='min-h-0 w-full flex-1'>
         <ResizablePanel
@@ -68,15 +73,23 @@ export function GlobalCopilotLayout({
           collapsedSize={0}
           onCollapse={() => onOpenChange(false)}
           onExpand={() => onOpenChange(true)}
+          inert={open ? undefined : true}
+          aria-hidden={open ? undefined : true}
           className='min-h-0 min-w-0 overflow-hidden'
         >
           <GlobalCopilotPanel
+            channelId={channelId}
             workspaceId={workspaceId}
             ownerUserId={ownerUserId}
             dashboardMode={dashboardMode}
           />
         </ResizablePanel>
-        <ResizableHandle withHandle />
+        <ResizableHandle
+          withHandle
+          disabled={!open}
+          tabIndex={open ? 0 : -1}
+          aria-hidden={open ? undefined : true}
+        />
         <ResizablePanel
           id='workspace-page'
           order={2}

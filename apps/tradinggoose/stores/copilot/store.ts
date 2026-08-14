@@ -1,6 +1,13 @@
 'use client'
 
-import { createContext, createElement, type ReactNode, useContext, useMemo } from 'react'
+import {
+  createContext,
+  createElement,
+  type ReactNode,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+} from 'react'
 import type { StoreApi } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createWithEqualityFn as create, useStoreWithEqualityFn } from 'zustand/traditional'
@@ -14,7 +21,12 @@ import {
   ClientToolCallState,
   REJECTED_TOOL_COMPLETION_STATUS,
 } from '@/lib/copilot/tools/client/base-tool'
-import { registerToolStateSync } from '@/lib/copilot/tools/client/manager'
+import {
+  disposeAllClientTools,
+  disposeClientToolsExcept,
+  registerToolStateSync,
+  unregisterClientTool,
+} from '@/lib/copilot/tools/client/manager'
 import {
   acceptCopilotServerToolReview,
   executeCopilotServerTool,
@@ -23,6 +35,7 @@ import {
   isCopilotServerToolReviewResult,
 } from '@/lib/copilot/tools/client/server-tool-response'
 import { createLogger } from '@/lib/logs/console/logger'
+import { parseCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
 import {
   maybeHandleCopilotMarkCompleteContinuation,
   postCopilotMarkCompleteRequest,
@@ -80,6 +93,7 @@ import {
 } from '@/stores/copilot/tool-registry'
 import type {
   ChatContext,
+  CopilotDraft,
   CopilotMessage,
   CopilotSendRuntimeContext,
   CopilotStore,
@@ -90,6 +104,7 @@ import type {
 import {
   getCopilotWorkspaceSelection,
   rememberCopilotWorkspaceSelection,
+  resetCopilotWorkspaceSelectionState,
 } from '@/stores/copilot/workspace-selection'
 
 const logger = createLogger('CopilotStore')
@@ -104,6 +119,13 @@ function clearPendingChatPersistence(reviewSessionId: string) {
 
   clearTimeout(existing)
   pendingChatPersistence.delete(reviewSessionId)
+}
+
+function clearPendingChatPersistenceQueue() {
+  for (const timeout of pendingChatPersistence.values()) {
+    clearTimeout(timeout)
+  }
+  pendingChatPersistence.clear()
 }
 
 function schedulePersistCurrentChatState(
@@ -317,6 +339,8 @@ function autoExecutePendingToolsForAccessLevel(
 }
 
 // Initial state (subset required for UI/streaming)
+const createEmptyCopilotDraft = (): CopilotDraft => ({ text: '', contexts: [] })
+
 const initialState = {
   accessLevel: 'limited' as const,
   selectedModel: DEFAULT_COPILOT_RUNTIME_MODEL,
@@ -329,7 +353,7 @@ const initialState = {
   isAwaitingContinuation: false,
   isAborting: false,
   abortController: null as AbortController | null,
-  inputValue: '',
+  draft: createEmptyCopilotDraft(),
   planTodos: [] as Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>,
   showPlanTodos: false,
   toolCallsById: {} as Record<string, CopilotToolCall>,
@@ -341,129 +365,12 @@ function buildPlanTodoStateFromMessages(messages: CopilotMessage[]) {
   return { planTodos, showPlanTodos: planTodos.some((todo) => !todo.completed) }
 }
 
-const sharedSessionSyncGuards = new WeakSet<StoreApi<CopilotStore>>()
-
-function buildSharedSessionState(state: CopilotStore) {
-  const currentChat = state.currentChat?.reviewSessionId
-    ? {
-        ...state.currentChat,
-        messages: state.messages,
-        messageCount: state.messages.length,
-      }
-    : null
-  if (!currentChat) {
-    return null
-  }
-
-  return {
-    currentChat,
-    messages: state.messages,
-    toolCallsById: state.toolCallsById,
-    isSendingMessage: state.isSendingMessage,
-    isAwaitingContinuation: state.isAwaitingContinuation,
-    isAborting: state.isAborting,
-    abortController: state.abortController,
-    inputValue: state.inputValue,
-    planTodos: state.planTodos,
-    showPlanTodos: state.showPlanTodos,
-    contextUsage: state.contextUsage,
-  }
-}
-
-function syncCopilotSessionState(sourceStore: StoreApi<CopilotStore>) {
-  const sharedSessionState = buildSharedSessionState(sourceStore.getState())
-  if (!sharedSessionState) {
-    return
-  }
-
-  for (const store of copilotStoreRegistry.values()) {
-    if (
-      store === sourceStore ||
-      store.getState().currentChat?.reviewSessionId !==
-        sharedSessionState.currentChat.reviewSessionId
-    ) {
-      continue
-    }
-
-    sharedSessionSyncGuards.add(store)
-    try {
-      store.setState((state) => ({
-        currentChat: sharedSessionState.currentChat,
-        chats: state.chats.map((chat) =>
-          chat.reviewSessionId === sharedSessionState.currentChat.reviewSessionId
-            ? {
-                ...chat,
-                title: sharedSessionState.currentChat.title,
-                conversationId: sharedSessionState.currentChat.conversationId,
-                latestTurnStatus: sharedSessionState.currentChat.latestTurnStatus,
-                updatedAt: sharedSessionState.currentChat.updatedAt,
-                messages: sharedSessionState.currentChat.messages,
-                messageCount: sharedSessionState.currentChat.messageCount,
-              }
-            : chat
-        ),
-        messages: sharedSessionState.messages,
-        toolCallsById: sharedSessionState.toolCallsById,
-        isSendingMessage: sharedSessionState.isSendingMessage,
-        isAwaitingContinuation: sharedSessionState.isAwaitingContinuation,
-        isAborting: sharedSessionState.isAborting,
-        abortController: sharedSessionState.abortController,
-        inputValue: sharedSessionState.inputValue,
-        planTodos: sharedSessionState.planTodos,
-        showPlanTodos: sharedSessionState.showPlanTodos,
-        contextUsage: sharedSessionState.contextUsage,
-      }))
-    } finally {
-      sharedSessionSyncGuards.delete(store)
-    }
-  }
-}
-
-function installSharedSessionSync(store: StoreApi<CopilotStore>) {
-  store.subscribe((state) => {
-    if (!sharedSessionSyncGuards.has(store) && state.currentChat?.reviewSessionId) {
-      syncCopilotSessionState(store)
-    }
-  })
-}
-
-function removeCopilotChatFromStores(reviewSessionId: string) {
-  let clearedWorkspaceId: string | null | undefined
-
-  for (const store of copilotStoreRegistry.values()) {
-    store.setState((state) => {
-      const chats = state.chats.filter((chat) => chat.reviewSessionId !== reviewSessionId)
-      if (state.currentChat?.reviewSessionId !== reviewSessionId) {
-        return { chats }
-      }
-
-      clearedWorkspaceId ??= state.currentChat.workspaceId ?? null
-      return {
-        chats,
-        currentChat: null,
-        messages: [],
-        toolCallsById: {},
-        isSendingMessage: false,
-        isAwaitingContinuation: false,
-        isAborting: false,
-        abortController: null,
-        inputValue: '',
-        planTodos: [],
-        showPlanTodos: false,
-        contextUsage: null,
-      }
-    })
-  }
-
-  return clearedWorkspaceId
-}
-
 const sseHandlers = createSSEHandlers({
   logger,
   schedulePersistCurrentChatState,
 })
 
-const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID) => {
+const createCopilotStoreInstance = (storeChannelId: string) => {
   const store = create<CopilotStore>()(
     devtools((set, get) => ({
       ...initialState,
@@ -634,7 +541,39 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             throw new Error(`Failed to delete chat: ${response.status}`)
           }
 
-          const selectionWorkspaceId = removeCopilotChatFromStores(reviewSessionId)
+          const state = get()
+          const deletingCurrentChat = state.currentChat?.reviewSessionId === reviewSessionId
+          const selectionWorkspaceId = deletingCurrentChat
+            ? (state.currentChat?.workspaceId ?? null)
+            : undefined
+
+          if (deletingCurrentChat) {
+            state.abortController?.abort()
+            clearPendingChatPersistence(reviewSessionId)
+            for (const toolCallId of Object.keys(state.toolCallsById)) {
+              unregisterClientTool(toolCallId)
+            }
+          }
+
+          set((currentState) => ({
+            chats: currentState.chats.filter((chat) => chat.reviewSessionId !== reviewSessionId),
+            ...(deletingCurrentChat
+              ? {
+                  currentChat: null,
+                  messages: [],
+                  toolCallsById: {},
+                  isSendingMessage: false,
+                  isAwaitingContinuation: false,
+                  isAborting: false,
+                  abortController: null,
+                  draft: createEmptyCopilotDraft(),
+                  planTodos: [],
+                  showPlanTodos: false,
+                  contextUsage: null,
+                }
+              : {}),
+          }))
+
           if (selectionWorkspaceId !== undefined) {
             rememberCopilotWorkspaceSelection(selectionWorkspaceId, null)
           }
@@ -650,7 +589,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const { currentChat } = get()
         const resolvedWorkspaceId = options?.workspaceId ?? currentChat?.workspaceId ?? null
 
-        // For now always fetch fresh
         set({ isLoadingChats: true })
         try {
           const params = new URLSearchParams()
@@ -1212,23 +1150,24 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         schedulePersistCurrentChatState(get, newReviewSessionId, ACTIVE_TURN_STATUS)
       },
 
-      cleanup: () => {
-        const { isSendingMessage, isAwaitingContinuation, currentChat } = get()
-        if (isSendingMessage || isAwaitingContinuation || isChatTurnInProgress(currentChat)) {
-          get().abortMessage()
+      reset: () => {
+        const { abortController, currentChat, toolCallsById, accessLevel } = get()
+        abortController?.abort()
+        if (currentChat?.reviewSessionId) {
+          clearPendingChatPersistence(currentChat.reviewSessionId)
+        }
+        abortAllInProgressTools(set, get)
+        for (const toolCallId of Object.keys(toolCallsById)) {
+          unregisterClientTool(toolCallId)
         }
         resetStreamingQueue()
+        set({ ...initialState, accessLevel, draft: createEmptyCopilotDraft() })
       },
 
-      reset: () => {
-        get().cleanup()
-        // Abort in-progress tools prior to reset
-        abortAllInProgressTools(set, get)
-        set({ ...initialState, accessLevel: get().accessLevel })
-      },
-
-      // Input controls
-      setInputValue: (value: string) => set({ inputValue: value }),
+      setDraft: (update) =>
+        set((state) => ({
+          draft: typeof update === 'function' ? update(state.draft) : update,
+        })),
 
       // Todo list (UI only)
       setPlanTodos: (todos) =>
@@ -1585,17 +1524,56 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
     }))
   )
 
-  installSharedSessionSync(store)
   return store
 }
 
-export const DEFAULT_COPILOT_CHANNEL_ID = 'default'
-
 const copilotStoreRegistry = new Map<string, StoreApi<CopilotStore>>()
-const defaultCopilotStore = createCopilotStoreInstance(DEFAULT_COPILOT_CHANNEL_ID)
-copilotStoreRegistry.set(DEFAULT_COPILOT_CHANNEL_ID, defaultCopilotStore)
+let activeAuthenticatedUserId: string | null = null
 
-export const getCopilotStore = (channelId = DEFAULT_COPILOT_CHANNEL_ID) => {
+function resetCopilotStoreState(store: StoreApi<CopilotStore>) {
+  store.getState().reset()
+  store.setState({ accessLevel: initialState.accessLevel })
+}
+
+export function resetCopilotStoreRegistry() {
+  for (const [channelId, store] of copilotStoreRegistry) {
+    resetCopilotStoreState(store)
+    copilotStoreRegistry.delete(channelId)
+  }
+
+  disposeAllClientTools()
+  clearPendingChatPersistenceQueue()
+  resetCopilotWorkspaceSelectionState()
+  activeAuthenticatedUserId = null
+}
+
+function activateAuthenticatedCopilotUser(authenticatedUserId: string) {
+  if (activeAuthenticatedUserId === authenticatedUserId) {
+    return
+  }
+
+  for (const [channelId, store] of copilotStoreRegistry) {
+    const identity = parseCopilotWorkspaceChannelId(channelId)
+    if (identity?.authenticatedUserId === authenticatedUserId) {
+      continue
+    }
+    resetCopilotStoreState(store)
+    copilotStoreRegistry.delete(channelId)
+  }
+
+  const retainedToolCallIds = new Set<string>()
+  for (const store of copilotStoreRegistry.values()) {
+    for (const toolCallId of Object.keys(store.getState().toolCallsById)) {
+      retainedToolCallIds.add(toolCallId)
+    }
+  }
+  disposeClientToolsExcept(retainedToolCallIds)
+  clearPendingChatPersistenceQueue()
+  resetCopilotWorkspaceSelectionState()
+  activeAuthenticatedUserId = authenticatedUserId
+}
+
+export const getCopilotStore = (channelId: string) => {
   if (!copilotStoreRegistry.has(channelId)) {
     copilotStoreRegistry.set(channelId, createCopilotStoreInstance(channelId))
   }
@@ -1612,12 +1590,20 @@ const findStoreForToolCall = (toolCallId: string) => {
   return undefined
 }
 
-registerCopilotStoreForToolCallResolver(
-  (toolCallId) => findStoreForToolCall(toolCallId) ?? defaultCopilotStore
-)
+registerCopilotStoreForToolCallResolver((toolCallId) => {
+  const store = findStoreForToolCall(toolCallId)
+  if (!store) {
+    throw new Error(`No active Copilot store owns tool call ${toolCallId}`)
+  }
+  return store
+})
 
 registerCopilotMarkCompleteContinuationHandler(async ({ toolCallId, response }) => {
-  const targetStore = getCopilotStoreForToolCall(toolCallId)
+  const targetStore = findStoreForToolCall(toolCallId)
+  if (!targetStore) {
+    await response.body?.cancel().catch(() => {})
+    return
+  }
   const state = targetStore.getState()
   const turnProvenance = state.toolCallsById[toolCallId]?.provenance
   const assistantMessageId = findAssistantMessageIdForToolCall(state.messages, toolCallId)
@@ -1659,13 +1645,25 @@ registerCopilotMarkCompleteContinuationHandler(async ({ toolCallId, response }) 
 const CopilotStoreContext = createContext<StoreApi<CopilotStore> | null>(null)
 
 export function CopilotStoreProvider({
-  channelId = DEFAULT_COPILOT_CHANNEL_ID,
+  channelId,
   children,
 }: {
-  channelId?: string
+  channelId: string
   children: ReactNode
 }) {
+  const identity = useMemo(() => {
+    const parsed = parseCopilotWorkspaceChannelId(channelId)
+    if (!parsed) {
+      throw new Error('CopilotStoreProvider requires an authenticated workspace channel')
+    }
+    return parsed
+  }, [channelId])
   const store = useMemo(() => getCopilotStore(channelId), [channelId])
+  const authenticatedUserId = identity.authenticatedUserId
+
+  useLayoutEffect(() => {
+    activateAuthenticatedCopilotUser(authenticatedUserId)
+  }, [authenticatedUserId])
 
   return createElement(CopilotStoreContext.Provider, { value: store }, children)
 }
@@ -1676,7 +1674,10 @@ export function useCopilotStore<T = CopilotStore>(
   selector?: (state: CopilotStore) => T,
   equalityFn?: (a: T, b: T) => boolean
 ) {
-  const store = useContext(CopilotStoreContext) ?? defaultCopilotStore
+  const store = useContext(CopilotStoreContext)
+  if (!store) {
+    throw new Error('useCopilotStore requires CopilotStoreProvider')
+  }
   const resolvedSelector = selector ?? (identitySelector as unknown as (state: CopilotStore) => T)
   return useStoreWithEqualityFn(store, resolvedSelector, equalityFn)
 }
@@ -1686,7 +1687,10 @@ export function useCopilotStoreApi(channelId?: string) {
   if (!channelId && storeFromContext) {
     return storeFromContext
   }
-  return getCopilotStore(channelId)
+  if (channelId) {
+    return getCopilotStore(channelId)
+  }
+  throw new Error('useCopilotStoreApi requires CopilotStoreProvider or channelId')
 }
 
 function applyToolStateUpdate(
@@ -1766,7 +1770,8 @@ function syncClientToolInstanceState(toolCallId: string, instance: any) {
     return
   }
 
-  const targetStore = findStoreForToolCall(toolCallId) ?? defaultCopilotStore
+  const targetStore = findStoreForToolCall(toolCallId)
+  if (!targetStore) return
   const result = instance?.persistedToolCall?.result
   applyToolStateUpdate(
     targetStore,
@@ -1779,7 +1784,8 @@ function syncClientToolInstanceState(toolCallId: string, instance: any) {
 // Sync class-based tool instance state changes back into the store map
 try {
   registerToolStateSync((toolCallId: string, nextState: any, options?: { result?: any }) => {
-    const targetStore = findStoreForToolCall(toolCallId) ?? defaultCopilotStore
+    const targetStore = findStoreForToolCall(toolCallId)
+    if (!targetStore) return
     const current = targetStore.getState().toolCallsById[toolCallId]
     if (!current) return
     let mapped: ClientToolCallState = current.state

@@ -50,6 +50,11 @@ export function buildMentionRanges(text: string, contexts: ChatContext[]): Menti
   )
 }
 
+export function retainMentionContextsInText(text: string, contexts: ChatContext[]): ChatContext[] {
+  const presentKeys = new Set(buildMentionRanges(text, contexts).map((range) => range.contextKey))
+  return contexts.filter((context) => presentKeys.has(buildCopilotContextIdentityKey(context)))
+}
+
 export function upsertMentionContextByTextOrder(
   contexts: ChatContext[],
   nextContext: ChatContext,

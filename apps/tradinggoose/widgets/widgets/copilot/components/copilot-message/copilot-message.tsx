@@ -14,10 +14,11 @@ import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type {
   ChatContext,
+  CopilotDraft,
   CopilotMessage as CopilotMessageType,
   CopilotSendRuntimeContext,
 } from '@/stores/copilot/types'
-import { UserInput, type UserInputRef } from '../user-input/user-input'
+import { type MessageFileAttachment, UserInput, type UserInputRef } from '../user-input/user-input'
 import {
   buildAssistantMessageSegments,
   FileAttachmentDisplay,
@@ -31,7 +32,17 @@ import { shouldRenderAssistantOptions } from './message-visibility'
 
 const logger = createLogger('CopilotMessage')
 
-const getMentionableContextLabels = (contexts: Array<ChatContext | any>) => {
+const buildMessageEditDraft = (message: CopilotMessageType): CopilotDraft => ({
+  text: message.content,
+  contexts: message.contexts ?? [],
+})
+
+const haveSameMessageContexts = (
+  left: CopilotMessageType['contexts'],
+  right: CopilotMessageType['contexts']
+): boolean => left === right || JSON.stringify(left ?? []) === JSON.stringify(right ?? [])
+
+const getMentionableContextLabels = (contexts: ChatContext[]) => {
   return Array.from(
     new Set(
       contexts
@@ -51,7 +62,7 @@ const buildContextMentionPattern = (labels: string[]) => {
   return new RegExp(`(^|\\s+)(@(?:${labels.map(escapeRegex).join('|')}))(?=\\s|$)`, 'g')
 }
 
-const renderUserMessageTextWithMentions = (text: string, contexts: Array<ChatContext | any>) => {
+const renderUserMessageTextWithMentions = (text: string, contexts: ChatContext[]) => {
   const labels = getMentionableContextLabels(contexts)
   const pattern = buildContextMentionPattern(labels)
 
@@ -125,7 +136,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const isAssistant = message.role === 'assistant'
     const [isEditMode, setIsEditMode] = useState(false)
     const [isExpanded, setIsExpanded] = useState(false)
-    const [editedContent, setEditedContent] = useState(message.content)
+    const [editDraft, setEditDraft] = useState<CopilotDraft>(() => buildMessageEditDraft(message))
     const [editBlockedReason, setEditBlockedReason] = useState<string | null>(null)
     const [isHoveringMessage, setIsHoveringMessage] = useState(false)
     const editContainerRef = useRef<HTMLDivElement>(null)
@@ -171,23 +182,9 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const shouldShowActivityIndicator =
       isAssistant && isLastMessage && isTurnInProgress && !isMessageTyping
     const userMessageText = message.content || ''
-    const userMessageContexts = (() => {
-      const direct = Array.isArray((message as any).contexts)
-        ? ((message as any).contexts as any[])
-        : []
-      const block = Array.isArray(message.contentBlocks)
-        ? (message.contentBlocks as any[]).find(
-            (contentBlock: any) => contentBlock?.type === 'contexts'
-          )
-        : null
-      const fromBlock = Array.isArray((block as any)?.contexts)
-        ? ((block as any).contexts as any[])
-        : []
-
-      return (direct.length > 0 ? direct : fromBlock).filter(
-        (context: any) => !isHiddenCopilotContext(context)
-      )
-    })()
+    const userMessageContexts = (message.contexts ?? []).filter(
+      (context) => !isHiddenCopilotContext(context)
+    )
 
     const isReplayBlockedForEdit = useMemo(
       () => hasAcceptedLiveMutationAfterMessage(messages, message.id),
@@ -204,7 +201,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
       setIsEditMode(true)
       setIsExpanded(false)
-      setEditedContent(message.content)
+      setEditDraft(buildMessageEditDraft(message))
       setEditBlockedReason(null)
       onEditModeChange?.(true)
       // Focus the input and position cursor at the end after render
@@ -215,7 +212,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const handleCancelEdit = () => {
       setIsEditMode(false)
-      setEditedContent(message.content)
+      setEditDraft(buildMessageEditDraft(message))
       onEditModeChange?.(false)
     }
 
@@ -233,8 +230,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const handleSubmitEdit = async (
       editedMessage: string,
-      fileAttachments?: any[],
-      contexts?: any[]
+      fileAttachments?: MessageFileAttachment[],
+      contexts?: ChatContext[]
     ) => {
       if (!editedMessage.trim() || sendDisabled) return
 
@@ -257,8 +254,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const performEdit = async (
       editedMessage: string,
-      fileAttachments?: any[],
-      contexts?: any[]
+      fileAttachments?: MessageFileAttachment[],
+      contexts?: ChatContext[]
     ) => {
       // Find the index of this message and truncate conversation
       const currentMessages = messages
@@ -273,7 +270,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           ...message,
           content: editedMessage,
           fileAttachments: fileAttachments || message.fileAttachments,
-          contexts: (contexts || (message as any).contexts) as ChatContext[] | undefined,
+          contexts: contexts ?? message.contexts,
         }
 
         // If we have a current chat, update the DB to remove messages after this point
@@ -291,7 +288,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                   timestamp: m.timestamp,
                   ...(m.contentBlocks && { contentBlocks: m.contentBlocks }),
                   ...(m.fileAttachments && { fileAttachments: m.fileAttachments }),
-                  ...((m as any).contexts && { contexts: (m as any).contexts }),
+                  ...(m.contexts && { contexts: m.contexts }),
                 })),
               }),
             })
@@ -332,7 +329,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         // Send the edited message with the SAME message ID
         await sendMessage(editedMessage, {
           fileAttachments: fileAttachments || message.fileAttachments,
-          contexts: (contexts || (message as any).contexts) as ChatContext[] | undefined,
+          contexts: contexts ?? message.contexts,
           messageId: message.id, // Reuse the original message ID
           runtimeContext,
         })
@@ -585,8 +582,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 onAbort={handleCancelEdit}
                 isLoading={isTurnInProgress && isLastUserMessage}
                 disabled={sendDisabled}
-                value={editedContent}
-                onChange={setEditedContent}
+                draft={editDraft}
+                onDraftChange={setEditDraft}
                 placeholder={copilotCopy.message.editPlaceholder}
                 accessLevel={accessLevel}
                 onAccessLevelChange={setAccessLevel}
@@ -751,6 +748,10 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     // If panel width changed, re-render
     if (prevProps.panelWidth !== nextProps.panelWidth) {
+      return false
+    }
+
+    if (!haveSameMessageContexts(prevMessage.contexts, nextMessage.contexts)) {
       return false
     }
 

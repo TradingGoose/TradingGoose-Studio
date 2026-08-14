@@ -5,11 +5,14 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { DashboardLayoutTab } from '@/lib/dashboard-layouts/operations'
 import type { ChatContext } from '@/stores/copilot/types'
 import {
+  GlobalCopilotActiveDashboardLayoutPublisher,
   GlobalCopilotContextProvider,
   GlobalCopilotContextPublisher,
   resolveGlobalCopilotRouteContext,
+  useGlobalCopilotActiveDashboardLayout,
   useGlobalCopilotCurrentContext,
 } from './copilot-context'
 
@@ -20,6 +23,11 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 function CurrentContextProbe() {
   const context = useGlobalCopilotCurrentContext()
   return <div data-testid='current-context'>{context ? JSON.stringify(context) : ''}</div>
+}
+
+function ActiveDashboardLayoutProbe() {
+  const activeLayout = useGlobalCopilotActiveDashboardLayout()
+  return <div data-testid='active-dashboard-layout'>{activeLayout?.id ?? ''}</div>
 }
 
 describe('global Copilot context', () => {
@@ -93,6 +101,35 @@ describe('global Copilot context', () => {
       )
     })
 
+    expect(container.textContent).toBe('')
+  })
+
+  it('publishes and clears the dashboard active layout resolved by the page', async () => {
+    const activeLayout: DashboardLayoutTab = {
+      id: 'layout-b',
+      name: 'Layout B',
+      sortOrder: 1,
+      isActive: true,
+      updatedAt: '2026-01-01T00:00:01.000Z',
+    }
+
+    await act(async () => {
+      root.render(
+        <GlobalCopilotContextProvider>
+          <GlobalCopilotActiveDashboardLayoutPublisher activeLayout={activeLayout} />
+          <ActiveDashboardLayoutProbe />
+        </GlobalCopilotContextProvider>
+      )
+    })
+    expect(container.textContent).toBe('layout-b')
+
+    await act(async () => {
+      root.render(
+        <GlobalCopilotContextProvider>
+          <ActiveDashboardLayoutProbe />
+        </GlobalCopilotContextProvider>
+      )
+    })
     expect(container.textContent).toBe('')
   })
 

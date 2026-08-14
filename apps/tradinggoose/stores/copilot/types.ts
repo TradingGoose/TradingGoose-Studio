@@ -39,7 +39,6 @@ export interface CopilotMessage {
         startTime?: number
       }
     | { type: 'tool_call'; toolCall: CopilotToolCall; timestamp: number }
-    | { type: 'contexts'; contexts: ChatContext[]; timestamp: number }
   >
   fileAttachments?: MessageFileAttachment[]
   contexts?: ChatContext[]
@@ -103,6 +102,13 @@ export type ChatContext =
     }
   | { kind: 'docs'; label: string }
 
+export interface CopilotDraft {
+  text: string
+  contexts: ChatContext[]
+}
+
+export type CopilotDraftUpdate = CopilotDraft | ((draft: CopilotDraft) => CopilotDraft)
+
 export interface CopilotChat {
   reviewSessionId: string
   workspaceId: string | null
@@ -161,7 +167,7 @@ export interface CopilotState {
   isAborting: boolean
 
   abortController: AbortController | null
-  inputValue: string
+  draft: CopilotDraft
 
   planTodos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
   showPlanTodos: boolean
@@ -207,10 +213,9 @@ export interface CopilotActions {
     options?: { latestTurnStatus?: string | null }
   ) => Promise<void>
 
-  cleanup: () => void
   reset: () => void
 
-  setInputValue: (value: string) => void
+  setDraft: (update: CopilotDraftUpdate) => void
 
   setPlanTodos: (
     todos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>

@@ -49,15 +49,14 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       className,
       accessLevel = 'limited',
       onAccessLevelChange,
-      value: controlledValue,
-      onChange: onControlledChange,
+      draft,
+      onDraftChange,
       panelWidth = 308,
       hideContextUsage = false,
       clearOnSubmit = true,
     },
     ref
   ) => {
-    const [internalMessage, setInternalMessage] = useState('')
     const [isNearTop, setIsNearTop] = useState(false)
     const [mentionPortalStyle, setMentionPortalStyle] = useState<MentionPortalStyle | null>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -70,9 +69,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const { data: session } = useSession()
     const copilotCopy = useCopilotMessages()
     const { contextUsage, createNewChat } = useCopilotStore()
-    const message = controlledValue !== undefined ? controlledValue : internalMessage
-    const setMessage =
-      controlledValue !== undefined ? onControlledChange || (() => {}) : setInternalMessage
+    const message = draft.text
 
     const {
       attachedFiles,
@@ -92,7 +89,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const {
       aggregatedActive,
       closeMentionMenu,
-      clearSelectedContexts,
       handleAggregatedItemSelect,
       handleInputChange,
       insertTextAtSelection,
@@ -115,11 +111,11 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       submenuQuery,
     } = useUserInputMentions({
       disabled,
+      draft,
       isLoading,
       menuListRef,
-      message,
       mentionSources,
-      setMessage,
+      setDraft: onDraftChange,
       textareaRef,
       workspaceId,
       loaders: {
@@ -355,9 +351,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       onSubmit(trimmedMessage, fileAttachments, selectedContexts)
 
       if (clearOnSubmit) {
-        setMessage('')
+        onDraftChange({ text: '', contexts: [] })
         clearAttachedFiles()
-        clearSelectedContexts()
       }
 
       closeMentionMenu()
@@ -572,7 +567,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
               </Button>
             </div>
 
-            <div className='pl-1.5 flex items-center gap-1.5'>
+            <div className='flex items-center gap-1.5 pl-1.5'>
               <Button
                 variant='ghost'
                 size='icon'

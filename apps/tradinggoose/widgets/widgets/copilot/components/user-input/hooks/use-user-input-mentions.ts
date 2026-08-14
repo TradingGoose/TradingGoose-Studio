@@ -2,10 +2,9 @@
 
 import { type KeyboardEvent, type RefObject, useEffect, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
-import { buildCopilotContextIdentityKey } from '@/lib/copilot/chat-contexts'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
-import type { ChatContext } from '@/stores/copilot/types'
+import type { ChatContext, CopilotDraftUpdate } from '@/stores/copilot/types'
 import {
   buildCopilotWorkspaceEntityContext,
   isCopilotWorkspaceEntityMentionOption,
@@ -23,6 +22,7 @@ import {
   filterMentionItems,
   filterMentionOptions,
   isMentionBoundary,
+  retainMentionContextsInText,
   upsertMentionContextByTextOrder,
 } from '../mention-utils'
 import type {
@@ -38,11 +38,11 @@ import type {
 
 interface UseUserInputMentionsOptions {
   disabled: boolean
+  draft: { text: string; contexts: ChatContext[] }
   isLoading: boolean
   menuListRef: RefObject<HTMLDivElement | null>
-  message: string
   mentionSources: MentionSources
-  setMessage: (value: string) => void
+  setDraft: (update: CopilotDraftUpdate) => void
   textareaRef: RefObject<HTMLTextAreaElement | null>
   workspaceId: string
   loaders: {
@@ -50,19 +50,21 @@ interface UseUserInputMentionsOptions {
   }
 }
 
-type MentionInsertion = { start: number }
+type MentionInsertion = { cursor: number; start: number; text: string }
 
 export function useUserInputMentions({
   disabled,
+  draft,
   isLoading,
   menuListRef,
-  message,
   mentionSources,
-  setMessage,
+  setDraft,
   textareaRef,
   workspaceId,
   loaders,
 }: UseUserInputMentionsOptions) {
+  const message = draft.text
+  const selectedContexts = draft.contexts
   const locale = useLocale()
   const mentionCopy = useCopilotMentionCopy()
   const { copy: monitorCopy } = useMonitorCopy()
@@ -72,11 +74,9 @@ export function useUserInputMentions({
   const [submenuActiveIndex, setSubmenuActiveIndex] = useState(0)
   const [submenuQueryStart, setSubmenuQueryStart] = useState<number | null>(null)
   const [inAggregated, setInAggregated] = useState(false)
-  const [selectedContexts, setSelectedContexts] = useState<ChatContext[]>([])
   const workflowSession = useOptionalWorkflowSession()
   const currentWorkflowId = workflowSession?.workflowId ?? null
   const lastSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
-  const pendingDeletedContextKeysRef = useRef<Set<string>>(new Set())
   const ensureSubmenuLoaded = loaders.ensureSubmenuLoaded
   const getEditorTextLength = () => textareaRef.current?.value.length ?? message.length
 
@@ -214,14 +214,10 @@ export function useUserInputMentions({
     setInAggregated(false)
   }
 
-  const clearSelectedContexts = () => {
-    setSelectedContexts([])
-  }
-
   const getFilteredSubmenuItems = (submenu: MentionSubmenu, query: string): MentionItem[] =>
     filterMentionItems(submenu, mentionSources, query, monitorCopy, mentionCopy)
 
-  const insertAtCursor = (text: string): MentionInsertion => {
+  const buildInsertionAtCursor = (text: string): MentionInsertion => {
     const selection = getSelection()
     const start = selection?.start ?? message.length
     const end = selection?.end ?? message.length
@@ -232,15 +228,24 @@ export function useUserInputMentions({
       before = before.slice(0, -1)
     }
 
-    const next = `${before}${text}${after}`
-    setMessage(next)
-
-    const nextPos = before.length + text.length
-    restoreEditorSelection(nextPos, nextPos)
-    return { start: before.length }
+    return {
+      cursor: before.length + text.length,
+      start: before.length,
+      text: `${before}${text}${after}`,
+    }
   }
 
-  const replaceActiveMentionWith = (label: string): MentionInsertion | null => {
+  const insertAtCursor = (text: string): MentionInsertion => {
+    const insertion = buildInsertionAtCursor(text)
+    setDraft({
+      text: insertion.text,
+      contexts: retainMentionContextsInText(insertion.text, selectedContexts),
+    })
+    restoreEditorSelection(insertion.cursor, insertion.cursor)
+    return insertion
+  }
+
+  const buildActiveMentionReplacement = (label: string): MentionInsertion | null => {
     if (!textareaRef.current) return null
 
     const pos = getSelection()?.start ?? message.length
@@ -254,23 +259,23 @@ export function useUserInputMentions({
     const after = message.slice(active.end)
     const trailingSpace = after.length > 0 && /^\s/.test(after) ? '' : ' '
     const insertion = `@${label}${trailingSpace}`
-    const next = `${before}${insertion}${after}`
-
-    setMessage(next)
-
     const cursorPos = before.length + insertion.length
-    restoreEditorSelection(cursorPos, cursorPos)
-
-    return { start: before.length }
+    return { cursor: cursorPos, start: before.length, text: `${before}${insertion}${after}` }
   }
 
-  const insertMentionToken = (label: string) =>
-    replaceActiveMentionWith(label) ?? insertAtCursor(`@${label} `)
-
-  const selectMentionContext = (context: ChatContext, insertion: MentionInsertion) => {
-    setSelectedContexts((prev) =>
-      upsertMentionContextByTextOrder(prev, context, message, insertion.start)
+  const insertMentionContext = (label: string, context: ChatContext) => {
+    const insertion = buildActiveMentionReplacement(label) ?? buildInsertionAtCursor(`@${label} `)
+    const contexts = upsertMentionContextByTextOrder(
+      retainMentionContextsInText(message, selectedContexts),
+      context,
+      message,
+      insertion.start
     )
+    setDraft({
+      text: insertion.text,
+      contexts: retainMentionContextsInText(insertion.text, contexts),
+    })
+    restoreEditorSelection(insertion.cursor, insertion.cursor)
   }
 
   const resetActiveMentionQuery = () => {
@@ -286,7 +291,10 @@ export function useUserInputMentions({
     const before = message.slice(0, active.start + 1)
     const after = message.slice(active.end)
     const next = `${before}${after}`
-    setMessage(next)
+    setDraft({
+      text: next,
+      contexts: retainMentionContextsInText(next, selectedContexts),
+    })
 
     const caretPos = before.length
     restoreEditorSelection(caretPos, caretPos)
@@ -294,39 +302,32 @@ export function useUserInputMentions({
 
   const insertPastChatMention = (chat: Pick<PastChatItem, 'reviewSessionId' | 'title'>) => {
     const label = getPastChatMentionLabel(mentionCopy, chat)
-    const insertion = insertMentionToken(label)
-    selectMentionContext(
-      {
-        kind: 'past_chat',
-        reviewSessionId: chat.reviewSessionId,
-        label,
-      },
-      insertion
-    )
+    insertMentionContext(label, {
+      kind: 'past_chat',
+      reviewSessionId: chat.reviewSessionId,
+      label,
+    })
     closeMentionMenu()
   }
 
   const insertWorkspaceEntityMention = (item: WorkspaceEntityItem) => {
     const label = getWorkspaceEntityMentionLabel(mentionCopy, item)
-    const insertion = insertMentionToken(label)
-
-    selectMentionContext(
+    insertMentionContext(
+      label,
       buildCopilotWorkspaceEntityContext({
         entityKind: item.entityKind,
         entityId: item.id,
         workspaceId,
         ownerUserId: item.ownerUserId,
         label,
-      }),
-      insertion
+      })
     )
     closeMentionMenu()
   }
 
   const insertBlockMention = (block: { id: string; name: string }) => {
     const label = block.name || block.id
-    const insertion = insertMentionToken(label)
-    selectMentionContext({ kind: 'blocks', blockTypes: [block.id], label }, insertion)
+    insertMentionContext(label, { kind: 'blocks', blockTypes: [block.id], label })
     closeMentionMenu()
   }
 
@@ -337,25 +338,18 @@ export function useUserInputMentions({
     }
 
     const label = block.name
-    const insertion = insertMentionToken(label)
-
-    selectMentionContext(
-      {
-        kind: 'workflow_block',
-        workflowId: currentWorkflowId,
-        blockId: block.id,
-        label,
-      },
-      insertion
-    )
+    insertMentionContext(label, {
+      kind: 'workflow_block',
+      workflowId: currentWorkflowId,
+      blockId: block.id,
+      label,
+    })
     closeMentionMenu()
   }
 
   const insertDocsMention = () => {
     const label = getMentionOptionLabel(mentionCopy, 'docs')
-    const insertion = insertMentionToken(label)
-
-    selectMentionContext({ kind: 'docs', label }, insertion)
+    insertMentionContext(label, { kind: 'docs', label })
     closeMentionMenu()
   }
 
@@ -367,16 +361,12 @@ export function useUserInputMentions({
     entityName: string
   }) => {
     const label = log.entityName
-    const insertion = insertMentionToken(label)
-    selectMentionContext(
-      {
-        kind: 'logs',
-        logId: log.id,
-        workspaceId,
-        label,
-      },
-      insertion
-    )
+    insertMentionContext(label, {
+      kind: 'logs',
+      logId: log.id,
+      workspaceId,
+      label,
+    })
     closeMentionMenu()
   }
 
@@ -436,19 +426,10 @@ export function useUserInputMentions({
       before.endsWith(' ') && after.startsWith(' ')
         ? `${before}${after.slice(1)}`
         : `${before}${after}`
-    const matchingRanges = computeMentionRanges().filter(
-      (mentionRange) => mentionRange.contextKey === range.contextKey
-    )
-    const shouldRemoveContext = matchingRanges.length <= 1
-    if (shouldRemoveContext) {
-      pendingDeletedContextKeysRef.current.add(range.contextKey)
-    }
-    setMessage(next)
-    if (shouldRemoveContext) {
-      setSelectedContexts((prev) =>
-        prev.filter((context) => buildCopilotContextIdentityKey(context) !== range.contextKey)
-      )
-    }
+    setDraft({
+      text: next,
+      contexts: retainMentionContextsInText(next, selectedContexts),
+    })
 
     restoreEditorSelection(range.start, range.start)
   }
@@ -457,7 +438,10 @@ export function useUserInputMentions({
     newValue: string,
     selection: { start: number; end: number } = { start: newValue.length, end: newValue.length }
   ) => {
-    setMessage(newValue)
+    setDraft({
+      text: newValue,
+      contexts: retainMentionContextsInText(newValue, selectedContexts),
+    })
     const normalizedSelection = {
       start: Math.max(0, Math.min(selection.start, newValue.length)),
       end: Math.max(0, Math.min(selection.end, newValue.length)),
@@ -812,31 +796,6 @@ export function useUserInputMentions({
   }
 
   useEffect(() => {
-    if (!message) {
-      setSelectedContexts([])
-      lastSelectionRef.current = { start: 0, end: 0 }
-      return
-    }
-
-    setSelectedContexts((prev) => {
-      const deletedContextKeys = pendingDeletedContextKeysRef.current
-      const candidates =
-        deletedContextKeys.size === 0
-          ? prev
-          : prev.filter(
-              (context) => !deletedContextKeys.has(buildCopilotContextIdentityKey(context))
-            )
-      pendingDeletedContextKeysRef.current = new Set()
-      const presentKeys = new Set(
-        buildMentionRanges(message, candidates).map((range) => range.contextKey)
-      )
-      return candidates.filter((context) =>
-        presentKeys.has(buildCopilotContextIdentityKey(context))
-      )
-    })
-  }, [message])
-
-  useEffect(() => {
     if (!showMentionMenu) return
 
     if (openSubmenuFor) {
@@ -859,7 +818,6 @@ export function useUserInputMentions({
   return {
     aggregatedActive,
     closeMentionMenu,
-    clearSelectedContexts,
     handleAggregatedItemSelect,
     handleInputChange,
     insertTextAtSelection,

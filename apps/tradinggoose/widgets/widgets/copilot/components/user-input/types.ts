@@ -1,8 +1,8 @@
 'use client'
 
-import type { ComponentType } from 'react'
+import type { ComponentType, Dispatch, SetStateAction } from 'react'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { ChatContext } from '@/stores/copilot/types'
+import type { ChatContext, CopilotDraft } from '@/stores/copilot/types'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
 
 export interface MessageFileAttachment {
@@ -39,8 +39,8 @@ export interface UserInputProps {
   className?: string
   accessLevel?: CopilotAccessLevel
   onAccessLevelChange?: (accessLevel: CopilotAccessLevel) => void
-  value?: string
-  onChange?: (value: string) => void
+  draft: CopilotDraft
+  onDraftChange: Dispatch<SetStateAction<CopilotDraft>>
   panelWidth?: number
   hideContextUsage?: boolean
   clearOnSubmit?: boolean

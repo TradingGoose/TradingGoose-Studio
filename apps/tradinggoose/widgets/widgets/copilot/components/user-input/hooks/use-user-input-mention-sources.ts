@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
@@ -47,6 +47,17 @@ type WorkspaceEntityMentionLoadState = Partial<
   Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[] | 'loading'>
 >
 
+type WorkflowBlockMentionLoadState = {
+  workflowId: string | null
+  items: WorkflowBlockItem[]
+  isLoading: boolean
+}
+
+const EMPTY_PAST_CHATS: PastChatItem[] = []
+const EMPTY_LOGS: LogItem[] = []
+const EMPTY_BLOCK_CATALOG: BlockItem[] = []
+const EMPTY_WORKSPACE_ENTITY_STATE: WorkspaceEntityMentionLoadState = {}
+
 const toTrimmedString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
 export function useUserInputMentionSources({
@@ -55,21 +66,48 @@ export function useUserInputMentionSources({
 }: UseUserInputMentionSourcesOptions) {
   const locale = useLocale()
   const normalizedOwnerUserId = ownerUserId ?? null
-  const workspaceLifecycle = useMemo(() => ({ active: true }), [workspaceId])
-  const [pastChats, setPastChats] = useState<PastChatItem[]>([])
-  const [isLoadingPastChats, setIsLoadingPastChats] = useState(false)
+  const workspaceLifecycle = useMemo(() => ({ active: true }), [workspaceId, normalizedOwnerUserId])
+  const workspaceScopeRef = useRef({
+    workspaceId,
+    ownerUserId: normalizedOwnerUserId,
+  })
+  const [loadedPastChats, setLoadedPastChats] = useState<PastChatItem[]>([])
+  const [pastChatsLoading, setPastChatsLoading] = useState(false)
   const [workspaceEntityState, setWorkspaceEntityState] = useState<WorkspaceEntityMentionLoadState>(
     {}
   )
-  const [blocksList, setBlocksList] = useState<BlockItem[]>([])
-  const [isLoadingBlocks, setIsLoadingBlocks] = useState(false)
-  const [logsList, setLogsList] = useState<LogItem[]>([])
-  const [isLoadingLogs, setIsLoadingLogs] = useState(false)
-  const [workflowBlocks, setWorkflowBlocks] = useState<WorkflowBlockItem[]>([])
-  const [isLoadingWorkflowBlocks, setIsLoadingWorkflowBlocks] = useState(false)
+  const blockCatalogLocaleRef = useRef(locale)
+  const [loadedBlocksList, setLoadedBlocksList] = useState<BlockItem[]>([])
+  const [blockCatalogLoading, setBlockCatalogLoading] = useState(false)
+  const blockCatalogLoadGenerationRef = useRef(0)
+  const [loadedLogsList, setLoadedLogsList] = useState<LogItem[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
+  const [workflowBlockState, setWorkflowBlockState] = useState<WorkflowBlockMentionLoadState>({
+    workflowId: null,
+    items: [],
+    isLoading: false,
+  })
+  const workflowBlockLoadGenerationRef = useRef(0)
   const workflowSession = useOptionalWorkflowSession()
   const workflowId = workflowSession?.workflowId ?? null
   const workflowStoreBlocks = useWorkflowBlocks()
+  const workspaceScopeIsCurrent =
+    workspaceScopeRef.current.workspaceId === workspaceId &&
+    workspaceScopeRef.current.ownerUserId === normalizedOwnerUserId
+  const pastChats = workspaceScopeIsCurrent ? loadedPastChats : EMPTY_PAST_CHATS
+  const isLoadingPastChats = workspaceScopeIsCurrent && pastChatsLoading
+  const scopedWorkspaceEntityState = workspaceScopeIsCurrent
+    ? workspaceEntityState
+    : EMPTY_WORKSPACE_ENTITY_STATE
+  const logsList = workspaceScopeIsCurrent ? loadedLogsList : EMPTY_LOGS
+  const isLoadingLogs = workspaceScopeIsCurrent && logsLoading
+  const blockCatalogLocaleIsCurrent = blockCatalogLocaleRef.current === locale
+  const blocksList = blockCatalogLocaleIsCurrent ? loadedBlocksList : EMPTY_BLOCK_CATALOG
+  const isLoadingBlocks = blockCatalogLocaleIsCurrent && blockCatalogLoading
+  const workflowBlocks =
+    workflowBlockState.workflowId === workflowId ? workflowBlockState.items : []
+  const isLoadingWorkflowBlocks =
+    workflowBlockState.workflowId === workflowId && workflowBlockState.isLoading
   const { members: dashboardLayoutMembers, isLoading: isLoadingDashboardLayouts } = useEntityList(
     'dashboard_layout',
     workspaceId,
@@ -102,14 +140,16 @@ export function useUserInputMentionSources({
   )
 
   const ensurePastChatsLoaded = useCallback(async () => {
-    if (isLoadingPastChats || pastChats.length > 0) {
+    if (!workspaceLifecycle.active || isLoadingPastChats || pastChats.length > 0) {
       return
     }
 
+    const targetWorkspaceId = workspaceId
+    const targetLifecycle = workspaceLifecycle
     try {
-      setIsLoadingPastChats(true)
+      setPastChatsLoading(true)
       const response = await fetch(
-        `/api/copilot/chat?workspaceId=${encodeURIComponent(workspaceId)}`
+        `/api/copilot/chat?workspaceId=${encodeURIComponent(targetWorkspaceId)}`
       )
 
       if (!response.ok) {
@@ -119,28 +159,28 @@ export function useUserInputMentionSources({
       const data = await response.json()
       const items = Array.isArray(data?.chats) ? data.chats : []
 
-      setPastChats(
-        items.flatMap((item: any) => {
-          const title = toTrimmedString(item.title)
-          return item.reviewSessionId
-            ? [
-                {
-                  reviewSessionId: item.reviewSessionId,
-                  title: title || null,
-                },
-              ]
-            : []
-        })
-      )
+      const mapped = items.flatMap((item: any) => {
+        const title = toTrimmedString(item.title)
+        return item.reviewSessionId
+          ? [
+              {
+                reviewSessionId: item.reviewSessionId,
+                title: title || null,
+              },
+            ]
+          : []
+      })
+      if (!targetLifecycle.active) return
+      setLoadedPastChats(mapped)
     } catch {
     } finally {
-      setIsLoadingPastChats(false)
+      if (targetLifecycle.active) setPastChatsLoading(false)
     }
-  }, [isLoadingPastChats, pastChats.length, workspaceId])
+  }, [isLoadingPastChats, pastChats.length, workspaceId, workspaceLifecycle])
 
   const ensureWorkspaceEntityLoaded = useCallback(
     async (entityKind: LazyWorkspaceEntityMentionKind) => {
-      const state = workspaceEntityState[entityKind]
+      const state = scopedWorkspaceEntityState[entityKind]
       if (!workspaceLifecycle.active || state === 'loading' || (state?.length ?? 0) > 0) return
 
       try {
@@ -154,7 +194,7 @@ export function useUserInputMentionSources({
         setWorkspaceEntityState((prev) => ({ ...prev, [entityKind]: undefined }))
       }
     },
-    [workspaceEntityState, workspaceId, workspaceLifecycle]
+    [scopedWorkspaceEntityState, workspaceId, workspaceLifecycle]
   )
 
   const ensureBlocksLoaded = useCallback(async () => {
@@ -162,37 +202,63 @@ export function useUserInputMentionSources({
       return
     }
 
+    const targetLocale = locale
+    const generation = ++blockCatalogLoadGenerationRef.current
     try {
-      setIsLoadingBlocks(true)
+      setBlockCatalogLoading(true)
       const { getAllBlocks } = await import('@/blocks')
       const allBlocks = getAllBlocks()
-      setBlocksList(
-        (['blocks', 'tools'] as const).flatMap((category) =>
-          allBlocks
-            .filter((block: any) => !block.hideFromToolbar && block.category === category)
-            .map((block: any) => ({
-              id: block.type,
-              name: getLocalizedBlockNameWithCopy(workflowInspectorCopy, block),
-              iconComponent: block.icon,
-              bgColor: sanitizeSolidIconColor(block.bgColor),
-            }))
-            .sort(compareLocalizedBlockMentionNames)
-        )
+      const mapped = (['blocks', 'tools'] as const).flatMap((category) =>
+        allBlocks
+          .filter((block: any) => !block.hideFromToolbar && block.category === category)
+          .map((block: any) => ({
+            id: block.type,
+            name: getLocalizedBlockNameWithCopy(workflowInspectorCopy, block),
+            iconComponent: block.icon,
+            bgColor: sanitizeSolidIconColor(block.bgColor),
+          }))
+          .sort(compareLocalizedBlockMentionNames)
       )
+      if (
+        targetLocale !== blockCatalogLocaleRef.current ||
+        generation !== blockCatalogLoadGenerationRef.current
+      )
+        return
+      setLoadedBlocksList(mapped)
     } catch {
+      if (
+        targetLocale !== blockCatalogLocaleRef.current ||
+        generation !== blockCatalogLoadGenerationRef.current
+      )
+        return
+      setLoadedBlocksList([])
     } finally {
-      setIsLoadingBlocks(false)
+      if (
+        targetLocale === blockCatalogLocaleRef.current &&
+        generation === blockCatalogLoadGenerationRef.current
+      )
+        setBlockCatalogLoading(false)
     }
-  }, [blocksList.length, compareLocalizedBlockMentionNames, isLoadingBlocks, workflowInspectorCopy])
+  }, [
+    blocksList.length,
+    compareLocalizedBlockMentionNames,
+    isLoadingBlocks,
+    locale,
+    workflowInspectorCopy,
+  ])
 
   const ensureLogsLoaded = useCallback(async () => {
-    if (isLoadingLogs || logsList.length > 0) {
+    if (!workspaceLifecycle.active || isLoadingLogs || logsList.length > 0) {
       return
     }
 
+    const targetWorkspaceId = workspaceId
+    const targetLifecycle = workspaceLifecycle
     try {
-      setIsLoadingLogs(true)
-      const response = await fetch(`/api/logs?workspaceId=${workspaceId}&limit=50&details=full`)
+      setLogsLoading(true)
+      const response = await fetch(
+        `/api/logs?workspaceId=${encodeURIComponent(targetWorkspaceId)}&limit=50`
+      )
 
       if (!response.ok) {
         throw new Error(`Failed to load logs: ${response.status}`)
@@ -200,37 +266,44 @@ export function useUserInputMentionSources({
 
       const data = await response.json()
       const items = Array.isArray(data?.data) ? data.data : []
-
-      setLogsList(
-        items.flatMap((item: any) => {
-          const entityName = item.workflow && (item.workflow.name || item.workflow.title)
-          return entityName
-            ? [
-                {
-                  id: item.id,
-                  level: item.level,
-                  trigger: item.trigger || null,
-                  startedAt: item.startedAt,
-                  entityName,
-                },
-              ]
-            : []
-        })
-      )
+      const mapped = items.flatMap((item: any) => {
+        const entityName = item.workflow && (item.workflow.name || item.workflow.title)
+        return entityName
+          ? [
+              {
+                id: item.id,
+                level: item.level,
+                trigger: item.trigger || null,
+                startedAt: item.startedAt,
+                entityName,
+              },
+            ]
+          : []
+      })
+      if (!targetLifecycle.active) return
+      setLoadedLogsList(mapped)
     } catch {
     } finally {
-      setIsLoadingLogs(false)
+      if (targetLifecycle.active) setLogsLoading(false)
     }
-  }, [isLoadingLogs, logsList.length, workspaceId])
+  }, [isLoadingLogs, logsList.length, workspaceId, workspaceLifecycle])
 
   const ensureWorkflowBlocksLoaded = useCallback(async () => {
-    if (!workflowId || Object.keys(workflowStoreBlocks).length === 0) {
-      setWorkflowBlocks([])
+    const targetWorkflowId = workflowId
+    const generation = ++workflowBlockLoadGenerationRef.current
+
+    if (!targetWorkflowId || Object.keys(workflowStoreBlocks).length === 0) {
+      setWorkflowBlockState({ workflowId: targetWorkflowId, items: [], isLoading: false })
       return
     }
 
+    setWorkflowBlockState((current) => ({
+      workflowId: targetWorkflowId,
+      items: current.workflowId === targetWorkflowId ? current.items : [],
+      isLoading: true,
+    }))
+
     try {
-      setIsLoadingWorkflowBlocks(true)
       const { registry: blockRegistry } = await import('@/blocks/registry')
       const mapped = Object.values(workflowStoreBlocks).map((block: any) => {
         const registryEntry = (blockRegistry as any)[block.type]
@@ -250,11 +323,12 @@ export function useUserInputMentionSources({
         }
       })
 
-      setWorkflowBlocks(mapped)
+      if (generation !== workflowBlockLoadGenerationRef.current) return
+      setWorkflowBlockState({ workflowId: targetWorkflowId, items: mapped, isLoading: false })
     } catch (error) {
+      if (generation !== workflowBlockLoadGenerationRef.current) return
       logger.error('Failed to sync workflow blocks:', error)
-    } finally {
-      setIsLoadingWorkflowBlocks(false)
+      setWorkflowBlockState({ workflowId: targetWorkflowId, items: [], isLoading: false })
     }
   }, [workflowId, workflowInspectorCopy, workflowStoreBlocks])
 
@@ -273,43 +347,49 @@ export function useUserInputMentionSources({
     [ensureSubmenuLoadedRef, workspaceLifecycle]
   )
 
-  useEffect(() => {
-    setWorkflowBlocks([])
-    setIsLoadingWorkflowBlocks(false)
-  }, [workflowId])
-
-  useEffect(() => {
-    setBlocksList([])
-    setIsLoadingBlocks(false)
+  useLayoutEffect(() => {
+    blockCatalogLocaleRef.current = locale
+    setLoadedBlocksList([])
+    setBlockCatalogLoading(false)
+    return () => {
+      blockCatalogLoadGenerationRef.current += 1
+    }
   }, [locale])
 
   useEffect(() => {
     void ensureWorkflowBlocksLoaded()
+    return () => {
+      workflowBlockLoadGenerationRef.current += 1
+    }
   }, [ensureWorkflowBlocksLoaded])
 
   useEffect(() => {
-    if (workflowId && workspaceEntityState.workflow === undefined) {
+    if (workflowId && scopedWorkspaceEntityState.workflow === undefined) {
       void ensureWorkspaceEntityLoaded('workflow')
     }
-  }, [ensureWorkspaceEntityLoaded, workflowId, workspaceEntityState.workflow])
+  }, [ensureWorkspaceEntityLoaded, scopedWorkspaceEntityState.workflow, workflowId])
 
   useLayoutEffect(() => {
     workspaceLifecycle.active = true
-    setPastChats([])
-    setIsLoadingPastChats(false)
+    workspaceScopeRef.current = {
+      workspaceId,
+      ownerUserId: normalizedOwnerUserId,
+    }
+    setLoadedPastChats([])
+    setPastChatsLoading(false)
     setWorkspaceEntityState({})
-    setLogsList([])
-    setIsLoadingLogs(false)
+    setLoadedLogsList([])
+    setLogsLoading(false)
 
     return () => {
       workspaceLifecycle.active = false
     }
-  }, [workspaceLifecycle])
+  }, [normalizedOwnerUserId, workspaceId, workspaceLifecycle])
 
   const workspaceEntities = {} as Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[]>
   const workspaceEntityLoading = {} as Record<LazyWorkspaceEntityMentionKind, boolean>
   for (const entityKind of LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS) {
-    const state = workspaceEntityState[entityKind]
+    const state = scopedWorkspaceEntityState[entityKind]
     workspaceEntities[entityKind] = Array.isArray(state) ? state : []
     workspaceEntityLoading[entityKind] = state === 'loading'
   }

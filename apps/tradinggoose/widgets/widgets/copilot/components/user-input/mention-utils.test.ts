@@ -13,6 +13,7 @@ import {
   buildAggregatedMentionItems,
   buildMentionRanges,
   filterMentionOptions,
+  retainMentionContextsInText,
   upsertMentionContextByTextOrder,
 } from './mention-utils'
 import type { MentionSources } from './types'
@@ -141,6 +142,16 @@ describe('mention-utils', () => {
     const ranges = buildMentionRanges('@Docs @Docs', [{ kind: 'docs', label: 'Docs' }])
 
     expect(ranges.map((range) => range.contextKey)).toEqual(['docs', 'docs'])
+  })
+
+  it('reconciles text and structured mention contexts in one draft value', () => {
+    const contexts = [
+      { kind: 'docs' as const, label: 'Docs' },
+      { kind: 'workflow' as const, workflowId: 'workflow-1', label: 'Workflow' },
+    ]
+
+    expect(retainMentionContextsInText('Keep @Workflow only', contexts)).toEqual([contexts[1]])
+    expect(retainMentionContextsInText('', contexts)).toEqual([])
   })
 
   it('tracks the refreshed localized label for the same canonical context', () => {

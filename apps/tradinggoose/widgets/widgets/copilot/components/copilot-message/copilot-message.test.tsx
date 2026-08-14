@@ -94,7 +94,15 @@ vi.mock('@/stores/copilot/store-state', () => ({
 }))
 
 vi.mock('../user-input/user-input', () => ({
-  UserInput: () => <div data-testid='user-input' />,
+  UserInput: ({ draft, onSubmit }: any) => (
+    <button
+      type='button'
+      data-testid='user-input'
+      onClick={() => onSubmit(draft.text, undefined, draft.contexts)}
+    >
+      Submit edit
+    </button>
+  ),
 }))
 
 vi.mock('./components', () => ({
@@ -191,6 +199,64 @@ describe('CopilotMessage', () => {
     const inlineMention = container.querySelector('[data-message-box] span.rounded-xs')
     expect(inlineMention?.textContent).toBe('@default-agent')
     expect(container.textContent).toContain("what's the trigger of this workflow?")
+  })
+
+  it('preserves structured mention contexts when editing and resending a message', async () => {
+    mockStoreState.messages = [userMentionMessage]
+
+    await act(async () => {
+      root.render(<CopilotMessage message={userMentionMessage} runtimeContext={runtimeContext} />)
+    })
+    await act(async () => {
+      container.querySelector<HTMLElement>('[data-message-box]')?.click()
+    })
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="user-input"]')?.click()
+    })
+
+    expect(mockStoreState.sendMessage).toHaveBeenCalledWith(userMentionMessage.content, {
+      fileAttachments: undefined,
+      contexts: userMentionMessage.contexts,
+      messageId: userMentionMessage.id,
+      runtimeContext,
+    })
+  })
+
+  it('uses updated context identity when same-text mention props change', async () => {
+    const updatedMessage: CopilotMessageType = {
+      ...userMentionMessage,
+      contexts: [
+        buildCopilotWorkspaceEntityContext({
+          entityKind: 'workflow',
+          entityId: 'wf-2',
+          workspaceId: 'ws-1',
+          label: 'default-agent',
+        }),
+      ],
+    }
+    mockStoreState.messages = [userMentionMessage]
+
+    await act(async () => {
+      root.render(<CopilotMessage message={userMentionMessage} runtimeContext={runtimeContext} />)
+    })
+
+    mockStoreState.messages = [updatedMessage]
+    await act(async () => {
+      root.render(<CopilotMessage message={updatedMessage} runtimeContext={runtimeContext} />)
+    })
+    await act(async () => {
+      container.querySelector<HTMLElement>('[data-message-box]')?.click()
+    })
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="user-input"]')?.click()
+    })
+
+    expect(mockStoreState.sendMessage).toHaveBeenCalledWith(updatedMessage.content, {
+      fileAttachments: undefined,
+      contexts: updatedMessage.contexts,
+      messageId: updatedMessage.id,
+      runtimeContext,
+    })
   })
 
   it('uses the current page context when selecting an option after navigation', async () => {

@@ -56,7 +56,6 @@ interface CopilotProps {
 
 interface CopilotRef {
   createNewChat: () => void
-  setInputValueAndFocus: (value: string) => void
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
@@ -137,7 +136,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       }),
       [authenticatedUserId, implicitContexts, liveContext]
     )
-    // Use the new copilot store
     const {
       messages,
       chats,
@@ -147,14 +145,14 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       abortController,
       isAborting,
       accessLevel,
-      inputValue,
+      draft,
       planTodos,
       showPlanTodos,
       sendMessage,
       abortMessage,
       createNewChat,
       setAccessLevel,
-      setInputValue,
+      setDraft,
       loadChats,
       selectedModel,
       setSelectedModel,
@@ -446,24 +444,13 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       }, 100) // Small delay to ensure DOM updates are complete
     }, [createNewChat, workspaceId])
 
-    const handleSetInputValueAndFocus = useCallback(
-      (value: string) => {
-        setInputValue(value)
-        setTimeout(() => {
-          userInputRef.current?.focus()
-        }, 150)
-      },
-      [setInputValue]
-    )
-
     // Expose functions to parent
     useImperativeHandle(
       ref,
       () => ({
         createNewChat: handleStartNewChat,
-        setInputValueAndFocus: handleSetInputValueAndFocus,
       }),
-      [handleStartNewChat, handleSetInputValueAndFocus]
+      [handleStartNewChat]
     )
 
     // Handle abort action
@@ -601,8 +588,8 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                   isAborting={isAborting}
                   accessLevel={accessLevel}
                   onAccessLevelChange={setAccessLevel}
-                  value={inputValue}
-                  onChange={setInputValue}
+                  draft={draft}
+                  onDraftChange={setDraft}
                   panelWidth={panelWidth}
                 />
               </div>

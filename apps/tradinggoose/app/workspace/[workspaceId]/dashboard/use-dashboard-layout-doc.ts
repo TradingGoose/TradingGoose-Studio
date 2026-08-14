@@ -40,17 +40,6 @@ function toLayoutListEntry(member: EntityListMember) {
   }
 }
 
-export function useActiveDashboardLayout(
-  workspaceId: string | null,
-  ownerUserId: string | null
-): DashboardLayoutTab | null {
-  const { members } = useEntityList('dashboard_layout', workspaceId, ownerUserId)
-  return useMemo(() => {
-    const active = members.find((member) => member.isActive)
-    return active ? toLayoutListEntry(active) : null
-  }, [members])
-}
-
 export function useDashboardLayoutList(
   workspaceId: string,
   ownerUserId: string,
