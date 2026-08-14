@@ -44,7 +44,7 @@ const LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS = COPILOT_WORKSPACE_ENTITY_MENTION_O
 )
 
 type WorkspaceEntityMentionLoadState = Partial<
-  Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[] | 'loading'>
+  Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[] | 'failed' | 'loading'>
 >
 
 type WorkflowBlockMentionLoadState = {
@@ -131,8 +131,7 @@ export function useUserInputMentionSources({
         : [],
     [dashboardLayoutMembers, normalizedOwnerUserId]
   )
-  const workflowInspectorMessages = useWorkflowInspectorMessages()
-  const workflowInspectorCopy = useMemo(() => workflowInspectorMessages, [locale])
+  const workflowInspectorCopy = useWorkflowInspectorMessages()
   const compareLocalizedBlockMentionNames = useCallback(
     <T extends { name: string }>(left: T, right: T) => left.name.localeCompare(right.name, locale),
     [locale]
@@ -194,7 +193,8 @@ export function useUserInputMentionSources({
         !targetScope ||
         targetScope.key !== workspaceScopeKey ||
         state === 'loading' ||
-        (state?.length ?? 0) > 0
+        state === 'failed' ||
+        (Array.isArray(state) && state.length > 0)
       )
         return
 
@@ -206,7 +206,7 @@ export function useUserInputMentionSources({
       } catch (error) {
         if (!workspaceScopeIsActive(targetScope)) return
         logger.error(`Failed to load ${entityKind} mention sources`, error)
-        setWorkspaceEntityState((prev) => ({ ...prev, [entityKind]: undefined }))
+        setWorkspaceEntityState((prev) => ({ ...prev, [entityKind]: 'failed' }))
       }
     },
     [scopedWorkspaceEntityState, workspaceId, workspaceScopeIsActive, workspaceScopeKey]

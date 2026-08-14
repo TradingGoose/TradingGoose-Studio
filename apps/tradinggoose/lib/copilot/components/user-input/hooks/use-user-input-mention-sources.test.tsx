@@ -37,6 +37,11 @@ const m = vi.hoisted(() => ({
     isLoading: boolean
   }>,
   workflowId: null as string | null,
+  workflowInspectorMessages: {
+    en: { locale: 'en' },
+    es: { locale: 'es' },
+    zh: { locale: 'zh' },
+  } as Record<string, { locale: string }>,
 }))
 
 vi.mock('next-intl', () => ({ useLocale: () => m.locale }))
@@ -77,7 +82,8 @@ vi.mock('@/i18n/workflow-inspector-core', () => ({
     blockName ?? blockType,
 }))
 vi.mock('@/i18n/workspace-widget-hooks', () => ({
-  useWorkflowInspectorMessages: () => ({ locale: m.locale }),
+  useWorkflowInspectorMessages: () =>
+    m.workflowInspectorMessages[m.locale] ?? m.workflowInspectorMessages.en,
 }))
 
 const deferred = () => {
@@ -96,6 +102,7 @@ const EMPTY_WORKFLOW_BLOCKS = {}
 let current: ReturnType<typeof useUserInputMentionSources>
 
 beforeEach(() => {
+  vi.resetModules()
   m.blockCatalogGate = Promise.resolve()
   m.blockCatalogLoadStarted.mockReset()
   m.blockCatalogObservations.length = 0
@@ -113,21 +120,12 @@ beforeEach(() => {
 })
 
 const Harness = ({
-  locale = 'en',
   ownerUserId = null,
   workspaceId,
-  workflowId = null,
-  workflowBlocks = EMPTY_WORKFLOW_BLOCKS,
 }: {
-  locale?: string
   ownerUserId?: string | null
   workspaceId: string
-  workflowId?: string | null
-  workflowBlocks?: Record<string, any>
 }) => {
-  m.locale = locale
-  m.workflowId = workflowId
-  m.workflowBlocks = workflowBlocks
   current = useUserInputMentionSources({ ownerUserId, workspaceId })
   m.workspaceListObservations.push({
     workspaceId,
@@ -140,12 +138,12 @@ const Harness = ({
     watchlistLoading: current.mentionLoading.watchlist,
   })
   m.blockCatalogObservations.push({
-    locale,
+    locale: m.locale,
     names: current.mentionSources.blocksList.map(({ name }) => name),
     isLoading: current.mentionLoading.blocks,
   })
   m.workflowBlockObservations.push({
-    workflowId,
+    workflowId: m.workflowId,
     blockIds: current.mentionSources.workflowBlocks.map(({ id }) => id),
     isLoading: current.mentionLoading.workflow_blocks,
   })
@@ -491,6 +489,32 @@ it('isolates deferred and loaded mention sources across authenticated owners', a
   }
 })
 
+it('does not retry a failed current-workflow entity load within the active scope', async () => {
+  ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+  const container = document.body.appendChild(document.createElement('div'))
+  const root = createRoot(container)
+  const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500 })
+  vi.stubGlobal('fetch', fetchMock)
+
+  try {
+    m.workflowId = 'workflow-1'
+    await act(async () => root.render(<Harness workspaceId='workspace-1' />))
+    await vi.waitFor(() => expect(m.logger.error).toHaveBeenCalledOnce())
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(current.mentionLoading.workflow).toBe(false)
+    expect(current.mentionSources.workspaceEntities.workflow).toEqual([])
+
+    await act(async () => current.ensureSubmenuLoaded('workflow'))
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+  } finally {
+    act(() => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
 it('discards a deferred block catalog load when the locale changes', async () => {
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
   const container = document.body.appendChild(document.createElement('div'))
@@ -501,7 +525,8 @@ it('discards a deferred block catalog load when the locale changes', async () =>
   m.blockCatalogObservations.length = 0
 
   try {
-    await act(async () => root.render(<Harness locale='en' workspaceId='workspace-1' />))
+    m.locale = 'en'
+    await act(async () => root.render(<Harness workspaceId='workspace-1' />))
     let englishLoad!: Promise<void>
     act(() => {
       englishLoad = current.ensureSubmenuLoaded('blocks')
@@ -510,7 +535,8 @@ it('discards a deferred block catalog load when the locale changes', async () =>
     expect(current.mentionLoading.blocks).toBe(true)
 
     m.blockCatalogObservations.length = 0
-    await act(async () => root.render(<Harness locale='zh' workspaceId='workspace-1' />))
+    m.locale = 'zh'
+    await act(async () => root.render(<Harness workspaceId='workspace-1' />))
     const zhTransition = m.blockCatalogObservations.filter(({ locale }) => locale === 'zh')
     expect(zhTransition.length).toBeGreaterThan(0)
     expect(zhTransition.every(({ names, isLoading }) => names.length === 0 && !isLoading)).toBe(
@@ -554,28 +580,16 @@ it('discards a deferred workflow block load after switching to an empty workflow
   }
 
   try {
-    await act(async () =>
-      root.render(
-        <Harness
-          workspaceId='workspace-1'
-          workflowId='workflow-a'
-          workflowBlocks={workflowABlocks}
-        />
-      )
-    )
+    m.workflowId = 'workflow-a'
+    m.workflowBlocks = workflowABlocks
+    await act(async () => root.render(<Harness workspaceId='workspace-1' />))
     await vi.waitFor(() => expect(m.registryLoadStarted).toHaveBeenCalledOnce())
     expect(current.mentionLoading.workflow_blocks).toBe(true)
 
     m.workflowBlockObservations.length = 0
-    await act(async () =>
-      root.render(
-        <Harness
-          workspaceId='workspace-1'
-          workflowId='workflow-b'
-          workflowBlocks={EMPTY_WORKFLOW_BLOCKS}
-        />
-      )
-    )
+    m.workflowId = 'workflow-b'
+    m.workflowBlocks = EMPTY_WORKFLOW_BLOCKS
+    await act(async () => root.render(<Harness workspaceId='workspace-1' />))
 
     const workflowBObservations = m.workflowBlockObservations.filter(
       ({ workflowId }) => workflowId === 'workflow-b'

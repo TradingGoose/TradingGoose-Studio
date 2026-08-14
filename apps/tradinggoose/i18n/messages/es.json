@@ -21339,13 +21339,16 @@
           }
         },
         "mentions": {
+          "dashboardLayouts": "Diseños del panel",
           "workflowBlocks": "Bloques del flujo de trabajo",
           "matches": "Coincidencias",
           "noMatches": "No hay coincidencias",
+          "noDashboardLayoutsFound": "No se encontraron diseños del panel.",
           "noPastChats": "No hay chats anteriores",
           "noBlocksFound": "No se encontraron bloques",
           "noBlocksInWorkflow": "No hay bloques en este flujo de trabajo",
-          "noExecutionsFound": "No se encontraron ejecuciones"
+          "noExecutionsFound": "No se encontraron ejecuciones",
+          "untitledDashboardLayout": "Diseño sin título"
         },
         "accessLevel": {
           "limited": {
