@@ -29,7 +29,7 @@ const SECRET_KEY_PATTERN =
 const SECRET_TEXT_PATTERN =
   /((?:["'])?(?:access[-_ ]?key|api[-_ ]?key|api[-_ ]?secret|auth[-_ ]?key|authorization|client[-_ ]?secret|cookie|credential|password|passwd|private[-_ ]?key|secret[-_ ]?key|secret|token)(?:["'])?\s*[:=]\s*)(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|[^,;&\r\n}]+)/giu
 const AUTH_VALUE_PATTERN = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/giu
-const URL_CREDENTIAL_PATTERN = /(https?:\/\/)[^/@\s:]+:[^/@\s]+@/giu
+const URI_CREDENTIAL_PATTERN = /([a-z][a-z0-9+.-]*:\/\/)[^/@\s:]*:[^/@\s]+@/giu
 
 const utf8Encoder = new TextEncoder()
 const utf8Decoder = new TextDecoder('utf-8', { fatal: false })
@@ -47,7 +47,7 @@ function redactSensitiveText(value: string): string {
   return value
     .replace(SECRET_TEXT_PATTERN, `$1${REDACTED_VALUE}`)
     .replace(AUTH_VALUE_PATTERN, '$1 [redacted]')
-    .replace(URL_CREDENTIAL_PATTERN, '$1[redacted]@')
+    .replace(URI_CREDENTIAL_PATTERN, '$1[redacted]@')
 }
 
 function isTokenMetricValue(value: unknown): boolean {

@@ -54,6 +54,22 @@ describe('security redaction', () => {
     })
   })
 
+  it('redacts credentials from standard URI schemes, including an empty username', () => {
+    expect(
+      deepRedactSecrets({
+        http: 'https://user:http-secret@example.test/path',
+        database: 'postgresql://db-user:database-secret@database.test/app',
+        emptyUsername: 'redis://:redis-secret@cache.test/0',
+        safe: 'https://example.test:8443/path',
+      })
+    ).toEqual({
+      http: 'https://[redacted]@example.test/path',
+      database: 'postgresql://[redacted]@database.test/app',
+      emptyUsername: 'redis://[redacted]@cache.test/0',
+      safe: 'https://example.test:8443/path',
+    })
+  })
+
   it('redacts generic and camel-case token assignments in free-form text', () => {
     expect(
       deepRedactSecrets({
