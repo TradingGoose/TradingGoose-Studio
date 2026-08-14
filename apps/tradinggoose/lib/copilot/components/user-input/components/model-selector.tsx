@@ -1,6 +1,7 @@
 'use client'
 
 import { Brain, BrainCircuit, Zap } from 'lucide-react'
+import { shallow } from 'zustand/shallow'
 import {
   Button,
   DropdownMenu,
@@ -30,6 +31,15 @@ interface ModelSelectorProps {
   panelWidth: number
 }
 
+const MODEL_PROVIDER_GROUPS = [
+  { provider: 'anthropic', models: ANTHROPIC_MODELS },
+  { provider: 'openai', models: OPENAI_MODELS },
+] as const
+
+const DEFAULT_MODEL_LABEL =
+  COPILOT_RUNTIME_MODEL_OPTIONS.find((option) => option.value === DEFAULT_COPILOT_RUNTIME_MODEL)
+    ?.label ?? DEFAULT_COPILOT_RUNTIME_MODEL
+
 const getModelOptionIcon = (modelValue: CopilotRuntimeModel) => {
   if (BRAIN_CIRCUIT_MODELS.includes(modelValue)) {
     return <BrainCircuit className='h-3 w-3 text-muted-foreground' />
@@ -48,10 +58,22 @@ const getModelOptionIcon = (modelValue: CopilotRuntimeModel) => {
 
 export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
   const modelCopy = useCopilotMessages().model
-  const { agentPrefetch, selectedModel, setAgentPrefetch, setSelectedModel } = useCopilotStore()
+  const { agentPrefetch, selectedModel, setAgentPrefetch, setSelectedModel } = useCopilotStore(
+    (state) => ({
+      agentPrefetch: state.agentPrefetch,
+      selectedModel: state.selectedModel,
+      setAgentPrefetch: state.setAgentPrefetch,
+      setSelectedModel: state.setSelectedModel,
+    }),
+    shallow
+  )
 
   const model = COPILOT_RUNTIME_MODEL_OPTIONS.find((option) => option.value === selectedModel)
-  const collapsedModeLabel = model ? model.label : DEFAULT_COPILOT_RUNTIME_MODEL
+  const collapsedModelLabel = model?.label ?? DEFAULT_MODEL_LABEL
+  const handleModelSelect = (modelValue: CopilotRuntimeModel) => {
+    void setSelectedModel(modelValue)
+    if (FAST_MODELS.includes(modelValue) && agentPrefetch) setAgentPrefetch(false)
+  }
 
   return (
     <DropdownMenu>
@@ -60,14 +82,14 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
           <Button
             variant='outline'
             size='sm'
-            className='flex h-6 bg-background hover:bg-muted/30 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0'
+            className='flex h-6 items-center gap-1.5 rounded-sm border bg-background px-2 py-1 font-medium text-xs hover:bg-muted/30 focus-visible:ring-0 focus-visible:ring-offset-0'
             title={modelCopy.choose}
           />
         }
       >
         {getModelOptionIcon(selectedModel)}
         <span className={cn(panelWidth < 360 ? 'max-w-[72px] truncate' : '')}>
-          {collapsedModeLabel}
+          {collapsedModelLabel}
           {agentPrefetch && !FAST_MODELS.includes(selectedModel) && (
             <span className='ml-1 font-semibold'>{modelCopy.lite}</span>
           )}
@@ -82,61 +104,30 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
                   <span className='font-medium text-xs'>{modelCopy.label}</span>
                 </div>
                 <div className='space-y-2'>
-                  <div>
-                    <div className='px-2 py-1 font-medium text-[10px] text-muted-foreground uppercase'>
-                      {modelCopy.providers.anthropic}
+                  {MODEL_PROVIDER_GROUPS.map(({ provider, models }) => (
+                    <div key={provider}>
+                      <div className='px-2 py-1 font-medium text-[10px] text-muted-foreground uppercase'>
+                        {modelCopy.providers[provider]}
+                      </div>
+                      <div className='space-y-0.5'>
+                        {COPILOT_RUNTIME_MODEL_OPTIONS.filter((option) =>
+                          models.includes(option.value)
+                        ).map((option) => (
+                          <DropdownMenuItem
+                            key={option.value}
+                            onClick={() => handleModelSelect(option.value)}
+                            className={cn(
+                              'flex h-7 items-center gap-1.5 px-2 py-1 text-left text-xs',
+                              selectedModel === option.value ? 'bg-muted/50' : ''
+                            )}
+                          >
+                            {getModelOptionIcon(option.value)}
+                            <span>{option.label}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </div>
                     </div>
-                    <div className='space-y-0.5'>
-                      {COPILOT_RUNTIME_MODEL_OPTIONS.filter((option) =>
-                        ANTHROPIC_MODELS.includes(option.value)
-                      ).map((option) => (
-                        <DropdownMenuItem
-                          key={option.value}
-                          onClick={() => {
-                            setSelectedModel(option.value)
-                            if (FAST_MODELS.includes(option.value) && agentPrefetch) {
-                              setAgentPrefetch(false)
-                            }
-                          }}
-                          className={cn(
-                            'flex h-7 items-center gap-1.5 px-2 py-1 text-left text-xs',
-                            selectedModel === option.value ? 'bg-muted/50' : ''
-                          )}
-                        >
-                          {getModelOptionIcon(option.value)}
-                          <span>{option.label}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className='px-2 py-1 font-medium text-[10px] text-muted-foreground uppercase'>
-                      {modelCopy.providers.openai}
-                    </div>
-                    <div className='space-y-0.5'>
-                      {COPILOT_RUNTIME_MODEL_OPTIONS.filter((option) =>
-                        OPENAI_MODELS.includes(option.value)
-                      ).map((option) => (
-                        <DropdownMenuItem
-                          key={option.value}
-                          onClick={() => {
-                            setSelectedModel(option.value)
-                            if (FAST_MODELS.includes(option.value) && agentPrefetch) {
-                              setAgentPrefetch(false)
-                            }
-                          }}
-                          className={cn(
-                            'flex h-7 items-center gap-1.5 px-2 py-1 text-left text-xs',
-                            selectedModel === option.value ? 'bg-muted/50' : ''
-                          )}
-                        >
-                          {getModelOptionIcon(option.value)}
-                          <span>{option.label}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
