@@ -463,7 +463,7 @@ export function useUserInputMentions({
           : `${before}${after}`
       return {
         text: next,
-        contexts: retainMentionContextsInText(next, previous.contexts),
+        contexts: retainMentionContextsInText(previous.text, previous.contexts, range),
       }
     })
 

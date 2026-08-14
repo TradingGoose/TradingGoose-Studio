@@ -130,15 +130,22 @@ describe('mention-utils', () => {
     expect(getPastChatMentionLabel(esMentionCopy, sources.pastChats[0])).toBe('untitled')
   })
 
-  it('tracks duplicate mention labels by context identity', () => {
-    const ranges = buildMentionRanges('@Untitled @Untitled', [
+  it('deletes duplicate mention labels by context identity', () => {
+    const contexts = [
       { kind: 'custom_tool', customToolId: 'tool-1', label: 'Untitled' },
       { kind: 'custom_tool', customToolId: 'tool-2', label: 'Untitled' },
-    ])
+    ] as const
+    const ranges = buildMentionRanges('@Untitled @Untitled', [...contexts])
 
     expect(ranges.map((range) => range.contextKey)).toEqual([
       'custom_tool:tool-1',
       'custom_tool:tool-2',
+    ])
+    expect(retainMentionContextsInText('@Untitled @Untitled', [...contexts], ranges[0])).toEqual([
+      contexts[1],
+    ])
+    expect(retainMentionContextsInText('@Untitled @Untitled', [...contexts], ranges[1])).toEqual([
+      contexts[0],
     ])
   })
 
@@ -157,10 +164,12 @@ describe('mention-utils', () => {
     ])
   })
 
-  it('tracks repeated text for the same mention context', () => {
-    const ranges = buildMentionRanges('@Docs @Docs', [{ kind: 'docs', label: 'Docs' }])
+  it('retains a repeated mention identity when one occurrence is deleted', () => {
+    const context = { kind: 'docs' as const, label: 'Docs' }
+    const ranges = buildMentionRanges('@Docs @Docs', [context])
 
     expect(ranges.map((range) => range.contextKey)).toEqual(['docs', 'docs'])
+    expect(retainMentionContextsInText('@Docs @Docs', [context], ranges[0])).toEqual([context])
   })
 
   it('reconciles text and structured mention contexts in one draft value', () => {

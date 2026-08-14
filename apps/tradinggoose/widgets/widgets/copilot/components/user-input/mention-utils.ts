@@ -61,8 +61,22 @@ export function buildMentionRanges(text: string, contexts: ChatContext[]): Menti
   )
 }
 
-export function retainMentionContextsInText(text: string, contexts: ChatContext[]): ChatContext[] {
-  const presentKeys = new Set(buildMentionRanges(text, contexts).map((range) => range.contextKey))
+export function retainMentionContextsInText(
+  text: string,
+  contexts: ChatContext[],
+  rangeToExclude?: MentionRange
+): ChatContext[] {
+  const presentKeys = new Set(
+    buildMentionRanges(text, contexts)
+      .filter(
+        (range) =>
+          !rangeToExclude ||
+          range.start !== rangeToExclude.start ||
+          range.end !== rangeToExclude.end ||
+          range.contextKey !== rangeToExclude.contextKey
+      )
+      .map((range) => range.contextKey)
+  )
   return contexts.filter((context) => {
     const contextKey = readMentionContextIdentityKey(context)
     return contextKey !== null && presentKeys.has(contextKey)
