@@ -98,10 +98,7 @@ function stringifyImplicitMonitorContext(value: unknown): string {
     : '{"contextTruncated":true,"monitorDetailsOmitted":true}'
 }
 
-function throwIfContextProcessingAborted(signal?: AbortSignal, error?: unknown): void {
-  if (error instanceof Error && error.name === 'AbortError') {
-    throw error
-  }
+function throwIfContextProcessingAborted(signal?: AbortSignal): void {
   if (!signal?.aborted) return
   if (signal.reason instanceof Error && signal.reason.name === 'AbortError') throw signal.reason
   const abortError = new Error('Aborted')
@@ -233,7 +230,7 @@ export async function processContextsServer(
       }
       return null
     } catch (error) {
-      throwIfContextProcessingAborted(options.signal, error)
+      throwIfContextProcessingAborted(options.signal)
       logger.error('Failed processing context (server)', { ctx, error })
       return null
     }

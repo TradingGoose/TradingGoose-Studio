@@ -598,7 +598,9 @@ describe('processContextsServer', () => {
     expect(input.deep.a).toBe('[truncated]')
     expect(content.executionData.traceSpans[0].output.apiSecret).toBe('[redacted]')
     expect(content.contextTruncated).toBe(true)
-    expect(Buffer.byteLength(result!.content, 'utf8')).toBeLessThanOrEqual(16_384)
+    expect(Buffer.byteLength(result!.content, 'utf8')).toBeLessThanOrEqual(
+      MAX_COPILOT_CONTEXT_BYTES_PER_ITEM
+    )
     expect(result!.content).not.toMatch(/raw-(?:auth|generic|id|header|inline|json|output)/)
   })
 
@@ -624,7 +626,9 @@ describe('processContextsServer', () => {
       'workspace-1'
     )
 
-    expect(Buffer.byteLength(result!.content, 'utf8')).toBeLessThanOrEqual(16_384)
+    expect(Buffer.byteLength(result!.content, 'utf8')).toBeLessThanOrEqual(
+      MAX_COPILOT_CONTEXT_BYTES_PER_ITEM
+    )
     expect(JSON.parse(result!.content)).toMatchObject({
       id: 'log-1',
       contextTruncated: true,
@@ -811,6 +815,8 @@ describe('processContextsServer', () => {
 
   it('preserves an in-flight monitor hydration abort instead of treating it as missing context', async () => {
     const controller = new AbortController()
+    const abortReason = new Error('Monitor context hydration superseded')
+    abortReason.name = 'AbortError'
     mockReadMonitorExecute.mockImplementation(
       (_args, context: { signal: AbortSignal }) =>
         new Promise((_resolve, reject) => {
@@ -838,14 +844,14 @@ describe('processContextsServer', () => {
 
     await vi.waitFor(() => expect(mockReadMonitorExecute).toHaveBeenCalled())
     expect(mockReadMonitorExecute.mock.calls[0]?.[1]?.signal).toBe(controller.signal)
-    const rejection = expect(processing).rejects.toMatchObject({ name: 'AbortError' })
-    controller.abort()
+    const rejection = expect(processing).rejects.toBe(abortReason)
+    controller.abort(abortReason)
     await rejection
   })
 
   it('does not start context hydration when the request is already aborted', async () => {
     const controller = new AbortController()
-    controller.abort()
+    controller.abort('Request was already cancelled')
     const { processContextsServer } = await import('@/lib/copilot/process-contents')
 
     await expect(
@@ -863,8 +869,34 @@ describe('processContextsServer', () => {
         'workspace-1',
         { signal: controller.signal }
       )
-    ).rejects.toMatchObject({ name: 'AbortError' })
+    ).rejects.toMatchObject({ name: 'AbortError', message: 'Aborted' })
     expect(mockReadMonitorExecute).not.toHaveBeenCalled()
+  })
+
+  it('skips an internally aborted context while the caller signal remains active', async () => {
+    const controller = new AbortController()
+    const internalAbort = new Error('Provider request superseded')
+    internalAbort.name = 'AbortError'
+    mockReadMonitorExecute.mockRejectedValue(internalAbort)
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+
+    await expect(
+      processContextsServer(
+        [
+          {
+            kind: 'current_monitor',
+            monitorId: 'monitor-1',
+            workspaceId: 'workspace-1',
+            label: 'Current monitor',
+          },
+        ],
+        'user-1',
+        undefined,
+        'workspace-1',
+        { signal: controller.signal }
+      )
+    ).resolves.toEqual([])
+    expect(controller.signal.aborted).toBe(false)
   })
 
   it('rejects monitor contexts from a different active workspace', async () => {
