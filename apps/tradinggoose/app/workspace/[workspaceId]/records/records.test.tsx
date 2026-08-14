@@ -3,8 +3,11 @@
  */
 
 import { act, cloneElement } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import enMessages from '@/i18n/messages/en.json'
+import esMessages from '@/i18n/messages/es.json'
 
 const mocks = vi.hoisted(() => ({
   buildLogsRequestParams: vi.fn(() => 'workspaceId=workspace-1'),
@@ -30,6 +33,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 const order = { id: 'order-1' }
+const messagesByLocale = { en: enMessages, es: esMessages }
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ workspaceId: 'workspace-1' }),
@@ -244,10 +248,14 @@ describe('Records', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  const renderRecords = async () => {
+  const renderRecords = async (locale: keyof typeof messagesByLocale = 'en') => {
     const { default: Records } = await import('./records')
     await act(async () => {
-      root.render(<Records />)
+      root.render(
+        <NextIntlClientProvider locale={locale} messages={messagesByLocale[locale]}>
+          <Records />
+        </NextIntlClientProvider>
+      )
       await flush()
     })
   }
@@ -414,7 +422,7 @@ describe('Records', () => {
     expect(window.location.search).toBe('?tab=logs')
   })
 
-  it('publishes only the open log id as the current Copilot context', async () => {
+  it('publishes the open log with a localized current Copilot context label', async () => {
     window.history.pushState({}, '', '/workspace/workspace-1/records?tab=logs')
     mocks.useLogsList.mockReturnValue({
       data: {
@@ -439,7 +447,7 @@ describe('Records', () => {
       refetch: vi.fn(),
     })
 
-    await renderRecords()
+    await renderRecords('es')
     const logRow = container.querySelector('[data-testid="logs-list"]')
     if (!(logRow instanceof HTMLButtonElement)) throw new Error('Expected log row')
     await act(async () => logRow.click())
@@ -448,7 +456,7 @@ describe('Records', () => {
       kind: 'current_logs',
       logId: 'log-1',
       workspaceId: 'workspace-1',
-      label: 'Current log',
+      label: esMessages.workspace.logs.details.currentLog,
     })
   })
 

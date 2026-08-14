@@ -86,7 +86,7 @@ export function getCopilotMentionCopy({
       mcp_server: widgets.mcpDropdown.unnamedServer,
       watchlist: widgets.watchlist.header.defaultWatchlistPrefix,
       dashboard_layout: 'Untitled layout',
-      knowledge_base: 'Untitled knowledge base',
+      knowledge_base: knowledge.defaults.untitledKnowledgeBase,
     } satisfies Record<'chats' | CopilotWorkspaceEntityKind, string>,
     matches: copilot.mentions.matches,
     noMatches: copilot.mentions.noMatches,

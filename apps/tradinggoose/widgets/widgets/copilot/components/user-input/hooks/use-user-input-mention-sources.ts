@@ -53,6 +53,8 @@ type WorkflowBlockMentionLoadState = {
   isLoading: boolean
 }
 
+type WorkspaceMentionScope = { key: string }
+
 const EMPTY_PAST_CHATS: PastChatItem[] = []
 const EMPTY_LOGS: LogItem[] = []
 const EMPTY_BLOCK_CATALOG: BlockItem[] = []
@@ -66,17 +68,16 @@ export function useUserInputMentionSources({
 }: UseUserInputMentionSourcesOptions) {
   const locale = useLocale()
   const normalizedOwnerUserId = ownerUserId ?? null
-  const workspaceLifecycle = useMemo(() => ({ active: true }), [workspaceId, normalizedOwnerUserId])
-  const workspaceScopeRef = useRef({
-    workspaceId,
-    ownerUserId: normalizedOwnerUserId,
-  })
+  const workspaceScopeKey = JSON.stringify([workspaceId, normalizedOwnerUserId])
+  const activeWorkspaceScopeRef = useRef<WorkspaceMentionScope | null>(null)
+  const [committedWorkspaceScopeKey, setCommittedWorkspaceScopeKey] = useState(workspaceScopeKey)
   const [loadedPastChats, setLoadedPastChats] = useState<PastChatItem[]>([])
   const [pastChatsLoading, setPastChatsLoading] = useState(false)
   const [workspaceEntityState, setWorkspaceEntityState] = useState<WorkspaceEntityMentionLoadState>(
     {}
   )
   const blockCatalogLocaleRef = useRef(locale)
+  const [committedBlockCatalogLocale, setCommittedBlockCatalogLocale] = useState(locale)
   const [loadedBlocksList, setLoadedBlocksList] = useState<BlockItem[]>([])
   const [blockCatalogLoading, setBlockCatalogLoading] = useState(false)
   const blockCatalogLoadGenerationRef = useRef(0)
@@ -91,9 +92,7 @@ export function useUserInputMentionSources({
   const workflowSession = useOptionalWorkflowSession()
   const workflowId = workflowSession?.workflowId ?? null
   const workflowStoreBlocks = useWorkflowBlocks()
-  const workspaceScopeIsCurrent =
-    workspaceScopeRef.current.workspaceId === workspaceId &&
-    workspaceScopeRef.current.ownerUserId === normalizedOwnerUserId
+  const workspaceScopeIsCurrent = committedWorkspaceScopeKey === workspaceScopeKey
   const pastChats = workspaceScopeIsCurrent ? loadedPastChats : EMPTY_PAST_CHATS
   const isLoadingPastChats = workspaceScopeIsCurrent && pastChatsLoading
   const scopedWorkspaceEntityState = workspaceScopeIsCurrent
@@ -101,7 +100,7 @@ export function useUserInputMentionSources({
     : EMPTY_WORKSPACE_ENTITY_STATE
   const logsList = workspaceScopeIsCurrent ? loadedLogsList : EMPTY_LOGS
   const isLoadingLogs = workspaceScopeIsCurrent && logsLoading
-  const blockCatalogLocaleIsCurrent = blockCatalogLocaleRef.current === locale
+  const blockCatalogLocaleIsCurrent = committedBlockCatalogLocale === locale
   const blocksList = blockCatalogLocaleIsCurrent ? loadedBlocksList : EMPTY_BLOCK_CATALOG
   const isLoadingBlocks = blockCatalogLocaleIsCurrent && blockCatalogLoading
   const workflowBlocks =
@@ -138,14 +137,23 @@ export function useUserInputMentionSources({
     <T extends { name: string }>(left: T, right: T) => left.name.localeCompare(right.name, locale),
     [locale]
   )
+  const workspaceScopeIsActive = useCallback(
+    (scope: WorkspaceMentionScope) => activeWorkspaceScopeRef.current === scope,
+    []
+  )
 
   const ensurePastChatsLoaded = useCallback(async () => {
-    if (!workspaceLifecycle.active || isLoadingPastChats || pastChats.length > 0) {
+    const targetScope = activeWorkspaceScopeRef.current
+    if (
+      !targetScope ||
+      targetScope.key !== workspaceScopeKey ||
+      isLoadingPastChats ||
+      pastChats.length > 0
+    ) {
       return
     }
 
     const targetWorkspaceId = workspaceId
-    const targetLifecycle = workspaceLifecycle
     try {
       setPastChatsLoading(true)
       const response = await fetch(
@@ -170,31 +178,38 @@ export function useUserInputMentionSources({
             ]
           : []
       })
-      if (!targetLifecycle.active) return
+      if (!workspaceScopeIsActive(targetScope)) return
       setLoadedPastChats(mapped)
     } catch {
     } finally {
-      if (targetLifecycle.active) setPastChatsLoading(false)
+      if (workspaceScopeIsActive(targetScope)) setPastChatsLoading(false)
     }
-  }, [isLoadingPastChats, pastChats.length, workspaceId, workspaceLifecycle])
+  }, [isLoadingPastChats, pastChats.length, workspaceId, workspaceScopeIsActive, workspaceScopeKey])
 
   const ensureWorkspaceEntityLoaded = useCallback(
     async (entityKind: LazyWorkspaceEntityMentionKind) => {
       const state = scopedWorkspaceEntityState[entityKind]
-      if (!workspaceLifecycle.active || state === 'loading' || (state?.length ?? 0) > 0) return
+      const targetScope = activeWorkspaceScopeRef.current
+      if (
+        !targetScope ||
+        targetScope.key !== workspaceScopeKey ||
+        state === 'loading' ||
+        (state?.length ?? 0) > 0
+      )
+        return
 
       try {
         setWorkspaceEntityState((prev) => ({ ...prev, [entityKind]: 'loading' }))
         const mapped = await loadWorkspaceEntityMentionItems(entityKind, workspaceId)
-        if (!workspaceLifecycle.active) return
+        if (!workspaceScopeIsActive(targetScope)) return
         setWorkspaceEntityState((prev) => ({ ...prev, [entityKind]: mapped }))
       } catch (error) {
-        if (!workspaceLifecycle.active) return
+        if (!workspaceScopeIsActive(targetScope)) return
         logger.error(`Failed to load ${entityKind} mention sources`, error)
         setWorkspaceEntityState((prev) => ({ ...prev, [entityKind]: undefined }))
       }
     },
-    [scopedWorkspaceEntityState, workspaceId, workspaceLifecycle]
+    [scopedWorkspaceEntityState, workspaceId, workspaceScopeIsActive, workspaceScopeKey]
   )
 
   const ensureBlocksLoaded = useCallback(async () => {
@@ -248,12 +263,17 @@ export function useUserInputMentionSources({
   ])
 
   const ensureLogsLoaded = useCallback(async () => {
-    if (!workspaceLifecycle.active || isLoadingLogs || logsList.length > 0) {
+    const targetScope = activeWorkspaceScopeRef.current
+    if (
+      !targetScope ||
+      targetScope.key !== workspaceScopeKey ||
+      isLoadingLogs ||
+      logsList.length > 0
+    ) {
       return
     }
 
     const targetWorkspaceId = workspaceId
-    const targetLifecycle = workspaceLifecycle
     try {
       setLogsLoading(true)
       const response = await fetch(
@@ -280,13 +300,13 @@ export function useUserInputMentionSources({
             ]
           : []
       })
-      if (!targetLifecycle.active) return
+      if (!workspaceScopeIsActive(targetScope)) return
       setLoadedLogsList(mapped)
     } catch {
     } finally {
-      if (targetLifecycle.active) setLogsLoading(false)
+      if (workspaceScopeIsActive(targetScope)) setLogsLoading(false)
     }
-  }, [isLoadingLogs, logsList.length, workspaceId, workspaceLifecycle])
+  }, [isLoadingLogs, logsList.length, workspaceId, workspaceScopeIsActive, workspaceScopeKey])
 
   const ensureWorkflowBlocksLoaded = useCallback(async () => {
     const targetWorkflowId = workflowId
@@ -344,11 +364,12 @@ export function useUserInputMentionSources({
   })
   const ensureSubmenuLoaded = useCallback(
     (submenu: MentionSubmenu) => ensureSubmenuLoadedRef.current(submenu),
-    [ensureSubmenuLoadedRef, workspaceLifecycle]
+    [ensureSubmenuLoadedRef]
   )
 
   useLayoutEffect(() => {
     blockCatalogLocaleRef.current = locale
+    setCommittedBlockCatalogLocale(locale)
     setLoadedBlocksList([])
     setBlockCatalogLoading(false)
     return () => {
@@ -370,11 +391,9 @@ export function useUserInputMentionSources({
   }, [ensureWorkspaceEntityLoaded, scopedWorkspaceEntityState.workflow, workflowId])
 
   useLayoutEffect(() => {
-    workspaceLifecycle.active = true
-    workspaceScopeRef.current = {
-      workspaceId,
-      ownerUserId: normalizedOwnerUserId,
-    }
+    const scope = { key: workspaceScopeKey }
+    activeWorkspaceScopeRef.current = scope
+    setCommittedWorkspaceScopeKey(workspaceScopeKey)
     setLoadedPastChats([])
     setPastChatsLoading(false)
     setWorkspaceEntityState({})
@@ -382,9 +401,9 @@ export function useUserInputMentionSources({
     setLogsLoading(false)
 
     return () => {
-      workspaceLifecycle.active = false
+      if (activeWorkspaceScopeRef.current === scope) activeWorkspaceScopeRef.current = null
     }
-  }, [normalizedOwnerUserId, workspaceId, workspaceLifecycle])
+  }, [workspaceScopeKey])
 
   const workspaceEntities = {} as Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[]>
   const workspaceEntityLoading = {} as Record<LazyWorkspaceEntityMentionKind, boolean>

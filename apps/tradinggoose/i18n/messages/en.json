@@ -1052,6 +1052,7 @@
         "noMatches": "No knowledge bases match your search."
       },
       "defaults": {
+        "untitledKnowledgeBase": "Untitled knowledge base",
         "noDescriptionProvided": "No description provided"
       },
       "header": {
@@ -1421,6 +1422,7 @@
       },
       "details": {
         "title": "Log Details",
+        "currentLog": "Current log",
         "previous": "Previous log",
         "next": "Next log",
         "close": "Close",

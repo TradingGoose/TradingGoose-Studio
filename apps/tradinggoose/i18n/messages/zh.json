@@ -1039,6 +1039,7 @@
         "noMatches": "没有与搜索匹配的知识库。"
       },
       "defaults": {
+        "untitledKnowledgeBase": "未命名知识库",
         "noDescriptionProvided": "未提供描述"
       },
       "header": {
@@ -1408,6 +1409,7 @@
       },
       "details": {
         "title": "日志详情",
+        "currentLog": "当前日志",
         "previous": "上一条日志",
         "next": "下一条日志",
         "close": "关闭",

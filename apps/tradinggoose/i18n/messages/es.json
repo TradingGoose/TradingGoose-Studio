@@ -1052,6 +1052,7 @@
         "noMatches": "Ninguna base de conocimiento coincide con tu búsqueda."
       },
       "defaults": {
+        "untitledKnowledgeBase": "Base de conocimiento sin título",
         "noDescriptionProvided": "Sin descripción"
       },
       "header": {
@@ -1421,6 +1422,7 @@
       },
       "details": {
         "title": "Detalles del registro",
+        "currentLog": "Registro actual",
         "previous": "Registro anterior",
         "next": "Siguiente registro",
         "close": "Cerrar",

@@ -44,15 +44,29 @@ const includesNormalized = (value: string, query: string) =>
 
 export const isMentionBoundary = isCopilotMentionBoundary
 
+const readMentionContextIdentityKey = (context: ChatContext): string | null => {
+  try {
+    return buildCopilotContextIdentityKey(context)
+  } catch {
+    return null
+  }
+}
+
 export function buildMentionRanges(text: string, contexts: ChatContext[]): MentionRange[] {
-  return buildCopilotContextMentionRanges(text, contexts).map(
+  const validContexts = contexts.filter(
+    (context) => readMentionContextIdentityKey(context) !== null
+  )
+  return buildCopilotContextMentionRanges(text, validContexts).map(
     ({ start, end, label, contextKey }) => ({ start, end, label, contextKey })
   )
 }
 
 export function retainMentionContextsInText(text: string, contexts: ChatContext[]): ChatContext[] {
   const presentKeys = new Set(buildMentionRanges(text, contexts).map((range) => range.contextKey))
-  return contexts.filter((context) => presentKeys.has(buildCopilotContextIdentityKey(context)))
+  return contexts.filter((context) => {
+    const contextKey = readMentionContextIdentityKey(context)
+    return contextKey !== null && presentKeys.has(contextKey)
+  })
 }
 
 export function upsertMentionContextByTextOrder(

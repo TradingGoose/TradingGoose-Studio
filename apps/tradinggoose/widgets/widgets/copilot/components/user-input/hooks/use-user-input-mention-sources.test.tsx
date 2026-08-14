@@ -2,7 +2,7 @@
 
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { expect, it, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vitest'
 import { useUserInputMentionSources } from './use-user-input-mention-sources'
 
 const m = vi.hoisted(() => ({
@@ -94,6 +94,24 @@ const providerResult = (members: any[]) => ({ doc: { members }, dispose: vi.fn()
 const EMPTY_WORKFLOW_BLOCKS = {}
 
 let current: ReturnType<typeof useUserInputMentionSources>
+
+beforeEach(() => {
+  m.blockCatalogGate = Promise.resolve()
+  m.blockCatalogLoadStarted.mockReset()
+  m.blockCatalogObservations.length = 0
+  m.bootstrapYjsProvider.mockReset()
+  m.entityList = { members: [], isLoading: false }
+  m.locale = 'en'
+  m.logger.error.mockReset()
+  m.registryGate = Promise.resolve()
+  m.registryLoadStarted.mockReset()
+  m.workspaceListObservations.length = 0
+  m.workflowBlocks = EMPTY_WORKFLOW_BLOCKS
+  m.workflowBlockObservations.length = 0
+  m.workflowId = null
+  vi.unstubAllGlobals()
+})
+
 const Harness = ({
   locale = 'en',
   ownerUserId = null,

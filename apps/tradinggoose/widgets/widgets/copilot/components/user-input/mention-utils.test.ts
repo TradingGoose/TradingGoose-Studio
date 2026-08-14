@@ -88,18 +88,37 @@ describe('mention-utils', () => {
     sources.workspaceEntities.custom_tool = [
       { entityKind: 'custom_tool', id: 'tool-empty', name: '', description: '' },
     ]
+    sources.workspaceEntities.knowledge_base = [
+      { entityKind: 'knowledge_base', id: 'knowledge-empty', name: '', description: '' },
+    ]
     const chatLabel = (esMessages as any).workspace.widgets.copilot.history.newChat
     const toolLabel = (esMessages as any).workspace.widgets.customToolDropdown.untitledCustomTool
+    const knowledgeLabel = esMessages.workspace.knowledge.defaults.untitledKnowledgeBase
 
     expect(getPastChatMentionLabel(esMentionCopy, sources.pastChats[0])).toBe(chatLabel)
     expect(
       getWorkspaceEntityMentionLabel(esMentionCopy, sources.workspaceEntities.custom_tool[0])
     ).toBe(toolLabel)
+    expect(
+      getWorkspaceEntityMentionLabel(esMentionCopy, sources.workspaceEntities.knowledge_base[0])
+    ).toBe(knowledgeLabel)
+    expect(
+      getWorkspaceEntityMentionLabel(zhMentionCopy, sources.workspaceEntities.knowledge_base[0])
+    ).toBe(zhMessages.workspace.knowledge.defaults.untitledKnowledgeBase)
     expect(buildAggregatedMentionItems(toolLabel, sources, enMonitorCopy, esMentionCopy)).toEqual([
       { type: 'custom_tool', id: 'tool-empty', value: sources.workspaceEntities.custom_tool[0] },
     ])
     expect(buildAggregatedMentionItems(chatLabel, sources, enMonitorCopy, esMentionCopy)).toEqual([
       { type: 'chats', id: 'chat-1', value: sources.pastChats[0] },
+    ])
+    expect(
+      buildAggregatedMentionItems(knowledgeLabel, sources, enMonitorCopy, esMentionCopy)
+    ).toEqual([
+      {
+        type: 'knowledge_base',
+        id: 'knowledge-empty',
+        value: sources.workspaceEntities.knowledge_base[0],
+      },
     ])
 
     sources.workspaceEntities.custom_tool[0].name = 'untitled'
@@ -152,6 +171,23 @@ describe('mention-utils', () => {
 
     expect(retainMentionContextsInText('Keep @Workflow only', contexts)).toEqual([contexts[1]])
     expect(retainMentionContextsInText('', contexts)).toEqual([])
+  })
+
+  it('skips malformed contexts while building and retaining mention ranges', () => {
+    const docsContext = { kind: 'docs' as const, label: 'Docs' }
+    const contexts = [
+      {
+        kind: 'dashboard_layout' as const,
+        dashboardLayoutId: 'layout-1',
+        label: 'Layout',
+      },
+      docsContext,
+    ]
+
+    expect(buildMentionRanges('@Layout @Docs', contexts)).toEqual([
+      { start: 8, end: 13, label: 'Docs', contextKey: 'docs' },
+    ])
+    expect(retainMentionContextsInText('@Layout @Docs', contexts)).toEqual([docsContext])
   })
 
   it('tracks the refreshed localized label for the same canonical context', () => {

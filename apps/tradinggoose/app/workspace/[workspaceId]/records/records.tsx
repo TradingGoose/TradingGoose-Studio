@@ -353,7 +353,9 @@ export default function Records() {
           ? selectedOrder?.logId
           : null
 
-    return logId ? { kind: 'current_logs', logId, workspaceId, label: 'Current log' } : null
+    return logId
+      ? { kind: 'current_logs', logId, workspaceId, label: tLogs('details.currentLog') }
+      : null
   }, [
     activeTab,
     isLogDetailOpen,
@@ -361,6 +363,7 @@ export default function Records() {
     orderDetailMode,
     selectedLog?.id,
     selectedOrder?.logId,
+    tLogs,
     workspaceId,
   ])
 

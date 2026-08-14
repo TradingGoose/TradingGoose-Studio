@@ -151,8 +151,11 @@ export function useUserInputMentions({
     }
   }
 
-  const computeMentionRanges = (text: string = message) => {
-    return buildMentionRanges(text, selectedContexts)
+  const computeMentionRanges = (
+    text: string = message,
+    contexts: ChatContext[] = selectedContexts
+  ) => {
+    return buildMentionRanges(text, contexts)
   }
 
   const mentionRanges = computeMentionRanges()
@@ -165,7 +168,11 @@ export function useUserInputMentions({
     return computeMentionRanges().find((range) => start < range.end && end > range.start)
   }
 
-  const getActiveMentionQueryAtPosition = (pos: number, textOverride?: string) => {
+  const getActiveMentionQueryAtPosition = (
+    pos: number,
+    textOverride?: string,
+    contextsOverride?: ChatContext[]
+  ) => {
     const text = textOverride ?? message
     const before = text.slice(0, pos)
     const atIndex = before.lastIndexOf('@')
@@ -178,7 +185,7 @@ export function useUserInputMentions({
       return null
     }
 
-    const ranges = computeMentionRanges(text)
+    const ranges = computeMentionRanges(text, contextsOverride)
     if (ranges.some((range) => atIndex >= range.start && atIndex < range.end)) {
       return null
     }
@@ -217,46 +224,57 @@ export function useUserInputMentions({
   const getFilteredSubmenuItems = (submenu: MentionSubmenu, query: string): MentionItem[] =>
     filterMentionItems(submenu, mentionSources, query, monitorCopy, mentionCopy)
 
-  const buildInsertionAtCursor = (text: string): MentionInsertion => {
-    const selection = getSelection()
-    const start = selection?.start ?? message.length
-    const end = selection?.end ?? message.length
-    let before = message.slice(0, start)
-    const after = message.slice(end)
+  const buildInsertionAtCursor = (
+    insertedText: string,
+    currentText: string,
+    selection: { start: number; end: number }
+  ): MentionInsertion => {
+    const start = Math.min(selection.start, currentText.length)
+    const end = Math.max(start, Math.min(selection.end, currentText.length))
+    let before = currentText.slice(0, start)
+    const after = currentText.slice(end)
 
-    if (before.endsWith('@') && text.startsWith('@')) {
+    if (before.endsWith('@') && insertedText.startsWith('@')) {
       before = before.slice(0, -1)
     }
 
     return {
-      cursor: before.length + text.length,
+      cursor: before.length + insertedText.length,
       start: before.length,
-      text: `${before}${text}${after}`,
+      text: `${before}${insertedText}${after}`,
     }
   }
 
-  const insertAtCursor = (text: string): MentionInsertion => {
-    const insertion = buildInsertionAtCursor(text)
-    setDraft({
-      text: insertion.text,
-      contexts: retainMentionContextsInText(insertion.text, selectedContexts),
+  const insertAtCursor = (text: string) => {
+    const selection = getSelection()
+    const caretInsertion = buildInsertionAtCursor(text, message, selection)
+    setDraft((previous) => {
+      const nextInsertion = buildInsertionAtCursor(text, previous.text, selection)
+      return {
+        text: nextInsertion.text,
+        contexts: retainMentionContextsInText(nextInsertion.text, previous.contexts),
+      }
     })
-    restoreEditorSelection(insertion.cursor, insertion.cursor)
-    return insertion
+    restoreEditorSelection(caretInsertion.cursor, caretInsertion.cursor)
   }
 
-  const buildActiveMentionReplacement = (label: string): MentionInsertion | null => {
+  const buildActiveMentionReplacement = (
+    label: string,
+    currentText: string,
+    currentContexts: ChatContext[],
+    selection: { start: number; end: number }
+  ): MentionInsertion | null => {
     if (!textareaRef.current) return null
 
-    const pos = getSelection()?.start ?? message.length
-    const active = getActiveMentionQueryAtPosition(pos)
+    const pos = Math.min(selection.start, currentText.length)
+    const active = getActiveMentionQueryAtPosition(pos, currentText, currentContexts)
 
     if (!active) {
       return null
     }
 
-    const before = message.slice(0, active.start)
-    const after = message.slice(active.end)
+    const before = currentText.slice(0, active.start)
+    const after = currentText.slice(active.end)
     const trailingSpace = after.length > 0 && /^\s/.test(after) ? '' : ' '
     const insertion = `@${label}${trailingSpace}`
     const cursorPos = before.length + insertion.length
@@ -264,39 +282,55 @@ export function useUserInputMentions({
   }
 
   const insertMentionContext = (label: string, context: ChatContext) => {
-    const insertion = buildActiveMentionReplacement(label) ?? buildInsertionAtCursor(`@${label} `)
-    const contexts = upsertMentionContextByTextOrder(
-      retainMentionContextsInText(message, selectedContexts),
-      context,
-      message,
-      insertion.start
-    )
-    setDraft({
-      text: insertion.text,
-      contexts: retainMentionContextsInText(insertion.text, contexts),
+    const selection = getSelection()
+    const caretInsertion =
+      buildActiveMentionReplacement(label, message, selectedContexts, selection) ??
+      buildInsertionAtCursor(`@${label} `, message, selection)
+    setDraft((previous) => {
+      const nextInsertion =
+        buildActiveMentionReplacement(label, previous.text, previous.contexts, selection) ??
+        buildInsertionAtCursor(`@${label} `, previous.text, selection)
+      const contexts = upsertMentionContextByTextOrder(
+        retainMentionContextsInText(previous.text, previous.contexts),
+        context,
+        previous.text,
+        nextInsertion.start
+      )
+      return {
+        text: nextInsertion.text,
+        contexts: retainMentionContextsInText(nextInsertion.text, contexts),
+      }
     })
-    restoreEditorSelection(insertion.cursor, insertion.cursor)
+    restoreEditorSelection(caretInsertion.cursor, caretInsertion.cursor)
   }
 
   const resetActiveMentionQuery = () => {
     if (!textareaRef.current) return
 
-    const pos = getSelection()?.start ?? message.length
-    const active = getActiveMentionQueryAtPosition(pos)
+    const selection = getSelection()
+    const pos = Math.min(selection.start, message.length)
+    const active = getActiveMentionQueryAtPosition(pos, message, selectedContexts)
+    if (!active) return
 
-    if (!active) {
-      return
-    }
+    setDraft((previous) => {
+      const currentPos = Math.min(selection.start, previous.text.length)
+      const currentActive = getActiveMentionQueryAtPosition(
+        currentPos,
+        previous.text,
+        previous.contexts
+      )
+      if (!currentActive) return previous
 
-    const before = message.slice(0, active.start + 1)
-    const after = message.slice(active.end)
-    const next = `${before}${after}`
-    setDraft({
-      text: next,
-      contexts: retainMentionContextsInText(next, selectedContexts),
+      const before = previous.text.slice(0, currentActive.start + 1)
+      const after = previous.text.slice(currentActive.end)
+      const next = `${before}${after}`
+      return {
+        text: next,
+        contexts: retainMentionContextsInText(next, previous.contexts),
+      }
     })
 
-    const caretPos = before.length
+    const caretPos = active.start + 1
     restoreEditorSelection(caretPos, caretPos)
   }
 
@@ -420,15 +454,17 @@ export function useUserInputMentions({
   }
 
   const deleteRange = (range: MentionRange) => {
-    const before = message.slice(0, range.start)
-    const after = message.slice(range.end)
-    const next =
-      before.endsWith(' ') && after.startsWith(' ')
-        ? `${before}${after.slice(1)}`
-        : `${before}${after}`
-    setDraft({
-      text: next,
-      contexts: retainMentionContextsInText(next, selectedContexts),
+    setDraft((previous) => {
+      const before = previous.text.slice(0, range.start)
+      const after = previous.text.slice(range.end)
+      const next =
+        before.endsWith(' ') && after.startsWith(' ')
+          ? `${before}${after.slice(1)}`
+          : `${before}${after}`
+      return {
+        text: next,
+        contexts: retainMentionContextsInText(next, previous.contexts),
+      }
     })
 
     restoreEditorSelection(range.start, range.start)
@@ -438,10 +474,10 @@ export function useUserInputMentions({
     newValue: string,
     selection: { start: number; end: number } = { start: newValue.length, end: newValue.length }
   ) => {
-    setDraft({
+    setDraft((previous) => ({
       text: newValue,
-      contexts: retainMentionContextsInText(newValue, selectedContexts),
-    })
+      contexts: retainMentionContextsInText(newValue, previous.contexts),
+    }))
     const normalizedSelection = {
       start: Math.max(0, Math.min(selection.start, newValue.length)),
       end: Math.max(0, Math.min(selection.end, newValue.length)),
