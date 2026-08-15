@@ -697,30 +697,34 @@ describe('enqueuePendingExecution', () => {
     )
   })
 
-  it('keeps an ambiguously admitted row processing for recovery', async () => {
+  it('keeps a new row queued when dispatching an older row fails', async () => {
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
     triggerMock.mockRejectedValue(new Error('Trigger unavailable'))
     txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([])
-    mockClaimableRow(createPendingRow({ billingScopeId: 'user-1' }))
+    mockClaimableRow(createPendingRow({ id: 'pending-a', billingScopeId: 'user-1' }))
 
     await expect(
       enqueuePendingExecution({
         executionType: 'workflow',
-        pendingExecutionId: 'pending-1',
+        pendingExecutionId: 'pending-b',
         workflowId: 'workflow-1',
         workspaceId: 'workspace-1',
         userId: 'user-1',
         source: 'workflow_api',
         payload: {
-          executionId: 'pending-1',
+          executionId: 'pending-b',
         },
       })
     ).rejects.toThrow('Trigger unavailable')
 
+    expect(txInsertValuesMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'pending-b' }))
+    expect(triggerMock).toHaveBeenCalledWith(
+      'pending-execution',
+      { pendingExecutionId: 'pending-a' },
+      expect.anything()
+    )
     expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'processing' }))
-    expect(deleteWhereMock).toHaveBeenCalledTimes(1)
-    expect(eqMock).toHaveBeenCalledWith('pendingExecution.status', 'pending')
-    expect(andMock).toHaveBeenCalled()
+    expect(deleteWhereMock).not.toHaveBeenCalled()
   })
 })
 

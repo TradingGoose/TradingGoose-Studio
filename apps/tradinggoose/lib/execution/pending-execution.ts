@@ -362,23 +362,11 @@ export async function enqueuePendingExecution(
     }
   }
 
-  try {
-    await dispatchNextPendingExecution({
-      billingScopeId,
-      requestId: params.requestId,
-      triggerState,
-    })
-  } catch (error) {
-    await db
-      .delete(pendingExecution)
-      .where(
-        and(
-          eq(pendingExecution.id, params.pendingExecutionId),
-          eq(pendingExecution.status, 'pending')
-        )
-      )
-    throw error
-  }
+  await dispatchNextPendingExecution({
+    billingScopeId,
+    requestId: params.requestId,
+    triggerState,
+  })
 
   return {
     pendingExecutionId: params.pendingExecutionId,
