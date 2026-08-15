@@ -39,6 +39,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 function stripeSubscription(priceId: string, recurring = true) {
   return {
     id: 'sub_stripe',
+    customer: 'customer_signed',
     items: { data: [{ price: { id: priceId, recurring: recurring ? {} : null } }] },
   } as never
 }
@@ -80,6 +81,7 @@ describe('syncSubscriptionBillingTierFromStripeSubscription', () => {
     expect(set).toHaveBeenCalledWith({
       billingTierId: 'tier_team',
       referenceType: 'organization',
+      stripeCustomerId: 'customer_signed',
     })
   })
 

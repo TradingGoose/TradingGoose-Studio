@@ -55,6 +55,10 @@ export async function syncSubscriptionBillingTierFromStripeSubscription(input: {
     )
   }
   const [tier] = tiers
+  const stripeCustomerId =
+    typeof input.stripeSubscription.customer === 'string'
+      ? input.stripeSubscription.customer
+      : input.stripeSubscription.customer.id
 
   const [subscriptionRecord] = await db
     .select({ referenceId: subscription.referenceId })
@@ -81,6 +85,7 @@ export async function syncSubscriptionBillingTierFromStripeSubscription(input: {
     .set({
       billingTierId: tier.id,
       referenceType: tier.ownerType,
+      stripeCustomerId,
     })
     .where(eq(subscription.id, input.subscriptionId))
 

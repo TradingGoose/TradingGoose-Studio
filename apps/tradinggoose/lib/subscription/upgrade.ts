@@ -72,7 +72,6 @@ export function useSubscriptionUpgrade() {
         const upgradeParams = {
           plan: targetTier.billingTierId,
           referenceId,
-          customerType: targetTier.ownerType,
           successUrl: currentUrl,
           cancelUrl: currentUrl,
           ...(targetTier.ownerType === 'organization' && { seats: initialSeats }),

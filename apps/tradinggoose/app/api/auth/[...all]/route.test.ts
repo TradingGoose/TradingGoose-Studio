@@ -156,7 +156,6 @@ describe('/api/auth/[...all] route', () => {
         body: JSON.stringify({
           plan: 'public-tier',
           referenceId: 'user-1',
-          customerType: 'user',
         }),
       })
     )
@@ -187,7 +186,6 @@ describe('/api/auth/[...all] route', () => {
         body: JSON.stringify({
           plan: 'public-tier',
           referenceId: 'user-1',
-          customerType: 'user',
         }),
       })
     )
@@ -224,7 +222,6 @@ describe('/api/auth/[...all] route', () => {
         body: JSON.stringify({
           plan: 'public-tier',
           referenceId: 'user-1',
-          customerType: 'user',
           subscriptionId: 'sub_other',
         }),
       })
@@ -253,7 +250,6 @@ describe('/api/auth/[...all] route', () => {
         body: JSON.stringify({
           plan: 'public-tier',
           referenceId: 'user-1',
-          customerType: 'user',
         }),
       })
     )
@@ -306,9 +302,9 @@ describe('/api/auth/[...all] route', () => {
     expect(mockGetOccupiedSeatCount).toHaveBeenCalledWith('org-1')
     expect(mockAuthHandler).toHaveBeenCalledOnce()
     const delegatedRequest = mockAuthHandler.mock.calls[0]?.[0] as Request
-    await expect(delegatedRequest.json()).resolves.toMatchObject({
-      seats: testCase.authorizedSeats,
-    })
+    const delegatedBody = await delegatedRequest.json()
+    expect(delegatedBody).toMatchObject({ seats: testCase.authorizedSeats })
+    expect(delegatedBody).not.toHaveProperty('customerType')
   })
 
   it.each([
@@ -343,7 +339,6 @@ describe('/api/auth/[...all] route', () => {
         body: JSON.stringify({
           plan: 'team-tier',
           referenceId: 'org-1',
-          customerType: 'organization',
           seats: testCase.requestedSeats,
         }),
       })
@@ -382,7 +377,6 @@ describe('/api/auth/[...all] route', () => {
         body: JSON.stringify({
           plan: 'team-new',
           referenceId: 'org-1',
-          customerType: 'organization',
           subscriptionId: 'sub_current',
           seats: 7,
         }),
@@ -421,7 +415,6 @@ describe('/api/auth/[...all] route', () => {
         body: JSON.stringify({
           plan: 'team-current',
           referenceId: 'org-1',
-          customerType: 'organization',
           subscriptionId: 'sub_current',
           seats: 3,
         }),
@@ -435,7 +428,8 @@ describe('/api/auth/[...all] route', () => {
     await expect(delegatedRequest.json()).resolves.toMatchObject({ seats: 8 })
   })
 
-  it('rejects an upgrade when the requested billing subject type does not match the tier', async () => {
+  it('rejects an upgrade when the referenced billing subject does not match the tier', async () => {
+    mockAuthorizeSubscriptionReference.mockResolvedValue(false)
     mockGetBillingTierById.mockResolvedValue({
       id: 'team-tier',
       status: 'active',
@@ -450,12 +444,15 @@ describe('/api/auth/[...all] route', () => {
         body: JSON.stringify({
           plan: 'team-tier',
           referenceId: 'user-1',
-          customerType: 'user',
         }),
       })
     )
 
     expect(response.status).toBe(403)
+    expect(mockAuthorizeSubscriptionReference).toHaveBeenCalledWith('user-1', {
+      referenceType: 'organization',
+      referenceId: 'user-1',
+    })
     expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
@@ -484,7 +481,6 @@ describe('/api/auth/[...all] route', () => {
         body: JSON.stringify({
           plan: 'private-tier',
           referenceId: 'user-1',
-          customerType: 'user',
         }),
       })
     )
@@ -511,7 +507,6 @@ describe('/api/auth/[...all] route', () => {
         body: JSON.stringify({
           plan: 'private-tier',
           referenceId: 'user-1',
-          customerType: 'user',
         }),
       })
     )

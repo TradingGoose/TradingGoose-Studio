@@ -1609,7 +1609,7 @@ export const auth = betterAuth({
         plans: getBetterAuthPlansConfig(),
         authorizeReference: async ({ user, referenceId }, context) => {
           const customerType = context.body?.customerType ?? context.query?.customerType
-          if (customerType !== 'organization') {
+          if (customerType === 'organization') {
             return false
           }
 

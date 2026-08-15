@@ -107,6 +107,7 @@ describe('useSubscriptionUpgrade', () => {
     await expect(handleUpgrade?.(organizationTarget, { organizationId: 'org-1' })).rejects.toThrow(
       'Failed to upgrade New Team: Plan change denied'
     )
+    expect(mockUpgrade.mock.calls[0]?.[0]).not.toHaveProperty('customerType')
     expect(mockInvalidateQueries).not.toHaveBeenCalled()
   })
 })

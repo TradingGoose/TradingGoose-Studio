@@ -64,14 +64,13 @@ async function prepareSubscriptionUpgrade(request: Request): Promise<Request | R
     .catch(() => null)
   const body: Record<string, unknown> =
     parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody) ? parsedBody : {}
-  let preparedBody = body
+  let preparedBody = { ...body }
+  preparedBody.customerType = undefined
   const billingTierId = typeof body.plan === 'string' ? body.plan.trim() : ''
   const referenceId = typeof body.referenceId === 'string' ? body.referenceId.trim() : ''
   const requestedSubscriptionId =
     typeof body.subscriptionId === 'string' ? body.subscriptionId.trim() : ''
   const requestedSeats = typeof body.seats === 'number' ? body.seats : null
-  const customerType =
-    body.customerType === 'user' || body.customerType === 'organization' ? body.customerType : null
 
   if (!billingTierId) {
     return Response.json({ error: 'Billing tier is required' }, { status: 400 })
@@ -87,7 +86,7 @@ async function prepareSubscriptionUpgrade(request: Request): Promise<Request | R
     return Response.json({ error: 'Billing tier is unavailable' }, { status: 403 })
   }
 
-  if (!referenceId || customerType !== tier.ownerType) {
+  if (!referenceId) {
     return Response.json({ error: 'Billing subject does not match the tier' }, { status: 403 })
   }
 
@@ -168,8 +167,6 @@ async function prepareSubscriptionUpgrade(request: Request): Promise<Request | R
       return Response.json({ error: 'Stripe Billing Portal is unavailable' }, { status: 503 })
     }
   }
-
-  if (preparedBody === body) return request
 
   const headers = new Headers(request.headers)
   headers.delete('content-length')

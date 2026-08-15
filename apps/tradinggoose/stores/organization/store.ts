@@ -655,7 +655,6 @@ export const useOrganizationStore = create<OrganizationStore>()(
 
           const { error } = await client.subscription.upgrade({
             plan: billingTierId,
-            customerType: 'organization',
             referenceId: activeOrganization.id,
             subscriptionId: subscriptionData.id,
             seats: newSeatCount,
@@ -711,7 +710,6 @@ export const useOrganizationStore = create<OrganizationStore>()(
 
           const { error } = await client.subscription.upgrade({
             plan: billingTierId,
-            customerType: 'organization',
             referenceId: activeOrganization.id,
             subscriptionId: subscriptionData.id,
             seats: newSeatCount,
