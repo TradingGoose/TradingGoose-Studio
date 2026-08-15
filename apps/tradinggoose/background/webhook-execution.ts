@@ -166,7 +166,10 @@ async function logWebhookFailure(params: {
   })
 }
 
-export async function executeWebhookJob(payload: WebhookExecutionPayload) {
+export async function executeWebhookJob(
+  payload: WebhookExecutionPayload,
+  options: { pendingExecutionId: string | null }
+) {
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
   const executionTarget = payload.executionTarget ?? 'deployed'
@@ -287,7 +290,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       payload.body,
       mockRequest,
       requestId,
-      executionId
+      options.pendingExecutionId
     )
     const airtablePoll =
       payload.provider === 'airtable' ? (formattedInput as AirtablePollResult) : null

@@ -560,12 +560,15 @@ describe('Airtable payload durability', () => {
       executionId,
       executionId
     )
-  const execute = (overrides: Row = {}) =>
-    executeWebhookJob({
-      ...pending('execution-a').payload,
-      executionId: 'execution-a',
-      ...overrides,
-    } as any)
+  const execute = (overrides: Row = {}, pendingExecutionId: string | null = 'execution-a') =>
+    executeWebhookJob(
+      {
+        ...pending('execution-a').payload,
+        executionId: 'execution-a',
+        ...overrides,
+      } as any,
+      { pendingExecutionId }
+    )
   const queueTenPages = (payloads: unknown[] = [{ id: 'change' }]) => {
     state.pendingExecutions = [pending('execution-a')]
     fetchMock.mockImplementation(() => page(payloads, fetchMock.mock.calls.length, true))
@@ -591,6 +594,28 @@ describe('Airtable payload durability', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+  })
+
+  it('polls and executes Airtable directly without a local queue row', async () => {
+    state.pendingExecutions = []
+    fetchMock.mockResolvedValue(page([{ id: 'P1' }], 1, false))
+    runWorkflowMock.mockResolvedValue({ result: { success: true, output: {} } })
+
+    await expect(execute({}, null)).resolves.toMatchObject({ success: true })
+
+    expect(runWorkflowMock.mock.calls[0][0].workflowInput.payloads).toEqual([{ id: 'P1' }])
+    expect(state.webhooks[0].providerConfig.externalWebhookCursor).toBe(1)
+    expect(state.pendingExecutions).toEqual([])
+  })
+
+  it('rejects a declared Trigger execution without its processing row', async () => {
+    state.pendingExecutions = []
+
+    await expect(poll(structuredClone(state.webhooks[0]), 'execution-a')).rejects.toThrow(
+      'Airtable pending execution is not processing'
+    )
+
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('returns each execution owned pages when a competing poll wins the next cursor', async () => {

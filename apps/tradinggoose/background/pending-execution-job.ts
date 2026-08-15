@@ -28,7 +28,11 @@ export async function executePendingExecutionJob(
       if (isWorkflowExecutionPayload(payload)) return executeWorkflowJob(payload)
       throw new Error('Invalid workflow pending payload')
     case 'webhook':
-      if (isWebhookExecutionPayload(payload)) return executeWebhookJob(payload)
+      if (isWebhookExecutionPayload(payload)) {
+        return executeWebhookJob(payload, {
+          pendingExecutionId: options.triggerRuntime ? job.id : null,
+        })
+      }
       throw new Error('Invalid webhook pending payload')
     case 'schedule':
       if (isScheduleExecutionPayload(payload)) return executeScheduleJob(payload)

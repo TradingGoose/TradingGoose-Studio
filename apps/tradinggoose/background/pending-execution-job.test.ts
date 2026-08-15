@@ -64,6 +64,8 @@ describe('pending execution job', () => {
     vi.clearAllMocks()
     mocks.executeDocumentProcessingJob.mockResolvedValue(undefined)
     mocks.executeTriggeredDocumentProcessingJob.mockResolvedValue(undefined)
+    mocks.executeWebhookJob.mockResolvedValue(undefined)
+    mocks.isWebhookExecutionPayload.mockReturnValue(false)
   })
 
   it('executes documents directly when Trigger is disabled', async () => {
@@ -96,5 +98,28 @@ describe('pending execution job', () => {
         { triggerRuntime: false }
       )
     ).rejects.toThrow(error.message)
+  })
+
+  it.each([
+    ['local execution', false, null],
+    ['Trigger execution', true, 'webhook-job-1'],
+  ] as const)('declares pending-row ownership for %s', async (_name, triggerRuntime, ownerId) => {
+    const payload = {
+      webhookId: 'webhook-1',
+      workflowId: 'workflow-1',
+      userId: 'user-1',
+      provider: 'airtable',
+    }
+    mocks.isWebhookExecutionPayload.mockReturnValue(true)
+
+    await executePendingExecutionJob(
+      { id: 'webhook-job-1', executionType: 'webhook', payload },
+      { triggerRuntime }
+    )
+
+    expect(mocks.executeWebhookJob).toHaveBeenCalledWith(
+      { ...payload, executionId: 'webhook-job-1' },
+      { pendingExecutionId: ownerId }
+    )
   })
 })

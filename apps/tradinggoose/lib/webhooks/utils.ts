@@ -467,7 +467,7 @@ export async function formatWebhookInput(
   body: any,
   request: NextRequest,
   requestId: string,
-  pendingExecutionId: string
+  pendingExecutionId: string | null
 ): Promise<any> {
   if (isMonitorProvider(foundWebhook.provider)) {
     return body
@@ -1339,44 +1339,54 @@ async function readAirtablePollStage(
 }
 
 async function commitAirtablePollPage(params: {
-  pendingExecutionId: string
+  pendingExecutionId: string | null
   webhookId: string
   externalId: string
   currentCursor: number | null
   nextCursor: number
   receivedPayloads: unknown[]
   mightHaveMore: boolean
+  stage: AirtablePollStage | null
 }) {
   return db.transaction(async (tx) => {
-    const [row] = await tx
-      .select({ payload: pendingExecution.payload })
-      .from(pendingExecution)
-      .where(
-        and(
-          eq(pendingExecution.id, params.pendingExecutionId),
-          eq(pendingExecution.executionType, 'webhook'),
-          eq(pendingExecution.status, 'processing')
-        )
-      )
-      .for('update')
-      .limit(1)
-    if (!row)
-      throw new AirtableStageIntegrityError('Airtable pending execution lost processing ownership')
+    let executionPayload: Record<string, unknown> | null = null
+    let stage = params.stage
 
-    const { executionPayload, stage: durableStage } = assertAirtablePendingExecution(
-      row.payload,
-      params.webhookId,
-      params.externalId
-    )
-    const stage =
-      durableStage ??
-      ({
-        externalId: params.externalId,
-        apiCallCount: 0,
-        payloads: [],
-        cursor: params.currentCursor,
-        mightHaveMore: true,
-      } satisfies AirtablePollStage)
+    if (params.pendingExecutionId !== null) {
+      const [row] = await tx
+        .select({ payload: pendingExecution.payload })
+        .from(pendingExecution)
+        .where(
+          and(
+            eq(pendingExecution.id, params.pendingExecutionId),
+            eq(pendingExecution.executionType, 'webhook'),
+            eq(pendingExecution.status, 'processing')
+          )
+        )
+        .for('update')
+        .limit(1)
+      if (!row) {
+        throw new AirtableStageIntegrityError(
+          'Airtable pending execution lost processing ownership'
+        )
+      }
+
+      const pendingState = assertAirtablePendingExecution(
+        row.payload,
+        params.webhookId,
+        params.externalId
+      )
+      executionPayload = pendingState.executionPayload
+      stage = pendingState.stage
+    }
+
+    stage ??= {
+      externalId: params.externalId,
+      apiCallCount: 0,
+      payloads: [],
+      cursor: params.currentCursor,
+      mightHaveMore: true,
+    }
 
     if (stage.apiCallCount >= AIRTABLE_POLL_PAGE_LIMIT) {
       return { stage, committed: false }
@@ -1407,6 +1417,13 @@ async function commitAirtablePollPage(params: {
       cursor: params.nextCursor,
       mightHaveMore: params.mightHaveMore,
     }
+    if (params.pendingExecutionId === null) {
+      return { stage: nextStage, committed: true }
+    }
+    if (!executionPayload) {
+      throw new AirtableStageIntegrityError('Airtable pending execution payload is unavailable')
+    }
+
     const [updatedExecution] = await tx
       .update(pendingExecution)
       .set({
@@ -1501,7 +1518,7 @@ async function formatAirtableWebhookInput(
   webhookData: any,
   workflowData: any,
   requestId: string,
-  pendingExecutionId: string
+  pendingExecutionId: string | null
 ): Promise<AirtablePollResult> {
   if (
     webhookData.provider !== 'airtable' ||
@@ -1526,7 +1543,10 @@ async function formatAirtableWebhookInput(
     throw new Error('Airtable webhook configuration is incomplete')
   }
 
-  let stage = await readAirtablePollStage(pendingExecutionId, webhookData.id, externalId)
+  let stage =
+    pendingExecutionId === null
+      ? null
+      : await readAirtablePollStage(pendingExecutionId, webhookData.id, externalId)
   const storedCursor = providerConfig.externalWebhookCursor
   let currentCursor = Number.isInteger(storedCursor) ? storedCursor : null
 
@@ -1591,6 +1611,7 @@ async function formatAirtableWebhookInput(
         nextCursor,
         receivedPayloads: responseBody.payloads,
         mightHaveMore: responseBody.mightHaveMore === true,
+        stage,
       })
       stage = committed.stage
       if (!committed.committed) break
@@ -1598,12 +1619,12 @@ async function formatAirtableWebhookInput(
     } catch (error) {
       if (error instanceof AirtableStageIntegrityError) throw error
       if (!stage?.payloads.length) throw error
-      logger.warn(`[${requestId}] Airtable polling stopped; executing durable payloads`, error)
+      logger.warn(`[${requestId}] Airtable polling stopped; executing collected payloads`, error)
       break
     }
   }
 
-  const durableStage =
+  const completedStage =
     stage ??
     ({
       externalId,
@@ -1613,8 +1634,8 @@ async function formatAirtableWebhookInput(
       mightHaveMore: false,
     } satisfies AirtablePollStage)
   return {
-    input: buildAirtablePollInput(durableStage, webhookData.providerConfig),
-    continuation: getStageContinuation(durableStage),
+    input: buildAirtablePollInput(completedStage, webhookData.providerConfig),
+    continuation: getStageContinuation(completedStage),
   }
 }
 
