@@ -42,7 +42,6 @@ import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
-import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { cn } from '@/lib/utils'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
@@ -121,7 +120,6 @@ export function UserMenu({
       singleSignOn: tUserMenu('singleSignOn'),
       logOut: tUserMenu('logOut'),
       loggingOut: tUserMenu('loggingOut'),
-      billingPortalSelectOrganization: tUserMenu('billingPortalSelectOrganization'),
       billingPortalFailed: tUserMenu('billingPortalFailed'),
       languageLabel: tUserMenu('languageLabel'),
       themeOptions: {
@@ -151,8 +149,6 @@ export function UserMenu({
     billingPayload?.billingEnabled ??
     organizationsData?.billingData?.data?.billingEnabled ??
     true
-  const subscription = getSubscriptionStatus(billingPayload)
-  const isOrganizationPlan = subscription.tier.ownerType === 'organization'
   const userRole = useMemo(
     () => getUserRole(activeOrganization, userEmail),
     [activeOrganization, userEmail]
@@ -308,21 +304,9 @@ export function UserMenu({
     if (!billingEnabled) return
     if (isOpeningBillingPortal || isSubscriptionLoading) return
 
-    const context = isOrganizationPlan ? ('organization' as const) : ('user' as const)
-    if (context === 'organization' && !activeOrganizationId) {
-      logger.error('Cannot open billing portal without an active organization', {
-        tier: subscription.tier.displayName,
-      })
-      alert(userMenuCopy.billingPortalSelectOrganization)
-      return
-    }
-
     setIsOpeningBillingPortal(true)
     try {
-      await openBillingPortal({
-        context,
-        organizationId: context === 'organization' ? activeOrganizationId : undefined,
-      })
+      await openBillingPortal()
     } catch (error) {
       logger.error('Failed to open billing portal from user menu', { error })
       alert(error instanceof Error ? error.message : userMenuCopy.billingPortalFailed)

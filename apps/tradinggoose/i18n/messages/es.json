@@ -1857,7 +1857,6 @@
       "singleSignOn": "Inicio de sesión único",
       "logOut": "Cerrar sesión",
       "loggingOut": "Cerrando sesión…",
-      "billingPortalSelectOrganization": "Seleccione una organización para gestionar la facturación.",
       "billingPortalFailed": "Error al abrir el portal de facturación",
       "themeLabel": "Tema: {theme}",
       "languageLabel": "Idioma",

@@ -210,22 +210,8 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
   }
 
   const handleResolvePayment = async () => {
-    const context =
-      subscription.tier.ownerType === 'organization' ? ('organization' as const) : ('user' as const)
-
-    if (context === 'organization' && !activeOrganizationId) {
-      logger.error('Cannot resolve payment without an active organization', {
-        tier: subscription.tier.displayName,
-      })
-      alert('Select an organization to manage billing.')
-      return
-    }
-
     try {
-      await openBillingPortal({
-        context,
-        organizationId: context === 'organization' ? activeOrganizationId : undefined,
-      })
+      await openBillingPortal()
     } catch (error) {
       logger.error('Failed to open billing portal from sidebar usage indicator', { error })
       alert(error instanceof Error ? error.message : 'Failed to open billing portal')

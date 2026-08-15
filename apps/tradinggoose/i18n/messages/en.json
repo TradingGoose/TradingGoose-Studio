@@ -1857,7 +1857,6 @@
       "singleSignOn": "Single Sign-On",
       "logOut": "Log out",
       "loggingOut": "Logging out…",
-      "billingPortalSelectOrganization": "Select an organization to manage billing.",
       "billingPortalFailed": "Failed to open billing portal",
       "themeLabel": "Theme: {theme}",
       "languageLabel": "Language",

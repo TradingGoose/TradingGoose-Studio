@@ -1,8 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { sql } from 'drizzle-orm'
-import { type NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { ensureStripeUserCustomer } from '@/lib/billing/stripe-customers'
@@ -13,7 +12,7 @@ import { getBaseUrl } from '@/lib/urls/utils'
 const logger = createLogger('BillingPortal')
 const BILLING_PORTAL_CUSTOMER_LOCK_NAMESPACE = 4_126_092
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   const session = await getSession()
 
   try {
@@ -21,11 +20,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json().catch(() => ({}))
-    const context: 'user' | 'organization' =
-      body?.context === 'organization' ? 'organization' : 'user'
-    const organizationId: string | undefined = body?.organizationId || undefined
-    const returnUrl: string = body?.returnUrl || `${getBaseUrl()}/workspace?billing=updated`
     const { billingEnabled } = await getBillingGateState()
 
     if (!billingEnabled) {
@@ -33,20 +27,6 @@ export async function POST(request: NextRequest) {
     }
 
     const stripe = requireStripeClient()
-
-    if (context === 'organization') {
-      if (!organizationId) {
-        return NextResponse.json({ error: 'organizationId is required' }, { status: 400 })
-      }
-
-      const canManageOrganization = await isOrganizationOwnerOrAdmin(
-        session.user.id,
-        organizationId
-      )
-      if (!canManageOrganization) {
-        return NextResponse.json({ error: 'Permission denied' }, { status: 403 })
-      }
-    }
 
     const personalStripeCustomer = await db.transaction(async (tx) => {
       await tx.execute(
@@ -66,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const portal = await createBillingManagementPortalSession(stripe, {
       customer: personalStripeCustomer.id,
-      return_url: returnUrl,
+      return_url: `${getBaseUrl()}/workspace?billing=updated`,
     })
 
     return NextResponse.json({ url: portal.url })

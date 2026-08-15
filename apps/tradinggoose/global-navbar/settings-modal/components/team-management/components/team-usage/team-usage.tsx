@@ -94,16 +94,8 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
       status={status}
       percentUsed={percentUsed}
       onResolvePayment={async () => {
-        if (!activeOrg?.id) {
-          alert('Select an organization to manage billing.')
-          return
-        }
-
         try {
-          await openBillingPortal({
-            context: 'organization',
-            organizationId: activeOrg.id,
-          })
+          await openBillingPortal()
         } catch (e) {
           alert(e instanceof Error ? e.message : 'Failed to open billing portal')
         }

@@ -1844,7 +1844,6 @@
       "singleSignOn": "单点登录",
       "logOut": "退出登录",
       "loggingOut": "正在退出登录...",
-      "billingPortalSelectOrganization": "请选择要管理计费的组织。",
       "billingPortalFailed": "打开计费门户失败",
       "themeLabel": "主题：{theme}",
       "languageLabel": "语言",

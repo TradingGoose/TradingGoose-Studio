@@ -8,7 +8,7 @@ import { Input, Skeleton } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useSession } from '@/lib/auth-client'
-import { openBillingPortal as openBillingPortalSession } from '@/lib/billing/billing-portal'
+import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { PRIVATE_TIER_ACCESS_ERROR_CODES } from '@/lib/billing/private-tier-access-contract'
 import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
@@ -442,21 +442,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     [handleUpgrade, organizationBillingId]
   )
 
-  const openBillingPortal = useCallback(
-    async (context: 'user' | 'organization') => {
-      if (context === 'organization' && !organizationBillingId) {
-        alert('Select an organization to manage billing.')
-        return
-      }
-
-      await openBillingPortalSession({
-        context,
-        organizationId: context === 'organization' ? organizationBillingId : undefined,
-      })
-    },
-    [organizationBillingId]
-  )
-
   const activatePayg = useCallback(async () => {
     setIsPrimaryActionPending(true)
 
@@ -470,7 +455,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
       if (!response.ok) {
         if (shouldOpenBillingPortalForPaygActivationError(response.status, result)) {
-          await openBillingPortal('user')
+          await openBillingPortal()
           return
         }
 
@@ -493,7 +478,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         case 'resolve_payment':
         case 'add_payment_method':
         case 'manage_billing':
-          void openBillingPortal('user').catch((error) => {
+          void openBillingPortal().catch((error) => {
             alert(error instanceof Error ? error.message : 'Failed to open billing portal')
           })
           return
@@ -623,7 +608,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             percentUsed={percentUsedClamped}
             onResolvePayment={async () => {
               try {
-                await openBillingPortal(isOrganizationPlan ? 'organization' : 'user')
+                await openBillingPortal()
               } catch (error) {
                 alert(error instanceof Error ? error.message : 'Failed to open billing portal')
               }
@@ -794,13 +779,9 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 variant='outline'
                 className='h-8 rounded-sm font-medium text-xs'
                 onClick={() => {
-                  void openBillingPortal(isOrganizationPlan ? 'organization' : 'user').catch(
-                    (error) => {
-                      alert(
-                        error instanceof Error ? error.message : 'Failed to open billing portal'
-                      )
-                    }
-                  )
+                  void openBillingPortal().catch((error) => {
+                    alert(error instanceof Error ? error.message : 'Failed to open billing portal')
+                  })
                 }}
               >
                 Manage
