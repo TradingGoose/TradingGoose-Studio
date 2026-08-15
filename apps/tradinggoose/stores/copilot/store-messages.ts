@@ -240,7 +240,6 @@ export function buildPinnedToolCallsById(
       turnProvenance = buildTurnProvenanceFromContexts(
         Array.isArray(message.contexts) ? message.contexts : undefined,
         opts.workspaceId,
-        null,
         null
       )
       continue

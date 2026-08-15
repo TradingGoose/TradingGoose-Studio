@@ -2,19 +2,13 @@
  * @vitest-environment jsdom
  */
 
-import { act, type ComponentProps } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import * as Y from 'yjs'
-import { seedDashboardColorPairSession } from '@/lib/yjs/dashboard-layout-session'
-import { GlobalCopilotPanel as GlobalCopilotPanelComponent } from '@/global-navbar/global-copilot-panel'
-
-const GlobalCopilotPanel = (
-  props: Omit<ComponentProps<typeof GlobalCopilotPanelComponent>, 'channelId'>
-) => <GlobalCopilotPanelComponent channelId='copilot:user:user-1:workspace:ws-1' {...props} />
+import { GlobalCopilotPanel } from '@/global-navbar/global-copilot-panel'
 
 const mocks = vi.hoisted(() => ({
-  targetSession: vi.fn(),
+  pairInput: vi.fn(),
   copilotProps: null as Record<string, unknown> | null,
   currentContext: null as Record<string, unknown> | null,
   activeLayout: null as {
@@ -25,8 +19,8 @@ const mocks = vi.hoisted(() => ({
     updatedAt: string
   } | null,
   pairSession: {
-    doc: null as Y.Doc | null,
-    isLoading: false,
+    doc: {} as object | null,
+    context: { workflowId: 'workflow-blue' },
     isRetrying: false,
     error: null as string | null,
     retry: vi.fn(),
@@ -38,9 +32,9 @@ vi.mock('@/global-navbar/copilot-context', () => ({
   useGlobalCopilotActiveDashboardLayout: () => mocks.activeLayout,
 }))
 
-vi.mock('@/lib/yjs/use-entity-fields', () => ({
-  useYjsTargetSession: (...args: unknown[]) => {
-    mocks.targetSession(...args)
+vi.mock('@/lib/yjs/use-dashboard-color-pair', () => ({
+  useDashboardColorPair: (input: Record<string, unknown>) => {
+    mocks.pairInput(input)
     return mocks.pairSession
   },
 }))
@@ -84,7 +78,6 @@ vi.mock('@/lib/copilot/components/copilot/copilot-header', () => ({
 describe('GlobalCopilotPanel dashboard color boundary', () => {
   let container: HTMLDivElement
   let root: Root
-  let pairDoc: Y.Doc
   const reactActEnvironment = globalThis as typeof globalThis & {
     IS_REACT_ACT_ENVIRONMENT?: boolean
   }
@@ -94,8 +87,6 @@ describe('GlobalCopilotPanel dashboard color boundary', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    pairDoc = new Y.Doc()
-    seedDashboardColorPairSession(pairDoc, { workflowId: 'workflow-blue' })
     mocks.activeLayout = {
       id: 'layout-1',
       name: 'Main Dashboard',
@@ -104,8 +95,8 @@ describe('GlobalCopilotPanel dashboard color boundary', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
     }
     mocks.pairSession = {
-      doc: pairDoc,
-      isLoading: false,
+      doc: {},
+      context: { workflowId: 'workflow-blue' },
       isRetrying: false,
       error: null,
       retry: vi.fn(),
@@ -122,51 +113,29 @@ describe('GlobalCopilotPanel dashboard color boundary', () => {
   afterEach(() => {
     act(() => root.unmount())
     container.remove()
-    pairDoc.destroy()
-    mocks.targetSession.mockReset()
+    mocks.pairInput.mockReset()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('opens the dashboard color session only on the dashboard route', async () => {
+  const renderPanel = async (dashboardMode: boolean) => {
     await act(async () => {
       root.render(
-        <GlobalCopilotPanel workspaceId='ws-1' ownerUserId='user-1' dashboardMode={false} />
+        <GlobalCopilotPanel workspaceId='ws-1' ownerUserId='user-1' dashboardMode={dashboardMode} />
       )
     })
+  }
 
-    expect(mocks.targetSession).toHaveBeenLastCalledWith(
-      null,
-      'read',
-      'Failed to open dashboard color pair'
-    )
-    expect(container.querySelector('[data-testid="pair-color"]')).toBeNull()
-    expect(mocks.copilotProps).toMatchObject({
-      channelId: 'copilot:user:user-1:workspace:ws-1',
-      effectiveParams: null,
-      layoutId: null,
-      ownerUserId: null,
-      currentContext: mocks.currentContext,
-      inputDisabled: false,
-    })
-
-    await act(async () => {
-      root.render(
-        <GlobalCopilotPanel workspaceId='ws-1' ownerUserId='user-1' dashboardMode={true} />
-      )
-    })
+  it('keeps the color session within the active dashboard route and layout', async () => {
+    await renderPanel(true)
 
     const pairColor = container.querySelector('[data-testid="pair-color"]')
     if (!(pairColor instanceof HTMLButtonElement)) throw new Error('Expected dashboard pair color')
     await act(async () => pairColor.click())
 
-    expect(mocks.targetSession.mock.lastCall?.[1]).toBe('read')
-    expect(mocks.targetSession.mock.lastCall?.[0]).toMatchObject({
-      entityKind: 'dashboard_color_pair',
-      entityId: 'blue',
-    })
-    expect(pairColor).toHaveAttribute('data-color', 'blue')
+    expect(mocks.pairInput).toHaveBeenLastCalledWith(
+      expect.objectContaining({ layoutId: 'layout-1', pairColor: 'blue' })
+    )
     expect(mocks.copilotProps).toMatchObject({
-      channelId: 'copilot:user:user-1:workspace:ws-1',
       effectiveParams: { workflowId: 'workflow-blue' },
       layoutId: 'layout-1',
       ownerUserId: 'user-1',
@@ -175,33 +144,40 @@ describe('GlobalCopilotPanel dashboard color boundary', () => {
       inputDisabled: false,
     })
 
-    await act(async () => {
-      root.render(
-        <GlobalCopilotPanel workspaceId='ws-1' ownerUserId='user-1' dashboardMode={false} />
-      )
-    })
+    await renderPanel(false)
 
-    expect(mocks.targetSession.mock.lastCall?.[0]).toBeNull()
+    expect(mocks.pairInput).toHaveBeenLastCalledWith(
+      expect.objectContaining({ layoutId: null, pairColor: 'gray' })
+    )
     expect(container.querySelector('[data-testid="pair-color"]')).toBeNull()
     expect(mocks.copilotProps).toMatchObject({
       effectiveParams: null,
       layoutId: null,
       ownerUserId: null,
-      layoutName: null,
       inputDisabled: false,
+    })
+
+    mocks.activeLayout = null
+    await renderPanel(true)
+    expect(container.querySelector('[data-testid="pair-color"]')).toHaveAttribute(
+      'data-color',
+      'gray'
+    )
+    expect(mocks.pairInput).toHaveBeenLastCalledWith(
+      expect.objectContaining({ layoutId: null, pairColor: 'gray' })
+    )
+    expect(mocks.copilotProps).toMatchObject({
+      effectiveParams: null,
+      layoutId: null,
     })
   })
 
   it('blocks a selected pair until its document is ready and exposes failure retry', async () => {
-    await act(async () => {
-      root.render(
-        <GlobalCopilotPanel workspaceId='ws-1' ownerUserId='user-1' dashboardMode={true} />
-      )
-    })
+    await renderPanel(true)
     const pairColor = container.querySelector('[data-testid="pair-color"]')
     if (!(pairColor instanceof HTMLButtonElement)) throw new Error('Expected dashboard pair color')
 
-    mocks.pairSession = { ...mocks.pairSession, doc: null, isLoading: true }
+    mocks.pairSession = { ...mocks.pairSession, doc: null }
     await act(async () => pairColor.click())
     expect(mocks.copilotProps).toMatchObject({ effectiveParams: null, inputDisabled: true })
     expect(container.querySelector('[role="status"]')).not.toBeNull()
@@ -210,64 +186,24 @@ describe('GlobalCopilotPanel dashboard color boundary', () => {
     mocks.pairSession = {
       ...mocks.pairSession,
       doc: null,
-      isLoading: false,
       error: 'Pair unavailable',
       retry,
     }
-    await act(async () => {
-      root.render(
-        <GlobalCopilotPanel workspaceId='ws-1' ownerUserId='user-1' dashboardMode={true} />
-      )
-    })
+    await renderPanel(true)
     expect(container.querySelector('[role="alert"]')).toHaveTextContent(
       'The shared color settings could not be loaded.'
     )
-    const retryButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent === 'Retry'
-    )
-    if (!retryButton) throw new Error('Expected pair retry button')
+    const retryButton = container.querySelector('[role="alert"] + button')
+    if (!(retryButton instanceof HTMLButtonElement)) throw new Error('Expected retry button')
     await act(async () => retryButton.click())
     expect(retry).toHaveBeenCalledOnce()
 
-    mocks.pairSession = { ...mocks.pairSession, doc: pairDoc, error: null }
-    await act(async () => {
-      root.render(
-        <GlobalCopilotPanel workspaceId='ws-1' ownerUserId='user-1' dashboardMode={true} />
-      )
-    })
+    mocks.pairSession = { ...mocks.pairSession, doc: {}, error: null }
+    await renderPanel(true)
     expect(mocks.copilotProps).toMatchObject({
       effectiveParams: { workflowId: 'workflow-blue' },
       inputDisabled: false,
     })
     expect(container.querySelector('[role="alert"]')).toBeNull()
-  })
-
-  it('drops dashboard pairing when no layout is active', async () => {
-    await act(async () => {
-      root.render(
-        <GlobalCopilotPanel workspaceId='ws-1' ownerUserId='user-1' dashboardMode={true} />
-      )
-    })
-    const pairColor = container.querySelector('[data-testid="pair-color"]')
-    if (!(pairColor instanceof HTMLButtonElement)) throw new Error('Expected dashboard pair color')
-    await act(async () => pairColor.click())
-
-    mocks.activeLayout = null
-    await act(async () => {
-      root.render(
-        <GlobalCopilotPanel workspaceId='ws-1' ownerUserId='user-1' dashboardMode={true} />
-      )
-    })
-
-    expect(container.querySelector('[data-testid="pair-color"]')).toHaveAttribute(
-      'data-color',
-      'gray'
-    )
-    expect(mocks.targetSession.mock.lastCall?.[0]).toBeNull()
-    expect(mocks.copilotProps).toMatchObject({
-      effectiveParams: null,
-      layoutId: null,
-      inputDisabled: false,
-    })
   })
 })

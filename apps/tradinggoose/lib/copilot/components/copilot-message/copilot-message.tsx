@@ -17,8 +17,9 @@ import type {
   CopilotDraft,
   CopilotMessage as CopilotMessageType,
   CopilotSendRuntimeContext,
+  MessageFileAttachment,
 } from '@/stores/copilot/types'
-import { type MessageFileAttachment, UserInput, type UserInputRef } from '../user-input/user-input'
+import { UserInput, type UserInputRef } from '../user-input/user-input'
 import {
   buildAssistantMessageSegments,
   FileAttachmentDisplay,

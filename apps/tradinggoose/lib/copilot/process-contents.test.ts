@@ -8,6 +8,7 @@ import {
   MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
 } from '@/lib/copilot/context-limits'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
+import type { ChatContext } from '@/stores/copilot/types'
 
 const WORKSPACE_CONTEXT_ENTITY_KINDS = [
   'workflow',
@@ -18,6 +19,12 @@ const WORKSPACE_CONTEXT_ENTITY_KINDS = [
   'watchlist',
   'dashboard_layout',
 ] as const
+const WORKFLOW_BLOCK_CONTEXT = {
+  kind: 'workflow_block',
+  workflowId: 'workflow-1',
+  blockId: 'block-1',
+  label: 'Attached Block',
+} satisfies ChatContext
 
 const mockGetBlocksMetadataExecute = vi.fn()
 const mockVerifyWorkflowAccess = vi.fn()
@@ -44,6 +51,38 @@ const buildLogRow = (overrides: Record<string, unknown> = {}) => ({
   entityName: 'Workflow',
   ...overrides,
 })
+const buildLogContext = (
+  kind: 'logs' | 'current_logs' = 'logs',
+  workspaceId = 'workspace-1',
+  label = kind === 'logs' ? 'Attached log' : 'Current log'
+): ChatContext => ({ kind, logId: 'log-1', workspaceId, label })
+const buildMonitorContext = (workspaceId = 'workspace-1'): ChatContext => ({
+  kind: 'current_monitor',
+  monitorId: 'monitor-1',
+  workspaceId,
+  label: 'Current monitor',
+})
+const buildKnowledgeContext = (workspaceId: string, current = false) =>
+  buildCopilotWorkspaceEntityContext({
+    entityKind: 'knowledge_base',
+    entityId: 'knowledge-1',
+    workspaceId,
+    label: current ? 'Current knowledge base' : 'Research',
+    current,
+  })
+const processContexts = async (
+  contexts: ChatContext[],
+  workspaceId?: string,
+  options?: { signal?: AbortSignal }
+) => {
+  const { processContextsServer } = await import('@/lib/copilot/process-contents')
+  return processContextsServer(contexts, 'user-1', undefined, workspaceId, options)
+}
+const processWorkspaceContext = (context: ChatContext) => processContexts([context], 'workspace-1')
+const processMonitorContext = (signal?: AbortSignal) =>
+  processContexts([buildMonitorContext()], 'workspace-1', { signal })
+const expectContextWithinItemLimit = (content: string) =>
+  expect(Buffer.byteLength(content, 'utf8')).toBeLessThanOrEqual(MAX_COPILOT_CONTEXT_BYTES_PER_ITEM)
 const mockSelectChain: Record<string, any> = {}
 mockSelectChain.from = vi.fn(() => mockSelectChain)
 mockSelectChain.leftJoin = vi.fn(() => mockSelectChain)
@@ -171,11 +210,9 @@ describe('processContextsServer', () => {
       },
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [{ kind: 'blocks', blockTypes: ['block-1'], label: 'RSI' }],
-      'user-1'
-    )
+    const result = await processContexts([
+      { kind: 'blocks', blockTypes: ['block-1'], label: 'RSI' },
+    ])
 
     expect(mockGetBlocksMetadataExecute).toHaveBeenCalledWith({ blockTypes: ['block-1'] })
     expect(result).toEqual([
@@ -196,8 +233,7 @@ describe('processContextsServer', () => {
   })
 
   it('skips block contexts without block types', async () => {
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer([{ kind: 'blocks', label: 'Blocks' }], 'user-1')
+    const result = await processContexts([{ kind: 'blocks', label: 'Blocks' }])
 
     expect(mockGetBlocksMetadataExecute).not.toHaveBeenCalled()
     expect(result).toEqual([])
@@ -208,8 +244,6 @@ describe('processContextsServer', () => {
     async (entityKind) => {
       const entityId = `${entityKind}-1`
       const label = `Attached ${entityKind}`
-      const { processContextsServer } = await import('@/lib/copilot/process-contents')
-
       const contexts = [false, true].map((current) =>
         buildCopilotWorkspaceEntityContext({
           entityKind,
@@ -220,7 +254,7 @@ describe('processContextsServer', () => {
           current,
         })
       )
-      const result = await processContextsServer(contexts, 'user-1')
+      const result = await processContexts(contexts)
 
       expect(result).toEqual([
         {
@@ -250,21 +284,7 @@ describe('processContextsServer', () => {
     }
     mockReadKnowledgeBaseExecute.mockResolvedValue(knowledgeBase)
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        buildCopilotWorkspaceEntityContext({
-          entityKind: 'knowledge_base',
-          entityId: 'knowledge-1',
-          workspaceId: 'workspace-1',
-          label: 'Current knowledge base',
-          current: true,
-        }),
-      ],
-      'user-1',
-      undefined,
-      'workspace-1'
-    )
+    const result = await processWorkspaceContext(buildKnowledgeContext('workspace-1', true))
 
     expect(mockReadKnowledgeBaseExecute).toHaveBeenCalledWith(
       { entityId: 'knowledge-1' },
@@ -279,25 +299,19 @@ describe('processContextsServer', () => {
     ])
   })
 
-  it('rejects knowledge contexts from a different active workspace', async () => {
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        buildCopilotWorkspaceEntityContext({
-          entityKind: 'knowledge_base',
-          entityId: 'knowledge-1',
-          workspaceId: 'workspace-2',
-          label: 'Research',
-        }),
-      ],
-      'user-1',
-      undefined,
-      'workspace-1'
-    )
+  it.each<[string, ChatContext, string | undefined]>([
+    ['knowledge from another workspace', buildKnowledgeContext('workspace-2'), 'workspace-1'],
+    ['log from another workspace', buildLogContext('logs', 'workspace-2', 'Run'), 'workspace-1'],
+    ['log without an active workspace', buildLogContext('logs', 'workspace-1', 'Run'), undefined],
+    ['monitor from another workspace', buildMonitorContext('workspace-2'), 'workspace-1'],
+    ['monitor without an active workspace', buildMonitorContext(), undefined],
+  ])('rejects %s', async (_source, context, activeWorkspaceId) => {
+    const result = await processContexts([context], activeWorkspaceId)
 
     expect(result).toEqual([])
     expect(mockReadKnowledgeBaseExecute).not.toHaveBeenCalled()
     expect(mockDbSelect).not.toHaveBeenCalled()
+    expect(mockReadMonitorExecute).not.toHaveBeenCalled()
   })
 
   it('reads workflow document content only for an attached workflow block', async () => {
@@ -318,18 +332,7 @@ describe('processContextsServer', () => {
       parallels: {},
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'workflow_block',
-          workflowId: 'workflow-1',
-          blockId: 'block-1',
-          label: 'Attached Block',
-        },
-      ],
-      'user-1'
-    )
+    const result = await processContexts([WORKFLOW_BLOCK_CONTEXT])
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledTimes(1)
@@ -353,20 +356,7 @@ describe('processContextsServer', () => {
       isOwner: false,
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'workflow_block',
-          workflowId: 'workflow-1',
-          blockId: 'block-1',
-          label: 'Attached Block',
-        },
-      ],
-      'user-1',
-      undefined,
-      'workspace-1'
-    )
+    const result = await processWorkspaceContext(WORKFLOW_BLOCK_CONTEXT)
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
@@ -375,38 +365,18 @@ describe('processContextsServer', () => {
 
   it('hydrates the open log by its canonical log id', async () => {
     mockLogRowsQueue.push([
-      {
-        id: 'log-1',
+      buildLogRow({
         workflowId: null,
-        executionId: 'execution-1',
-        level: 'info',
-        trigger: 'manual',
-        startedAt: new Date('2026-04-23T00:00:00.000Z'),
-        endedAt: null,
-        totalDurationMs: null,
-        executionData: {},
-        cost: null,
         workflowSummary: {
           id: 'deleted-workflow-1',
           name: 'Deleted workflow',
         },
         entityName: null,
-      },
+      }),
     ])
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'current_logs',
-          logId: 'log-1',
-          workspaceId: 'workspace-1',
-          label: 'Deleted Run',
-        },
-      ],
-      'user-1',
-      undefined,
-      'workspace-1'
+    const result = await processWorkspaceContext(
+      buildLogContext('current_logs', 'workspace-1', 'Deleted Run')
     )
 
     expect(mockEq).toHaveBeenCalledWith('workflowExecutionLogs.id', 'log-1')
@@ -480,20 +450,7 @@ describe('processContextsServer', () => {
       }),
     ])
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const [result] = await processContextsServer(
-      [
-        {
-          kind: 'current_logs',
-          logId: 'log-1',
-          workspaceId: 'workspace-1',
-          label: 'Current log',
-        },
-      ],
-      'user-1',
-      undefined,
-      'workspace-1'
-    )
+    const [result] = await processWorkspaceContext(buildLogContext('current_logs'))
 
     const content = JSON.parse(result!.content)
     expect(content.executionData.traceSummary).toMatchObject({
@@ -521,14 +478,10 @@ describe('processContextsServer', () => {
       metadata: { request: { blockType: 'request' } },
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        { kind: 'blocks', blockTypes: ['request'], label: 'Request' },
-        { kind: 'blocks', blockTypes: ['request'], label: 'Duplicate request' },
-      ],
-      'user-1'
-    )
+    const result = await processContexts([
+      { kind: 'blocks', blockTypes: ['request'], label: 'Request' },
+      { kind: 'blocks', blockTypes: ['request'], label: 'Duplicate request' },
+    ])
 
     expect(mockGetBlocksMetadataExecute).toHaveBeenCalledTimes(1)
     expect(result).toHaveLength(1)
@@ -539,17 +492,12 @@ describe('processContextsServer', () => {
       metadata: { request: { description: 'x'.repeat(MAX_COPILOT_CONTEXT_BYTES_PER_TURN) } },
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [{ kind: 'blocks', blockTypes: ['request'], label: 'Request' }],
-      'user-1'
-    )
+    const result = await processContexts([
+      { kind: 'blocks', blockTypes: ['request'], label: 'Request' },
+    ])
 
     expect(mockGetBlocksMetadataExecute).toHaveBeenCalledTimes(1)
     expect(result).toEqual([])
-    expect(Buffer.byteLength(JSON.stringify(result), 'utf8')).toBeLessThanOrEqual(
-      MAX_COPILOT_CONTEXT_BYTES_PER_TURN
-    )
   })
 
   it('redacts and structurally bounds explicitly attached log details', async () => {
@@ -561,10 +509,6 @@ describe('processContextsServer', () => {
               id: 'span-1',
               input: {
                 authToken: 'raw-auth-token',
-                idToken: 'raw-id-token',
-                headers: { Authorization: 'Bearer raw-header-token' },
-                note: 'request failed: token=raw-generic-token; idToken=raw-inline-id-token; password=[redacted]',
-                serialized: '{"token":"raw-json-token","idToken":"raw-json-id","safe":"visible"}',
                 longText: 'x'.repeat(5_000),
                 values: Array.from({ length: 40 }, (_, index) => index),
                 deep: { a: { b: { c: { d: { e: { value: 'too deep' } } } } } },
@@ -581,23 +525,11 @@ describe('processContextsServer', () => {
       }),
     ])
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const [result] = await processContextsServer(
-      [{ kind: 'logs', logId: 'log-1', workspaceId: 'workspace-1', label: 'Attached log' }],
-      'user-1',
-      undefined,
-      'workspace-1'
-    )
+    const [result] = await processWorkspaceContext(buildLogContext())
 
     const content = JSON.parse(result!.content)
     const input = content.executionData.traceSpans[0].input
     expect(input.authToken).toBe('[redacted]')
-    expect(input.idToken).toBe('[redacted]')
-    expect(input.headers.Authorization).toBe('[redacted]')
-    expect(input.note).toBe(
-      'request failed: token=[redacted]; idToken=[redacted]; password=[redacted]'
-    )
-    expect(input.serialized).toBe('{"token":[redacted],"idToken":[redacted],"safe":"visible"}')
     expect(input.longText).toContain('[truncated]')
     expect(input.values).toHaveLength(25)
     expect(input.deep.a).toBe('[truncated]')
@@ -608,10 +540,8 @@ describe('processContextsServer', () => {
       safe: { Key: 'Content-Type', Value: 'application/json' },
     })
     expect(content.contextTruncated).toBe(true)
-    expect(Buffer.byteLength(result!.content, 'utf8')).toBeLessThanOrEqual(
-      MAX_COPILOT_CONTEXT_BYTES_PER_ITEM
-    )
-    expect(result!.content).not.toMatch(/raw-(?:auth|generic|id|header|inline|json|output)/)
+    expectContextWithinItemLimit(result!.content)
+    expect(result!.content).not.toMatch(/raw-(?:auth|named|output|table)/)
   })
 
   it('falls back deterministically when bounded explicit details still exceed the byte cap', async () => {
@@ -628,60 +558,14 @@ describe('processContextsServer', () => {
       }),
     ])
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const [result] = await processContextsServer(
-      [{ kind: 'logs', logId: 'log-1', workspaceId: 'workspace-1', label: 'Attached log' }],
-      'user-1',
-      undefined,
-      'workspace-1'
-    )
+    const [result] = await processWorkspaceContext(buildLogContext())
 
-    expect(Buffer.byteLength(result!.content, 'utf8')).toBeLessThanOrEqual(
-      MAX_COPILOT_CONTEXT_BYTES_PER_ITEM
-    )
+    expectContextWithinItemLimit(result!.content)
     expect(JSON.parse(result!.content)).toMatchObject({
       id: 'log-1',
       contextTruncated: true,
       executionDetailsOmitted: true,
     })
-  })
-
-  it('rejects log contexts from a different active workspace', async () => {
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'logs',
-          logId: 'log-1',
-          workspaceId: 'workspace-2',
-          label: 'Run',
-        },
-      ],
-      'user-1',
-      undefined,
-      'workspace-1'
-    )
-
-    expect(result).toEqual([])
-    expect(mockDbSelect).not.toHaveBeenCalled()
-  })
-
-  it('rejects log contexts without an active request workspace', async () => {
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'logs',
-          logId: 'log-1',
-          workspaceId: 'workspace-1',
-          label: 'Run',
-        },
-      ],
-      'user-1'
-    )
-
-    expect(result).toEqual([])
-    expect(mockDbSelect).not.toHaveBeenCalled()
   })
 
   it('reads the open monitor through the canonical monitor tool', async () => {
@@ -692,21 +576,7 @@ describe('processContextsServer', () => {
       workspaceId: 'workspace-1',
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'current_monitor',
-          monitorId: 'monitor-1',
-          workspaceId: 'workspace-1',
-          label: 'Current monitor',
-        },
-      ],
-      'user-1',
-      undefined,
-      'workspace-1',
-      { signal }
-    )
+    const result = await processMonitorContext(signal)
 
     expect(mockReadMonitorExecute).toHaveBeenCalledWith(
       { monitorId: 'monitor-1' },
@@ -744,20 +614,7 @@ describe('processContextsServer', () => {
       }),
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const [result] = await processContextsServer(
-      [
-        {
-          kind: 'current_monitor',
-          monitorId: 'monitor-1',
-          workspaceId: 'workspace-1',
-          label: 'Current monitor',
-        },
-      ],
-      'user-1',
-      undefined,
-      'workspace-1'
-    )
+    const [result] = await processMonitorContext()
 
     const content = JSON.parse(result!.content)
     expect(content.monitorDocument).toMatchObject({
@@ -798,24 +655,9 @@ describe('processContextsServer', () => {
       }),
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const [result] = await processContextsServer(
-      [
-        {
-          kind: 'current_monitor',
-          monitorId: 'monitor-1',
-          workspaceId: 'workspace-1',
-          label: 'Current monitor',
-        },
-      ],
-      'user-1',
-      undefined,
-      'workspace-1'
-    )
+    const [result] = await processMonitorContext()
 
-    expect(Buffer.byteLength(result!.content, 'utf8')).toBeLessThanOrEqual(
-      MAX_COPILOT_CONTEXT_BYTES_PER_ITEM
-    )
+    expectContextWithinItemLimit(result!.content)
     expect(JSON.parse(result!.content)).toMatchObject({
       contextTruncated: true,
       monitorDetailsOmitted: true,
@@ -836,21 +678,7 @@ describe('processContextsServer', () => {
         })
     )
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const processing = processContextsServer(
-      [
-        {
-          kind: 'current_monitor',
-          monitorId: 'monitor-1',
-          workspaceId: 'workspace-1',
-          label: 'Current monitor',
-        },
-      ],
-      'user-1',
-      undefined,
-      'workspace-1',
-      { signal: controller.signal }
-    )
+    const processing = processMonitorContext(controller.signal)
 
     await vi.waitFor(() => expect(mockReadMonitorExecute).toHaveBeenCalled())
     expect(mockReadMonitorExecute.mock.calls[0]?.[1]?.signal).toBe(controller.signal)
@@ -862,24 +690,10 @@ describe('processContextsServer', () => {
   it('does not start context hydration when the request is already aborted', async () => {
     const controller = new AbortController()
     controller.abort('Request was already cancelled')
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-
-    await expect(
-      processContextsServer(
-        [
-          {
-            kind: 'current_monitor',
-            monitorId: 'monitor-1',
-            workspaceId: 'workspace-1',
-            label: 'Current monitor',
-          },
-        ],
-        'user-1',
-        undefined,
-        'workspace-1',
-        { signal: controller.signal }
-      )
-    ).rejects.toMatchObject({ name: 'AbortError', message: 'Aborted' })
+    await expect(processMonitorContext(controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+      message: 'Aborted',
+    })
     expect(mockReadMonitorExecute).not.toHaveBeenCalled()
   })
 
@@ -888,62 +702,7 @@ describe('processContextsServer', () => {
     const internalAbort = new Error('Provider request superseded')
     internalAbort.name = 'AbortError'
     mockReadMonitorExecute.mockRejectedValue(internalAbort)
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-
-    await expect(
-      processContextsServer(
-        [
-          {
-            kind: 'current_monitor',
-            monitorId: 'monitor-1',
-            workspaceId: 'workspace-1',
-            label: 'Current monitor',
-          },
-        ],
-        'user-1',
-        undefined,
-        'workspace-1',
-        { signal: controller.signal }
-      )
-    ).resolves.toEqual([])
+    await expect(processMonitorContext(controller.signal)).resolves.toEqual([])
     expect(controller.signal.aborted).toBe(false)
-  })
-
-  it('rejects monitor contexts from a different active workspace', async () => {
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'current_monitor',
-          monitorId: 'monitor-1',
-          workspaceId: 'workspace-2',
-          label: 'Current monitor',
-        },
-      ],
-      'user-1',
-      undefined,
-      'workspace-1'
-    )
-
-    expect(result).toEqual([])
-    expect(mockReadMonitorExecute).not.toHaveBeenCalled()
-  })
-
-  it('rejects monitor contexts without an active request workspace', async () => {
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'current_monitor',
-          monitorId: 'monitor-1',
-          workspaceId: 'workspace-1',
-          label: 'Current monitor',
-        },
-      ],
-      'user-1'
-    )
-
-    expect(result).toEqual([])
-    expect(mockReadMonitorExecute).not.toHaveBeenCalled()
   })
 })

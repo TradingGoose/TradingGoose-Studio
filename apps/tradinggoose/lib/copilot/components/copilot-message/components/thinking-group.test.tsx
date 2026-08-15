@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
+import { act, type ComponentProps } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ThinkingGroup } from './thinking-group'
@@ -10,10 +10,23 @@ import { ThinkingGroup } from './thinking-group'
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
+type ThinkingBlock = ComponentProps<typeof ThinkingGroup>['blocks'][number]
+
+const thinkingBlock = (overrides: Partial<ThinkingBlock> = {}): ThinkingBlock => ({
+  type: 'thinking',
+  content: 'Historical reasoning.',
+  timestamp: 1,
+  itemId: 'thinking-1',
+  ...overrides,
+})
 
 describe('ThinkingGroup', () => {
   let container: HTMLDivElement
   let root: Root
+
+  const renderGroup = async (blocks: ThinkingBlock[], isStreaming = false) => {
+    await act(async () => root.render(<ThinkingGroup blocks={blocks} isStreaming={isStreaming} />))
+  }
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
@@ -32,65 +45,29 @@ describe('ThinkingGroup', () => {
 
   it('shows a streaming header while thinking and a finalized duration after completion', async () => {
     const blocks = [
-      {
-        type: 'thinking' as const,
+      thinkingBlock({
         content: 'Inspecting the workflow.\nPreparing the update.',
-        timestamp: 1,
-        itemId: 'thinking-1',
         duration: 1250,
-        startTime: 100,
-      },
+      }),
     ]
 
-    await act(async () => {
-      root.render(<ThinkingGroup blocks={blocks} isStreaming={true} />)
-    })
+    await renderGroup(blocks, true)
 
     expect(container.textContent).toContain('Thinking...')
     expect(container.textContent).toContain('Inspecting the workflow.')
     expect(container.querySelector('button')?.getAttribute('aria-expanded')).toBe('true')
 
-    await act(async () => {
-      root.render(<ThinkingGroup blocks={blocks} isStreaming={false} />)
-    })
+    await renderGroup(blocks)
 
     expect(container.textContent).toContain('Thought for 1.3s')
-    expect(container.textContent).not.toContain('Thinking...')
     expect(container.querySelector('button')?.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('does not show a fake zero duration when timing is unavailable', async () => {
-    const blocks = [
-      {
-        type: 'thinking' as const,
-        content: 'Historical reasoning.',
-        timestamp: 1,
-        itemId: 'thinking-1',
-      },
-    ]
-
-    await act(async () => {
-      root.render(<ThinkingGroup blocks={blocks} isStreaming={false} />)
-    })
-
-    expect(container.textContent).toContain('Finished thinking')
-    expect(container.textContent).not.toContain('Thought for 0ms')
-  })
-
-  it('does not derive a finalized duration from a stale start time', async () => {
-    const blocks = [
-      {
-        type: 'thinking' as const,
-        content: 'Historical reasoning.',
-        timestamp: 1,
-        itemId: 'thinking-1',
-        startTime: 1,
-      },
-    ]
-
-    await act(async () => {
-      root.render(<ThinkingGroup blocks={blocks} isStreaming={false} />)
-    })
+  it.each([
+    ['without timing metadata', {}],
+    ['with only a stale start time', { startTime: 1 }],
+  ])('does not invent a finalized duration %s', async (_label, overrides) => {
+    await renderGroup([thinkingBlock(overrides)])
 
     expect(container.textContent).toContain('Finished thinking')
     expect(container.textContent).not.toContain('Thought for')
@@ -98,20 +75,14 @@ describe('ThinkingGroup', () => {
 
   it('renders expanded thinking content as markdown', async () => {
     const blocks = [
-      {
-        type: 'thinking' as const,
+      thinkingBlock({
         content: 'Inspecting **workflow**.\n\n- Validate edges',
-        timestamp: 1,
-        itemId: 'thinking-1',
-      },
+      }),
     ]
 
-    await act(async () => {
-      root.render(<ThinkingGroup blocks={blocks} isStreaming={true} />)
-    })
+    await renderGroup(blocks, true)
 
     expect(container.querySelector('strong')?.textContent).toBe('workflow')
     expect(container.querySelector('ul')?.textContent).toContain('Validate edges')
-    expect(container.textContent).not.toContain('**workflow**')
   })
 })

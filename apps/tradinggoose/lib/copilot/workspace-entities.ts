@@ -285,14 +285,3 @@ export function buildCopilotWorkspaceEntityContext<K extends CopilotWorkspaceEnt
       }
   }
 }
-
-export function matchesCopilotWorkspaceEntityContext(
-  context: ChatContext,
-  entityKind: CopilotWorkspaceEntityKind,
-  entityId: string
-): boolean {
-  return (
-    getCopilotWorkspaceEntityKindFromContext(context) === entityKind &&
-    getCopilotWorkspaceEntityIdFromContext(context) === entityId
-  )
-}

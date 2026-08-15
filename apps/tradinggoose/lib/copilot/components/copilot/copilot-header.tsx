@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown, Clock3, Plus, Trash2 } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import {
@@ -27,7 +27,7 @@ import {
 import { cn } from '@/lib/utils'
 import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
-import { getCopilotStore } from '@/stores/copilot/store'
+import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import type { CopilotChat } from '@/stores/copilot/types'
 
 type CopilotHistoryMessages = ReturnType<typeof useCopilotMessages>['history']
@@ -216,30 +216,20 @@ function ChatHistoryGroup({
   )
 }
 
-export function CopilotHeader({
-  channelId,
-  workspaceId,
-}: {
-  channelId: string
-  workspaceId?: string
-}) {
-  const store = useMemo(() => getCopilotStore(channelId), [channelId])
+export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
+  const store = useCopilotStoreApi()
   const locale = useLocale() as LocaleCode
   const historyCopy = useCopilotMessages().history
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null)
   const [deleteChatId, setDeleteChatId] = useState<string | null>(null)
 
-  const subscribe = useCallback(store.subscribe, [store])
-  const getSnapshot = useCallback(() => store.getState(), [store])
-  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
-
-  const { currentChat, chats, isLoadingChats, isSendingMessage } = state
+  const { currentChat, chats, isLoadingChats, isSendingMessage } = useCopilotStore()
   const scopedChats = useMemo(
-    () => (chats || []).filter((chat) => (chat.workspaceId ?? null) === (workspaceId ?? null)),
+    () => (chats || []).filter((chat) => (chat.workspaceId ?? null) === workspaceId),
     [chats, workspaceId]
   )
   const scopedCurrentChat =
-    currentChat && (currentChat.workspaceId ?? null) === (workspaceId ?? null) ? currentChat : null
+    currentChat && (currentChat.workspaceId ?? null) === workspaceId ? currentChat : null
   const grouped = groupChats(scopedChats)
   const groupLabels: Record<ChatGroupKey, string> = {
     today: historyCopy.groups.today,
@@ -261,7 +251,7 @@ export function CopilotHeader({
   }
 
   const handleRefresh = async () => {
-    await store.getState().loadChats({ workspaceId: workspaceId ?? null })
+    await store.getState().loadChats({ workspaceId })
   }
 
   const title = scopedCurrentChat?.title || historyCopy.newChat
@@ -374,22 +364,13 @@ export function CopilotHeader({
   )
 }
 
-export function CopilotHeaderActions({
-  channelId,
-  workspaceId,
-}: {
-  channelId: string
-  workspaceId?: string
-}) {
-  const store = useMemo(() => getCopilotStore(channelId), [channelId])
+export function CopilotHeaderActions({ workspaceId }: { workspaceId: string }) {
+  const store = useCopilotStoreApi()
   const historyCopy = useCopilotMessages().history
-
-  const subscribe = useCallback(store.subscribe, [store])
-  const getSnapshot = useCallback(() => store.getState(), [store])
-  const { isSendingMessage } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const isSendingMessage = useCopilotStore((state) => state.isSendingMessage)
 
   const handleNewChat = async () => {
-    await store.getState().createNewChat(workspaceId ?? null)
+    await store.getState().createNewChat(workspaceId)
   }
 
   return (

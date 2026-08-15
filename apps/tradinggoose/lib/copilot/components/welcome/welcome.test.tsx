@@ -32,29 +32,18 @@ describe('CopilotWelcome i18n', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('renders localized limited-access welcome copy', async () => {
+  it.each([
+    ['es', 'limited', ['Revisar cambios con seguridad', 'Shift+Enter para nueva línea']],
+    ['zh', 'full', ['构建和编辑工作流', '提问并允许工具无需额外批准直接执行']],
+  ] as const)('renders %s %s-access welcome copy', async (locale, accessLevel, expected) => {
     await act(async () => {
       root.render(
-        <NextIntlClientProvider locale='es' messages={getPublicCopy('es')}>
-          <CopilotWelcome accessLevel='limited' />
+        <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
+          <CopilotWelcome accessLevel={accessLevel} />
         </NextIntlClientProvider>
       )
     })
 
-    expect(container.textContent).toContain('Revisar cambios con seguridad')
-    expect(container.textContent).toContain('Shift+Enter para nueva línea')
-  })
-
-  it('renders localized full-access welcome copy', async () => {
-    await act(async () => {
-      root.render(
-        <NextIntlClientProvider locale='zh' messages={getPublicCopy('zh')}>
-          <CopilotWelcome accessLevel='full' />
-        </NextIntlClientProvider>
-      )
-    })
-
-    expect(container.textContent).toContain('构建和编辑工作流')
-    expect(container.textContent).toContain('提问并允许工具无需额外批准直接执行')
+    for (const copy of expected) expect(container.textContent).toContain(copy)
   })
 })

@@ -7,8 +7,6 @@ import { encodeSSE } from '@/lib/utils'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
 import { getCopilotStore } from '@/stores/copilot/store'
-import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
-import { createExecutionContext } from '@/stores/copilot/tool-registry'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { resetCopilotWorkspaceSelectionState } from '@/stores/copilot/workspace-selection'
 
@@ -125,21 +123,15 @@ function createRuntimeContext({
   workspaceId = null,
   workflowId = null,
   implicitContexts = [],
-  authenticatedUserId = null,
 }: {
   workspaceId?: string | null
   workflowId?: string | null
   implicitContexts?: ChatContext[]
-  authenticatedUserId?: string | null
 } = {}): CopilotSendRuntimeContext {
   return {
-    liveContext: {
-      workflowId,
-      workspaceId,
-      reviewTarget: null,
-    },
+    workflowId,
+    workspaceId,
     implicitContexts,
-    authenticatedUserId,
   }
 }
 
@@ -148,57 +140,6 @@ describe('copilot tool execution provenance', () => {
     vi.restoreAllMocks()
     ensureRequestAnimationFrame()
     resetCopilotWorkspaceSelectionState()
-  })
-
-  it('createExecutionContext uses generic ambient entity provenance', () => {
-    const toolCallId = 'copilot-provenance-tool-a'
-
-    const context = createExecutionContext({
-      toolCallId,
-      toolName: 'edit_workflow',
-      provenance: {
-        contextEntityKind: 'workflow',
-        contextEntityId: 'wf-current-a',
-      },
-    })
-
-    expect(context.contextEntityKind).toBe('workflow')
-    expect(context.contextEntityId).toBe('wf-current-a')
-  })
-
-  it('returns the first matching store when duplicate toolCallId exists', () => {
-    const toolCallId = 'copilot-provenance-duplicate'
-    const channelA = 'copilot-provenance-channel-c'
-    const channelB = 'copilot-provenance-channel-d'
-
-    const storeA = getCopilotStore(channelA)
-    const storeB = getCopilotStore(channelB)
-
-    storeA.setState({
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'edit_workflow',
-          state: ClientToolCallState.pending,
-        },
-      },
-    })
-
-    storeB.setState({
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'edit_workflow',
-          state: ClientToolCallState.pending,
-          provenance: {
-            contextEntityKind: 'workflow',
-            contextEntityId: 'wf-origin-c',
-          },
-        },
-      },
-    })
-
-    expect(getCopilotStoreForToolCall(toolCallId)).toBe(storeA)
   })
 
   it('parses JSON-string function call arguments before storing tool params', async () => {
@@ -365,15 +306,11 @@ describe('copilot tool execution provenance', () => {
 
     await sendPromise
 
-    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
-      provenance: {
-        contextEntityKind: 'workflow',
-        contextEntityId: 'wf-live-at-send',
-        workspaceId: 'workspace-1',
-      },
+    expect(store.getState().toolCallsById[toolCallId].provenance).toEqual({
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-live-at-send',
+      workspaceId: 'workspace-1',
     })
-    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
-    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
 
     const usageRequest = fetchMock.mock.calls.find(([input]) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -462,107 +399,11 @@ describe('copilot tool execution provenance', () => {
 
     await sendPromise
 
-    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
-      provenance: {
-        contextEntityKind: 'workflow',
-        contextEntityId: 'wf-current',
-        workspaceId: 'workspace-1',
-      },
+    expect(store.getState().toolCallsById[toolCallId].provenance).toEqual({
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-current',
+      workspaceId: 'workspace-1',
     })
-    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
-    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
-  })
-
-  it('does not derive entity edit provenance from live widget context', async () => {
-    const channelId = 'copilot-unsaved-review-target'
-    const toolCallId = 'copilot-unsaved-review-target-tool'
-    const store = getCopilotStore(channelId)
-    const deferredStream = createDeferredSseStream()
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat') {
-        return {
-          ok: true,
-          status: 200,
-          body: deferredStream.stream,
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId: 'review-panel-chat-draft-entity',
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        title: 'Generic workspace chat',
-        messages: [],
-        messageCount: 0,
-        conversationId: 'conversation-draft-entity',
-        createdAt: new Date('2026-04-13T00:00:00.000Z'),
-        updatedAt: new Date('2026-04-13T00:00:00.000Z'),
-      },
-      chats: [],
-    })
-
-    const sendPromise = store.getState().sendMessage('Fix this draft skill', {
-      runtimeContext: createRuntimeContext({
-        workspaceId: 'workspace-1',
-        workflowId: 'wf-current',
-        implicitContexts: [
-          {
-            kind: 'current_skill',
-            skillId: 'skill-viewing',
-            workspaceId: 'workspace-1',
-            label: 'Current Skill',
-          },
-        ],
-      }),
-    })
-    await deferredStream.ready
-
-    deferredStream.push({
-      type: 'response.output_item.done',
-      item: {
-        type: 'function_call',
-        call_id: toolCallId,
-        name: 'edit_skill',
-        arguments: { entityDocument: '{}' },
-      },
-    })
-    deferredStream.push({
-      type: 'response.completed',
-      response: { id: 'response-draft-review-target' },
-    })
-    deferredStream.close()
-
-    await sendPromise
-
-    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
-      provenance: {
-        contextEntityKind: 'workflow',
-        contextEntityId: 'wf-current',
-        workspaceId: 'workspace-1',
-      },
-    })
-    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityKind')
-    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty(
-      'reviewSessionId'
-    )
-    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty(
-      'draftSessionId'
-    )
-    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
-    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
   })
 })
 
@@ -2253,7 +2094,6 @@ describe('copilot streaming regressions', () => {
     const sendPromise = store.getState().sendMessage('Edit the current dashboard widget', {
       runtimeContext: createRuntimeContext({
         workspaceId: 'workspace-1',
-        authenticatedUserId: 'user-1',
         implicitContexts: [
           buildCopilotWorkspaceEntityContext({
             entityKind: 'watchlist',

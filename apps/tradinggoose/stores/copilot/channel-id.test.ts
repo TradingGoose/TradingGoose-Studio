@@ -24,10 +24,10 @@ describe('Copilot workspace channel identity', () => {
     )
   })
 
-  it('rejects incomplete workspace identities', () => {
+  it('rejects invalid workspace identities', () => {
     expect(() =>
       buildCopilotWorkspaceChannelId({ authenticatedUserId: '', workspaceId: 'workspace-1' })
     ).toThrow('authenticated user and workspace IDs')
-    expect(parseCopilotWorkspaceChannelId('pair-blue')).toBeNull()
+    expect(parseCopilotWorkspaceChannelId('invalid-channel')).toBeNull()
   })
 })

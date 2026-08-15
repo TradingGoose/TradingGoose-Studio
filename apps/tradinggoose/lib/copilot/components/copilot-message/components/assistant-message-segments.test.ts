@@ -1,55 +1,38 @@
 import { describe, expect, it } from 'vitest'
 import { buildAssistantMessageSegments } from './assistant-message-segments'
 
+const thinking = (itemId: string, content: string) => ({
+  type: 'thinking' as const,
+  content,
+  timestamp: 1,
+  itemId,
+})
+const text = (itemId: string, content: string) => ({
+  type: 'text' as const,
+  content,
+  timestamp: 1,
+  itemId,
+})
+
 describe('buildAssistantMessageSegments', () => {
   it('groups consecutive thinking blocks and preserves text/tool order', () => {
     const segments = buildAssistantMessageSegments([
-      {
-        type: 'thinking',
-        content: 'Inspecting the workflow.',
-        timestamp: 1,
-        itemId: 'thinking-1',
-        duration: 1200,
-        startTime: 10,
-      },
-      {
-        type: 'thinking',
-        content: 'Preparing the edit plan.',
-        timestamp: 2,
-        itemId: 'thinking-2',
-        duration: 800,
-        startTime: 20,
-      },
-      {
-        type: 'thinking',
-        content: '   ',
-        timestamp: 3,
-        itemId: 'empty-thinking',
-      },
-      {
-        type: 'text',
-        content: 'I found the workflow.',
-        timestamp: 4,
-        itemId: 'text-1',
-      },
+      thinking('thinking-1', 'Inspecting the workflow.'),
+      thinking('thinking-2', 'Preparing the edit plan.'),
+      thinking('empty-thinking', '   '),
+      text('text-1', 'I found the workflow.'),
       {
         type: 'tool_call',
-        timestamp: 5,
+        timestamp: 1,
         toolCall: {
           id: 'tool-1',
           name: 'read_workflow',
           state: 'success' as any,
         },
       },
-      {
-        type: 'text',
-        content: 'I am ready to update it.',
-        timestamp: 6,
-        itemId: 'text-2',
-      },
+      text('text-2', 'I am ready to update it.'),
     ])
 
-    expect(segments).toHaveLength(4)
     expect(segments.map((segment) => segment.type)).toEqual([
       'thinking',
       'text',
@@ -68,24 +51,9 @@ describe('buildAssistantMessageSegments', () => {
 
   it('creates a new thinking group after non-thinking content', () => {
     const segments = buildAssistantMessageSegments([
-      {
-        type: 'thinking',
-        content: 'First pass.',
-        timestamp: 1,
-        itemId: 'thinking-1',
-      },
-      {
-        type: 'text',
-        content: 'Intermediate reply.',
-        timestamp: 2,
-        itemId: 'text-1',
-      },
-      {
-        type: 'thinking',
-        content: 'Second pass.',
-        timestamp: 3,
-        itemId: 'thinking-2',
-      },
+      thinking('thinking-1', 'First pass.'),
+      text('text-1', 'Intermediate reply.'),
+      thinking('thinking-2', 'Second pass.'),
     ])
 
     expect(segments.map((segment) => segment.type)).toEqual(['thinking', 'text', 'thinking'])

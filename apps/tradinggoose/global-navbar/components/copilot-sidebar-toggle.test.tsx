@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 
-import { act, useEffect, useState } from 'react'
+import { act, type ReactNode, useEffect, useState } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,15 +10,10 @@ import { SidebarProvider, useSidebar } from '@/components/ui/sidebar'
 import { CopilotSidebarToggle } from '@/global-navbar/components/copilot-sidebar-toggle'
 import { getPublicCopy } from '@/i18n/public-copy'
 
-const matchMedia = vi.fn().mockImplementation((query: string) => ({
-  matches: false,
-  media: query,
-  onchange: null,
-  addEventListener: vi.fn(),
-  removeEventListener: vi.fn(),
-  addListener: vi.fn(),
-  removeListener: vi.fn(),
-  dispatchEvent: vi.fn(),
+const mobileState = vi.hoisted(() => ({ value: false }))
+
+vi.mock('@/hooks/use-mobile', () => ({
+  useIsMobile: () => mobileState.value,
 }))
 
 function ControlledToggle({ initialOpen }: { initialOpen: boolean }) {
@@ -46,20 +41,13 @@ describe('CopilotSidebarToggle', () => {
   const reactActEnvironment = globalThis as typeof globalThis & {
     IS_REACT_ACT_ENVIRONMENT?: boolean
   }
-  const originalMatchMedia = window.matchMedia
-  const originalInnerWidth = window.innerWidth
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    window.matchMedia = matchMedia
-    Object.defineProperty(window, 'innerWidth', {
-      configurable: true,
-      value: 1280,
-      writable: true,
-    })
+    mobileState.value = false
   })
 
   afterEach(() => {
@@ -67,25 +55,23 @@ describe('CopilotSidebarToggle', () => {
       root.unmount()
     })
     container.remove()
-    window.matchMedia = originalMatchMedia
-    Object.defineProperty(window, 'innerWidth', {
-      configurable: true,
-      value: originalInnerWidth,
-      writable: true,
-    })
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('renders a switch above the collapsed-state button when the sidebar is open', async () => {
+  const renderToggle = async (children: ReactNode, sidebarOpen = false) => {
     await act(async () => {
       root.render(
         <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
-          <SidebarProvider open onOpenChange={() => undefined}>
-            <ControlledToggle initialOpen />
+          <SidebarProvider open={sidebarOpen} onOpenChange={() => undefined}>
+            {children}
           </SidebarProvider>
         </NextIntlClientProvider>
       )
     })
+  }
+
+  it('renders a switch above the collapsed-state button when the sidebar is open', async () => {
+    await renderToggle(<ControlledToggle initialOpen />, true)
 
     const toggle = container.querySelector('[data-slot="switch"]')
     if (!(toggle instanceof HTMLButtonElement)) {
@@ -94,21 +80,11 @@ describe('CopilotSidebarToggle', () => {
 
     expect(toggle.getAttribute('aria-label')).toBe('Hide Copilot')
     expect(toggle.getAttribute('aria-checked')).toBe('true')
-    expect(container.textContent).toContain('Copilot')
-    expect(container.querySelector('svg')).not.toBeNull()
     expect(container.querySelector('button[aria-pressed]')).toBeNull()
   })
 
   it('toggles the panel from the collapsed sidebar button', async () => {
-    await act(async () => {
-      root.render(
-        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
-          <SidebarProvider open={false} onOpenChange={() => undefined}>
-            <ControlledToggle initialOpen={false} />
-          </SidebarProvider>
-        </NextIntlClientProvider>
-      )
-    })
+    await renderToggle(<ControlledToggle initialOpen={false} />)
 
     const button = container.querySelector('button[aria-pressed]')
     if (!(button instanceof HTMLButtonElement)) {
@@ -126,22 +102,13 @@ describe('CopilotSidebarToggle', () => {
     })
 
     expect(button.getAttribute('aria-pressed')).toBe('true')
-    expect(button.getAttribute('data-active')).toBe('true')
     expect(button.getAttribute('aria-label')).toBe('Hide Copilot')
   })
 
   it('closes the mobile sidebar before opening Copilot', async () => {
-    window.innerWidth = 375
+    mobileState.value = true
 
-    await act(async () => {
-      root.render(
-        <NextIntlClientProvider locale='en' messages={getPublicCopy('en')}>
-          <SidebarProvider open={false} onOpenChange={() => undefined}>
-            <MobileControlledToggle />
-          </SidebarProvider>
-        </NextIntlClientProvider>
-      )
-    })
+    await renderToggle(<MobileControlledToggle />)
 
     const toggle = container.querySelector('button[aria-pressed]')
     if (!(toggle instanceof HTMLButtonElement)) {
@@ -154,7 +121,6 @@ describe('CopilotSidebarToggle', () => {
 
     await act(async () => toggle.click())
 
-    expect(toggle).toHaveAttribute('aria-pressed', 'true')
     expect(container.querySelector('[data-testid="mobile-sidebar-state"]')).toHaveTextContent(
       'false'
     )

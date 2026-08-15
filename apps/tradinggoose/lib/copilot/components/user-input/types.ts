@@ -2,16 +2,8 @@
 
 import type { ComponentType, Dispatch, SetStateAction } from 'react'
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { ChatContext, CopilotDraft } from '@/stores/copilot/types'
+import type { ChatContext, CopilotDraft, MessageFileAttachment } from '@/stores/copilot/types'
 import type { CopilotWorkspaceEntityKind } from '../../workspace-entities'
-
-export interface MessageFileAttachment {
-  id: string
-  key: string
-  filename: string
-  media_type: string
-  size: number
-}
 
 export interface AttachedFile {
   id: string

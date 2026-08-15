@@ -15,44 +15,27 @@ import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-enti
 import type { DashboardLayoutTab } from '@/lib/dashboard-layouts/operations'
 import type { ChatContext } from '@/stores/copilot/types'
 
-type PublishedContext = { owner: symbol; context: ChatContext }
-type PublishedActiveDashboardLayout = { owner: symbol; activeLayout: DashboardLayoutTab }
+type PublishedValue<T> = { owner: symbol; value: T }
 
 type GlobalCopilotContextValue = {
   currentContext: ChatContext | null
   activeDashboardLayout: DashboardLayoutTab | null
-  setPublishedContext: Dispatch<SetStateAction<PublishedContext | null>>
-  setPublishedActiveDashboardLayout: Dispatch<SetStateAction<PublishedActiveDashboardLayout | null>>
+  setPublishedContext: Dispatch<SetStateAction<PublishedValue<ChatContext> | null>>
+  setPublishedActiveDashboardLayout: Dispatch<
+    SetStateAction<PublishedValue<DashboardLayoutTab> | null>
+  >
 }
 
 const GlobalCopilotContext = createContext<GlobalCopilotContextValue | null>(null)
 
-export function resolveGlobalCopilotRouteContext(
-  segments: string[],
-  workspaceId: string
-): ChatContext | null {
-  const [routeWorkspaceId, section, knowledgeBaseId] = segments
-  if (routeWorkspaceId !== workspaceId || section !== 'knowledge' || !knowledgeBaseId) {
-    return null
-  }
-
-  return buildCopilotWorkspaceEntityContext({
-    entityKind: 'knowledge_base',
-    entityId: knowledgeBaseId,
-    workspaceId,
-    label: 'Current knowledge base',
-    current: true,
-  })
-}
-
 export function GlobalCopilotContextProvider({ children }: { children: ReactNode }) {
-  const [publishedContext, setPublishedContext] = useState<PublishedContext | null>(null)
+  const [publishedContext, setPublishedContext] = useState<PublishedValue<ChatContext> | null>(null)
   const [publishedActiveDashboardLayout, setPublishedActiveDashboardLayout] =
-    useState<PublishedActiveDashboardLayout | null>(null)
+    useState<PublishedValue<DashboardLayoutTab> | null>(null)
   const value = useMemo(
     () => ({
-      currentContext: publishedContext?.context ?? null,
-      activeDashboardLayout: publishedActiveDashboardLayout?.activeLayout ?? null,
+      currentContext: publishedContext?.value ?? null,
+      activeDashboardLayout: publishedActiveDashboardLayout?.value ?? null,
       setPublishedContext,
       setPublishedActiveDashboardLayout,
     }),
@@ -78,18 +61,46 @@ export function useGlobalCopilotActiveDashboardLayout() {
   return useGlobalCopilotContextValue().activeDashboardLayout
 }
 
-export function GlobalCopilotContextPublisher({ context }: { context: ChatContext | null }) {
-  const setPublishedContext = useContext(GlobalCopilotContext)?.setPublishedContext
-  const ownerRef = useRef(Symbol('global-copilot-context'))
+function useGlobalCopilotPublisher<T>(
+  value: T | null,
+  setPublished: Dispatch<SetStateAction<PublishedValue<T> | null>> | undefined
+) {
+  const owner = useRef(Symbol('global-copilot-publisher')).current
 
   useLayoutEffect(() => {
-    if (!context || !setPublishedContext) return
-    const owner = ownerRef.current
-    setPublishedContext({ owner, context })
-    return () => setPublishedContext((current) => (current?.owner === owner ? null : current))
-  }, [context, setPublishedContext])
+    if (value === null || !setPublished) return
+    setPublished({ owner, value })
+    return () => setPublished((current) => (current?.owner === owner ? null : current))
+  }, [owner, setPublished, value])
+}
+
+export function GlobalCopilotContextPublisher({ context }: { context: ChatContext | null }) {
+  const setPublishedContext = useContext(GlobalCopilotContext)?.setPublishedContext
+  useGlobalCopilotPublisher(context, setPublishedContext)
 
   return null
+}
+
+export function GlobalCopilotKnowledgeContextPublisher({
+  knowledgeBaseId,
+  workspaceId,
+}: {
+  knowledgeBaseId: string
+  workspaceId: string
+}) {
+  const context = useMemo(
+    () =>
+      buildCopilotWorkspaceEntityContext({
+        entityKind: 'knowledge_base',
+        entityId: knowledgeBaseId,
+        workspaceId,
+        label: 'Current knowledge base',
+        current: true,
+      }),
+    [knowledgeBaseId, workspaceId]
+  )
+
+  return <GlobalCopilotContextPublisher context={context} />
 }
 
 export function GlobalCopilotActiveDashboardLayoutPublisher({
@@ -99,15 +110,7 @@ export function GlobalCopilotActiveDashboardLayoutPublisher({
 }) {
   const setPublishedActiveDashboardLayout =
     useContext(GlobalCopilotContext)?.setPublishedActiveDashboardLayout
-  const ownerRef = useRef(Symbol('global-copilot-active-dashboard-layout'))
-
-  useLayoutEffect(() => {
-    if (!activeLayout || !setPublishedActiveDashboardLayout) return
-    const owner = ownerRef.current
-    setPublishedActiveDashboardLayout({ owner, activeLayout })
-    return () =>
-      setPublishedActiveDashboardLayout((current) => (current?.owner === owner ? null : current))
-  }, [activeLayout, setPublishedActiveDashboardLayout])
+  useGlobalCopilotPublisher(activeLayout, setPublishedActiveDashboardLayout)
 
   return null
 }

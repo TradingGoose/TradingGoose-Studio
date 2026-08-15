@@ -166,7 +166,6 @@ describe('readWorkflowLogsServerTool', () => {
     expect(JSON.stringify(result)).not.toMatch(
       /raw-(?:input-secret|output-payload|free-form-error)/
     )
-    expect(result).not.toHaveProperty('includeDetails')
   })
 
   it('clamps reads and never returns execution inputs or outputs', async () => {

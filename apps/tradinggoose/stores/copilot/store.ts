@@ -12,7 +12,7 @@ import type { StoreApi } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createWithEqualityFn as create, useStoreWithEqualityFn } from 'zustand/traditional'
 import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
-import { type CopilotChat, sendStreamingMessage } from '@/lib/copilot/api'
+import { sendStreamingMessage } from '@/lib/copilot/api'
 import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { resolveCopilotRuntimeProvider } from '@/lib/copilot/runtime-provider'
@@ -93,6 +93,7 @@ import {
 } from '@/stores/copilot/tool-registry'
 import type {
   ChatContext,
+  CopilotChat,
   CopilotDraft,
   CopilotMessage,
   CopilotSendRuntimeContext,
@@ -742,7 +743,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
           return
         }
 
-        const { liveContext, implicitContexts } = runtimeContext
+        const { implicitContexts, workflowId, workspaceId } = runtimeContext
 
         const resolvedContexts = mergeCopilotContexts({
           explicitContexts: contexts,
@@ -750,10 +751,8 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
         })
         const turnProvenance = buildTurnProvenanceFromContexts(
           resolvedContexts,
-          liveContext.workspaceId,
-          liveContext.workflowId,
-          liveContext.reviewTarget,
-          runtimeContext.authenticatedUserId
+          workspaceId,
+          workflowId
         )
         const contextsToSend = resolvedContexts.length > 0 ? resolvedContexts : undefined
 
@@ -800,7 +799,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
             message,
             userMessageId: userMessage.id,
             reviewSessionId: requestReviewSessionId,
-            workspaceId: liveContext.workspaceId ?? undefined,
+            workspaceId: workspaceId ?? undefined,
             model: requestModel,
             provider: requestProvider,
             prefetch: get().agentPrefetch,
@@ -933,38 +932,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
           .catch((err) => {
             logger.warn('[Context Usage] Failed to fetch after abort', err)
           })
-      },
-
-      setToolCallState: (toolCall: any, newState: any) => {
-        try {
-          const id: string | undefined = toolCall?.id
-          if (!id) return
-          const map = { ...get().toolCallsById }
-          const current = map[id]
-          if (!current) return
-          let norm: ClientToolCallState = current.state
-          if (newState === 'executing') norm = ClientToolCallState.executing
-          else if (newState === 'errored' || newState === 'error') norm = ClientToolCallState.error
-          else if (newState === 'rejected') norm = ClientToolCallState.rejected
-          else if (newState === 'pending') norm = ClientToolCallState.pending
-          else if (newState === 'success' || newState === 'accepted')
-            norm = ClientToolCallState.success
-          else if (newState === 'aborted') norm = ClientToolCallState.aborted
-          else if (typeof newState === 'number') norm = newState as unknown as ClientToolCallState
-          if (
-            (current.state === ClientToolCallState.rejected &&
-              norm === ClientToolCallState.success) ||
-            (current.state === ClientToolCallState.aborted && norm !== ClientToolCallState.aborted)
-          ) {
-            return
-          }
-          map[id] = {
-            ...current,
-            state: norm,
-            display: resolveToolDisplay(current.name, norm, id, current.params),
-          }
-          set({ toolCallsById: map })
-        } catch {}
       },
 
       saveChatMessages: async (chatId: string, options) => {
@@ -1190,8 +1157,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
           }
         })
       },
-      closePlanTodos: () => set({ showPlanTodos: false }),
-
       setSelectedModel: async (model) => {
         logger.info('[Context Usage] Model changed', { from: get().selectedModel, to: model })
         set({ selectedModel: model })

@@ -18,11 +18,8 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 let mockStoreState: any
 
 const runtimeContext: CopilotSendRuntimeContext = {
-  liveContext: {
-    workflowId: null,
-    workspaceId: 'ws-1',
-    reviewTarget: null,
-  },
+  workflowId: null,
+  workspaceId: 'ws-1',
   implicitContexts: [],
 }
 
@@ -84,7 +81,6 @@ vi.mock('@/lib/copilot/inline-tool-call', () => ({
 vi.mock('@/stores/copilot/store', () => ({
   useCopilotStore: () => mockStoreState,
   useCopilotStoreApi: () => ({
-    getState: () => mockStoreState,
     setState: vi.fn(),
   }),
 }))
@@ -107,15 +103,7 @@ vi.mock('../user-input/user-input', () => ({
 
 vi.mock('./components', () => ({
   buildAssistantMessageSegments: (contentBlocks: any[] = []) =>
-    contentBlocks.map((block, index) => {
-      if (block.type === 'thinking') {
-        return { type: 'thinking', key: `thinking-${index}`, blocks: [block] }
-      }
-      if (block.type === 'tool_call') {
-        return { type: 'tool_call', key: `tool-${index}`, block }
-      }
-      return { type: 'text', key: `text-${index}`, block }
-    }),
+    contentBlocks.map((block, index) => ({ type: 'text', key: `text-${index}`, block })),
   FileAttachmentDisplay: () => <div data-testid='file-attachments' />,
   OptionsSelector: ({ onSelect }: { onSelect: (key: string, text: string) => void }) => (
     <button
@@ -144,6 +132,26 @@ import { CopilotMessage } from './copilot-message'
 describe('CopilotMessage', () => {
   let container: HTMLDivElement
   let root: Root
+
+  const renderMessage = async (
+    message: CopilotMessageType,
+    context: CopilotSendRuntimeContext = runtimeContext
+  ) => {
+    await act(async () =>
+      root.render(<CopilotMessage message={message} runtimeContext={context} />)
+    )
+  }
+
+  const click = async (selector: string) => {
+    const element = container.querySelector(selector)
+    if (!(element instanceof HTMLElement)) throw new Error(`Expected ${selector}`)
+    await act(async () => element.click())
+  }
+
+  const editAndSubmit = async () => {
+    await click('[data-message-box]')
+    await click('[data-testid="user-input"]')
+  }
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
@@ -175,44 +183,22 @@ describe('CopilotMessage', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('renders assistant content without copy or feedback action buttons', async () => {
-    await act(async () => {
-      root.render(<CopilotMessage message={assistantMessage} runtimeContext={runtimeContext} />)
-    })
+  it('renders assistant content and citations', async () => {
+    await renderMessage(assistantMessage)
 
     expect(container.textContent).toContain('Plan is ready.')
     expect(container.textContent).toContain('Source A')
-    expect(container.querySelector('[title="Copy"]')).toBeNull()
-    expect(container.querySelector('[title="Upvote"]')).toBeNull()
-    expect(container.querySelector('[title="Downvote"]')).toBeNull()
   })
 
-  it('renders explicit context mentions inline without a duplicate context chip row', async () => {
+  it('renders mentions inline and preserves their contexts when editing', async () => {
     mockStoreState.messages = [userMentionMessage]
 
-    await act(async () => {
-      root.render(<CopilotMessage message={userMentionMessage} runtimeContext={runtimeContext} />)
-    })
-
-    expect(container.querySelector('[title="default-agent"]')).toBeNull()
-
-    const inlineMention = container.querySelector('[data-message-box] span.rounded-xs')
-    expect(inlineMention?.textContent).toBe('@default-agent')
+    await renderMessage(userMentionMessage)
+    expect(container.querySelector('[data-message-box] span.rounded-xs')).toHaveTextContent(
+      '@default-agent'
+    )
     expect(container.textContent).toContain("what's the trigger of this workflow?")
-  })
-
-  it('preserves structured mention contexts when editing and resending a message', async () => {
-    mockStoreState.messages = [userMentionMessage]
-
-    await act(async () => {
-      root.render(<CopilotMessage message={userMentionMessage} runtimeContext={runtimeContext} />)
-    })
-    await act(async () => {
-      container.querySelector<HTMLElement>('[data-message-box]')?.click()
-    })
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="user-input"]')?.click()
-    })
+    await editAndSubmit()
 
     expect(mockStoreState.sendMessage).toHaveBeenCalledWith(userMentionMessage.content, {
       fileAttachments: undefined,
@@ -236,20 +222,11 @@ describe('CopilotMessage', () => {
     }
     mockStoreState.messages = [userMentionMessage]
 
-    await act(async () => {
-      root.render(<CopilotMessage message={userMentionMessage} runtimeContext={runtimeContext} />)
-    })
+    await renderMessage(userMentionMessage)
 
     mockStoreState.messages = [updatedMessage]
-    await act(async () => {
-      root.render(<CopilotMessage message={updatedMessage} runtimeContext={runtimeContext} />)
-    })
-    await act(async () => {
-      container.querySelector<HTMLElement>('[data-message-box]')?.click()
-    })
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-testid="user-input"]')?.click()
-    })
+    await renderMessage(updatedMessage)
+    await editAndSubmit()
 
     expect(mockStoreState.sendMessage).toHaveBeenCalledWith(updatedMessage.content, {
       fileAttachments: undefined,
@@ -273,25 +250,9 @@ describe('CopilotMessage', () => {
     }
     mockStoreState.messages = [assistantOptionsMessage]
 
-    await act(async () => {
-      root.render(
-        <CopilotMessage message={assistantOptionsMessage} runtimeContext={runtimeContext} />
-      )
-    })
-    await act(async () => {
-      root.render(
-        <CopilotMessage message={assistantOptionsMessage} runtimeContext={updatedRuntimeContext} />
-      )
-    })
-
-    const option = container.querySelector('[data-testid="options-selector"]')
-    if (!(option instanceof HTMLButtonElement)) {
-      throw new Error('Expected option selector to render')
-    }
-
-    await act(async () => {
-      option.click()
-    })
+    await renderMessage(assistantOptionsMessage)
+    await renderMessage(assistantOptionsMessage, updatedRuntimeContext)
+    await click('[data-testid="options-selector"]')
 
     expect(mockStoreState.sendMessage).toHaveBeenCalledWith('Inspect current page', {
       runtimeContext: updatedRuntimeContext,

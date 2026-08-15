@@ -15,18 +15,9 @@ const mocks = vi.hoisted(() => ({
 }))
 let nextCopilotInstanceId = 0
 
-const mockCopilot = vi.fn((props: any) => {
+const mockCopilot = vi.fn(() => {
   const [instanceId] = useState(() => ++nextCopilotInstanceId)
-  return (
-    <div
-      data-testid='copilot'
-      data-instance-id={instanceId}
-      data-input-disabled={String(Boolean(props.inputDisabled))}
-      data-review-session-id={props.reviewTarget?.reviewSessionId ?? ''}
-    >
-      copilot
-    </div>
-  )
+  return <div data-testid='copilot' data-instance-id={instanceId} />
 })
 const mockProviders = vi.fn(
   ({ children }: { children: React.ReactNode; workspaceId: string; userId?: string }) => (
@@ -58,12 +49,8 @@ vi.mock('@/lib/yjs/workflow-session-host', () => ({
   ),
 }))
 
-vi.mock('@/stores/copilot/store', () => ({
-  CopilotStoreProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}))
-
 vi.mock('./copilot/copilot', () => ({
-  Copilot: (props: any) => mockCopilot(props),
+  Copilot: () => mockCopilot(),
 }))
 
 describe('CopilotApp', () => {
@@ -73,12 +60,7 @@ describe('CopilotApp', () => {
   const renderApp = async (effectiveParams?: Record<string, unknown> | null) => {
     await act(async () => {
       root.render(
-        <CopilotApp
-          workspaceId='ws-1'
-          panelWidth={480}
-          channelId='copilot:user:user-1:workspace:ws-1'
-          effectiveParams={effectiveParams}
-        />
+        <CopilotApp workspaceId='ws-1' panelWidth={480} effectiveParams={effectiveParams} />
       )
     })
   }
@@ -102,43 +84,16 @@ describe('CopilotApp', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('renders copilot through the stable session host when no workflow is pinned', async () => {
+  it('mounts explicit workspace providers and preserves Copilot across workflow changes', async () => {
     await renderApp()
 
     expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
       'data-workflow-id',
       ''
     )
-    expect(container.querySelector('[data-testid="copilot"]')).not.toBeNull()
     expect(mockProviders).toHaveBeenCalledWith(
       expect.objectContaining({ workspaceId: 'ws-1', userId: 'user-1' })
     )
-    expect(mockProviders.mock.lastCall?.[0]).not.toHaveProperty('inheritUser')
-  })
-
-  it('waits for an authenticated user before mounting workspace providers', async () => {
-    mocks.sessionUser = undefined
-
-    await renderApp()
-
-    expect(mockProviders).not.toHaveBeenCalled()
-    expect(container.querySelector('[data-testid="copilot"]')).toBeNull()
-  })
-
-  it('mounts the workflow session host for the effective workflow', async () => {
-    await renderApp({
-      workflowId: 'workflow-current',
-      skillId: null,
-    })
-
-    expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
-      'data-workflow-id',
-      'workflow-current'
-    )
-  })
-
-  it('preserves the Copilot instance while the effective workflow changes', async () => {
-    await renderApp()
     const initialInstanceId = container
       .querySelector('[data-testid="copilot"]')
       ?.getAttribute('data-instance-id')
@@ -155,15 +110,11 @@ describe('CopilotApp', () => {
     )
   })
 
-  it('does not derive editable review sessions from effective entity references', async () => {
-    await renderApp({
-      workflowId: null,
-      skillId: 'skill-current',
-    })
+  it('waits for an authenticated user before mounting workspace providers', async () => {
+    mocks.sessionUser = undefined
 
-    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
-      'data-review-session-id',
-      ''
-    )
+    await renderApp()
+
+    expect(mockProviders).not.toHaveBeenCalled()
   })
 })

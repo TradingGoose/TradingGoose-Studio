@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import { FileText, Image } from 'lucide-react'
-import type { MessageFileAttachment } from '../../user-input/user-input'
+import type { MessageFileAttachment } from '@/stores/copilot/types'
 
 interface FileAttachmentDisplayProps {
   fileAttachments: MessageFileAttachment[]

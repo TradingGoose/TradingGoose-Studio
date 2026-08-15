@@ -1,19 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
-import { useSelectedLayoutSegments } from 'next/navigation'
+import { useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import type { ImperativePanelHandle } from 'react-resizable-panels'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
-import {
-  GlobalCopilotContextProvider,
-  GlobalCopilotContextPublisher,
-  resolveGlobalCopilotRouteContext,
-} from '@/global-navbar/copilot-context'
+import { GlobalCopilotContextProvider } from '@/global-navbar/copilot-context'
 import { GlobalCopilotPanel } from '@/global-navbar/global-copilot-panel'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
+import { CopilotStoreProvider } from '@/stores/copilot/store'
 
 const COPILOT_PANEL_SIZE = 25
 const COPILOT_PANEL_MIN_SIZE = 25
@@ -37,20 +33,6 @@ export function GlobalCopilotLayout({
 }) {
   const compactLayout = useIsMobile(COPILOT_OVERLAY_BREAKPOINT)
   const tCopilot = useTranslations('workspace.nav.copilot')
-  const segments = useSelectedLayoutSegments()
-  const routeWorkspaceId = segments[0]
-  const routeSection = segments[1]
-  const routeEntityId = segments[2]
-  const routeContext = useMemo(
-    () =>
-      resolveGlobalCopilotRouteContext(
-        [routeWorkspaceId, routeSection, routeEntityId].filter(
-          (segment): segment is string => typeof segment === 'string'
-        ),
-        workspaceId
-      ),
-    [routeEntityId, routeSection, routeWorkspaceId, workspaceId]
-  )
   const copilotPanelRef = useRef<ImperativePanelHandle>(null)
   const copilotPortalContainerRef = useRef<HTMLDivElement>(null)
   const channelId = buildCopilotWorkspaceChannelId({
@@ -71,7 +53,6 @@ export function GlobalCopilotLayout({
 
   return (
     <GlobalCopilotContextProvider key={channelId}>
-      <GlobalCopilotContextPublisher context={routeContext} />
       <Sheet
         open={open}
         modal={compactLayout}
@@ -114,12 +95,13 @@ export function GlobalCopilotLayout({
               className='w-full p-0 pt-8 sm:max-w-[640px] 2xl:absolute 2xl:inset-0 2xl:z-auto 2xl:max-w-none 2xl:border-0 2xl:pt-0 2xl:shadow-none 2xl:transition-none 2xl:data-[ending-style]:animate-none 2xl:data-[starting-style]:animate-none'
             >
               <SheetTitle className='sr-only'>{tCopilot('label')}</SheetTitle>
-              <GlobalCopilotPanel
-                channelId={channelId}
-                workspaceId={workspaceId}
-                ownerUserId={ownerUserId}
-                dashboardMode={dashboardMode}
-              />
+              <CopilotStoreProvider channelId={channelId}>
+                <GlobalCopilotPanel
+                  workspaceId={workspaceId}
+                  ownerUserId={ownerUserId}
+                  dashboardMode={dashboardMode}
+                />
+              </CopilotStoreProvider>
             </SheetContent>
           </ResizablePanel>
           <ResizableHandle

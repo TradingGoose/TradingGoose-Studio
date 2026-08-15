@@ -21,12 +21,10 @@ import { PairColorDropdown } from '@/widgets/widgets/components/pair-color-dropd
 const DEFAULT_PANEL_WIDTH = 1200
 
 export function GlobalCopilotPanel({
-  channelId,
   workspaceId,
   ownerUserId,
   dashboardMode,
 }: {
-  channelId: string
   workspaceId: string
   ownerUserId: string
   dashboardMode: boolean
@@ -86,10 +84,10 @@ export function GlobalCopilotPanel({
               ) : null}
             </div>
             <div className='flex h-8 flex-1 items-center justify-center'>
-              <CopilotHeader channelId={channelId} workspaceId={workspaceId} />
+              <CopilotHeader workspaceId={workspaceId} />
             </div>
             <div className='flex h-8 flex-1 items-center justify-end pr-1'>
-              <CopilotHeaderActions channelId={channelId} workspaceId={workspaceId} />
+              <CopilotHeaderActions workspaceId={workspaceId} />
             </div>
           </div>
         </header>
@@ -102,7 +100,6 @@ export function GlobalCopilotPanel({
             <CopilotApp
               workspaceId={workspaceId}
               panelWidth={panelWidth}
-              channelId={channelId}
               effectiveParams={pairSelected && pairDoc ? pairContext : null}
               layoutId={activeLayout?.id ?? null}
               ownerUserId={activeLayout ? ownerUserId : null}

@@ -138,7 +138,7 @@ describe('Copilot auto-scroll', () => {
 
   const renderCopilot = async () => {
     await act(async () => {
-      root.render(<Copilot workspaceId='ws-1' panelWidth={360} reviewTarget={null} />)
+      root.render(<Copilot workspaceId='ws-1' panelWidth={360} />)
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -175,7 +175,6 @@ describe('Copilot auto-scroll', () => {
       showPlanTodos: false,
       sendMessage: vi.fn(),
       abortMessage: vi.fn(),
-      createNewChat: vi.fn(),
       setAccessLevel: vi.fn(),
       setDraft: vi.fn(),
       loadChats: vi.fn(async () => {}),
@@ -242,37 +241,17 @@ describe('Copilot auto-scroll', () => {
     expect(scrollToMock).toHaveBeenCalled()
   })
 
-  it('still distinguishes real user scroll-up from programmatic auto-scroll', () => {
-    expect(
-      shouldMarkUserScrolledDuringStream({
-        isTurnInProgress: true,
-        nearBottom: false,
-        scrollSource: 'user',
-      })
-    ).toBe(true)
-
-    expect(
-      shouldMarkUserScrolledDuringStream({
-        isTurnInProgress: true,
-        nearBottom: false,
-        scrollSource: 'programmatic',
-      })
-    ).toBe(false)
-
-    expect(
-      shouldMarkUserScrolledDuringStream({
-        isTurnInProgress: true,
-        nearBottom: true,
-        scrollSource: 'user',
-      })
-    ).toBe(false)
-
-    expect(
-      shouldMarkUserScrolledDuringStream({
-        isTurnInProgress: false,
-        nearBottom: false,
-        scrollSource: 'user',
-      })
-    ).toBe(false)
-  })
+  it.each([
+    ['real user scroll-up', true, false, 'user', true],
+    ['programmatic scroll', true, false, 'programmatic', false],
+    ['user scroll near the bottom', true, true, 'user', false],
+    ['user scroll after the turn', false, false, 'user', false],
+  ] as const)(
+    'marks user-scrolled for %s: %s',
+    (_case, isTurnInProgress, nearBottom, scrollSource, expected) => {
+      expect(
+        shouldMarkUserScrolledDuringStream({ isTurnInProgress, nearBottom, scrollSource })
+      ).toBe(expected)
+    }
+  )
 })

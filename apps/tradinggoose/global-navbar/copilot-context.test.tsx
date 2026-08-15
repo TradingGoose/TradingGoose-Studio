@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
+import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { DashboardLayoutTab } from '@/lib/dashboard-layouts/operations'
@@ -11,7 +11,6 @@ import {
   GlobalCopilotActiveDashboardLayoutPublisher,
   GlobalCopilotContextProvider,
   GlobalCopilotContextPublisher,
-  resolveGlobalCopilotRouteContext,
   useGlobalCopilotActiveDashboardLayout,
   useGlobalCopilotCurrentContext,
 } from './copilot-context'
@@ -47,20 +46,22 @@ describe('global Copilot context', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
+  const render = async (children: ReactNode) => {
+    await act(async () => root.render(children))
+  }
+
   const renderContexts = async (contexts: ChatContext[]) => {
-    await act(async () => {
-      root.render(
-        <GlobalCopilotContextProvider>
-          {contexts.map((context) => (
-            <GlobalCopilotContextPublisher
-              key={`${context.kind}:${context.label}`}
-              context={context}
-            />
-          ))}
-          <CurrentContextProbe />
-        </GlobalCopilotContextProvider>
-      )
-    })
+    await render(
+      <GlobalCopilotContextProvider>
+        {contexts.map((context) => (
+          <GlobalCopilotContextPublisher
+            key={`${context.kind}:${context.label}`}
+            context={context}
+          />
+        ))}
+        <CurrentContextProbe />
+      </GlobalCopilotContextProvider>
+    )
   }
 
   it('publishes, replaces, and clears the active page context without stale cleanup', async () => {
@@ -88,18 +89,16 @@ describe('global Copilot context', () => {
   })
 
   it('is inert when a page renders outside the authenticated workspace layout', async () => {
-    await act(async () => {
-      root.render(
-        <GlobalCopilotContextPublisher
-          context={{
-            kind: 'current_logs',
-            logId: 'log-1',
-            workspaceId: 'workspace-1',
-            label: 'Current log',
-          }}
-        />
-      )
-    })
+    await render(
+      <GlobalCopilotContextPublisher
+        context={{
+          kind: 'current_logs',
+          logId: 'log-1',
+          workspaceId: 'workspace-1',
+          label: 'Current log',
+        }}
+      />
+    )
 
     expect(container.textContent).toBe('')
   })
@@ -113,46 +112,19 @@ describe('global Copilot context', () => {
       updatedAt: '2026-01-01T00:00:01.000Z',
     }
 
-    await act(async () => {
-      root.render(
-        <GlobalCopilotContextProvider>
-          <GlobalCopilotActiveDashboardLayoutPublisher activeLayout={activeLayout} />
-          <ActiveDashboardLayoutProbe />
-        </GlobalCopilotContextProvider>
-      )
-    })
+    await render(
+      <GlobalCopilotContextProvider>
+        <GlobalCopilotActiveDashboardLayoutPublisher activeLayout={activeLayout} />
+        <ActiveDashboardLayoutProbe />
+      </GlobalCopilotContextProvider>
+    )
     expect(container.textContent).toBe('layout-b')
 
-    await act(async () => {
-      root.render(
-        <GlobalCopilotContextProvider>
-          <ActiveDashboardLayoutProbe />
-        </GlobalCopilotContextProvider>
-      )
-    })
+    await render(
+      <GlobalCopilotContextProvider>
+        <ActiveDashboardLayoutProbe />
+      </GlobalCopilotContextProvider>
+    )
     expect(container.textContent).toBe('')
-  })
-
-  it('resolves knowledge detail and document routes to their enclosing knowledge base', () => {
-    const expected = {
-      kind: 'current_knowledge_base',
-      knowledgeBaseId: 'knowledge-1',
-      workspaceId: 'workspace-1',
-      label: 'Current knowledge base',
-    }
-
-    expect(
-      resolveGlobalCopilotRouteContext(['workspace-1', 'knowledge', 'knowledge-1'], 'workspace-1')
-    ).toEqual(expected)
-    expect(
-      resolveGlobalCopilotRouteContext(
-        ['workspace-1', 'knowledge', 'knowledge-1', 'document-1'],
-        'workspace-1'
-      )
-    ).toEqual(expected)
-    expect(resolveGlobalCopilotRouteContext(['workspace-1', 'knowledge'], 'workspace-1')).toBeNull()
-    expect(
-      resolveGlobalCopilotRouteContext(['workspace-2', 'knowledge', 'knowledge-1'], 'workspace-1')
-    ).toBeNull()
   })
 })

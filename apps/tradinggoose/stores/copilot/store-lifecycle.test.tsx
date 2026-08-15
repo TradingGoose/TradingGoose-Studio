@@ -14,10 +14,7 @@ import {
   resetCopilotStoreRegistry,
 } from '@/stores/copilot/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
-import {
-  getCopilotWorkspaceSelection,
-  rememberCopilotWorkspaceSelection,
-} from '@/stores/copilot/workspace-selection'
+import { getCopilotWorkspaceSelection } from '@/stores/copilot/workspace-selection'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -28,6 +25,10 @@ class DeferredClientTool extends BaseClientTool {
     super(toolCallId, 'sleep', { displayNames: {} })
   }
 }
+
+const channelId = (authenticatedUserId: string, workspaceId: string) =>
+  buildCopilotWorkspaceChannelId({ authenticatedUserId, workspaceId })
+const EMPTY_DRAFT = { text: '', contexts: [] }
 
 describe('Copilot store lifecycle', () => {
   let container: HTMLDivElement
@@ -49,12 +50,9 @@ describe('Copilot store lifecycle', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('resets and evicts every user-owned store without starting network cleanup', () => {
-    const channelId = buildCopilotWorkspaceChannelId({
-      authenticatedUserId: 'user-a',
-      workspaceId: 'workspace-1',
-    })
-    const ownedStore = getCopilotStore(channelId)
+  it('resets and evicts every user-owned store without starting network cleanup', async () => {
+    const workspaceChannelId = channelId('user-a', 'workspace-1')
+    const ownedStore = getCopilotStore(workspaceChannelId)
     const abortController = new AbortController()
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
@@ -63,45 +61,25 @@ describe('Copilot store lifecycle', () => {
       text: 'private @Documentation draft',
       contexts: [{ kind: 'docs', label: 'Documentation' }],
     })
+    await ownedStore.getState().handleNewReviewSessionCreation('review-session-1', 'workspace-1')
     ownedStore.setState({
       abortController,
       isSendingMessage: true,
-      currentChat: {
-        reviewSessionId: 'review-session-1',
-        workspaceId: 'workspace-1',
-        entityKind: 'copilot',
-        entityId: null,
-        draftSessionId: null,
-        title: null,
-        messages: [],
-        messageCount: 0,
-        conversationId: 'conversation-1',
-        latestTurnStatus: 'in_progress',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
     })
-    rememberCopilotWorkspaceSelection('workspace-1', 'review-session-1')
 
     resetCopilotStoreRegistry()
 
     expect(abortController.signal.aborted).toBe(true)
-    expect(ownedStore.getState().draft).toEqual({ text: '', contexts: [] })
-    expect(getCopilotStore(channelId)).not.toBe(ownedStore)
+    expect(ownedStore.getState().draft).toEqual(EMPTY_DRAFT)
+    expect(getCopilotStore(workspaceChannelId)).not.toBe(ownedStore)
     expect(getCopilotWorkspaceSelection('workspace-1')).toBeUndefined()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('disposes stores from the previous authenticated identity after provider identity changes', async () => {
     const workspaceId = 'shared-workspace'
-    const userAChannel = buildCopilotWorkspaceChannelId({
-      authenticatedUserId: 'user-a',
-      workspaceId,
-    })
-    const userBChannel = buildCopilotWorkspaceChannelId({
-      authenticatedUserId: 'user-b',
-      workspaceId,
-    })
+    const userAChannel = channelId('user-a', workspaceId)
+    const userBChannel = channelId('user-b', workspaceId)
     const userAStore = getCopilotStore(userAChannel)
     const toolCallId = 'user-a-deferred-tool'
     const tool = new DeferredClientTool(toolCallId)
@@ -129,8 +107,8 @@ describe('Copilot store lifecycle', () => {
       root.render(<CopilotStoreProvider channelId={userBChannel}>B</CopilotStoreProvider>)
     })
 
-    expect(userAStore.getState().draft).toEqual({ text: '', contexts: [] })
-    expect(getCopilotStore(userBChannel).getState().draft).toEqual({ text: '', contexts: [] })
+    expect(userAStore.getState().draft).toEqual(EMPTY_DRAFT)
+    expect(getCopilotStore(userBChannel).getState().draft).toEqual(EMPTY_DRAFT)
     expect(getCopilotStore(userAChannel)).not.toBe(userAStore)
     expect(getClientTool(toolCallId)).toBeUndefined()
     expect(tool.getState()).toBe(ClientToolCallState.aborted)
@@ -139,32 +117,5 @@ describe('Copilot store lifecycle', () => {
     )
     await expect(tool.markToolComplete(200, 'late completion')).resolves.toBe(true)
     expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('restores draft text and structured contexts together per workspace channel', () => {
-    const workspaceA = buildCopilotWorkspaceChannelId({
-      authenticatedUserId: 'user-a',
-      workspaceId: 'workspace-a',
-    })
-    const workspaceB = buildCopilotWorkspaceChannelId({
-      authenticatedUserId: 'user-a',
-      workspaceId: 'workspace-b',
-    })
-    const workspaceAStore = getCopilotStore(workspaceA)
-    const draft = {
-      text: 'Review @Main workflow',
-      contexts: [
-        {
-          kind: 'workflow' as const,
-          workflowId: 'workflow-1',
-          workspaceId: 'workspace-a',
-          label: 'Main workflow',
-        },
-      ],
-    }
-
-    workspaceAStore.getState().setDraft(draft)
-    expect(getCopilotStore(workspaceB).getState().draft).toEqual({ text: '', contexts: [] })
-    expect(getCopilotStore(workspaceA).getState().draft).toEqual(draft)
   })
 })

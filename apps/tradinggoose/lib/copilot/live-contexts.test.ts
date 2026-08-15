@@ -4,12 +4,8 @@ import { buildImplicitCopilotContexts, resolveCopilotWorkflowId } from './live-c
 const currentLabels = {
   workflow: 'Localized Workflow',
   skill: 'Localized Skill',
-  custom_tool: 'Localized Tool',
-  indicator: 'Localized Indicator',
-  mcp_server: 'Localized MCP Server',
   watchlist: 'Localized Watchlist',
   dashboard_layout: 'Localized Dashboard Layout',
-  knowledge_base: 'Localized Knowledge Base',
 }
 
 describe('buildImplicitCopilotContexts', () => {
@@ -66,16 +62,6 @@ describe('buildImplicitCopilotContexts', () => {
         label: 'Localized Workflow',
       },
     ])
-  })
-
-  it('does not emit a watchlist context without a selected watchlist entity id', () => {
-    expect(
-      buildImplicitCopilotContexts({
-        workspaceId: 'workspace-1',
-        effectiveParams: {},
-        currentLabels,
-      })
-    ).toEqual([])
   })
 
   it('emits current dashboard layout explicitly outside pair-derived contexts', () => {

@@ -1,5 +1,5 @@
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
 
@@ -124,16 +124,10 @@ export interface CopilotChat {
   updatedAt: Date
 }
 
-export interface CopilotLiveContext {
+export interface CopilotSendRuntimeContext {
   workflowId: string | null
   workspaceId: string | null
-  reviewTarget: ReviewTargetDescriptor | null
-}
-
-export interface CopilotSendRuntimeContext {
-  liveContext: CopilotLiveContext
   implicitContexts: ChatContext[]
-  authenticatedUserId?: string | null
 }
 
 export interface CopilotToolExecutionProvenance {
@@ -207,7 +201,6 @@ export interface CopilotActions {
     }
   ) => Promise<void>
   abortMessage: () => void
-  setToolCallState: (toolCall: any, newState: ClientToolCallState, options?: any) => void
   saveChatMessages: (
     chatId: string,
     options?: { latestTurnStatus?: string | null }
@@ -221,8 +214,6 @@ export interface CopilotActions {
     todos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
   ) => void
   updatePlanTodoStatus: (id: string, status: 'executing' | 'completed') => void
-  closePlanTodos: () => void
-
   handleStreamingResponse: (
     stream: ReadableStream,
     messageId: string,

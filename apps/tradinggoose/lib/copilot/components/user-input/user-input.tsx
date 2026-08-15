@@ -26,13 +26,7 @@ import { useUserInputMentionSources } from './hooks/use-user-input-mention-sourc
 import { useUserInputMentions } from './hooks/use-user-input-mentions'
 import { buildMentionEditorSegments, getMentionTextareaCaretClientRect } from './mention-editor-dom'
 import { getPreferredMentionMenuWidth } from './mention-utils'
-import type {
-  AttachedFile,
-  MentionPortalStyle,
-  MessageFileAttachment,
-  UserInputProps,
-  UserInputRef,
-} from './types'
+import type { AttachedFile, MentionPortalStyle, UserInputProps, UserInputRef } from './types'
 
 const logger = createLogger('CopilotUserInput')
 
@@ -620,4 +614,4 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 UserInput.displayName = 'UserInput'
 
 export { UserInput }
-export type { MessageFileAttachment, UserInputRef }
+export type { UserInputRef }

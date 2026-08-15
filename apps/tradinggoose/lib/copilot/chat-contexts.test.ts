@@ -46,9 +46,7 @@ describe('Copilot context identity', () => {
     ).toEqual([explicit])
   })
 
-  it('hides all ambient page context variants from mention chips', () => {
-    expect(isHiddenCopilotContext({ kind: 'current_knowledge_base' })).toBe(true)
-    expect(isHiddenCopilotContext({ kind: 'current_logs' })).toBe(true)
+  it('hides ambient page contexts from mention chips', () => {
     expect(isHiddenCopilotContext({ kind: 'current_monitor' })).toBe(true)
   })
 

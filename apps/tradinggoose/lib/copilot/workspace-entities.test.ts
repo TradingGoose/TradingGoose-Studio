@@ -5,7 +5,6 @@ import {
   COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS,
   getCopilotWorkspaceEntityIdFromEffectiveParams,
   getCopilotWorkspaceEntityKindFromContext,
-  matchesCopilotWorkspaceEntityContext,
   readCopilotWorkspaceEntityContext,
 } from './workspace-entities'
 
@@ -111,18 +110,6 @@ describe('workspace-entities', () => {
         kind: 'custom_tool',
       } as any)
     ).toBe('custom_tool')
-  })
-
-  it('matches explicit contexts against entity kind and id', () => {
-    const context = buildCopilotWorkspaceEntityContext({
-      entityKind: 'mcp_server',
-      entityId: 'mcp-1',
-      workspaceId: 'workspace-1',
-      label: 'Broker MCP',
-    })
-
-    expect(matchesCopilotWorkspaceEntityContext(context, 'mcp_server', 'mcp-1')).toBe(true)
-    expect(matchesCopilotWorkspaceEntityContext(context, 'mcp_server', 'mcp-2')).toBe(false)
   })
 
   it('reads shared workspace entity context details consistently', () => {
