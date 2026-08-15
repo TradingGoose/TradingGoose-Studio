@@ -75,7 +75,7 @@ describe('useSubscriptionUpgrade', () => {
     handleUpgrade = null
     originalFetch = globalThis.fetch
     globalThis.fetch = vi.fn(async () =>
-      Response.json({ organizations: [{ id: 'org-1', role: 'admin' }] })
+      Response.json({ organizations: [{ id: 'org-1', role: 'owner' }] })
     )
     mockUpgrade.mockResolvedValue({ data: {}, error: null })
     mockInvalidateQueries.mockResolvedValue(undefined)
