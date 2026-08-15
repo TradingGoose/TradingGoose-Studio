@@ -357,10 +357,7 @@ describe('DashboardClient', () => {
   it('keeps personal widget controls independent of workspace entity permission', async () => {
     await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
 
-    const switchToRedButton = container.querySelector('[data-testid="pair-color-red-panel-a"]')
-    if (!(switchToRedButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected pair color switch button to be rendered')
-    }
+    const switchToRedButton = getButton(container, 'pair-color-red-panel-a')
 
     expect(switchToRedButton.disabled).toBe(false)
     await act(async () => {
@@ -409,12 +406,8 @@ describe('DashboardClient', () => {
     try {
       await renderDashboard({ topology: createGroupLayout([50, 50]) })
 
-      const closePanel = container.querySelector('[data-testid="close-panel-panel-left"]')
-      if (!(closePanel instanceof HTMLButtonElement)) throw new Error('Expected panel close button')
-      const replacePanel = container.querySelector('[data-testid="widget-watchlist-panel-left"]')
-      if (!(replacePanel instanceof HTMLButtonElement)) {
-        throw new Error('Expected panel replacement button')
-      }
+      const closePanel = getButton(container, 'close-panel-panel-left')
+      const replacePanel = getButton(container, 'widget-watchlist-panel-left')
       await act(async () => {
         closePanel.click()
         replacePanel.click()
@@ -482,8 +475,7 @@ describe('DashboardClient', () => {
 
     await renderDashboard({ topology: createGroupLayout([50, 50]) })
 
-    const closePanel = container.querySelector('[data-testid="close-panel-panel-left"]')
-    if (!(closePanel instanceof HTMLButtonElement)) throw new Error('Expected panel close control')
+    const closePanel = getButton(container, 'close-panel-panel-left')
     expect(closePanel.disabled).toBe(false)
   })
 })
@@ -598,4 +590,10 @@ function readWidgetSurface(container: HTMLDivElement, panelId?: string) {
     dashboardLayoutName: element.dataset.dashboardLayoutName ?? '',
     dashboardLayoutOwnerUserId: element.dataset.dashboardLayoutOwnerUserId ?? '',
   }
+}
+
+function getButton(container: HTMLDivElement, testId: string) {
+  const button = container.querySelector(`[data-testid="${testId}"]`)
+  if (!(button instanceof HTMLButtonElement)) throw new Error(`Expected ${testId}`)
+  return button
 }

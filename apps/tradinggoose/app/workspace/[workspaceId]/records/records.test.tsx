@@ -428,18 +428,7 @@ describe('Records', () => {
       data: {
         pages: [
           {
-            hasMore: false,
-            logs: [
-              {
-                id: 'log-1',
-                executionId: 'execution-1',
-                level: 'info',
-                trigger: 'manual',
-                createdAt: '2026-08-12T00:00:00.000Z',
-              },
-            ],
-            nextPage: undefined,
-            total: 1,
+            logs: [{ id: 'log-1' }],
           },
         ],
       },
