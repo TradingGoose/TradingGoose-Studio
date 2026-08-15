@@ -262,9 +262,13 @@ export function normalizeStringArray(values: unknown): string[] {
     .filter((entry) => entry.length > 0)
 }
 
-export function sanitizeRecord(record: Record<string, string> | null | undefined): Record<string, string> {
+export function sanitizeRecord(
+  record: Record<string, string> | null | undefined
+): Record<string, string> {
   if (!record) return {}
   return Object.fromEntries(
-    Object.entries(record).filter(([key, value]) => key.trim().length > 0 && value.trim().length > 0)
+    Object.entries(record).filter(
+      ([key, value]) => key.trim().length > 0 && value.trim().length > 0
+    )
   )
 }

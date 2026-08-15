@@ -35,10 +35,7 @@ type ConsoleEntryPatchFields = Partial<
 >
 
 type ConsoleEntryPatch = ConsoleEntryPatchFields &
-  (
-    | { content: string; output?: never }
-    | { content?: never; output?: NormalizedBlockOutput }
-  )
+  ({ content: string; output?: never } | { content?: never; output?: NormalizedBlockOutput })
 
 /**
  * Safely clone and update a NormalizedBlockOutput
