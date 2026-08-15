@@ -193,7 +193,6 @@ export function useUserInputMentionSources({
         !targetScope ||
         targetScope.key !== workspaceScopeKey ||
         state === 'loading' ||
-        state === 'failed' ||
         (Array.isArray(state) && state.length > 0)
       )
         return
@@ -407,10 +406,12 @@ export function useUserInputMentionSources({
 
   const workspaceEntities = {} as Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[]>
   const workspaceEntityLoading = {} as Record<LazyWorkspaceEntityMentionKind, boolean>
+  const mentionFailed: Partial<Record<MentionSubmenu, boolean>> = {}
   for (const entityKind of LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS) {
     const state = scopedWorkspaceEntityState[entityKind]
     workspaceEntities[entityKind] = Array.isArray(state) ? state : []
     workspaceEntityLoading[entityKind] = state === 'loading'
+    mentionFailed[entityKind] = state === 'failed'
   }
 
   const mentionSources: MentionSources = {
@@ -435,6 +436,7 @@ export function useUserInputMentionSources({
 
   return {
     ensureSubmenuLoaded,
+    mentionFailed,
     mentionLoading,
     mentionSources,
   }

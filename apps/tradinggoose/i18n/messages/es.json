@@ -21341,6 +21341,7 @@
         "mentions": {
           "dashboardLayouts": "Diseños del panel",
           "workflowBlocks": "Bloques del flujo de trabajo",
+          "loadFailed": "No se pudo cargar esta lista. Intentar de nuevo",
           "matches": "Coincidencias",
           "noMatches": "No hay coincidencias",
           "noDashboardLayoutsFound": "No se encontraron diseños del panel.",

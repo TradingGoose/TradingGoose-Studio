@@ -91,6 +91,7 @@ export function getCopilotMentionCopy({
     matches: copilot.mentions.matches,
     noMatches: copilot.mentions.noMatches,
     loading: copilot.history.loading,
+    loadFailed: copilot.mentions.loadFailed,
   }
 }
 

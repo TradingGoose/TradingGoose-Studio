@@ -82,10 +82,11 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       processFiles,
       removeFile,
     } = useUserInputAttachments({ userId: session?.user?.id })
-    const { ensureSubmenuLoaded, mentionLoading, mentionSources } = useUserInputMentionSources({
-      workspaceId,
-      ownerUserId: session?.user?.id,
-    })
+    const { ensureSubmenuLoaded, mentionFailed, mentionLoading, mentionSources } =
+      useUserInputMentionSources({
+        workspaceId,
+        ownerUserId: session?.user?.id,
+      })
     const {
       aggregatedActive,
       closeMentionMenu,
@@ -312,7 +313,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           }
         }
       }
-    }, [aggregatedActive, message, openSubmenuFor, showMentionMenu])
+    }, [aggregatedActive, message, openSubmenuFor, panelWidth, showMentionMenu])
 
     const handleSubmit = async () => {
       const trimmedMessage = message.trim()
@@ -508,6 +509,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             />
 
             <MentionMenu
+              failed={mentionFailed}
               inAggregated={inAggregated}
               loading={mentionLoading}
               mentionActiveIndex={mentionActiveIndex}
@@ -524,6 +526,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 setInAggregated(false)
                 setMentionActiveIndex(index)
               }}
+              onRetry={ensureSubmenuLoaded}
               onSelectAggregatedItem={handleAggregatedItemSelect}
               onSelectMainOption={handleMainMentionOptionSelect}
               onSelectSubmenuItem={handleSubmenuItemSelect}

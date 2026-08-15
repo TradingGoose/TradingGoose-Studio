@@ -572,6 +572,11 @@ describe('processContextsServer', () => {
               output: { apiSecret: 'raw-output-secret' },
             },
           ],
+          finalOutput: {
+            header: { Key: 'X-API-Key', Value: 'raw-table-secret' },
+            named: { name: 'idToken', value: 'raw-named-secret' },
+            safe: { Key: 'Content-Type', Value: 'application/json' },
+          },
         },
       }),
     ])
@@ -597,6 +602,11 @@ describe('processContextsServer', () => {
     expect(input.values).toHaveLength(25)
     expect(input.deep.a).toBe('[truncated]')
     expect(content.executionData.traceSpans[0].output.apiSecret).toBe('[redacted]')
+    expect(content.executionData.finalOutput).toEqual({
+      header: { Key: 'X-API-Key', Value: '[redacted]' },
+      named: { name: 'idToken', value: '[redacted]' },
+      safe: { Key: 'Content-Type', Value: 'application/json' },
+    })
     expect(content.contextTruncated).toBe(true)
     expect(Buffer.byteLength(result!.content, 'utf8')).toBeLessThanOrEqual(
       MAX_COPILOT_CONTEXT_BYTES_PER_ITEM

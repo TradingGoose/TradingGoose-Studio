@@ -21328,6 +21328,7 @@
         "mentions": {
           "dashboardLayouts": "仪表盘布局",
           "workflowBlocks": "工作流模块",
+          "loadFailed": "无法加载此列表。重试",
           "matches": "匹配项",
           "noMatches": "未找到匹配项",
           "noDashboardLayoutsFound": "未找到仪表盘布局。",

@@ -21341,6 +21341,7 @@
         "mentions": {
           "dashboardLayouts": "Dashboard layouts",
           "workflowBlocks": "Workflow Blocks",
+          "loadFailed": "Could not load this list. Try again",
           "matches": "Matches",
           "noMatches": "No matches",
           "noDashboardLayoutsFound": "No dashboard layouts found.",

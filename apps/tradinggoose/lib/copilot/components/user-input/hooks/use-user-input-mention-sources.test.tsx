@@ -489,11 +489,19 @@ it('isolates deferred and loaded mention sources across authenticated owners', a
   }
 })
 
-it('does not retry a failed current-workflow entity load within the active scope', async () => {
+it('suppresses automatic current-workflow retries but retries on explicit submenu demand', async () => {
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
   const container = document.body.appendChild(document.createElement('div'))
   const root = createRoot(container)
-  const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500 })
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce({ ok: false, status: 500 })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [{ id: 'workflow-1', name: 'Workflow 1' }],
+      }),
+    })
   vi.stubGlobal('fetch', fetchMock)
 
   try {
@@ -502,12 +510,17 @@ it('does not retry a failed current-workflow entity load within the active scope
     await vi.waitFor(() => expect(m.logger.error).toHaveBeenCalledOnce())
 
     expect(fetchMock).toHaveBeenCalledOnce()
+    expect(current.mentionFailed.workflow).toBe(true)
     expect(current.mentionLoading.workflow).toBe(false)
     expect(current.mentionSources.workspaceEntities.workflow).toEqual([])
 
     await act(async () => current.ensureSubmenuLoaded('workflow'))
 
-    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(current.mentionFailed.workflow).toBe(false)
+    expect(current.mentionSources.workspaceEntities.workflow).toEqual([
+      { entityKind: 'workflow', id: 'workflow-1', name: 'Workflow 1', color: undefined },
+    ])
   } finally {
     act(() => root.unmount())
     container.remove()

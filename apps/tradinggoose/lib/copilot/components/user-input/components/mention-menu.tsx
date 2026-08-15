@@ -57,6 +57,7 @@ import type {
 } from '../types'
 
 interface MentionMenuProps {
+  failed: Partial<Record<MentionSubmenu, boolean>>
   inAggregated: boolean
   loading: Record<MentionSubmenu, boolean>
   mentionActiveIndex: number
@@ -67,6 +68,7 @@ interface MentionMenuProps {
   menuListRef: RefObject<HTMLDivElement | null>
   onAggregatedItemHover: (index: number) => void
   onMainOptionHover: (index: number) => void
+  onRetry: (submenu: MentionSubmenu) => Promise<void>
   onSelectAggregatedItem: (item: AggregatedMentionItem) => void
   onSelectMainOption: (option: MentionOption) => void
   onSelectSubmenuItem: (submenu: MentionSubmenu, item: MentionItem) => void
@@ -250,11 +252,12 @@ const renderMentionItemContent = (
   return null
 }
 
-const preserveEditorSelection = (event: MouseEvent<HTMLDivElement>) => {
+const preserveEditorSelection = (event: MouseEvent<HTMLElement>) => {
   event.preventDefault()
 }
 
 export function MentionMenu({
+  failed,
   inAggregated,
   loading,
   mentionActiveIndex,
@@ -265,6 +268,7 @@ export function MentionMenu({
   menuListRef,
   onAggregatedItemHover,
   onMainOptionHover,
+  onRetry,
   onSelectAggregatedItem,
   onSelectMainOption,
   onSelectSubmenuItem,
@@ -329,6 +333,15 @@ export function MentionMenu({
             <div ref={menuListRef} className='flex-1 overflow-auto overscroll-contain'>
               {loading[openSubmenuFor] ? (
                 <div className='px-2 py-2 text-muted-foreground text-sm'>{mentionCopy.loading}</div>
+              ) : failed[openSubmenuFor] ? (
+                <button
+                  type='button'
+                  className='w-full px-2 py-2 text-left text-muted-foreground text-sm underline'
+                  onMouseDown={preserveEditorSelection}
+                  onClick={() => void onRetry(openSubmenuFor)}
+                >
+                  {mentionCopy.loadFailed}
+                </button>
               ) : submenuItems.length === 0 ? (
                 <div className='px-2 py-2 text-muted-foreground text-sm'>
                   {mentionCopy.emptyStates[openSubmenuFor]}

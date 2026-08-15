@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { COPILOT_CONTEXT_PROJECTION_LIMITS } from '@/lib/copilot/context-limits'
 import { deepRedactSecrets, isSensitiveDataKey, projectBoundedRedactedJson } from './redaction'
 
 describe('security redaction', () => {
@@ -92,7 +93,7 @@ describe('security redaction', () => {
     })
   })
 
-  it('truncates multibyte strings on valid UTF-8 boundaries', () => {
+  it('applies string byte and object entry limits', () => {
     const result = projectBoundedRedactedJson('🪿'.repeat(100), {
       maxArrayItems: 4,
       maxDepth: 2,
@@ -105,5 +106,11 @@ describe('security redaction', () => {
     expect(result.value).toBe('🪿🪿…[truncated]')
     expect(result.value).not.toContain('�')
     expect(new TextEncoder().encode(result.value as string).byteLength).toBeLessThanOrEqual(24)
+    const objectResult = projectBoundedRedactedJson(
+      { z: 0, a: 1, b: 2 },
+      { ...COPILOT_CONTEXT_PROJECTION_LIMITS, maxObjectEntries: 2 }
+    )
+
+    expect(objectResult).toEqual({ value: { z: 0, a: 1 }, truncated: true })
   })
 })

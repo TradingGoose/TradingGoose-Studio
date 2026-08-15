@@ -30,6 +30,7 @@ const SECRET_TEXT_PATTERN =
   /((?:["'])?(?:access[-_ ]?key|api[-_ ]?key|api[-_ ]?secret|auth[-_ ]?key|authorization|client[-_ ]?secret|cookie|credential|password|passwd|private[-_ ]?key|secret[-_ ]?key|secret|token)(?:["'])?\s*[:=]\s*)(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|[^,;&\r\n}]+)/giu
 const AUTH_VALUE_PATTERN = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/giu
 const URI_CREDENTIAL_PATTERN = /([a-z][a-z0-9+.-]*:\/\/)[^/@\s:]*:[^/@\s]+@/giu
+const SENSITIVE_VALUE_DISCRIMINATORS = ['Key', 'key', 'Name', 'name'] as const
 
 const utf8Encoder = new TextEncoder()
 const utf8Decoder = new TextDecoder('utf-8', { fatal: false })
@@ -53,16 +54,20 @@ function redactSensitiveText(value: string): string {
 function isTokenMetricValue(value: unknown): boolean {
   if (typeof value === 'number') return Number.isFinite(value)
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  const entries = Object.entries(value)
-  return (
-    entries.length > 0 &&
-    entries.every(
-      ([key, entry]) =>
-        SAFE_TOKEN_METRIC_FIELDS.has(key.replace(/[^a-z0-9]/giu, '').toLowerCase()) &&
-        typeof entry === 'number' &&
-        Number.isFinite(entry)
+  let entryCount = 0
+  const record = value as Record<string, unknown>
+  for (const key in record) {
+    if (!Object.hasOwn(record, key)) continue
+    const entry = record[key]
+    if (
+      !SAFE_TOKEN_METRIC_FIELDS.has(key.replace(/[^a-z0-9]/giu, '').toLowerCase()) ||
+      typeof entry !== 'number' ||
+      !Number.isFinite(entry)
     )
-  )
+      return false
+    entryCount += 1
+  }
+  return entryCount > 0
 }
 
 export function isSensitiveDataKey(key: string, value?: unknown): boolean {
@@ -71,14 +76,28 @@ export function isSensitiveDataKey(key: string, value?: unknown): boolean {
   return !SAFE_TOKEN_METRIC_KEYS.has(normalized) || !isTokenMetricValue(value)
 }
 
+function isSensitiveDataEntry(
+  record: Record<string, unknown>,
+  key: string,
+  value: unknown
+): boolean {
+  if (isSensitiveDataKey(key, value)) return true
+  if (key.toLowerCase() !== 'value') return false
+  return SENSITIVE_VALUE_DISCRIMINATORS.some((discriminator) => {
+    const label = Object.hasOwn(record, discriminator) ? record[discriminator] : null
+    return typeof label === 'string' && isSensitiveDataKey(label, value)
+  })
+}
+
 export function deepRedactSecrets(value: unknown): unknown {
   if (typeof value === 'string') return redactSensitiveText(value)
   if (Array.isArray(value)) return value.map(deepRedactSecrets)
   if (!value || typeof value !== 'object') return value
+  const record = value as Record<string, unknown>
   return Object.fromEntries(
-    Object.entries(value).map(([key, entry]) => [
+    Object.entries(record).map(([key, entry]) => [
       key,
-      isSensitiveDataKey(key, entry) ? REDACTED_VALUE : deepRedactSecrets(entry),
+      isSensitiveDataEntry(record, key, entry) ? REDACTED_VALUE : deepRedactSecrets(entry),
     ])
   )
 }
@@ -128,15 +147,21 @@ export function projectBoundedRedactedJson(
       return result
     }
 
-    const allEntries = Object.entries(item).sort(([left], [right]) => left.localeCompare(right))
-    const entries = allEntries.slice(0, limits.maxObjectEntries)
-    if (allEntries.length > entries.length) state.truncated = true
-    return Object.fromEntries(
-      entries.map(([key, entry]) => [
-        truncateUtf8(key, limits.maxStringBytes),
-        isSensitiveDataKey(key, entry) ? REDACTED_VALUE : visit(entry, depth + 1),
-      ])
-    )
+    const record = item as Record<string, unknown>
+    const result: Record<string, unknown> = {}
+    let entryCount = 0
+    for (const key in record) {
+      if (!Object.hasOwn(record, key)) continue
+      if (entryCount++ >= limits.maxObjectEntries) {
+        state.truncated = true
+        break
+      }
+      const entry = record[key]
+      result[truncateUtf8(key, limits.maxStringBytes)] = isSensitiveDataEntry(record, key, entry)
+        ? REDACTED_VALUE
+        : visit(entry, depth + 1)
+    }
+    return result
   }
 
   return { value: visit(value, 0), truncated: state.truncated }
