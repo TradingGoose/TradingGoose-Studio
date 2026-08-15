@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   executeScheduleJob: vi.fn(),
   executeWebhookJob: vi.fn(),
   executeWorkflowJob: vi.fn(),
+  getAirtablePollContinuation: vi.fn(),
   markDocumentProcessingJobFailed: vi.fn(),
   getProcessingPendingExecution: vi.fn(),
   isCancellationRequested: vi.fn(),
@@ -59,6 +60,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
     endedAt: 'workflowExecutionLogs.endedAt',
     executionId: 'workflowExecutionLogs.executionId',
     id: 'workflowExecutionLogs.id',
+    level: 'workflowExecutionLogs.level',
   },
 }))
 
@@ -83,6 +85,10 @@ vi.mock('@/lib/execution/pending-execution', () => ({
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({ error: mocks.loggerError }),
+}))
+
+vi.mock('@/lib/webhooks/utils', () => ({
+  getAirtablePollContinuation: mocks.getAirtablePollContinuation,
 }))
 
 vi.mock('@/lib/logs/execution/logging-session', () => ({
@@ -173,6 +179,7 @@ describe('pending execution worker', () => {
     mocks.executeScheduleJob.mockResolvedValue({ success: true })
     mocks.executeWebhookJob.mockResolvedValue({ success: true })
     mocks.executeWorkflowJob.mockResolvedValue({ success: true })
+    mocks.getAirtablePollContinuation.mockReturnValue(null)
     mocks.markDocumentProcessingJobFailed.mockResolvedValue(undefined)
     mocks.getProcessingPendingExecution.mockResolvedValue(null)
     mocks.isCancellationRequested.mockResolvedValue(false)
@@ -226,6 +233,36 @@ describe('pending execution worker', () => {
       expect.objectContaining({ error: { message: error.message } })
     )
     expect(mocks.completePendingExecution).toHaveBeenCalledWith({ pendingExecutionId: row.id })
+  })
+
+  it('retains and recovers failed Airtable continuation admission', async () => {
+    const row = processingRow({
+      executionType: 'webhook',
+      source: 'webhook:airtable',
+      payload: { provider: 'airtable', phase: 'initial' },
+    })
+    const stagedRow = { ...row, payload: { provider: 'airtable', phase: 'staged' } }
+    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row).mockResolvedValueOnce(stagedRow)
+    mocks.isWebhookExecutionPayload.mockReturnValue(true)
+    mocks.executeWebhookJob.mockRejectedValueOnce(new Error('Continuation admission failed'))
+    mocks.getAirtablePollContinuation.mockImplementation((payload) =>
+      payload.phase === 'staged' ? { externalId: 'remote', cursor: 10 } : null
+    )
+    mocks.logLimit.mockResolvedValue([{ id: 'log-1', endedAt: new Date(), level: 'info' }])
+
+    await expect(runTask(row.id)).rejects.toThrow('Continuation admission failed')
+
+    expect(mocks.completePendingExecution).not.toHaveBeenCalled()
+
+    mocks.listProcessingPendingExecutions.mockResolvedValueOnce([stagedRow])
+    mocks.runsList.mockResolvedValueOnce({ data: [mockRun('FAILED')], pagination: {} })
+
+    await recoverPendingExecutions()
+
+    expect(mocks.executeWebhookJob).toHaveBeenCalledTimes(2)
+    expect(mocks.completePendingExecution).toHaveBeenCalledWith({
+      pendingExecutionId: stagedRow.id,
+    })
   })
 
   it('keeps a completed parent as the capacity owner while a child is active', async () => {

@@ -20,6 +20,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import type { ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
+import { getAirtablePollContinuation } from '@/lib/webhooks/utils'
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import { markDocumentProcessingJobFailed } from './knowledge-processing'
 import { executePendingExecutionJob } from './pending-execution-job'
@@ -78,6 +79,37 @@ function getWorkflowState(row: PendingExecutionClaim): WorkflowState {
   }
 }
 
+function isAirtablePendingExecution(row: PendingExecutionClaim) {
+  return row.executionType === 'webhook' && row.source === 'webhook:airtable'
+}
+
+async function getWorkflowExecutionLog(executionId: string) {
+  const [log] = await db
+    .select({
+      id: workflowExecutionLogs.id,
+      endedAt: workflowExecutionLogs.endedAt,
+      level: workflowExecutionLogs.level,
+    })
+    .from(workflowExecutionLogs)
+    .where(eq(workflowExecutionLogs.executionId, executionId))
+    .limit(1)
+
+  return log
+}
+
+async function hasCompletedAirtableContinuation(row: PendingExecutionClaim) {
+  if (!isAirtablePendingExecution(row)) return false
+
+  try {
+    if (!getAirtablePollContinuation(row.payload)) return false
+  } catch {
+    return false
+  }
+
+  const executionLog = await getWorkflowExecutionLog(row.id)
+  return executionLog?.level === 'info' && Boolean(executionLog.endedAt)
+}
+
 async function dispatchPendingExecution(row: PendingExecutionClaim) {
   await executePendingExecutionJob(row, { triggerRuntime: true })
   if ((await listChildPendingWorkflowExecutions(row.id)).length === 0) {
@@ -103,6 +135,12 @@ export async function executePendingExecution(payload: PendingExecutionTaskPaylo
       workflowId: row.workflowId,
       error,
     })
+    const currentRow = isAirtablePendingExecution(row)
+      ? await getProcessingPendingExecution(row.id)
+      : null
+    if (currentRow && (await hasCompletedAirtableContinuation(currentRow))) {
+      throw error
+    }
     const message = error instanceof Error ? error.message : WORKER_FAILURE_ERROR
     await finalizePendingExecutionFailure(row, message, 1, {
       cancelTriggerRuns: true,
@@ -133,14 +171,7 @@ async function terminalizeWorkflowExecution(
     throw new Error(`Execution ${row.id} is missing workflow scope`)
   }
 
-  const [existingLog] = await db
-    .select({
-      id: workflowExecutionLogs.id,
-      endedAt: workflowExecutionLogs.endedAt,
-    })
-    .from(workflowExecutionLogs)
-    .where(eq(workflowExecutionLogs.executionId, row.id))
-    .limit(1)
+  const existingLog = await getWorkflowExecutionLog(row.id)
   if (existingLog?.endedAt) {
     return
   }
@@ -270,6 +301,15 @@ async function reconcileProcessingExecution(row: PendingExecutionClaim) {
     if (cancellationRequested) {
       await runs.cancel(run.id)
     }
+    return
+  }
+
+  if (
+    run.status !== 'COMPLETED' &&
+    !cancellationRequested &&
+    (await hasCompletedAirtableContinuation(row))
+  ) {
+    await dispatchPendingExecution(row)
     return
   }
 
