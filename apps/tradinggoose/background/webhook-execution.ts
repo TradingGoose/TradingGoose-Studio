@@ -312,6 +312,7 @@ export async function executeWebhookJob(
         message,
       })
       executionLogOwned = true
+      await airtablePoll?.acknowledge?.()
       if (airtablePoll?.continuation) {
         await enqueueAirtableContinuation(airtablePoll.continuation)
       }
@@ -374,6 +375,7 @@ export async function executeWebhookJob(
       },
       triggerData,
     })
+    await airtablePoll?.acknowledge?.()
 
     logger.info(`[${requestId}] Webhook execution completed`, {
       success: result.success,

@@ -1249,6 +1249,7 @@ type AirtablePollStage = {
 export type AirtablePollResult = {
   input: Record<string, unknown> | undefined
   continuation: { externalId: string; cursor: number } | null
+  acknowledge?: () => Promise<void>
 }
 
 export class AirtableStageIntegrityError extends Error {}
@@ -1344,9 +1345,10 @@ async function commitAirtablePollPage(params: {
   externalId: string
   currentCursor: number | null
   nextCursor: number
-  receivedPayloads: unknown[]
-  mightHaveMore: boolean
-  stage: AirtablePollStage | null
+  receivedPayloads?: unknown[]
+  mightHaveMore?: boolean
+  stage?: AirtablePollStage | null
+  commitCursor?: boolean
 }) {
   return db.transaction(async (tx) => {
     let executionPayload: Record<string, unknown> | null = null
@@ -1392,6 +1394,15 @@ async function commitAirtablePollPage(params: {
       return { stage, committed: false }
     }
 
+    const nextStage: AirtablePollStage = {
+      externalId: params.externalId,
+      apiCallCount: stage.apiCallCount + 1,
+      payloads: [...stage.payloads, ...(params.receivedPayloads ?? [])],
+      cursor: params.nextCursor,
+      mightHaveMore: params.mightHaveMore === true,
+    }
+    if (params.commitCursor === false) return { stage: nextStage, committed: true }
+
     const [updatedWebhook] = await tx
       .update(webhook)
       .set({
@@ -1410,13 +1421,6 @@ async function commitAirtablePollPage(params: {
       .returning({ id: webhook.id })
     if (!updatedWebhook) return { stage, committed: false }
 
-    const nextStage: AirtablePollStage = {
-      externalId: params.externalId,
-      apiCallCount: stage.apiCallCount + 1,
-      payloads: [...stage.payloads, ...params.receivedPayloads],
-      cursor: params.nextCursor,
-      mightHaveMore: params.mightHaveMore,
-    }
     if (params.pendingExecutionId === null) {
       return { stage: nextStage, committed: true }
     }
@@ -1612,6 +1616,7 @@ async function formatAirtableWebhookInput(
         receivedPayloads: responseBody.payloads,
         mightHaveMore: responseBody.mightHaveMore === true,
         stage,
+        commitCursor: pendingExecutionId !== null,
       })
       stage = committed.stage
       if (!committed.committed) break
@@ -1636,6 +1641,19 @@ async function formatAirtableWebhookInput(
   return {
     input: buildAirtablePollInput(completedStage, webhookData.providerConfig),
     continuation: getStageContinuation(completedStage),
+    acknowledge:
+      pendingExecutionId === null &&
+      completedStage.cursor !== null &&
+      completedStage.cursor !== storedCursor
+        ? () =>
+            commitAirtablePollPage({
+              pendingExecutionId,
+              webhookId: webhookData.id,
+              externalId,
+              currentCursor: Number.isInteger(storedCursor) ? storedCursor : null,
+              nextCursor: completedStage.cursor as number,
+            }).then(() => undefined)
+        : undefined,
   }
 }
 

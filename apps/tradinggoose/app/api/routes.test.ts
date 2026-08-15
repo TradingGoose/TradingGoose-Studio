@@ -596,15 +596,35 @@ describe('Airtable payload durability', () => {
     vi.unstubAllGlobals()
   })
 
-  it('polls and executes Airtable directly without a local queue row', async () => {
+  it('acknowledges the Airtable cursor after direct local execution returns', async () => {
     state.pendingExecutions = []
     fetchMock.mockResolvedValue(page([{ id: 'P1' }], 1, false))
-    runWorkflowMock.mockResolvedValue({ result: { success: true, output: {} } })
+    let finishExecution!: (value: Row) => void
+    runWorkflowMock.mockReturnValue(
+      new Promise((resolve) => {
+        finishExecution = resolve
+      })
+    )
 
-    await expect(execute({}, null)).resolves.toMatchObject({ success: true })
+    const execution = execute({}, null)
+    await vi.waitFor(() => expect(runWorkflowMock).toHaveBeenCalledOnce())
 
+    expect(state.webhooks[0].providerConfig.externalWebhookCursor).toBeUndefined()
+    finishExecution({ result: { success: true, output: {} } })
+    await expect(execution).resolves.toMatchObject({ success: true })
     expect(runWorkflowMock.mock.calls[0][0].workflowInput.payloads).toEqual([{ id: 'P1' }])
     expect(state.webhooks[0].providerConfig.externalWebhookCursor).toBe(1)
+    expect(state.pendingExecutions).toEqual([])
+  })
+
+  it('does not acknowledge the Airtable cursor when direct local execution throws', async () => {
+    state.pendingExecutions = []
+    fetchMock.mockResolvedValue(page([{ id: 'P1' }], 1, false))
+    runWorkflowMock.mockRejectedValue(new Error('workflow crashed'))
+
+    await expect(execute({}, null)).rejects.toThrow('workflow crashed')
+
+    expect(state.webhooks[0].providerConfig.externalWebhookCursor).toBeUndefined()
     expect(state.pendingExecutions).toEqual([])
   })
 
