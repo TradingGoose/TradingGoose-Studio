@@ -11,14 +11,6 @@ vi.stubGlobal('crypto', {
   }),
 })
 
-vi.mock('@/lib/utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/utils')>()
-  return {
-    ...actual,
-    redactApiKeys: vi.fn((obj) => obj), // Return object as-is for testing
-  }
-})
-
 describe('Console Store', () => {
   beforeEach(() => {
     useConsoleStore.getState().clearConsole(null)
