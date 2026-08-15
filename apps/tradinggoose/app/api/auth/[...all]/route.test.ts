@@ -14,6 +14,7 @@ const {
   mockGetActiveSubscriptionForReference,
   mockHasPrivateBillingTierAccess,
   mockAuthorizeSubscriptionReference,
+  mockGetStoredStripeUserCustomerId,
   mockEnsurePlanChangePortalConfiguration,
   mockGetOccupiedSeatCount,
 } = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ const {
   mockGetActiveSubscriptionForReference: vi.fn(),
   mockHasPrivateBillingTierAccess: vi.fn(),
   mockAuthorizeSubscriptionReference: vi.fn(),
+  mockGetStoredStripeUserCustomerId: vi.fn(),
   mockEnsurePlanChangePortalConfiguration: vi.fn(),
   mockGetOccupiedSeatCount: vi.fn(),
 }))
@@ -64,6 +66,10 @@ vi.mock('@/lib/billing/stripe-client', () => ({
   requireStripeClient: () => ({ id: 'stripe-client' }),
 }))
 
+vi.mock('@/lib/billing/stripe-customers', () => ({
+  getStoredStripeUserCustomerId: (...args: unknown[]) => mockGetStoredStripeUserCustomerId(...args),
+}))
+
 vi.mock('@/lib/billing/stripe-portal', () => ({
   ensurePlanChangePortalConfiguration: (...args: unknown[]) =>
     mockEnsurePlanChangePortalConfiguration(...args),
@@ -96,6 +102,7 @@ describe('/api/auth/[...all] route', () => {
     vi.clearAllMocks()
     mockLoadSystemOAuthClientCredentials.mockResolvedValue({})
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockGetStoredStripeUserCustomerId.mockResolvedValue('cus_user_123')
     mockHasPrivateBillingTierAccess.mockResolvedValue(false)
     mockGetActiveSubscriptionForReference.mockResolvedValue(null)
     mockAuthorizeSubscriptionReference.mockResolvedValue(true)
@@ -170,6 +177,7 @@ describe('/api/auth/[...all] route', () => {
     mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
     mockGetActiveSubscriptionForReference.mockResolvedValue({
       status: 'active',
+      stripeCustomerId: 'cus_user_123',
       stripeSubscriptionId: 'sub_existing',
     })
     mockGetBillingTierById.mockResolvedValue({
@@ -228,6 +236,35 @@ describe('/api/auth/[...all] route', () => {
     )
 
     expect(response.status).toBe(403)
+    expect(mockAuthHandler).not.toHaveBeenCalled()
+  })
+
+  it('rejects plan confirmation for another user Stripe customer', async () => {
+    mockGetBillingTierById.mockResolvedValue({
+      id: 'public-tier',
+      status: 'active',
+      isPublic: true,
+      ownerType: 'user',
+    })
+    mockGetActiveSubscriptionForReference.mockResolvedValue({
+      status: 'active',
+      stripeCustomerId: 'cus_other_user',
+      stripeSubscriptionId: 'sub_current',
+    })
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/upgrade', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan: 'public-tier',
+          referenceId: 'user-1',
+        }),
+      })
+    )
+
+    expect(response.status).toBe(403)
+    expect(mockEnsurePlanChangePortalConfiguration).not.toHaveBeenCalled()
     expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
@@ -322,6 +359,13 @@ describe('/api/auth/[...all] route', () => {
       requestedSeats: 3,
       error: 'Organization plan supports at most 2 seats',
     },
+    {
+      name: 'fixed tier occupied seat count',
+      tier: { seatMode: 'fixed', seatCount: 2, seatMaximum: null },
+      occupiedSeats: 3,
+      requestedSeats: 2,
+      error: 'Organization plan supports at most 2 seats',
+    },
   ])('rejects organization seats above the $name', async (testCase) => {
     mockGetBillingTierById.mockResolvedValue({
       id: 'team-tier',
@@ -351,24 +395,25 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
-  it('preserves licensed seats when changing organization tiers', async () => {
+  it('allows a cross-tier change to reduce licensed seats to the target fixed count', async () => {
     mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
     mockGetBillingTierById.mockResolvedValue({
       id: 'team-new',
       status: 'active',
       isPublic: true,
       ownerType: 'organization',
-      seatMode: 'adjustable',
+      seatMode: 'fixed',
       seatCount: 2,
-      seatMaximum: 10,
+      seatMaximum: null,
     })
     mockGetActiveSubscriptionForReference.mockResolvedValue({
       status: 'active',
+      stripeCustomerId: 'cus_user_123',
       stripeSubscriptionId: 'sub_current',
       seats: 8,
       tier: { id: 'team-old', seatCount: 2 },
     })
-    mockGetOccupiedSeatCount.mockResolvedValue(3)
+    mockGetOccupiedSeatCount.mockResolvedValue(2)
 
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
@@ -378,7 +423,7 @@ describe('/api/auth/[...all] route', () => {
           plan: 'team-new',
           referenceId: 'org-1',
           subscriptionId: 'sub_current',
-          seats: 7,
+          seats: 2,
         }),
       })
     )
@@ -386,7 +431,7 @@ describe('/api/auth/[...all] route', () => {
     expect(response.status).toBe(204)
     expect(mockAuthHandler).toHaveBeenCalledOnce()
     const delegatedRequest = mockAuthHandler.mock.calls[0]?.[0] as Request
-    await expect(delegatedRequest.json()).resolves.toMatchObject({ seats: 8 })
+    await expect(delegatedRequest.json()).resolves.toMatchObject({ seats: 2 })
   })
 
   it('keeps seat reductions on the organization seat-management endpoint', async () => {
@@ -402,6 +447,7 @@ describe('/api/auth/[...all] route', () => {
     })
     mockGetActiveSubscriptionForReference.mockResolvedValue({
       status: 'active',
+      stripeCustomerId: 'cus_user_123',
       stripeSubscriptionId: 'sub_current',
       seats: 8,
       tier: { id: 'team-current', seatCount: 2 },
@@ -460,6 +506,16 @@ describe('/api/auth/[...all] route', () => {
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
       new Request('http://localhost/api/auth/subscription/billing-portal', { method: 'POST' })
+    )
+
+    expect(response.status).toBe(404)
+    expect(mockAuthHandler).not.toHaveBeenCalled()
+  })
+
+  it('disables the Better Auth cancellation portal endpoint', async () => {
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/subscription/cancel', { method: 'POST' })
     )
 
     expect(response.status).toBe(404)

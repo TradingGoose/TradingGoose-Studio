@@ -14,44 +14,17 @@ const mockStripeBillingPortalSessionsCreate = vi.fn()
 const mockStripeBillingPortalConfigurationsList = vi.fn()
 const mockStripeBillingPortalConfigurationsUpdate = vi.fn()
 const mockStripeBillingPortalConfigurationsCreate = vi.fn()
-const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, value }))
-const mockAnd = vi.fn((...conditions: unknown[]) => conditions)
-const mockOr = vi.fn((...conditions: unknown[]) => conditions)
-const mockInArray = vi.fn((field: unknown, values: unknown[]) => ({ field, values }))
 const mockSql = vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
   strings,
   values,
 }))
 const mockExecute = vi.fn()
 
-const subscriptionTable = {
-  stripeCustomerId: 'subscription.stripeCustomerId',
-  referenceType: 'subscription.referenceType',
-  referenceId: 'subscription.referenceId',
-  status: 'subscription.status',
-  cancelAtPeriodEnd: 'subscription.cancelAtPeriodEnd',
-}
-
-let subscriptionRows: Array<{ customer: string | null }> = []
-
 const mockTx = {
   execute: mockExecute,
 }
 
 const mockDb = {
-  select: vi.fn(() => ({
-    from: vi.fn((table) => ({
-      where: vi.fn(() => ({
-        limit: vi.fn(() => {
-          if (table === subscriptionTable) {
-            return Promise.resolve(subscriptionRows)
-          }
-
-          return Promise.resolve([])
-        }),
-      })),
-    })),
-  })),
   transaction: vi.fn(async (callback: (tx: typeof mockTx) => Promise<unknown>) => callback(mockTx)),
 }
 
@@ -59,15 +32,7 @@ vi.mock('@tradinggoose/db', () => ({
   db: mockDb,
 }))
 
-vi.mock('@tradinggoose/db/schema', () => ({
-  subscription: subscriptionTable,
-}))
-
 vi.mock('drizzle-orm', () => ({
-  and: mockAnd,
-  eq: mockEq,
-  inArray: mockInArray,
-  or: mockOr,
   sql: mockSql,
 }))
 
@@ -90,10 +55,6 @@ vi.mock('@/lib/billing/stripe-client', () => ({
 
 vi.mock('@/lib/billing/stripe-customers', () => ({
   ensureStripeUserCustomer: mockEnsureStripeUserCustomer,
-}))
-
-vi.mock('@/lib/billing/subscriptions/utils', () => ({
-  BILLING_ENTITLED_SUBSCRIPTION_STATUSES: ['active', 'trialing', 'past_due'],
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -133,8 +94,6 @@ describe('/api/billing/portal route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
-
-    subscriptionRows = [{ customer: 'cus_org_123' }]
 
     mockGetSession.mockResolvedValue({
       user: { id: 'user-1' },
@@ -228,7 +187,7 @@ describe('/api/billing/portal route', () => {
     expect(mockStripeBillingPortalSessionsCreate).not.toHaveBeenCalled()
   })
 
-  it('opens an organization billing portal session without invoking the personal customer helper', async () => {
+  it('opens an organization billing portal with the signed-in user customer', async () => {
     const response = await postPortal({
       context: 'organization',
       organizationId: 'org-1',
@@ -237,12 +196,24 @@ describe('/api/billing/portal route', () => {
 
     expect(response.status).toBe(200)
     expect(payload.url).toBe('https://billing.stripe.test/session')
+    expect(mockEnsureStripeUserCustomer).toHaveBeenCalledWith(expect.any(Object), {
+      dbClient: mockTx,
+      logger: expect.any(Object),
+      userId: 'user-1',
+    })
+    expectPortalSession('cus_user_123')
+  })
+
+  it('rejects organization billing context before resolving the user customer', async () => {
+    mockIsOrganizationOwnerOrAdmin.mockResolvedValueOnce(false)
+
+    const response = await postPortal({
+      context: 'organization',
+      organizationId: 'org-1',
+    })
+
+    expect(response.status).toBe(403)
     expect(mockEnsureStripeUserCustomer).not.toHaveBeenCalled()
-    expect(mockInArray).toHaveBeenCalledWith(subscriptionTable.status, [
-      'active',
-      'trialing',
-      'past_due',
-    ])
-    expectPortalSession('cus_org_123')
+    expect(mockStripeBillingPortalSessionsCreate).not.toHaveBeenCalled()
   })
 })

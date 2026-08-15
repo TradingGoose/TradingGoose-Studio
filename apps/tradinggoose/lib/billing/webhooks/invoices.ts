@@ -13,7 +13,6 @@ import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
 import { getSubscriptionByStripeSubscriptionId } from '@/lib/billing/core/subscription'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import { createBillingManagementPortalSession } from '@/lib/billing/stripe-portal'
 import {
   type BillingTierRecord,
   isOrganizationSubscription,
@@ -42,25 +41,6 @@ function parseDecimal(value: string | number | null | undefined): number {
 type SubscriptionUsageScope = {
   referenceId: string
   tier?: BillingTierRecord | null
-}
-
-/**
- * Create a billing portal URL for a Stripe customer
- */
-async function createBillingPortalUrl(stripeCustomerId: string): Promise<string> {
-  try {
-    const stripe = requireStripeClient()
-    const baseUrl = getBaseUrl()
-    const portal = await createBillingManagementPortalSession(stripe, {
-      customer: stripeCustomerId,
-      return_url: `${baseUrl}/workspace?billing=updated`,
-    })
-    return portal.url
-  } catch (error) {
-    logger.error('Failed to create billing portal URL', { error, stripeCustomerId })
-    // Fallback to generic billing page
-    return `${getBaseUrl()}/workspace?tab=subscription`
-  }
 }
 
 /**
@@ -153,11 +133,10 @@ async function getPaymentMethodDetails(
  */
 async function sendPaymentFailureEmails(
   sub: SubscriptionUsageScope,
-  invoice: Stripe.Invoice,
-  stripeCustomerId: string
+  invoice: Stripe.Invoice
 ): Promise<void> {
   try {
-    const billingPortalUrl = await createBillingPortalUrl(stripeCustomerId)
+    const billingPortalUrl = `${getBaseUrl()}/workspace?tab=subscription`
     const amountDue = invoice.amount_due / 100 // Convert cents to dollars
     const { lastFourDigits, failureReason } = await getPaymentMethodDetails(invoice)
 
@@ -474,7 +453,7 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
         // Only send on FIRST failure (attempt_count === 1), not on Stripe's automatic retries
         // This prevents spamming users with duplicate emails every 3-5-7 days
         if (attemptCount === 1) {
-          await sendPaymentFailureEmails(sub, invoice, customerId)
+          await sendPaymentFailureEmails(sub, invoice)
           logger.info('Payment failure email sent on first attempt', {
             invoiceId: invoice.id,
             customerId,

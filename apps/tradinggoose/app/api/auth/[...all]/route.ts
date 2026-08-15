@@ -4,6 +4,7 @@ import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
 import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
 import { hasPrivateBillingTierAccess } from '@/lib/billing/private-tier-access'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
+import { getStoredStripeUserCustomerId } from '@/lib/billing/stripe-customers'
 import { ensurePlanChangePortalConfiguration } from '@/lib/billing/stripe-portal'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { getBillingTierById } from '@/lib/billing/tiers'
@@ -18,6 +19,7 @@ export const dynamic = 'force-dynamic'
 
 const SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES = ['/api/auth/callback/', '/api/auth/oauth2/callback/']
 const SUBSCRIPTION_UPGRADE_PATH = '/api/auth/subscription/upgrade'
+const SUBSCRIPTION_CANCEL_PATH = '/api/auth/subscription/cancel'
 const SUBSCRIPTION_BILLING_PORTAL_PATH = '/api/auth/subscription/billing-portal'
 
 const isSystemOAuthCallbackPath = (pathname: string) =>
@@ -129,6 +131,15 @@ async function prepareSubscriptionUpgrade(request: Request): Promise<Request | R
     )
   }
   if (activeStripeSubscriptionId) {
+    if (
+      existingSubscription?.stripeCustomerId !==
+      (await getStoredStripeUserCustomerId(session.user.id))
+    ) {
+      return Response.json(
+        { error: 'Subscription billing customer does not match user' },
+        { status: 403 }
+      )
+    }
     preparedBody = { ...preparedBody, subscriptionId: activeStripeSubscriptionId }
   }
   if (tier.ownerType === 'organization') {
@@ -138,14 +149,15 @@ async function prepareSubscriptionUpgrade(request: Request): Promise<Request | R
 
     const occupiedSeats = await getOccupiedSeatCount(referenceId)
     const tierMinimumSeats = Math.max(tier.seatCount ?? 1, 1)
-    const currentLicensedSeats = existingSubscription
-      ? Math.max(existingSubscription.seats ?? existingSubscription.tier.seatCount ?? 1, 1)
-      : 0
+    const currentTierLicensedSeats =
+      existingSubscription?.tier.id === tier.id
+        ? Math.max(existingSubscription.seats ?? existingSubscription.tier.seatCount ?? 1, 1)
+        : 0
     const authorizedSeats = Math.max(
       requestedSeats,
       tierMinimumSeats,
       occupiedSeats,
-      currentLicensedSeats
+      currentTierLicensedSeats
     )
 
     const tierMaximumSeats = tier.seatMode === 'fixed' ? tierMinimumSeats : tier.seatMaximum
@@ -181,7 +193,10 @@ export const handleAuthRequest = async (request: Request) => {
   const pathname = new URL(request.url).pathname
   let requestToHandle = request
 
-  if (request.method === 'POST' && pathname === SUBSCRIPTION_BILLING_PORTAL_PATH) {
+  if (
+    request.method === 'POST' &&
+    (pathname === SUBSCRIPTION_CANCEL_PATH || pathname === SUBSCRIPTION_BILLING_PORTAL_PATH)
+  ) {
     return Response.json({ error: 'Not found' }, { status: 404 })
   }
 
