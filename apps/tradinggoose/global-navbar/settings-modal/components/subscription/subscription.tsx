@@ -331,6 +331,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const isTeamAdmin =
     !isOrganizationBillingSubject ||
     ['owner', 'admin'].includes(organizationBillingPayload?.userRole ?? '')
+  const isOrganizationOwner =
+    !isOrganizationBillingSubject || organizationBillingPayload?.userRole === 'owner'
 
   const surfaceState = getSubscriptionSurfaceState({
     subscription: {
@@ -339,6 +341,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
       tier: subscription.tier,
     },
     userRole: {
+      isOrganizationOwner,
       isTeamAdmin,
     },
     publicTiers: availableTiers,
@@ -346,6 +349,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   })
 
   const isOrganizationPlan = surfaceState.isOrganizationPlan
+  const canManageSelectedPlan = !isOrganizationPlan || surfaceState.canManageOrganizationPlan
   const aggregatedCurrentUsage = safeNumber(
     isOrganizationPlan ? organizationBillingPayload?.totalCurrentUsage : usage.current
   )
@@ -407,7 +411,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
   const showManageSubscriptionRow =
     (subscription.isPaid || showPersonalSubscriptionManagement) &&
     !surfaceState.isCustomOrganizationPlan &&
-    !surfaceState.showTeamMemberView
+    !surfaceState.showTeamMemberView &&
+    canManageSelectedPlan
   const badgeText =
     !isOrganizationPlan && personalPaygUiState.showBadge
       ? personalPaygUiState.badgeText
@@ -441,6 +446,11 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     },
     [handleUpgrade, organizationBillingId]
   )
+
+  const handleOpenBillingPortal = () =>
+    void openBillingPortal().catch((error) =>
+      alert(error instanceof Error ? error.message : 'Failed to open billing portal')
+    )
 
   const activatePayg = useCallback(async () => {
     setIsPrimaryActionPending(true)
@@ -478,9 +488,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         case 'resolve_payment':
         case 'add_payment_method':
         case 'manage_billing':
-          void openBillingPortal().catch((error) => {
-            alert(error instanceof Error ? error.message : 'Failed to open billing portal')
-          })
+          void handleOpenBillingPortal()
           return
         case 'activate_payg':
           void activatePayg().catch((error) => {
@@ -591,7 +599,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             badgeText={badgeText}
             onBadgeClick={handleBadgeClick}
             seatsText={
-              surfaceState.canManageOrganizationPlan || surfaceState.isCustomOrganizationPlan
+              isOrganizationPlan && (isTeamAdmin || surfaceState.isCustomOrganizationPlan)
                 ? `${organizationBillingPayload?.totalSeats || subscription.seats || 1} seats`
                 : undefined
             }
@@ -606,13 +614,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
             isBlocked={selectedBillingBlocked}
             status={normalizedBillingStatus}
             percentUsed={percentUsedClamped}
-            onResolvePayment={async () => {
-              try {
-                await openBillingPortal()
-              } catch (error) {
-                alert(error instanceof Error ? error.message : 'Failed to open billing portal')
-              }
-            }}
+            onResolvePayment={canManageSelectedPlan ? handleOpenBillingPortal : undefined}
             rightContent={
               showUsageLimitControl ? (
                 <UsageLimit
@@ -711,7 +713,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                           ? () => {}
                           : () => handleUpgradeWithErrorHandling(toUpgradeTarget(tier))
                       }
-                      buttonDisabled={isCurrentTier}
+                      buttonDisabled={isCurrentTier || !canManageSelectedPlan}
                       isError={!isCurrentTier && upgradeError === tier.id}
                       layout='vertical'
                     />
@@ -779,9 +781,7 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 variant='outline'
                 className='h-8 rounded-sm font-medium text-xs'
                 onClick={() => {
-                  void openBillingPortal().catch((error) => {
-                    alert(error instanceof Error ? error.message : 'Failed to open billing portal')
-                  })
+                  void handleOpenBillingPortal()
                 }}
               >
                 Manage

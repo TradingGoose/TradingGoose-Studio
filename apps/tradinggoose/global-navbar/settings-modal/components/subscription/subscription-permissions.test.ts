@@ -4,8 +4,9 @@ import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/subscription/types'
 import { getSubscriptionSurfaceState } from './subscription-permissions'
 
-const adminRole = { isTeamAdmin: true }
-const memberRole = { isTeamAdmin: false }
+const ownerRole = { isOrganizationOwner: true, isTeamAdmin: true }
+const adminRole = { isOrganizationOwner: false, isTeamAdmin: true }
+const memberRole = { isOrganizationOwner: false, isTeamAdmin: false }
 
 function buildTier(overrides: Partial<PublicBillingTierDisplay>): PublicBillingTierDisplay {
   return {
@@ -198,7 +199,7 @@ describe('getSubscriptionSurfaceState', () => {
           usageScope: 'pooled',
         },
       },
-      userRole: adminRole,
+      userRole: ownerRole,
       publicTiers: [proTier, publicOrganizationTier, grantedPrivateOrganizationTier],
       enterprisePlaceholder: null,
     })
@@ -207,6 +208,7 @@ describe('getSubscriptionSurfaceState', () => {
       'tier_org_public',
       'tier_org_private',
     ])
+    expect(state.canManageOrganizationPlan).toBe(true)
   })
 
   it('shows active granted alternatives when the current private tier is archived', () => {
@@ -242,7 +244,7 @@ describe('getSubscriptionSurfaceState', () => {
     ])
   })
 
-  it('lets organization admins leave an archived Stripe-backed tier', () => {
+  it('keeps archived Stripe-backed alternatives visible but owner-gated', () => {
     const replacementOrganizationTier = buildTier({
       id: 'tier_organization_replacement',
       displayName: 'Replacement organization tier',
@@ -273,6 +275,7 @@ describe('getSubscriptionSurfaceState', () => {
     })
 
     expect(state.isCustomOrganizationPlan).toBe(false)
+    expect(state.canManageOrganizationPlan).toBe(false)
     expect(state.currentTier?.id).toBe('tier_organization_archived')
     expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([
       'tier_organization_archived',

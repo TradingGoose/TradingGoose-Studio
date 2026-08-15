@@ -144,7 +144,7 @@ async function sendPaymentFailureEmails(
     let usersToNotify: Array<{ id: string; email: string; name: string | null }> = []
 
     if (isOrganizationSubscription(sub)) {
-      // For organization-scoped tiers, notify all owners and admins
+      // For organization-scoped tiers, notify owners
       const members = await db
         .select({
           userId: member.userId,
@@ -153,16 +153,13 @@ async function sendPaymentFailureEmails(
         .from(member)
         .where(eq(member.organizationId, sub.referenceId))
 
-      // Get owner/admin user details
-      const ownerAdminIds = members
-        .filter((m) => m.role === 'owner' || m.role === 'admin')
-        .map((m) => m.userId)
+      const ownerIds = members.filter((m) => m.role === 'owner').map((m) => m.userId)
 
-      if (ownerAdminIds.length > 0) {
+      if (ownerIds.length > 0) {
         const users = await db
           .select({ id: user.id, email: user.email, name: user.name })
           .from(user)
-          .where(inArray(user.id, ownerAdminIds))
+          .where(inArray(user.id, ownerIds))
 
         usersToNotify = users.filter((u) => u.email && quickValidateEmail(u.email).isValid)
       }

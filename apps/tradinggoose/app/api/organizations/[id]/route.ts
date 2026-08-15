@@ -5,9 +5,7 @@ import { getSession } from '@/lib/auth'
 import {
   getOrganizationSeatAnalytics,
   getOrganizationSeatInfo,
-  updateOrganizationSeats,
 } from '@/lib/billing/validation/seat-management'
-import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 import { assertOrganizationCanBeDeleted } from '@/lib/workspaces/billing-owner'
 
@@ -101,7 +99,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 /**
  * PUT /api/organizations/[id]
- * Update organization settings or seat count
+ * Update organization settings
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -113,7 +111,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id: organizationId } = await params
     const body = await request.json()
-    const { name, slug, logo, seats } = body
+    const { name, slug, logo } = body
 
     // Verify user has admin access
     const memberEntry = await db
@@ -131,39 +129,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (!['owner', 'admin'].includes(memberEntry[0].role)) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
-    }
-
-    // Handle seat count update
-    if (seats !== undefined) {
-      if (typeof seats !== 'number' || seats < 1) {
-        return NextResponse.json({ error: 'Invalid seat count' }, { status: 400 })
-      }
-
-      if (!(await getBillingGateState()).billingEnabled) {
-        return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
-      }
-
-      const result = await updateOrganizationSeats(organizationId, seats, session.user.id)
-
-      if (!result.success) {
-        return NextResponse.json({ error: result.error }, { status: 400 })
-      }
-
-      logger.info('Organization seat count updated', {
-        organizationId,
-        newSeatCount: seats,
-        updatedBy: session.user.id,
-      })
-
-      return NextResponse.json({
-        success: true,
-        message: 'Seat count updated successfully',
-        data: {
-          seats: seats,
-          updatedBy: session.user.id,
-          updatedAt: new Date().toISOString(),
-        },
-      })
     }
 
     // Handle settings update

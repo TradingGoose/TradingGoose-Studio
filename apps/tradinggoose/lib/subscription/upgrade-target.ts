@@ -10,13 +10,11 @@ export function resolveOrganizationUpgradeReference(input: {
   organizationAccess: OrganizationUpgradeAccess
 }) {
   const selectedOrganization = input.organizationAccess.organizations?.find(
-    (organization) =>
-      organization.id === input.organizationId &&
-      (organization.role === 'owner' || organization.role === 'admin')
+    (organization) => organization.id === input.organizationId && organization.role === 'owner'
   )
 
   if (!selectedOrganization) {
-    throw new Error('You can only upgrade an organization you own or administer.')
+    throw new Error('Only the organization owner can manage its subscription.')
   }
 
   return { referenceId: selectedOrganization.id }

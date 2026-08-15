@@ -22,5 +22,5 @@ export async function authorizeSubscriptionReference(
     .where(and(eq(schema.member.userId, userId), eq(schema.member.organizationId, referenceId)))
 
   const member = members[0]
-  return member?.role === 'owner' || member?.role === 'admin'
+  return member?.role === 'owner'
 }

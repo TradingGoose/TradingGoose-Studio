@@ -12,6 +12,7 @@ export interface SubscriptionState {
 }
 
 export interface UserRole {
+  isOrganizationOwner: boolean
   isTeamAdmin: boolean
 }
 
@@ -106,8 +107,9 @@ export function getSubscriptionSurfaceState({
     currentTier,
     isOrganizationPlan: isCurrentOrganizationPlan,
     isCustomOrganizationPlan: isCurrentCustomOrganizationPlan,
-    canManageOrganizationPlan: isCurrentOrganizationPlan && userRole.isTeamAdmin,
-    canEditUsageLimit: canEditUsageLimit && (!isCurrentOrganizationPlan || userRole.isTeamAdmin),
+    canManageOrganizationPlan: isCurrentOrganizationPlan && userRole.isOrganizationOwner,
+    canEditUsageLimit:
+      canEditUsageLimit && (!isCurrentOrganizationPlan || userRole.isOrganizationOwner),
     showTeamMemberView: isTeamMemberView && !isCurrentCustomOrganizationPlan,
     visiblePlanTiers,
     showEnterprisePlaceholder,

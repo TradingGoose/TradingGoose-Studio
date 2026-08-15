@@ -11,10 +11,10 @@ import {
 import { useOrganizationBilling } from '@/hooks/queries/organization'
 
 interface TeamUsageProps {
-  hasAdminAccess: boolean
+  isOrganizationOwner: boolean
 }
 
-export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
+export function TeamUsage({ isOrganizationOwner }: TeamUsageProps) {
   const { data: activeOrg } = useActiveOrganization()
   const {
     data: billingData,
@@ -77,12 +77,16 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
 
   const title = organizationBillingPayload.subscriptionTier?.displayName || 'Organization Usage'
   const canEditUsageLimit = canTierEditUsageLimit(organizationBillingPayload.subscriptionTier)
+  const handleOpenBillingPortal = () =>
+    openBillingPortal().catch((error) =>
+      alert(error instanceof Error ? error.message : 'Failed to open billing portal')
+    )
 
   return (
     <UsageHeader
       title={title}
       gradientTitle
-      showBadge={!!(hasAdminAccess && activeOrg?.id && canEditUsageLimit)}
+      showBadge={!!(isOrganizationOwner && activeOrg?.id && canEditUsageLimit)}
       badgeText={canEditUsageLimit ? 'Increase Limit' : undefined}
       onBadgeClick={() => {
         if (canEditUsageLimit) usageLimitRef.current?.startEdit()
@@ -93,20 +97,14 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
       isBlocked={Boolean(organizationBillingPayload?.billingBlocked)}
       status={status}
       percentUsed={percentUsed}
-      onResolvePayment={async () => {
-        try {
-          await openBillingPortal()
-        } catch (e) {
-          alert(e instanceof Error ? e.message : 'Failed to open billing portal')
-        }
-      }}
+      onResolvePayment={isOrganizationOwner ? handleOpenBillingPortal : undefined}
       rightContent={
-        hasAdminAccess && activeOrg?.id && canEditUsageLimit ? (
+        isOrganizationOwner && activeOrg?.id && canEditUsageLimit ? (
           <UsageLimit
             ref={usageLimitRef}
             currentLimit={currentCap}
             currentUsage={currentUsage}
-            canEdit={hasAdminAccess && canEditUsageLimit}
+            canEdit={isOrganizationOwner && canEditUsageLimit}
             minimumLimit={minimumUsageLimit}
             context='organization'
             organizationId={activeOrg.id}

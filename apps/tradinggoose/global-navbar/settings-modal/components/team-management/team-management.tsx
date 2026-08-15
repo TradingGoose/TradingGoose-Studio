@@ -90,6 +90,7 @@ export function TeamManagement() {
   const activeOrgId = displayOrganization?.id
   const userRole = getUserRole(displayOrganization, session?.user?.email)
   const adminOrOwner = isAdminOrOwner(displayOrganization, session?.user?.email)
+  const isOrganizationOwner = userRole === 'owner'
 
   const {
     data: userSubscriptionData,
@@ -267,7 +268,7 @@ export function TeamManagement() {
           usageScope: 'pooled',
         } satisfies BillingTierSummary),
     },
-    userRole: { isTeamAdmin: adminOrOwner },
+    userRole: { isOrganizationOwner, isTeamAdmin: adminOrOwner },
     publicTiers: availableOrganizationTiers,
     enterprisePlaceholder: publicBillingCatalog?.enterprisePlaceholder ?? null,
   })
@@ -614,7 +615,7 @@ export function TeamManagement() {
     <div className='flex h-full flex-col px-6 pt-4 pb-4'>
       <div className='flex flex-1 flex-col gap-6 overflow-y-auto'>
         {/* Team Usage Overview */}
-        <TeamUsage hasAdminAccess={adminOrOwner} />
+        <TeamUsage isOrganizationOwner={isOrganizationOwner} />
 
         {/* Organization billing information */}
         {currentTier?.ownerType === 'organization' && (
@@ -627,7 +628,7 @@ export function TeamManagement() {
                   /month for {subscriptionData?.seats || 0} licensed seats
                 </li>
                 <li>Usage is tracked against the active included allowance for this tier</li>
-                <li>You can increase the usage limit to allow for higher usage</li>
+                <li>The organization owner can increase the usage limit when needed</li>
                 <li>
                   Any usage beyond the minimum seat cost is billed as overage at the end of the
                   billing period
@@ -642,9 +643,7 @@ export function TeamManagement() {
             <div>
               <h4 className='font-medium text-sm'>Organization plans</h4>
               <p className='mt-1 text-muted-foreground text-xs'>
-                {currentTier
-                  ? 'Review the current plan or change to another available organization tier.'
-                  : 'Subscribe this organization before assigning workspace billing or inviting members.'}
+                Review the current and available organization tiers.
               </p>
             </div>
 
@@ -685,7 +684,12 @@ export function TeamManagement() {
                     <Button
                       key={tier.id}
                       variant='outline'
-                      disabled={isCurrentTier || isPending || !activeOrgId}
+                      disabled={
+                        isCurrentTier ||
+                        isPending ||
+                        !activeOrgId ||
+                        !organizationPlanSurface.canManageOrganizationPlan
+                      }
                       onClick={() => {
                         if (isCurrentTier) return
 
@@ -747,7 +751,7 @@ export function TeamManagement() {
         />
 
         {/* Team Seats Overview */}
-        {adminOrOwner && isAdjustableSeatTier && (
+        {isOrganizationOwner && isAdjustableSeatTier && (
           <TeamSeatsOverview
             subscriptionData={subscriptionData}
             isLoadingSubscription={isLoadingSubscription}
@@ -873,7 +877,7 @@ export function TeamManagement() {
       />
 
       <TeamSeats
-        open={isAddSeatDialogOpen && isAdjustableSeatTier}
+        open={isAddSeatDialogOpen && isOrganizationOwner && isAdjustableSeatTier}
         onOpenChange={setIsAddSeatDialogOpen}
         title='Add Team Seats'
         description={`Each seat costs $${seatPriceUsd}/month and provides $${seatPriceUsd} in monthly inference credits. Adjust the number of licensed seats for your team.`}

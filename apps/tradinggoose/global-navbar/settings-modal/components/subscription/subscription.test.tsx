@@ -341,7 +341,7 @@ describe('Subscription billing subject', () => {
     expect(onOpenChange).not.toHaveBeenCalled()
   })
 
-  it('offers public and granted-private organization tiers to an unsubscribed organization admin', () => {
+  it('offers public and granted-private organization tiers to an unsubscribed organization owner', () => {
     mocks.workspaceSettings = workspaceBillingOwner({
       type: 'organization',
       organizationId: 'org-billing',
@@ -351,7 +351,7 @@ describe('Subscription billing subject', () => {
       billingEnabled: true,
       subscriptionTier: null,
       subscriptionStatus: null,
-      userRole: 'admin',
+      userRole: 'owner',
     }
     mocks.publicTiers = [
       catalogTier('tier-personal-public', 'Personal Public', 'user', 0),
