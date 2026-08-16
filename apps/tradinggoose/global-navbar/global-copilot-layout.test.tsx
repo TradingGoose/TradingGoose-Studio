@@ -196,6 +196,7 @@ describe('GlobalCopilotLayout', () => {
   it('collapses, restores, and removes the closed panel from interaction', async () => {
     await renderLayout({ open: false })
     expect(panelState.collapse).toHaveBeenCalledTimes(1)
+    expect(container.querySelector('[data-testid="global-copilot-panel"]')).toBeNull()
 
     const panel = container.querySelector('[data-testid="workspace-copilot"]')
     const handle = container.querySelector('[data-testid="copilot-resize-handle"]')
@@ -213,5 +214,18 @@ describe('GlobalCopilotLayout', () => {
     expect(handle).toHaveAttribute('data-disabled', 'false')
     expect(handle).toHaveAttribute('tabindex', '0')
     expect(handle).not.toHaveAttribute('aria-hidden')
+
+    const mountedPanel = container.querySelector('[data-testid="global-copilot-panel"]')
+    const mountedInstanceId = mountedPanel?.getAttribute('data-instance-id')
+    expect(mountedPanel).not.toBeNull()
+
+    await renderLayout({ open: false })
+    expect(container.querySelector('[data-testid="global-copilot-panel"]')).toHaveAttribute(
+      'data-instance-id',
+      mountedInstanceId
+    )
+
+    await renderLayout({ open: false, workspaceId: 'ws-2' })
+    expect(container.querySelector('[data-testid="global-copilot-panel"]')).toBeNull()
   })
 })

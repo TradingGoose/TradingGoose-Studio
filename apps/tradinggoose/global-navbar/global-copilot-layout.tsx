@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import type { ImperativePanelHandle } from 'react-resizable-panels'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -32,6 +32,18 @@ export function GlobalCopilotLayout({
     authenticatedUserId: ownerUserId,
     workspaceId,
   })
+  const [mountedChannelId, setMountedChannelId] = useState<string | null>(() =>
+    open ? channelId : null
+  )
+  const shouldMountCopilot = open || mountedChannelId === channelId
+
+  useEffect(() => {
+    if (open) {
+      setMountedChannelId(channelId)
+    } else if (mountedChannelId && mountedChannelId !== channelId) {
+      setMountedChannelId(null)
+    }
+  }, [channelId, mountedChannelId, open])
 
   useEffect(() => {
     const panel = copilotPanelRef.current
@@ -60,9 +72,11 @@ export function GlobalCopilotLayout({
           role='region'
           className='min-h-0 min-w-0 overflow-hidden'
         >
-          <CopilotStoreProvider channelId={channelId}>
-            <GlobalCopilotPanel workspaceId={workspaceId} />
-          </CopilotStoreProvider>
+          {shouldMountCopilot ? (
+            <CopilotStoreProvider channelId={channelId}>
+              <GlobalCopilotPanel workspaceId={workspaceId} />
+            </CopilotStoreProvider>
+          ) : null}
         </ResizablePanel>
         <ResizableHandle
           withHandle
