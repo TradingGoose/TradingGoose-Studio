@@ -19,11 +19,13 @@ import { isHosted } from '@/lib/environment'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
 import { useOrganizations } from '@/hooks/queries/organization'
+import { CopilotSidebarToggle } from './components/copilot-sidebar-toggle'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
 import { UserMenu } from './components/user-menu'
 import { WorkspaceDialogs } from './components/workspace-dialogs'
 import { WorkspaceSwitcher } from './components/workspace-switcher'
+import { GlobalCopilotLayout } from './global-copilot-layout'
 import { GlobalNavbarHeaderProvider } from './header-context'
 import { SettingsDialog } from './settings-modal/settings-dialog'
 import type { SettingsSection } from './settings-modal/types'
@@ -61,6 +63,7 @@ export function GlobalNavbar({
   const activeKey =
     navigationMode === 'admin' ? adminNavState.activeKey : workspaceNavState.activeKey
   const workspaceSection = navigationMode === 'workspace' ? workspaceNavState.activeKey : null
+  const dashboardMode = navigationMode === 'workspace' && selectedSegments[1] === 'dashboard'
   const workspaceNavCopy = React.useMemo(
     () => ({
       workspace: {
@@ -119,6 +122,7 @@ export function GlobalNavbar({
   const [activeSettingsSection, setActiveSettingsSection] =
     React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
+  const [isCopilotOpen, setIsCopilotOpen] = React.useState(false)
 
   const userId = sessionData?.user?.id ?? null
   const userName = sessionData?.user?.name ?? brand.name
@@ -282,6 +286,9 @@ export function GlobalNavbar({
               <SidebarNav navItems={navMain} />
             </SidebarContent>
             <SidebarFooter className='flex flex-col gap-2 px-2 py-3'>
+              {workspaceId && navigationMode === 'workspace' ? (
+                <CopilotSidebarToggle open={isCopilotOpen} onOpenChange={setIsCopilotOpen} />
+              ) : null}
               <SidebarUsageIndicator
                 onOpenSubscriptionSettings={() => openSettings('subscription')}
               />
@@ -306,8 +313,22 @@ export function GlobalNavbar({
                 pageTitle={activeNavItem?.title}
                 pageIcon={activeNavItem?.icon}
               />
-              <div className='min-h-0 flex-1 overflow-hidden p-1'>
-                <div className='h-full w-full overflow-auto'>{children}</div>
+              <div className='flex min-h-0 flex-1 overflow-hidden'>
+                {workspaceId && navigationMode === 'workspace' && userId ? (
+                  <GlobalCopilotLayout
+                    workspaceId={workspaceId}
+                    ownerUserId={userId}
+                    dashboardMode={dashboardMode}
+                    open={isCopilotOpen}
+                    onOpenChange={setIsCopilotOpen}
+                  >
+                    {children}
+                  </GlobalCopilotLayout>
+                ) : (
+                  <div className='h-full min-h-0 w-full overflow-hidden p-1'>
+                    <div className='h-full w-full overflow-auto'>{children}</div>
+                  </div>
+                )}
               </div>
             </div>
           </SidebarInset>

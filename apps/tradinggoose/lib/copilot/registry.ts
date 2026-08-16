@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_WORKFLOW_LOGS_PER_READ } from '@/lib/copilot/context-limits'
 import {
   CUSTOM_TOOL_DOCUMENT_FORMAT,
   INDICATOR_DOCUMENT_FORMAT,
@@ -448,8 +449,7 @@ export const ToolArgSchemas = {
   }),
 
   [CopilotTool.read_workflow_logs]: EntityTargetArgs.extend({
-    limit: NumberOptional,
-    includeDetails: BooleanOptional,
+    limit: z.number().int().min(1).max(MAX_WORKFLOW_LOGS_PER_READ).optional(),
   }).strict(),
 
   [CopilotTool.get_available_blocks]: GetAvailableBlocksInput,
@@ -951,28 +951,6 @@ const EnvironmentVariablesMutationResult = DocumentDiffReviewMetadata.extend({
   updatedVariables: z.array(z.string()).optional(),
 })
 
-const ExecutionEntry = z.object({
-  id: z.string(),
-  executionId: z.string(),
-  level: z.string(),
-  trigger: z.string(),
-  startedAt: z.string(),
-  endedAt: z.string().nullable(),
-  durationMs: z.number().nullable(),
-  totalCost: z.number().nullable(),
-  totalTokens: z.number().nullable(),
-  blockExecutions: z.array(z.any()),
-  output: z.any().optional(),
-  errorMessage: z.string().optional(),
-  errorBlock: z
-    .object({
-      blockId: z.string().optional(),
-      blockName: z.string().optional(),
-      blockType: z.string().optional(),
-    })
-    .optional(),
-})
-
 export const ToolResultSchemas = {
   plan: z.object({
     objective: z.string().optional(),
@@ -1004,7 +982,11 @@ export const ToolResultSchemas = {
     data: z.any().optional(),
   }),
   [CopilotTool.read_workflow_logs]: z.object({
-    entries: z.array(ExecutionEntry),
+    entries: z.array(z.record(z.string(), z.unknown())),
+    totalEntries: z.number().int().nonnegative(),
+    workflowId: z.string(),
+    retrievedAt: z.string(),
+    truncated: z.boolean(),
   }),
   [CopilotTool.get_available_blocks]: GetAvailableBlocksResult,
   [CopilotTool.get_blocks_metadata]: GetBlocksMetadataResult,

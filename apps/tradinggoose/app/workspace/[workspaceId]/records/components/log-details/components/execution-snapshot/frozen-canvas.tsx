@@ -19,7 +19,8 @@ import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createLogger } from '@/lib/logs/console/logger'
-import { cn, redactApiKeys } from '@/lib/utils'
+import { deepRedactSecrets } from '@/lib/security/redaction'
+import { cn } from '@/lib/utils'
 import { WorkflowPreview } from '@/app/workspace/[workspaceId]/components/workflow-preview/workflow-preview'
 import { scaleLogCostBreakdown } from '@/app/workspace/[workspaceId]/records/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -115,8 +116,8 @@ function formatExecutionData(executionData: any, costMultiplier = 1) {
     blockType: blockType || 'unknown',
     status,
     duration: durationMs ? `${durationMs}ms` : 'N/A',
-    input: redactApiKeys(inputData || {}),
-    output: redactApiKeys(outputData || {}),
+    input: deepRedactSecrets(inputData || {}),
+    output: deepRedactSecrets(outputData || {}),
     cost: scaledCost
       ? {
           input: scaledCost.input || 0,

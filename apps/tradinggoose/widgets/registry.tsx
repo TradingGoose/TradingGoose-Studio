@@ -7,7 +7,6 @@ import type {
   WidgetCategoryGroup,
 } from '@/widgets/types'
 import { isWidgetKey, type WidgetKey } from '@/widgets/widget-contracts'
-import { copilotWidget } from '@/widgets/widgets/copilot'
 
 type WorkspaceWidgetsMessages = Messages['workspace']['widgets']
 
@@ -45,7 +44,6 @@ const widgetRegistry: Record<string, DashboardWidgetRegistryDefinition> = {
   [workflowEditorWidget.contract.key]: workflowEditorWidget,
   [chatWidget.contract.key]: chatWidget,
   [workflowConsoleWidget.contract.key]: workflowConsoleWidget,
-  [copilotWidget.contract.key]: copilotWidget,
   [listIndicatorWidget.contract.key]: listIndicatorWidget,
   [listMcpWidget.contract.key]: listMcpWidget,
   [editorIndicatorWidget.contract.key]: editorIndicatorWidget,

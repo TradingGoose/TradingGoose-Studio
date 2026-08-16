@@ -1,6 +1,6 @@
 import { devtools, persist } from 'zustand/middleware'
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { redactApiKeys } from '@/lib/utils'
+import { deepRedactSecrets } from '@/lib/security/redaction'
 import type {
   WorkflowExecutionBlockData,
   WorkflowExecutionEvent,
@@ -35,10 +35,7 @@ type ConsoleEntryPatchFields = Partial<
 >
 
 type ConsoleEntryPatch = ConsoleEntryPatchFields &
-  (
-    | { content: string; output?: never }
-    | { content?: never; output?: NormalizedBlockOutput }
-  )
+  ({ content: string; output?: never } | { content?: never; output?: NormalizedBlockOutput })
 
 /**
  * Safely clone and update a NormalizedBlockOutput
@@ -223,7 +220,7 @@ export const useConsoleStore = create<ConsoleStore>()(
 
           const redactedEntry = { ...entry }
           if (redactedEntry.output && typeof redactedEntry.output === 'object') {
-            redactedEntry.output = redactApiKeys(redactedEntry.output)
+            redactedEntry.output = deepRedactSecrets(redactedEntry.output) as NormalizedBlockOutput
           }
 
           const newEntry = {

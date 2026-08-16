@@ -972,7 +972,12 @@
         "integrations": "Integrations",
         "registration": "Registration"
       },
-      "systemAdmin": "System Admin"
+      "systemAdmin": "System Admin",
+      "copilot": {
+        "label": "Copilot",
+        "show": "Show Copilot",
+        "hide": "Hide Copilot"
+      }
     },
     "defaults": {
       "newWorkspaceName": "My Workspace",
@@ -1047,6 +1052,7 @@
         "noMatches": "No knowledge bases match your search."
       },
       "defaults": {
+        "untitledKnowledgeBase": "Untitled knowledge base",
         "noDescriptionProvided": "No description provided"
       },
       "header": {
@@ -1416,6 +1422,7 @@
       },
       "details": {
         "title": "Log Details",
+        "currentLog": "Current log",
         "previous": "Previous log",
         "next": "Next log",
         "close": "Close",
@@ -2260,7 +2267,6 @@
         "editor_workflow": "Workflow Editor",
         "workflow_chat": "Workflow Chat",
         "workflow_console": "Workflow Console",
-        "copilot": "Copilot",
         "list_indicator": "Indicators",
         "list_mcp": "MCP Servers",
         "editor_indicator": "Indicator Editor",
@@ -21333,13 +21339,17 @@
           }
         },
         "mentions": {
+          "dashboardLayouts": "Dashboard layouts",
           "workflowBlocks": "Workflow Blocks",
+          "loadFailed": "Could not load this list. Try again",
           "matches": "Matches",
           "noMatches": "No matches",
+          "noDashboardLayoutsFound": "No dashboard layouts found.",
           "noPastChats": "No past chats",
           "noBlocksFound": "No blocks found",
           "noBlocksInWorkflow": "No blocks in this workflow",
-          "noExecutionsFound": "No executions found"
+          "noExecutionsFound": "No executions found",
+          "untitledDashboardLayout": "Untitled layout"
         },
         "accessLevel": {
           "limited": {

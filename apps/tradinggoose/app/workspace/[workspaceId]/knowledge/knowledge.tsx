@@ -179,10 +179,10 @@ export function Knowledge() {
     <>
       <GlobalNavbarHeader left={headerLeftContent} right={headerRightContent} />
       <div className='flex h-full min-h-0 flex-col'>
-        <div className='flex min-h-0 min-w-0 flex-1 overflow-hidden p-1'>
+        <div className='flex min-h-0 min-w-0 flex-1 overflow-hidden'>
           <div className='flex min-h-0 flex-1 flex-col overflow-hidden '>
             <div className='min-h-0 flex-1 overflow-auto'>
-              <div className='p-2'>
+              <div className='p-1'>
                 <p role='status' aria-live='polite' aria-atomic='true' className='sr-only'>
                   {listStatus}
                 </p>

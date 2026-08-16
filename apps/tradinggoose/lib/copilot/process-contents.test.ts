@@ -3,7 +3,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
+import {
+  MAX_COPILOT_CONTEXT_BYTES_PER_ITEM,
+  MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
+} from '@/lib/copilot/context-limits'
+import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
+import type { ChatContext } from '@/stores/copilot/types'
 
 const WORKSPACE_CONTEXT_ENTITY_KINDS = [
   'workflow',
@@ -14,17 +19,70 @@ const WORKSPACE_CONTEXT_ENTITY_KINDS = [
   'watchlist',
   'dashboard_layout',
 ] as const
+const WORKFLOW_BLOCK_CONTEXT = {
+  kind: 'workflow_block',
+  workflowId: 'workflow-1',
+  blockId: 'block-1',
+  label: 'Attached Block',
+} satisfies ChatContext
 
 const mockGetBlocksMetadataExecute = vi.fn()
 const mockVerifyWorkflowAccess = vi.fn()
-const mockVerifyReviewTargetAccess = vi.fn()
 const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
-const mockReadBootstrappedSavedEntityFields = vi.fn()
 const mockReadWorkflowSnapshot = vi.fn()
+const mockReadKnowledgeBaseExecute = vi.fn()
+const mockReadMonitorExecute = vi.fn()
 const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
 const mockOr = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' }))
 const mockLogRowsQueue: unknown[][] = []
+const buildLogRow = (overrides: Record<string, unknown> = {}) => ({
+  id: 'log-1',
+  workflowId: 'workflow-1',
+  executionId: 'execution-1',
+  level: 'info',
+  trigger: 'manual',
+  startedAt: new Date('2026-04-23T00:00:00.000Z'),
+  endedAt: null,
+  totalDurationMs: null,
+  executionData: {},
+  cost: null,
+  workflowSummary: { id: 'workflow-1', name: 'Workflow' },
+  entityName: 'Workflow',
+  ...overrides,
+})
+const buildLogContext = (
+  kind: 'logs' | 'current_logs' = 'logs',
+  workspaceId = 'workspace-1',
+  label = kind === 'logs' ? 'Attached log' : 'Current log'
+): ChatContext => ({ kind, logId: 'log-1', workspaceId, label })
+const buildMonitorContext = (workspaceId = 'workspace-1'): ChatContext => ({
+  kind: 'current_monitor',
+  monitorId: 'monitor-1',
+  workspaceId,
+  label: 'Current monitor',
+})
+const buildKnowledgeContext = (workspaceId: string, current = false) =>
+  buildCopilotWorkspaceEntityContext({
+    entityKind: 'knowledge_base',
+    entityId: 'knowledge-1',
+    workspaceId,
+    label: current ? 'Current knowledge base' : 'Research',
+    current,
+  })
+const processContexts = async (
+  contexts: ChatContext[],
+  workspaceId?: string,
+  options?: { signal?: AbortSignal }
+) => {
+  const { processContextsServer } = await import('@/lib/copilot/process-contents')
+  return processContextsServer(contexts, 'user-1', undefined, workspaceId, options)
+}
+const processWorkspaceContext = (context: ChatContext) => processContexts([context], 'workspace-1')
+const processMonitorContext = (signal?: AbortSignal) =>
+  processContexts([buildMonitorContext()], 'workspace-1', { signal })
+const expectContextWithinItemLimit = (content: string) =>
+  expect(Buffer.byteLength(content, 'utf8')).toBeLessThanOrEqual(MAX_COPILOT_CONTEXT_BYTES_PER_ITEM)
 const mockSelectChain: Record<string, any> = {}
 mockSelectChain.from = vi.fn(() => mockSelectChain)
 mockSelectChain.leftJoin = vi.fn(() => mockSelectChain)
@@ -42,8 +100,6 @@ vi.mock('@tradinggoose/db', () => ({
 vi.mock('@tradinggoose/db/schema', () => ({
   copilotReviewItems: {},
   copilotReviewSessions: {},
-  document: {},
-  knowledgeBase: {},
   permissions: {
     entityType: 'permissions.entityType',
     entityId: 'permissions.entityId',
@@ -77,7 +133,6 @@ vi.mock('drizzle-orm', () => ({
   and: mockAnd,
   asc: vi.fn(),
   eq: mockEq,
-  isNull: vi.fn(),
   or: mockOr,
 }))
 
@@ -91,7 +146,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
-  verifyReviewTargetAccess: mockVerifyReviewTargetAccess,
   verifyWorkflowAccess: mockVerifyWorkflowAccess,
 }))
 
@@ -101,9 +155,20 @@ vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata', () => ({
   },
 }))
 
+vi.mock('@/lib/copilot/tools/server/monitor/read-monitor', () => ({
+  readMonitorServerTool: {
+    execute: mockReadMonitorExecute,
+  },
+}))
+
+vi.mock('@/lib/copilot/tools/server/knowledge/knowledge-base', () => ({
+  readKnowledgeBaseServerTool: {
+    execute: mockReadKnowledgeBaseExecute,
+  },
+}))
+
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedReviewTargetSnapshot: mockReadBootstrappedReviewTargetSnapshot,
-  readBootstrappedSavedEntityFields: mockReadBootstrappedSavedEntityFields,
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
@@ -115,10 +180,10 @@ describe('processContextsServer', () => {
     vi.resetModules()
     mockGetBlocksMetadataExecute.mockReset()
     mockVerifyWorkflowAccess.mockReset()
-    mockVerifyReviewTargetAccess.mockReset()
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
-    mockReadBootstrappedSavedEntityFields.mockReset()
     mockReadWorkflowSnapshot.mockReset()
+    mockReadKnowledgeBaseExecute.mockReset()
+    mockReadMonitorExecute.mockReset()
     mockAnd.mockClear()
     mockEq.mockClear()
     mockOr.mockClear()
@@ -126,12 +191,6 @@ describe('processContextsServer', () => {
     mockDbSelect.mockClear()
     mockSelectChain.leftJoin.mockClear()
     mockSelectChain.innerJoin.mockClear()
-    mockVerifyReviewTargetAccess.mockResolvedValue({
-      hasAccess: true,
-      userPermission: 'read',
-      workspaceId: 'workspace-1',
-      isOwner: false,
-    })
     mockVerifyWorkflowAccess.mockResolvedValue({
       hasAccess: true,
       userPermission: 'read',
@@ -151,11 +210,9 @@ describe('processContextsServer', () => {
       },
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [{ kind: 'blocks', blockTypes: ['block-1'], label: 'RSI' }],
-      'user-1'
-    )
+    const result = await processContexts([
+      { kind: 'blocks', blockTypes: ['block-1'], label: 'RSI' },
+    ])
 
     expect(mockGetBlocksMetadataExecute).toHaveBeenCalledWith({ blockTypes: ['block-1'] })
     expect(result).toEqual([
@@ -176,8 +233,7 @@ describe('processContextsServer', () => {
   })
 
   it('skips block contexts without block types', async () => {
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer([{ kind: 'blocks', label: 'Blocks' }], 'user-1')
+    const result = await processContexts([{ kind: 'blocks', label: 'Blocks' }])
 
     expect(mockGetBlocksMetadataExecute).not.toHaveBeenCalled()
     expect(result).toEqual([])
@@ -188,8 +244,6 @@ describe('processContextsServer', () => {
     async (entityKind) => {
       const entityId = `${entityKind}-1`
       const label = `Attached ${entityKind}`
-      const { processContextsServer } = await import('@/lib/copilot/process-contents')
-
       const contexts = [false, true].map((current) =>
         buildCopilotWorkspaceEntityContext({
           entityKind,
@@ -200,24 +254,65 @@ describe('processContextsServer', () => {
           current,
         })
       )
-      const result = await processContextsServer(contexts, 'user-1')
+      const result = await processContexts(contexts)
 
-      expect(result).toEqual(
-        contexts.map((context) => ({
-          type: context.kind,
+      expect(result).toEqual([
+        {
+          type: contexts[0].kind,
           tag: `@${entityId}`,
           content: JSON.stringify({ entityId }, null, 2),
-        }))
-      )
+        },
+      ])
       for (const context of result) {
         expect(Object.keys(JSON.parse(context.content))).toEqual(['entityId'])
       }
 
-      expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
       expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
-      expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
     }
   )
+
+  it('hydrates current knowledge through the canonical knowledge_base entity path', async () => {
+    const knowledgeBase = {
+      entityKind: 'knowledge_base',
+      entityId: 'knowledge-1',
+      entityName: 'Research',
+      workspaceId: 'workspace-1',
+      documentFormat: 'tg-knowledge-base-document-v1',
+      entityDocument: '{"description":"Research notes"}',
+      docCount: 1,
+      tokenCount: 42,
+    }
+    mockReadKnowledgeBaseExecute.mockResolvedValue(knowledgeBase)
+
+    const result = await processWorkspaceContext(buildKnowledgeContext('workspace-1', true))
+
+    expect(mockReadKnowledgeBaseExecute).toHaveBeenCalledWith(
+      { entityId: 'knowledge-1' },
+      { userId: 'user-1', workspaceId: 'workspace-1' }
+    )
+    expect(result).toEqual([
+      {
+        type: 'current_knowledge_base',
+        tag: '@knowledge-1',
+        content: JSON.stringify(knowledgeBase, null, 2),
+      },
+    ])
+  })
+
+  it.each<[string, ChatContext, string | undefined]>([
+    ['knowledge from another workspace', buildKnowledgeContext('workspace-2'), 'workspace-1'],
+    ['log from another workspace', buildLogContext('logs', 'workspace-2', 'Run'), 'workspace-1'],
+    ['log without an active workspace', buildLogContext('logs', 'workspace-1', 'Run'), undefined],
+    ['monitor from another workspace', buildMonitorContext('workspace-2'), 'workspace-1'],
+    ['monitor without an active workspace', buildMonitorContext(), undefined],
+  ])('rejects %s', async (_source, context, activeWorkspaceId) => {
+    const result = await processContexts([context], activeWorkspaceId)
+
+    expect(result).toEqual([])
+    expect(mockReadKnowledgeBaseExecute).not.toHaveBeenCalled()
+    expect(mockDbSelect).not.toHaveBeenCalled()
+    expect(mockReadMonitorExecute).not.toHaveBeenCalled()
+  })
 
   it('reads workflow document content only for an attached workflow block', async () => {
     const doc = new Y.Doc()
@@ -237,18 +332,7 @@ describe('processContextsServer', () => {
       parallels: {},
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'workflow_block',
-          workflowId: 'workflow-1',
-          blockId: 'block-1',
-          label: 'Attached Block',
-        },
-      ],
-      'user-1'
-    )
+    const result = await processContexts([WORKFLOW_BLOCK_CONTEXT])
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledTimes(1)
@@ -272,50 +356,31 @@ describe('processContextsServer', () => {
       isOwner: false,
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'workflow_block',
-          workflowId: 'workflow-1',
-          blockId: 'block-1',
-          label: 'Attached Block',
-        },
-      ],
-      'user-1'
-    )
+    const result = await processWorkspaceContext(WORKFLOW_BLOCK_CONTEXT)
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
     expect(result).toEqual([])
   })
 
-  it('hydrates deleted workflow log contexts from the durable workflow summary', async () => {
+  it('hydrates the open log by its canonical log id', async () => {
     mockLogRowsQueue.push([
-      {
-        id: 'log-1',
+      buildLogRow({
         workflowId: null,
-        executionId: 'execution-1',
-        level: 'info',
-        trigger: 'manual',
-        startedAt: new Date('2026-04-23T00:00:00.000Z'),
-        endedAt: null,
-        totalDurationMs: null,
-        executionData: {},
-        cost: null,
         workflowSummary: {
           id: 'deleted-workflow-1',
           name: 'Deleted workflow',
         },
         entityName: null,
-      },
+      }),
     ])
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [{ kind: 'logs', executionId: 'execution-1', label: 'Deleted Run' }],
-      'user-1'
+    const result = await processWorkspaceContext(
+      buildLogContext('current_logs', 'workspace-1', 'Deleted Run')
     )
+
+    expect(mockEq).toHaveBeenCalledWith('workflowExecutionLogs.id', 'log-1')
+    expect(mockEq).toHaveBeenCalledWith('workflowExecutionLogs.workspaceId', 'workspace-1')
 
     expect(mockSelectChain.innerJoin).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -347,5 +412,297 @@ describe('processContextsServer', () => {
       workflowId: 'deleted-workflow-1',
       entityName: 'Deleted workflow',
     })
+    expect(result[0]?.type).toBe('current_logs')
+  })
+
+  it('projects implicit current logs without raw execution inputs, outputs, or stack traces', async () => {
+    mockLogRowsQueue.push([
+      buildLogRow({
+        executionData: {
+          traceSpans: [
+            {
+              id: 'span-1',
+              blockId: 'block-1',
+              name: 'Request',
+              type: 'api',
+              status: 'error',
+              duration: 12,
+              input: { apiKey: 'raw-input-secret' },
+              output: { customerPayload: 'raw-output-payload' },
+              children: [
+                {
+                  id: 'span-2',
+                  name: 'HTTP tool',
+                  type: 'tool',
+                  status: 'success',
+                  input: { authorization: 'Bearer raw-child-secret' },
+                },
+              ],
+            },
+          ],
+          errorDetails: {
+            blockId: 'block-1',
+            blockName: 'Request',
+            error: 'Authorization: Bearer raw-error-secret',
+            stackTrace: 'stack with raw-stack-payload',
+          },
+        },
+      }),
+    ])
+
+    const [result] = await processWorkspaceContext(buildLogContext('current_logs'))
+
+    const content = JSON.parse(result!.content)
+    expect(content.executionData.traceSummary).toMatchObject({
+      includedSpanCount: 2,
+      errorSpanCount: 1,
+      spans: [
+        { id: 'span-1', blockId: 'block-1', name: 'Request', status: 'error' },
+        { id: 'span-2', name: 'HTTP tool', status: 'success' },
+      ],
+    })
+    expect(content.executionData.errorSummary).toEqual({
+      blockId: 'block-1',
+      blockName: 'Request',
+    })
+    expect(result!.content).not.toContain('raw-input-secret')
+    expect(result!.content).not.toContain('raw-output-payload')
+    expect(result!.content).not.toContain('raw-child-secret')
+    expect(result!.content).not.toContain('raw-stack-payload')
+    expect(content.executionData).not.toHaveProperty('traceSpans')
+    expect(content.executionData.errorSummary).not.toHaveProperty('message')
+  })
+
+  it('deduplicates canonical context identities before hydration', async () => {
+    mockGetBlocksMetadataExecute.mockResolvedValue({
+      metadata: { request: { blockType: 'request' } },
+    })
+
+    const result = await processContexts([
+      { kind: 'blocks', blockTypes: ['request'], label: 'Request' },
+      { kind: 'blocks', blockTypes: ['request'], label: 'Duplicate request' },
+    ])
+
+    expect(mockGetBlocksMetadataExecute).toHaveBeenCalledTimes(1)
+    expect(result).toHaveLength(1)
+  })
+
+  it('enforces one aggregate byte budget across processed contexts', async () => {
+    mockGetBlocksMetadataExecute.mockResolvedValue({
+      metadata: { request: { description: 'x'.repeat(MAX_COPILOT_CONTEXT_BYTES_PER_TURN) } },
+    })
+
+    const result = await processContexts([
+      { kind: 'blocks', blockTypes: ['request'], label: 'Request' },
+    ])
+
+    expect(mockGetBlocksMetadataExecute).toHaveBeenCalledTimes(1)
+    expect(result).toEqual([])
+  })
+
+  it('redacts and structurally bounds explicitly attached log details', async () => {
+    mockLogRowsQueue.push([
+      buildLogRow({
+        executionData: {
+          traceSpans: [
+            {
+              id: 'span-1',
+              input: {
+                authToken: 'raw-auth-token',
+                longText: 'x'.repeat(5_000),
+                values: Array.from({ length: 40 }, (_, index) => index),
+                deep: { a: { b: { c: { d: { e: { value: 'too deep' } } } } } },
+              },
+              output: { apiSecret: 'raw-output-secret' },
+            },
+          ],
+          finalOutput: {
+            header: { Key: 'X-API-Key', Value: 'raw-table-secret' },
+            named: { name: 'idToken', value: 'raw-named-secret' },
+            safe: { Key: 'Content-Type', Value: 'application/json' },
+          },
+        },
+      }),
+    ])
+
+    const [result] = await processWorkspaceContext(buildLogContext())
+
+    const content = JSON.parse(result!.content)
+    const input = content.executionData.traceSpans[0].input
+    expect(input.authToken).toBe('[redacted]')
+    expect(input.longText).toContain('[truncated]')
+    expect(input.values).toHaveLength(25)
+    expect(input.deep.a).toBe('[truncated]')
+    expect(content.executionData.traceSpans[0].output.apiSecret).toBe('[redacted]')
+    expect(content.executionData.finalOutput).toEqual({
+      header: { Key: 'X-API-Key', Value: '[redacted]' },
+      named: { name: 'idToken', value: '[redacted]' },
+      safe: { Key: 'Content-Type', Value: 'application/json' },
+    })
+    expect(content.contextTruncated).toBe(true)
+    expectContextWithinItemLimit(result!.content)
+    expect(result!.content).not.toMatch(/raw-(?:auth|named|output|table)/)
+  })
+
+  it('falls back deterministically when bounded explicit details still exceed the byte cap', async () => {
+    mockLogRowsQueue.push([
+      buildLogRow({
+        executionData: {
+          traceSpans: Array.from({ length: 24 }, (_, index) => ({
+            id: `span-${index}`,
+            output: Object.fromEntries(
+              Array.from({ length: 24 }, (__, field) => [`field-${field}`, 'x'.repeat(2_048)])
+            ),
+          })),
+        },
+      }),
+    ])
+
+    const [result] = await processWorkspaceContext(buildLogContext())
+
+    expectContextWithinItemLimit(result!.content)
+    expect(JSON.parse(result!.content)).toMatchObject({
+      id: 'log-1',
+      contextTruncated: true,
+      executionDetailsOmitted: true,
+    })
+  })
+
+  it('reads the open monitor through the canonical monitor tool', async () => {
+    const signal = new AbortController().signal
+    mockReadMonitorExecute.mockResolvedValue({
+      surfaceKind: 'monitor',
+      monitorId: 'monitor-1',
+      workspaceId: 'workspace-1',
+    })
+
+    const result = await processMonitorContext(signal)
+
+    expect(mockReadMonitorExecute).toHaveBeenCalledWith(
+      { monitorId: 'monitor-1' },
+      { userId: 'user-1', workspaceId: 'workspace-1', signal }
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      type: 'current_monitor',
+      tag: '@Current monitor',
+    })
+    expect(JSON.parse(result[0]!.content)).toEqual({
+      monitorId: 'monitor-1',
+      surfaceKind: 'monitor',
+      workspaceId: 'workspace-1',
+    })
+  })
+
+  it('redacts sensitive identifiers from the implicit current monitor document', async () => {
+    mockReadMonitorExecute.mockResolvedValue({
+      surfaceKind: 'monitor',
+      monitorId: 'monitor-1',
+      monitorName: 'Portfolio state (account-private)',
+      documentFormat: 'tg-monitor-document-v1',
+      workspaceId: 'workspace-1',
+      monitorDocument: JSON.stringify({
+        source: 'portfolio',
+        serviceId: 'service-private',
+        credentialId: 'credential-private',
+        accountId: 'account-private',
+        condition: { root: { combinator: 'and', rules: [] } },
+        providerParams: {
+          apiKey: 'provider-secret',
+          region: 'us-east-1',
+        },
+      }),
+    })
+
+    const [result] = await processMonitorContext()
+
+    const content = JSON.parse(result!.content)
+    expect(content.monitorDocument).toMatchObject({
+      serviceId: '[redacted]',
+      credentialId: '[redacted]',
+      accountId: '[redacted]',
+      providerParams: {
+        apiKey: '[redacted]',
+        region: 'us-east-1',
+      },
+    })
+    expect(result!.content).not.toMatch(
+      /(?:service-private|credential-private|account-private|provider-secret)/
+    )
+  })
+
+  it('bounds oversized implicit monitor provider parameters and conditions', async () => {
+    mockReadMonitorExecute.mockResolvedValue({
+      surfaceKind: 'monitor',
+      monitorId: 'monitor-1',
+      monitorName: 'Large monitor',
+      documentFormat: 'tg-monitor-document-v1',
+      workspaceId: 'workspace-1',
+      monitorDocument: JSON.stringify({
+        providerParams: Object.fromEntries(
+          Array.from({ length: 64 }, (_, index) => [`parameter-${index}`, 'x'.repeat(4_096)])
+        ),
+        condition: {
+          root: {
+            combinator: 'or',
+            rules: Array.from({ length: 64 }, (_, index) => ({
+              id: `rule-${index}`,
+              metric: 'value',
+              value: 'y'.repeat(4_096),
+            })),
+          },
+        },
+      }),
+    })
+
+    const [result] = await processMonitorContext()
+
+    expectContextWithinItemLimit(result!.content)
+    expect(JSON.parse(result!.content)).toMatchObject({
+      contextTruncated: true,
+      monitorDetailsOmitted: true,
+      monitorId: 'monitor-1',
+    })
+  })
+
+  it('preserves an in-flight monitor hydration abort instead of treating it as missing context', async () => {
+    const controller = new AbortController()
+    const abortReason = new Error('Monitor context hydration superseded')
+    abortReason.name = 'AbortError'
+    mockReadMonitorExecute.mockImplementation(
+      (_args, context: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          context.signal.addEventListener('abort', () => reject(context.signal.reason), {
+            once: true,
+          })
+        })
+    )
+
+    const processing = processMonitorContext(controller.signal)
+
+    await vi.waitFor(() => expect(mockReadMonitorExecute).toHaveBeenCalled())
+    expect(mockReadMonitorExecute.mock.calls[0]?.[1]?.signal).toBe(controller.signal)
+    const rejection = expect(processing).rejects.toBe(abortReason)
+    controller.abort(abortReason)
+    await rejection
+  })
+
+  it('does not start context hydration when the request is already aborted', async () => {
+    const controller = new AbortController()
+    controller.abort('Request was already cancelled')
+    await expect(processMonitorContext(controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+      message: 'Aborted',
+    })
+    expect(mockReadMonitorExecute).not.toHaveBeenCalled()
+  })
+
+  it('skips an internally aborted context while the caller signal remains active', async () => {
+    const controller = new AbortController()
+    const internalAbort = new Error('Provider request superseded')
+    internalAbort.name = 'AbortError'
+    mockReadMonitorExecute.mockRejectedValue(internalAbort)
+    await expect(processMonitorContext(controller.signal)).resolves.toEqual([])
+    expect(controller.signal.aborted).toBe(false)
   })
 })

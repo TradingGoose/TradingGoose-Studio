@@ -220,7 +220,6 @@ const toExecutionItem = (
     outcome: normalizeOutcome(log),
     trigger: log.trigger,
     workflowName: log.workflow?.name || labels.unknownWorkflow,
-    workflowColor: log.workflow?.color || '#3972F6',
     monitorId,
     source,
     providerId,
@@ -234,7 +233,6 @@ const toExecutionItem = (
     cost: typeof log.cost?.total === 'number' ? log.cost.total : null,
     isOrphaned: Boolean(monitorId && !liveMonitorIds.has(monitorId)),
     isPartial,
-    sourceLog: log,
   }
 }
 

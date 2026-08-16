@@ -1,6 +1,5 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { MONITOR_ASSET_TYPE_LABELS } from '@/lib/monitors/sources'
-import type { WorkflowLog } from '@/stores/logs/filters/types'
 import type {
   ExecutionMonitorFieldSum,
   ExecutionMonitorGroupField,
@@ -9,13 +8,6 @@ import type {
 } from '../view/view-config'
 
 export type MonitorExecutionOutcome = 'running' | 'success' | 'error' | 'skipped' | 'unknown'
-
-type MonitorExecutionSourceLog =
-  | WorkflowLog
-  | (Omit<Partial<WorkflowLog>, 'workflow'> & {
-      id: string
-      workflow?: object | null
-    } & Record<string, unknown>)
 
 export type MonitorExecutionItem = {
   logId: string
@@ -27,7 +19,6 @@ export type MonitorExecutionItem = {
   outcome: MonitorExecutionOutcome
   trigger: string | null
   workflowName: string
-  workflowColor: string
   monitorId: string | null
   source: string | null
   providerId: string | null
@@ -41,7 +32,6 @@ export type MonitorExecutionItem = {
   cost: number | null
   isOrphaned: boolean
   isPartial: boolean
-  sourceLog: MonitorExecutionSourceLog
 }
 
 export type MonitorExecutionGroupLabels = {

@@ -2,19 +2,15 @@
 
 import { createContext, type ReactNode, useCallback, useContext, useMemo } from 'react'
 import type * as Y from 'yjs'
-import {
-  buildDashboardColorPairDescriptor,
-  buildDashboardWidgetDescriptor,
-} from '@/lib/copilot/review-sessions/identity'
+import { buildDashboardWidgetDescriptor } from '@/lib/copilot/review-sessions/identity'
 import {
   applyDashboardColorPairDocumentDelta,
   applyDashboardWidgetDocumentDelta,
-  getDashboardColorPairMap,
   getDashboardWidgetMap,
-  readDashboardColorPairDocument,
   readDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { useDashboardColorPair } from '@/lib/yjs/use-dashboard-color-pair'
 import { useYjsTargetSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import type { PairColorContext } from '@/widgets/color-pairs'
@@ -90,39 +86,16 @@ export function WidgetConfigRuntimeProvider({
   }, [widgetDoc, widgetKey])
   const widget = useYjsSubscription(subscribeWidget, readWidget, null, areJsonValuesEqual)
   const pairColor = widget && isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
-  const pairDescriptor = useMemo(
-    () =>
-      pairColor === 'gray'
-        ? null
-        : buildDashboardColorPairDescriptor({
-            layoutId,
-            color: pairColor,
-            workspaceId,
-            ownerUserId,
-          }),
-    [layoutId, ownerUserId, pairColor, workspaceId]
-  )
-  const pairSession = useYjsTargetSession(pairDescriptor, 'write', 'Failed to open color pair')
+  const pairSession = useDashboardColorPair({
+    workspaceId,
+    ownerUserId,
+    layoutId,
+    pairColor,
+    accessMode: 'write',
+    failureMessage: 'Failed to open color pair',
+  })
   const pairDoc = pairSession.doc
-  const subscribePair = useMemo(() => {
-    if (!pairDoc) return (_listener: () => void) => () => {}
-    const map = getDashboardColorPairMap(pairDoc)
-    return (listener: () => void) => {
-      const onChange = () => listener()
-      map.observeDeep(onChange)
-      return () => map.unobserveDeep(onChange)
-    }
-  }, [pairDoc])
-  const readPair = useCallback(
-    () => (pairDoc ? readDashboardColorPairDocument(pairDoc) : EMPTY_PAIR_CONTEXT),
-    [pairDoc]
-  )
-  const pairContext = useYjsSubscription(
-    subscribePair,
-    readPair,
-    EMPTY_PAIR_CONTEXT,
-    areJsonValuesEqual
-  )
+  const pairContext = pairSession.context
   const isWidgetReady = Boolean(widgetDoc)
   const isPairReady = pairColor === 'gray' || Boolean(pairDoc)
   const writeWidget = useCallback(

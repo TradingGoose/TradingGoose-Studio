@@ -46,7 +46,7 @@ The header is split into three sections:
 
 1. **Add a block** -- open the toolbar dropdown, search or browse, then click a block to place it at the viewport center
 2. **Connect blocks** -- drag from an output handle to an input handle to create an edge
-3. **Select and configure** -- click a node to select it; its settings appear in the paired Copilot or Variables widget
+3. **Select and configure** -- click a node to select it and edit its settings; paired workspace tools can follow the active workflow
 4. **Delete** -- select a node or edge and press Delete
 5. **Undo / Redo** -- standard keyboard shortcuts
 
@@ -55,7 +55,7 @@ The header is split into three sections:
 When assigned a pair color, the editor synchronizes its active workflow with other widgets sharing the same color. Changing the workflow in the header selector broadcasts the selection to all paired widgets. When the pair color is `gray` (unlinked), the widget manages its own selection independently via widget params.
 
 <Callout>
-Pair this widget with **Console**, **Chat**, **Variables**, or **Copilot** using matching pair colors to build a full workflow development workspace.
+Pair this widget with **Console**, **Chat**, or **Variables** using matching pair colors. To give the global Copilot panel the same workflow context, choose that color from the Copilot header.
 </Callout>
 
 ## Configuration
@@ -93,8 +93,8 @@ These defaults are set at the widget level and merged with any layout-level over
   <Card title="Workflow Chat" href="/widgets/workflow-chat">
     Interact with a running workflow.
   </Card>
-  <Card title="Copilot" href="/widgets/copilot">
-    AI assistant for workflows, MCP, skills, custom tools, and more.
+  <Card title="Copilot" href="/copilot">
+    Global workspace assistant for workflows, MCP, skills, custom tools, and more.
   </Card>
   <Card title="Workflow Variables" href="/widgets/workflow-variables">
     Inspect and edit variable state.

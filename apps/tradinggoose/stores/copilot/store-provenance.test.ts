@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
+import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import {
   buildTurnProvenanceFromContexts,
   withPinnedToolExecutionProvenance,
@@ -18,7 +18,6 @@ describe('buildTurnProvenanceFromContexts', () => {
             label: 'Attached Workflow',
           }),
         ],
-        null,
         null,
         null
       )
@@ -41,8 +40,7 @@ describe('buildTurnProvenanceFromContexts', () => {
           }),
         ],
         'workspace-1',
-        'workflow-live',
-        null
+        'workflow-live'
       )
     ).toEqual({
       contextEntityKind: 'workflow',
@@ -51,7 +49,7 @@ describe('buildTurnProvenanceFromContexts', () => {
     })
   })
 
-  it('derives saved-entity scope from explicit watchlist mentions', () => {
+  it('lets explicit saved-entity scope override the ambient workspace', () => {
     expect(
       buildTurnProvenanceFromContexts(
         [
@@ -62,8 +60,7 @@ describe('buildTurnProvenanceFromContexts', () => {
             label: 'Growth',
           }),
         ],
-        null,
-        null,
+        'workspace-live',
         null
       )
     ).toEqual({
@@ -86,7 +83,6 @@ describe('buildTurnProvenanceFromContexts', () => {
           }),
         ],
         'workspace-live',
-        null,
         null
       )
     ).toEqual({
@@ -94,50 +90,6 @@ describe('buildTurnProvenanceFromContexts', () => {
       contextEntityId: 'workspace-current',
       workspaceId: 'workspace-live',
     })
-  })
-
-  it('keeps review target identity out of execution provenance', () => {
-    expect(
-      buildTurnProvenanceFromContexts(
-        [
-          buildCopilotWorkspaceEntityContext({
-            entityKind: 'workflow',
-            entityId: 'workflow-explicit',
-            workspaceId: 'workspace-explicit',
-            label: 'Attached Workflow',
-          }),
-        ],
-        'workspace-live',
-        null,
-        {
-          workspaceId: 'workspace-review',
-          ownerUserId: null,
-          entityKind: 'skill',
-          entityId: 'skill-review',
-          draftSessionId: null,
-          reviewSessionId: 'review-1',
-          yjsSessionId: 'review-1',
-        }
-      )
-    ).toEqual({
-      workspaceId: 'workspace-review',
-      contextEntityKind: 'workflow',
-      contextEntityId: 'workflow-explicit',
-    })
-  })
-
-  it('does not synthesize workspace provenance for incomplete non-workflow review targets', () => {
-    expect(
-      buildTurnProvenanceFromContexts(undefined, null, null, {
-        workspaceId: null,
-        ownerUserId: null,
-        entityKind: 'skill',
-        entityId: 'skill-review',
-        draftSessionId: null,
-        reviewSessionId: 'review-1',
-        yjsSessionId: 'review-1',
-      })
-    ).toBeUndefined()
   })
 
   it('keeps current watchlist provenance while dashboard tools use the dashboard scope', () => {
@@ -160,9 +112,7 @@ describe('buildTurnProvenanceFromContexts', () => {
         }),
       ],
       'workspace-1',
-      null,
-      null,
-      'user-1'
+      null
     )
 
     expect(provenance).toEqual({
@@ -204,34 +154,6 @@ describe('buildTurnProvenanceFromContexts', () => {
       contextEntityKind: 'dashboard_layout',
       contextEntityId: 'layout-current',
       workspaceId: 'workspace-1',
-    })
-  })
-
-  it('keeps the dashboard layout candidate for dashboard tool pinning', () => {
-    expect(
-      buildTurnProvenanceFromContexts(
-        [
-          buildCopilotWorkspaceEntityContext({
-            entityKind: 'dashboard_layout',
-            entityId: 'layout-other',
-            workspaceId: 'workspace-1',
-            ownerUserId: 'user-2',
-            label: 'Other Dashboard',
-            current: true,
-          }),
-        ],
-        'workspace-1',
-        null,
-        null,
-        'user-1'
-      )
-    ).toEqual({
-      workspaceId: 'workspace-1',
-      dashboardLayoutContext: {
-        entityId: 'layout-other',
-        workspaceId: 'workspace-1',
-        ownerUserId: 'user-2',
-      },
     })
   })
 })
