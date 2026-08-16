@@ -842,7 +842,7 @@ describe('claimNextPendingExecution', () => {
     expect(updateReturningMock).not.toHaveBeenCalled()
   })
 
-  it('claims child workflow rows under the parent workflow capacity marker', async () => {
+  it('prioritizes a runnable child over an older orphan under the parent capacity marker', async () => {
     const { resolveServerExecutionBillingTierForScope } = await import(
       '@/lib/execution/execution-concurrency-limit'
     )
@@ -850,12 +850,28 @@ describe('claimNextPendingExecution', () => {
       concurrencyLimit: 1,
       displayName: 'Starter',
     } as any)
+    const orphanChild = {
+      ...pendingRow,
+      id: 'orphan-child',
+      source: 'workflow_block',
+      payload: { metadata: { parentExecutionId: 'missing-parent' } },
+      createdAt: new Date(0),
+    }
     const childRow = {
       ...pendingRow,
+      id: 'runnable-child',
       source: 'workflow_block',
       payload: { metadata: { parentExecutionId: 'parent-1' } },
+      createdAt: new Date(1),
     }
-    txSelectLimitMock.mockResolvedValueOnce([childRow])
+    let activeParentWasPrioritized = false
+    txSelectChain.orderBy.mockImplementationOnce((priority: { strings?: string[] }) => {
+      activeParentWasPrioritized = priority.strings?.join('').includes('exists') ?? false
+      return txSelectChain
+    })
+    txSelectLimitMock.mockImplementationOnce(async () => [
+      activeParentWasPrioritized ? childRow : orphanChild,
+    ])
     txSelectRowsMock.mockResolvedValueOnce([
       { id: 'parent-1', source: 'workflow_api', payload: {} },
     ])
@@ -870,12 +886,15 @@ describe('claimNextPendingExecution', () => {
     await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
       status: 'claimed',
       row: expect.objectContaining({
-        id: 'pending-1',
+        id: 'runnable-child',
         source: 'workflow_block',
         status: 'processing',
       }),
     })
     expect(resolveServerExecutionBillingTierForScope).toHaveBeenCalledOnce()
+    expect(
+      sqlMock.mock.calls.some(([strings]) => strings.join('').includes('parent_pending_execution'))
+    ).toBe(true)
   })
 
   it('counts a child without a processing same-scope parent against capacity', async () => {

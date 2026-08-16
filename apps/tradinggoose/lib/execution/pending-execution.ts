@@ -420,7 +420,12 @@ async function claimNextPendingExecutionWithStore(
       )
     )
     .orderBy(
-      sql`case when ${pendingExecution.source} = ${WORKFLOW_BLOCK_SOURCE} then 0 else 1 end`,
+      sql`case when ${pendingExecution.source} = ${WORKFLOW_BLOCK_SOURCE} and exists (
+        select 1 from ${pendingExecution} as "parent_pending_execution"
+        where "parent_pending_execution"."id" = ${pendingExecution.payload}->'metadata'->>'parentExecutionId'
+          and "parent_pending_execution"."billing_scope_id" = ${billingScopeId}
+          and "parent_pending_execution"."status" = 'processing'
+      ) then 0 when ${pendingExecution.source} = ${WORKFLOW_BLOCK_SOURCE} then 1 else 2 end`,
       asc(pendingExecution.nextAttemptAt),
       asc(pendingExecution.createdAt),
       asc(pendingExecution.id)
