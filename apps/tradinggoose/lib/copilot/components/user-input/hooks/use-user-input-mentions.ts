@@ -197,6 +197,7 @@ export function useUserInputMentions({
     (getActiveMentionQueryAtPosition(getCaretPos())?.query || '').trim().toLowerCase()
 
   const mentionQuery = showMentionMenu ? getMentionQuery() : ''
+  const hasMentionQuery = mentionQuery.length > 0
   const submenuQuery =
     openSubmenuFor && submenuQueryStart != null
       ? message.slice(submenuQueryStart, getCaretPos()).toLowerCase()
@@ -204,7 +205,7 @@ export function useUserInputMentions({
   const aggregatedActive =
     showMentionMenu &&
     !openSubmenuFor &&
-    mentionQuery.length > 0 &&
+    hasMentionQuery &&
     filterMentionOptions(mentionQuery, mentionCopy).length === 0
 
   const closeMentionMenu = () => {
@@ -812,17 +813,12 @@ export function useUserInputMentions({
       return
     }
 
-    if (mentionQuery.length > 0) {
+    if (hasMentionQuery) {
       for (const submenu of MENTION_SUBMENUS) {
         void ensureSubmenuLoaded(submenu)
       }
     }
-
-    if (aggregatedActive) {
-      setSubmenuActiveIndex(0)
-      requestAnimationFrame(() => scrollActiveItemIntoView(0))
-    }
-  }, [showMentionMenu, openSubmenuFor, message, locale, ensureSubmenuLoaded])
+  }, [showMentionMenu, openSubmenuFor, hasMentionQuery, locale, ensureSubmenuLoaded])
 
   return {
     aggregatedActive,

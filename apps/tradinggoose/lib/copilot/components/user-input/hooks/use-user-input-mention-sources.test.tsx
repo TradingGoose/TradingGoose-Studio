@@ -128,13 +128,12 @@ const startLoads = (...submenus: MentionSubmenu[]) => {
   return loads
 }
 
-it('keeps workspace generations isolated while retrying empty snapshots on later demand', async () => {
-  const [oldA, oldB, emptyA, retryA] = [deferred(), deferred(), deferred(), deferred()]
+it('keeps workspace generations isolated and treats an empty snapshot as loaded', async () => {
+  const [oldA, oldB, emptyA] = [deferred(), deferred(), deferred()]
   m.bootstrapYjsProvider
     .mockReturnValueOnce(oldA.promise)
     .mockReturnValueOnce(oldB.promise)
     .mockReturnValueOnce(emptyA.promise)
-    .mockReturnValueOnce(retryA.promise)
 
   for (const workspaceId of ['workspace-a', 'workspace-b', 'workspace-a']) {
     await renderHarness(workspaceId)
@@ -158,22 +157,10 @@ it('keeps workspace generations isolated while retrying empty snapshots on later
   expect(current.ensureSubmenuLoaded).toBe(stableEnsureSubmenuLoaded)
   expect(m.bootstrapYjsProvider).toHaveBeenCalledTimes(3)
 
-  startLoads('watchlist')
-  const activeResult = providerResult([
-    entityMember('watchlist-old', 'Old', '2026-04-01T00:00:00.000Z'),
-    entityMember('watchlist-new', 'New', '2026-04-02T00:00:00.000Z'),
-  ])
-  await act(async () => retryA.resolve(activeResult))
-
-  expect(current.mentionSources.workspaceEntities.watchlist).toEqual([
-    { entityKind: 'watchlist', id: 'watchlist-new', name: 'New' },
-    { entityKind: 'watchlist', id: 'watchlist-old', name: 'Old' },
-  ])
-  expect(current.mentionLoading.watchlist).toBe(false)
+  await act(async () => current.ensureSubmenuLoaded('watchlist'))
   expect(m.bootstrapYjsProvider.mock.calls.map(([descriptor]) => descriptor.workspaceId)).toEqual([
     'workspace-a',
     'workspace-b',
-    'workspace-a',
     'workspace-a',
   ])
   expect(m.bootstrapYjsProvider).toHaveBeenNthCalledWith(
@@ -184,9 +171,32 @@ it('keeps workspace generations isolated while retrying empty snapshots on later
   )
   expect(staleResult.dispose).toHaveBeenCalledOnce()
   expect(emptyResult.dispose).toHaveBeenCalledOnce()
-  expect(activeResult.dispose).toHaveBeenCalledOnce()
-  await act(async () => current.ensureSubmenuLoaded('watchlist'))
-  expect(m.bootstrapYjsProvider).toHaveBeenCalledTimes(4)
+})
+
+it('loads successful empty workspace mention sources only once per scope', async () => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    return {
+      ok: true,
+      json: async () => (url.startsWith('/api/copilot/chat') ? { chats: [] } : { data: [] }),
+    }
+  })
+  m.bootstrapYjsProvider.mockResolvedValue(providerResult([]))
+  vi.stubGlobal('fetch', fetchMock)
+
+  await renderHarness('workspace-1')
+  const submenus: MentionSubmenu[] = ['chats', 'workflow', 'watchlist', 'logs']
+  const firstLoads = startLoads(...submenus)
+  await act(async () => Promise.all(firstLoads))
+
+  expect(fetchMock).toHaveBeenCalledTimes(3)
+  expect(m.bootstrapYjsProvider).toHaveBeenCalledOnce()
+
+  const repeatedLoads = startLoads(...submenus)
+  await act(async () => Promise.all(repeatedLoads))
+
+  expect(fetchMock).toHaveBeenCalledTimes(3)
+  expect(m.bootstrapYjsProvider).toHaveBeenCalledOnce()
 })
 
 it('keeps deferred past-chat and log results scoped to their originating workspace', async () => {

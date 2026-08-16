@@ -58,28 +58,32 @@ export function useUserInputMentionSources({
   const workspaceScopeKey = JSON.stringify([workspaceId, normalizedOwnerUserId])
   const activeWorkspaceScopeRef = useRef<WorkspaceMentionScope | null>(null)
   const [committedWorkspaceScopeKey, setCommittedWorkspaceScopeKey] = useState(workspaceScopeKey)
-  const [loadedPastChats, setLoadedPastChats] = useState<PastChatItem[]>([])
+  const [loadedPastChats, setLoadedPastChats] = useState<PastChatItem[] | null>(null)
   const [pastChatsLoading, setPastChatsLoading] = useState(false)
   const [workspaceEntityState, setWorkspaceEntityState] = useState<WorkspaceEntityMentionLoadState>(
     {}
   )
   const blockCatalogLocaleRef = useRef(locale)
   const [committedBlockCatalogLocale, setCommittedBlockCatalogLocale] = useState(locale)
-  const [loadedBlocksList, setLoadedBlocksList] = useState<BlockItem[]>([])
+  const [loadedBlocksList, setLoadedBlocksList] = useState<BlockItem[] | null>(null)
   const [blockCatalogLoading, setBlockCatalogLoading] = useState(false)
   const blockCatalogLoadGenerationRef = useRef(0)
-  const [loadedLogsList, setLoadedLogsList] = useState<LogItem[]>([])
+  const [loadedLogsList, setLoadedLogsList] = useState<LogItem[] | null>(null)
   const [logsLoading, setLogsLoading] = useState(false)
   const workspaceScopeIsCurrent = committedWorkspaceScopeKey === workspaceScopeKey
-  const pastChats = workspaceScopeIsCurrent ? loadedPastChats : EMPTY_PAST_CHATS
+  const pastChats = workspaceScopeIsCurrent
+    ? (loadedPastChats ?? EMPTY_PAST_CHATS)
+    : EMPTY_PAST_CHATS
   const isLoadingPastChats = workspaceScopeIsCurrent && pastChatsLoading
   const scopedWorkspaceEntityState = workspaceScopeIsCurrent
     ? workspaceEntityState
     : EMPTY_WORKSPACE_ENTITY_STATE
-  const logsList = workspaceScopeIsCurrent ? loadedLogsList : EMPTY_LOGS
+  const logsList = workspaceScopeIsCurrent ? (loadedLogsList ?? EMPTY_LOGS) : EMPTY_LOGS
   const isLoadingLogs = workspaceScopeIsCurrent && logsLoading
   const blockCatalogLocaleIsCurrent = committedBlockCatalogLocale === locale
-  const blocksList = blockCatalogLocaleIsCurrent ? loadedBlocksList : EMPTY_BLOCK_CATALOG
+  const blocksList = blockCatalogLocaleIsCurrent
+    ? (loadedBlocksList ?? EMPTY_BLOCK_CATALOG)
+    : EMPTY_BLOCK_CATALOG
   const isLoadingBlocks = blockCatalogLocaleIsCurrent && blockCatalogLoading
   const { members: dashboardLayoutMembers, isLoading: isLoadingDashboardLayouts } = useEntityList(
     'dashboard_layout',
@@ -121,7 +125,7 @@ export function useUserInputMentionSources({
       !targetScope ||
       targetScope.key !== workspaceScopeKey ||
       isLoadingPastChats ||
-      pastChats.length > 0
+      loadedPastChats !== null
     ) {
       return
     }
@@ -157,7 +161,7 @@ export function useUserInputMentionSources({
     } finally {
       if (workspaceScopeIsActive(targetScope)) setPastChatsLoading(false)
     }
-  }, [isLoadingPastChats, pastChats.length, workspaceId, workspaceScopeIsActive, workspaceScopeKey])
+  }, [isLoadingPastChats, loadedPastChats, workspaceId, workspaceScopeIsActive, workspaceScopeKey])
 
   const ensureWorkspaceEntityLoaded = useCallback(
     async (entityKind: LazyWorkspaceEntityMentionKind) => {
@@ -167,7 +171,7 @@ export function useUserInputMentionSources({
         !targetScope ||
         targetScope.key !== workspaceScopeKey ||
         state === 'loading' ||
-        (Array.isArray(state) && state.length > 0)
+        Array.isArray(state)
       )
         return
 
@@ -186,7 +190,7 @@ export function useUserInputMentionSources({
   )
 
   const ensureBlocksLoaded = useCallback(async () => {
-    if (isLoadingBlocks || blocksList.length > 0) {
+    if (isLoadingBlocks || loadedBlocksList !== null) {
       return
     }
 
@@ -214,12 +218,6 @@ export function useUserInputMentionSources({
         return
       setLoadedBlocksList(mapped)
     } catch {
-      if (
-        targetLocale !== blockCatalogLocaleRef.current ||
-        generation !== blockCatalogLoadGenerationRef.current
-      )
-        return
-      setLoadedBlocksList([])
     } finally {
       if (
         targetLocale === blockCatalogLocaleRef.current &&
@@ -228,9 +226,9 @@ export function useUserInputMentionSources({
         setBlockCatalogLoading(false)
     }
   }, [
-    blocksList.length,
     compareLocalizedBlockMentionNames,
     isLoadingBlocks,
+    loadedBlocksList,
     locale,
     workflowInspectorCopy,
   ])
@@ -241,7 +239,7 @@ export function useUserInputMentionSources({
       !targetScope ||
       targetScope.key !== workspaceScopeKey ||
       isLoadingLogs ||
-      logsList.length > 0
+      loadedLogsList !== null
     ) {
       return
     }
@@ -279,7 +277,7 @@ export function useUserInputMentionSources({
     } finally {
       if (workspaceScopeIsActive(targetScope)) setLogsLoading(false)
     }
-  }, [isLoadingLogs, logsList.length, workspaceId, workspaceScopeIsActive, workspaceScopeKey])
+  }, [isLoadingLogs, loadedLogsList, workspaceId, workspaceScopeIsActive, workspaceScopeKey])
 
   const ensureSubmenuLoadedRef = useLatestRef(async (submenu: MentionSubmenu) => {
     if (submenu === 'chats') return ensurePastChatsLoaded()
@@ -294,11 +292,10 @@ export function useUserInputMentionSources({
     (submenu: MentionSubmenu) => ensureSubmenuLoadedRef.current(submenu),
     [ensureSubmenuLoadedRef]
   )
-
   useLayoutEffect(() => {
     blockCatalogLocaleRef.current = locale
     setCommittedBlockCatalogLocale(locale)
-    setLoadedBlocksList([])
+    setLoadedBlocksList(null)
     setBlockCatalogLoading(false)
     return () => {
       blockCatalogLoadGenerationRef.current += 1
@@ -309,10 +306,10 @@ export function useUserInputMentionSources({
     const scope = { key: workspaceScopeKey }
     activeWorkspaceScopeRef.current = scope
     setCommittedWorkspaceScopeKey(workspaceScopeKey)
-    setLoadedPastChats([])
+    setLoadedPastChats(null)
     setPastChatsLoading(false)
     setWorkspaceEntityState({})
-    setLoadedLogsList([])
+    setLoadedLogsList(null)
     setLogsLoading(false)
 
     return () => {
