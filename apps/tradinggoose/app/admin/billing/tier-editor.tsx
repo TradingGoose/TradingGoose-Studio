@@ -1230,6 +1230,7 @@ export function TierEditorFormSurface({
                         type='number'
                         step='0.01'
                         defaultValue={initialValues.monthlyPriceUsd}
+                        readOnly={structuralIdentityLocked}
                       />
                     </FieldShell>
                     <FieldShell
@@ -1275,6 +1276,7 @@ export function TierEditorFormSurface({
                         type='number'
                         step='0.01'
                         defaultValue={initialValues.yearlyPriceUsd}
+                        readOnly={structuralIdentityLocked}
                       />
                     </FieldShell>
                     <FieldShell

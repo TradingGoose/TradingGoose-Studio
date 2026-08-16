@@ -103,12 +103,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         'ownerType',
         'usageScope',
         'seatMode',
+        'monthlyPriceUsd',
+        'yearlyPriceUsd',
         'stripeMonthlyPriceId',
         'stripeYearlyPriceId',
         'stripeProductId',
       ]
       const changedStructuralField = structuralFields.find(
-        (field) => existingTier[field] !== (parsed.data as any)[field]
+        (field) =>
+          (field === 'monthlyPriceUsd' || field === 'yearlyPriceUsd'
+            ? existingTier[field] === null
+              ? null
+              : Number(existingTier[field])
+            : existingTier[field]) !== (parsed.data as any)[field]
       )
 
       if (existingTier.status !== 'draft' && changedStructuralField) {
