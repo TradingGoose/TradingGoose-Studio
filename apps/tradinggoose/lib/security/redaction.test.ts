@@ -55,6 +55,13 @@ describe('security redaction', () => {
     })
   })
 
+  it('redacts complete multiline private-key PEM blocks', () => {
+    const privateKey = '-----BEGIN PRIVATE KEY-----\nMIIEraw-secret-body\n-----END PRIVATE KEY-----'
+    expect(
+      deepRedactSecrets({ assigned: `privateKey=${privateKey}\nsafe text`, raw: privateKey })
+    ).toEqual({ assigned: 'privateKey=[redacted]\nsafe text', raw: '[redacted]' })
+  })
+
   it('redacts credentials from standard URI schemes, including an empty username', () => {
     expect(
       deepRedactSecrets({

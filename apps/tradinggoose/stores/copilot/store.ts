@@ -701,7 +701,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
                   })
                 }
               }
-            } else {
+            } else if (!get().isSendingMessage) {
               set({
                 currentChat: null,
                 messages: [],

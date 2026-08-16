@@ -2446,9 +2446,24 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().isAborting).toBe(false)
   })
 
-  it('loads generic chats with an explicit workspace scope even before live context is hydrated', async () => {
+  it('loads workspace history without erasing an active pre-session turn', async () => {
     const channelId = 'copilot-workspace-scoped-history'
     const store = getCopilotStore(channelId)
+    const abortController = new AbortController()
+    const messages = [
+      {
+        id: 'user-active-turn',
+        role: 'user' as const,
+        content: 'Start a new conversation',
+        timestamp: '2026-08-16T00:00:00.000Z',
+      },
+      {
+        id: 'assistant-active-turn',
+        role: 'assistant' as const,
+        content: '',
+        timestamp: '2026-08-16T00:00:01.000Z',
+      },
+    ]
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
       if (!url.startsWith('/api/copilot/chat?')) {
@@ -2474,11 +2489,11 @@ describe('copilot streaming regressions', () => {
     store.setState({
       currentChat: null,
       chats: [],
-      messages: [],
+      messages,
       toolCallsById: {},
       isLoadingChats: false,
-      isSendingMessage: false,
-      abortController: null,
+      isSendingMessage: true,
+      abortController,
     })
 
     await store.getState().loadChats({ workspaceId: 'workspace-1' })
@@ -2486,7 +2501,10 @@ describe('copilot streaming regressions', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/copilot/chat?workspaceId=${encodeURIComponent('workspace-1')}`
     )
+    expect(store.getState().messages).toBe(messages)
     expect(store.getState().isLoadingChats).toBe(false)
+    expect(store.getState().isSendingMessage).toBe(true)
+    expect(store.getState().abortController).toBe(abortController)
   })
 
   it('keeps stores isolated even when they reference the same review session', () => {

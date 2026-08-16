@@ -147,7 +147,7 @@ function applyDashboardWidgetDelta(
     flattenWidgetParams(before.params),
     flattenWidgetParams(after.params)
   )
-  if (after.pairColor !== 'gray' && widgetKey) {
+  if (map.get('pairColor') !== 'gray' && widgetKey) {
     const linkedFields = new Set<string>(getWidgetContract(widgetKey).linkedParamFields)
     for (const key of params.keys()) {
       if (linkedFields.has(decodeWidgetParamPath(key)[0] ?? '')) params.delete(key)

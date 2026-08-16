@@ -28,6 +28,8 @@ const SECRET_KEY_PATTERN =
   /^(?:accountid|accountnumber|serviceid|sig|signature|xamzsignature|xgoogsignature)$|accesskey|apikey|apisecret|authkey|cookie|credential|privatekey|secretkey|secret|password|passwd|authorization|token/
 const SECRET_TEXT_PATTERN =
   /((?:["'])?(?:access[-_ ]?key|api[-_ ]?key|api[-_ ]?secret|auth[-_ ]?key|authorization|client[-_ ]?secret|cookie|credential|password|passwd|private[-_ ]?key|secret[-_ ]?key|secret|token)(?:["'])?\s*[:=]\s*)(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|[^,;&\r\n}]+)/giu
+const PRIVATE_KEY_PEM_PATTERN =
+  /-----BEGIN ((?:[A-Z0-9]+[ -])*PRIVATE KEY)-----[\s\S]*?-----END \1-----/giu
 const AUTH_VALUE_PATTERN = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/giu
 const URI_CREDENTIAL_PATTERN = /([a-z][a-z0-9+.-]*:\/\/)[^/@\s:]*:[^/@\s]+@/giu
 const SIGNED_URL_QUERY_PATTERN =
@@ -48,6 +50,7 @@ function truncateUtf8(value: string, maxBytes: number): string {
 
 function redactSensitiveText(value: string): string {
   return value
+    .replace(PRIVATE_KEY_PEM_PATTERN, REDACTED_VALUE)
     .replace(SECRET_TEXT_PATTERN, `$1${REDACTED_VALUE}`)
     .replace(AUTH_VALUE_PATTERN, '$1 [redacted]')
     .replace(URI_CREDENTIAL_PATTERN, '$1[redacted]@')

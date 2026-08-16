@@ -370,11 +370,12 @@ describe('processContextsServer', () => {
   })
 
   it('redacts and structurally bounds explicitly attached log details', async () => {
+    const privateKey =
+      '-----BEGIN PRIVATE KEY-----\nMIIEraw-private-key-body\n-----END PRIVATE KEY-----'
     mockLogRowsQueue.push([
       buildLogRow({
         executionData: {
-          errorMessage:
-            'failed https://storage.test/blob?sv=2024-01-01&sig=raw-azure-signature&se=2099-01-01',
+          errorMessage: `failed https://storage.test/blob?sv=2024-01-01&sig=raw-azure-signature&se=2099-01-01\nprivateKey=${privateKey}`,
           traceSpans: [
             {
               id: 'span-1',
@@ -391,6 +392,7 @@ describe('processContextsServer', () => {
             header: { Key: 'X-API-Key', Value: 'raw-table-secret' },
             named: { name: 'idToken', value: 'raw-named-secret' },
             safe: { Key: 'Content-Type', Value: 'application/json' },
+            artifact: privateKey,
             url: 'https://storage.test/blob?X-Amz-Signature=raw-amz-signature&safe=visible',
           },
         },
@@ -411,11 +413,12 @@ describe('processContextsServer', () => {
       header: { Key: 'X-API-Key', Value: '[redacted]' },
       named: { name: 'idToken', value: '[redacted]' },
       safe: { Key: 'Content-Type', Value: 'application/json' },
+      artifact: '[redacted]',
       url: 'https://storage.test/blob?X-Amz-Signature=[redacted]&safe=visible',
     })
     expect(content.contextTruncated).toBe(true)
     expectContextWithinItemLimit(result!.content)
-    expect(result!.content).not.toMatch(/raw-(?:amz|auth|azure|named|output|table)/)
+    expect(result!.content).not.toMatch(/raw-(?:amz|auth|azure|named|output|private|table)/)
   })
 
   it('falls back deterministically when bounded explicit details still exceed the byte cap', async () => {
