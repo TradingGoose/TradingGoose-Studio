@@ -7,34 +7,32 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => {
   const chain: Record<string, any> = {}
   const select = vi.fn(() => chain)
-  const buildRow = () => ({
-    id: 'log-1',
-    workflowId: 'workflow-1',
-    workflowSummary: { id: 'workflow-1', name: 'Workflow' },
-    executionId: 'execution-1',
-    level: 'info',
-    trigger: 'manual',
-    startedAt: new Date('2026-04-23T00:00:00.000Z'),
-    endedAt: null,
-    totalDurationMs: null,
-    executionData: {},
-    cost: null,
-  })
-  const rows = [buildRow()]
   chain.from = vi.fn(() => chain)
   chain.innerJoin = vi.fn(() => chain)
   chain.leftJoin = vi.fn(() => chain)
   chain.where = vi.fn(() => chain)
   chain.orderBy = vi.fn(() => chain)
-  chain.limit = vi.fn(() => Promise.resolve(rows))
+  chain.limit = vi.fn(() =>
+    Promise.resolve([
+      {
+        id: 'log-1',
+        executionId: 'execution-1',
+        level: 'info',
+        trigger: 'manual',
+        startedAt: new Date('2026-04-23T00:00:00.000Z'),
+        endedAt: null,
+        totalDurationMs: null,
+        executionData: {},
+        cost: null,
+      },
+    ])
+  )
 
   return {
     chain,
     and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
     eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
     or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
-    resetRows: () => rows.splice(0, rows.length, buildRow()),
-    rows,
     select,
   }
 })
@@ -95,7 +93,6 @@ vi.mock('@/lib/copilot/tools/server/entities/shared', () => ({
 describe('readWorkflowLogsServerTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.resetRows()
   })
 
   it('matches console logs by live workflow id or durable workflow summary id', async () => {
@@ -103,6 +100,7 @@ describe('readWorkflowLogsServerTool', () => {
     const result = await readWorkflowLogsServerTool.execute(
       {
         entityId: 'deleted-workflow-1',
+        includeDetails: false,
       },
       { userId: 'user-1', apiKeyType: 'personal' }
     )
@@ -126,69 +124,10 @@ describe('readWorkflowLogsServerTool', () => {
     await expect(
       readWorkflowLogsServerTool.execute({
         entityId: 'deleted-workflow-1',
+        includeDetails: false,
       })
     ).rejects.toThrow('Authenticated user is required')
 
     expect(mocks.select).not.toHaveBeenCalled()
-  })
-
-  it('defaults to bounded summaries without raw inputs, outputs, or error text', async () => {
-    mocks.rows[0].executionData = {
-      traceSpans: [
-        {
-          id: 'span-1',
-          blockId: 'block-1',
-          name: 'Request',
-          type: 'api',
-          status: 'error',
-          input: { apiKey: 'raw-input-secret' },
-          output: { customerPayload: 'raw-output-payload' },
-        },
-      ],
-      errorDetails: {
-        blockId: 'block-1',
-        blockName: 'Request',
-        error: 'raw-free-form-error',
-      },
-    }
-
-    const { readWorkflowLogsServerTool } = await import('./read-workflow-logs')
-    const result = await readWorkflowLogsServerTool.execute(
-      { entityId: 'workflow-1' },
-      { userId: 'user-1' }
-    )
-
-    expect(result.entries[0].executionData.traceSummary).toMatchObject({
-      includedSpanCount: 1,
-      errorSpanCount: 1,
-    })
-    expect(result.entries[0].executionData).not.toHaveProperty('traceSpans')
-    expect(JSON.stringify(result)).not.toMatch(
-      /raw-(?:input-secret|output-payload|free-form-error)/
-    )
-  })
-
-  it('clamps reads and never returns execution inputs or outputs', async () => {
-    mocks.rows[0].executionData = {
-      traceSpans: [
-        {
-          id: 'span-1',
-          input: { apiKey: 'raw-api-secret' },
-          output: { body: 'x'.repeat(50_000) },
-        },
-      ],
-    }
-
-    const { readWorkflowLogsServerTool } = await import('./read-workflow-logs')
-    const result = await readWorkflowLogsServerTool.execute(
-      { entityId: 'workflow-1', limit: 500 },
-      { userId: 'user-1' }
-    )
-
-    expect(mocks.chain.limit).toHaveBeenCalledWith(10)
-    expect(result.entries[0].executionData).not.toHaveProperty('traceSpans')
-    expect(Buffer.byteLength(JSON.stringify(result.entries[0]), 'utf8')).toBeLessThanOrEqual(16_384)
-    expect(JSON.stringify(result)).not.toContain('raw-api-secret')
-    expect(JSON.stringify(result)).not.toContain('x'.repeat(100))
   })
 })

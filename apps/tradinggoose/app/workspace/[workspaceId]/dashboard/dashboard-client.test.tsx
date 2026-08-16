@@ -27,7 +27,6 @@ import type { PairColor } from '@/widgets/pair-colors'
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
-const copilotContextMocks = vi.hoisted(() => ({ publishActiveLayout: vi.fn() }))
 
 const mockFetch = vi.fn()
 let mockSelectLayout: ((layoutId: string) => void) | null = null
@@ -149,17 +148,6 @@ vi.mock(
 
 vi.mock('@/global-navbar', () => ({
   GlobalNavbarHeader: ({ center }: { center?: ReactNode }) => <>{center}</>,
-}))
-
-vi.mock('@/global-navbar/copilot-context', () => ({
-  GlobalCopilotActiveDashboardLayoutPublisher: ({
-    activeLayout,
-  }: {
-    activeLayout: DashboardLayoutTab | null
-  }) => {
-    copilotContextMocks.publishActiveLayout(activeLayout)
-    return null
-  },
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/layout-tabs', () => ({
@@ -325,9 +313,6 @@ describe('DashboardClient', () => {
   it('rebinds widget data and runtime context when the dashboard identity changes', async () => {
     await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
 
-    expect(copilotContextMocks.publishActiveLayout).toHaveBeenLastCalledWith(
-      expect.objectContaining({ id: 'layout-a', isActive: true })
-    )
     expect(readWidgetSurface(container)).toEqual({
       workflowId: 'wf-a',
       workspaceId: 'ws-a',
@@ -357,7 +342,10 @@ describe('DashboardClient', () => {
   it('keeps personal widget controls independent of workspace entity permission', async () => {
     await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
 
-    const switchToRedButton = getButton(container, 'pair-color-red-panel-a')
+    const switchToRedButton = container.querySelector('[data-testid="pair-color-red-panel-a"]')
+    if (!(switchToRedButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected pair color switch button to be rendered')
+    }
 
     expect(switchToRedButton.disabled).toBe(false)
     await act(async () => {
@@ -406,8 +394,12 @@ describe('DashboardClient', () => {
     try {
       await renderDashboard({ topology: createGroupLayout([50, 50]) })
 
-      const closePanel = getButton(container, 'close-panel-panel-left')
-      const replacePanel = getButton(container, 'widget-watchlist-panel-left')
+      const closePanel = container.querySelector('[data-testid="close-panel-panel-left"]')
+      if (!(closePanel instanceof HTMLButtonElement)) throw new Error('Expected panel close button')
+      const replacePanel = container.querySelector('[data-testid="widget-watchlist-panel-left"]')
+      if (!(replacePanel instanceof HTMLButtonElement)) {
+        throw new Error('Expected panel replacement button')
+      }
       await act(async () => {
         closePanel.click()
         replacePanel.click()
@@ -450,7 +442,6 @@ describe('DashboardClient', () => {
     await act(async () => resolveActivation({ ok: true, json: () => Promise.resolve(projected) }))
     expect(mockLayoutDocumentLayoutId).toBe('layout-b')
     expect(mockLayoutTabsLayouts).toEqual(projected)
-    expect(copilotContextMocks.publishActiveLayout).toHaveBeenLastCalledWith(projected[1])
 
     mockDashboardLayoutList = {
       layouts: projected.filter((layout) => layout.id !== 'layout-a'),
@@ -475,7 +466,8 @@ describe('DashboardClient', () => {
 
     await renderDashboard({ topology: createGroupLayout([50, 50]) })
 
-    const closePanel = getButton(container, 'close-panel-panel-left')
+    const closePanel = container.querySelector('[data-testid="close-panel-panel-left"]')
+    if (!(closePanel instanceof HTMLButtonElement)) throw new Error('Expected panel close control')
     expect(closePanel.disabled).toBe(false)
   })
 })
@@ -515,13 +507,13 @@ function createGroupLayout(sizes: number[]): DashboardLayoutTopologyNode {
         id: 'panel-left',
         type: 'panel',
         identityId: 'widget-left',
-        widgetKey: 'editor_workflow',
+        widgetKey: 'copilot',
       },
       {
         id: 'panel-right',
         type: 'panel',
         identityId: 'widget-right',
-        widgetKey: 'editor_workflow',
+        widgetKey: 'copilot',
       },
     ],
   }
@@ -590,10 +582,4 @@ function readWidgetSurface(container: HTMLDivElement, panelId?: string) {
     dashboardLayoutName: element.dataset.dashboardLayoutName ?? '',
     dashboardLayoutOwnerUserId: element.dataset.dashboardLayoutOwnerUserId ?? '',
   }
-}
-
-function getButton(container: HTMLDivElement, testId: string) {
-  const button = container.querySelector(`[data-testid="${testId}"]`)
-  if (!(button instanceof HTMLButtonElement)) throw new Error(`Expected ${testId}`)
-  return button
 }

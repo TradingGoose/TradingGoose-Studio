@@ -16,7 +16,6 @@ import {
   type OrdersFilterState,
   type OrderTimeInForceFilter,
 } from '@/lib/records/order-filters'
-import { deepRedactSecrets } from '@/lib/security/redaction'
 
 type JsonRecord = Record<string, any>
 
@@ -94,6 +93,39 @@ export type SerializedOrderSearchOption = {
   iconUrl: string | null
   assetClass: string | null
   listingType: string | null
+}
+
+const SECRET_KEY_EXACT_KEYS = new Set([
+  'accountid',
+  'accountnumber',
+  'accesstoken',
+  'apikey',
+  'apisecret',
+  'authorization',
+  'password',
+  'refreshtoken',
+  'serviceid',
+])
+const SECRET_KEY_PATTERN = /credential|secret|token|password|authorization/i
+
+const shouldRedactKey = (key: string) => {
+  const normalized = key.replace(/[-_\s]/g, '').toLowerCase()
+  return SECRET_KEY_EXACT_KEYS.has(normalized) || SECRET_KEY_PATTERN.test(key)
+}
+
+export function deepRedactSecrets(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => deepRedactSecrets(entry))
+  }
+  if (!value || typeof value !== 'object') {
+    return value
+  }
+  return Object.fromEntries(
+    Object.entries(value as JsonRecord).map(([key, entry]) => [
+      key,
+      shouldRedactKey(key) ? '[redacted]' : deepRedactSecrets(entry),
+    ])
+  )
 }
 
 const toRecord = (value: unknown): JsonRecord =>

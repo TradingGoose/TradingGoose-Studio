@@ -29,51 +29,20 @@ const sheetVariants = cva(
 
 interface SheetContentProps
   extends StaticClassNameProps<SheetPrimitive.Popup.Props>,
-    VariantProps<typeof sheetVariants> {
-  backdropClassName?: string
-  closeClassName?: string
-  keepMounted?: boolean
-  portalContainer?: SheetPrimitive.Portal.Props['container']
-  viewportClassName?: string
-}
+    VariantProps<typeof sheetVariants> {}
 
 const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
-  (
-    {
-      side = 'right',
-      backdropClassName,
-      className,
-      children,
-      closeClassName,
-      keepMounted,
-      portalContainer,
-      viewportClassName,
-      ...props
-    },
-    ref
-  ) => (
-    <SheetPrimitive.Portal keepMounted={keepMounted} container={portalContainer}>
-      <SheetPrimitive.Backdrop
-        className={cn(
-          'data-[ending-style]:fade-out-0 data-[starting-style]:fade-in-0 fixed inset-0 z-50 bg-black/50 backdrop-blur-[4.8px] data-[ending-style]:animate-out data-[starting-style]:animate-in',
-          backdropClassName
-        )}
-      />
-      <SheetPrimitive.Viewport
-        className={cn('pointer-events-none fixed inset-0 z-50', viewportClassName)}
-      >
+  ({ side = 'right', className, children, ...props }, ref) => (
+    <SheetPrimitive.Portal>
+      <SheetPrimitive.Backdrop className='fixed inset-0 z-50 bg-black/50 backdrop-blur-[4.8px] data-[ending-style]:animate-out data-[ending-style]:fade-out-0 data-[starting-style]:animate-in data-[starting-style]:fade-in-0' />
+      <SheetPrimitive.Viewport className='pointer-events-none fixed inset-0 z-50'>
         <SheetPrimitive.Popup
           ref={ref}
           className={cn(sheetVariants({ side }), className)}
           {...props}
         >
           {children}
-          <SheetPrimitive.Close
-            className={cn(
-              'absolute top-4 right-4 rounded-sm bg-secondary opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none',
-              closeClassName
-            )}
-          >
+          <SheetPrimitive.Close className='absolute top-4 right-4 rounded-sm bg-secondary opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none'>
             <X className='h-4 w-4' />
             <span className='sr-only'>Close</span>
           </SheetPrimitive.Close>

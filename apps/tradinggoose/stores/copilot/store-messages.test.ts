@@ -1,16 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { createUserMessage, normalizeMessagesForUI } from './store-messages'
+import { normalizeMessagesForUI } from './store-messages'
 import type { CopilotMessage } from './types'
 
 describe('normalizeMessagesForUI', () => {
-  it('stores user contexts only in the canonical contexts field', () => {
-    const message = createUserMessage('Read @Docs', undefined, [{ kind: 'docs', label: 'Docs' }])
-
-    expect(message.contexts).toEqual([{ kind: 'docs', label: 'Docs' }])
-    expect(message.contentBlocks).toBeUndefined()
-  })
-
   it('moves reasoning-only JSON prefixes out of assistant text content', () => {
     const [message] = normalizeMessagesForUI([
       {

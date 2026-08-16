@@ -15,6 +15,7 @@ export const WIDGET_KEYS = [
   'editor_workflow',
   'workflow_chat',
   'workflow_console',
+  'copilot',
   'list_indicator',
   'list_mcp',
   'editor_indicator',

@@ -115,15 +115,8 @@ function collectStandaloneRuntimeEntryExports(filePath: string) {
   const exportNames = new Set<string>()
 
   ts.forEachChild(sourceFile, (node) => {
-    if (
-      ts.isFunctionDeclaration(node) &&
-      node.name &&
-      hasModifier(node, ts.SyntaxKind.ExportKeyword)
-    ) {
-      if (
-        /^get[A-Z].*Subject$/.test(node.name.text) ||
-        /^render[A-Z].*Email$/.test(node.name.text)
-      ) {
+    if (ts.isFunctionDeclaration(node) && node.name && hasModifier(node, ts.SyntaxKind.ExportKeyword)) {
+      if (/^get[A-Z].*Subject$/.test(node.name.text) || /^render[A-Z].*Email$/.test(node.name.text)) {
         exportNames.add(node.name.text)
       }
       return
@@ -232,46 +225,53 @@ describe('i18n catalog route inventory guardrails', () => {
     }
   })
 
-  it('keeps dashboard widget selector and quick-order header copy covered in the real app scan', () => {
-    const { report } = getRealAppDashboardFixture()
-    const usedHeaderKey = report.usedKeys.find((pathKey) =>
-      pathKey.startsWith('workspace.widgets.quickOrder.header.')
-    )
+  it(
+    'keeps dashboard widget selector and quick-order header copy covered in the real app scan',
+    () => {
+      const { report } = getRealAppDashboardFixture()
+      const usedHeaderKey = report.usedKeys.find((pathKey) =>
+        pathKey.startsWith('workspace.widgets.quickOrder.header.')
+      )
 
-    expect(usedHeaderKey).toBeDefined()
+      if (!usedHeaderKey) {
+        throw new Error('Expected at least one quick-order header key to be marked as used')
+      }
 
-    expect(report.usedKeys).toEqual(
-      expect.arrayContaining([
-        'workspace.widgets.customToolList.createMenu.create',
-        'workspace.widgets.mcpEditor.selectServer',
-        'workspace.widgets.selector.selectWidget',
-        'workspace.widgets.selector.widgetSelectionUnavailable',
-        usedHeaderKey,
-      ])
-    )
-    expect(report.missingKeys).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          pathKey: 'workspace.widgets.workflowLabels.pages.toLowerCase',
-        }),
-        expect.objectContaining({
-          pathKey: 'workspace.widgets.workflowLabels.issues.toLowerCase',
-        }),
-      ])
-    )
-    expect(report.orphanedKeys).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ pathKey: 'workspace.widgets.customToolList.createMenu.create' }),
-        expect.objectContaining({ pathKey: 'workspace.widgets.mcpEditor.selectServer' }),
-        expect.objectContaining({ pathKey: 'workspace.widgets.selector.selectWidget' }),
-        expect.objectContaining({
-          pathKey: 'workspace.widgets.selector.widgetSelectionUnavailable',
-        }),
-        expect.objectContaining({ pathKey: usedHeaderKey }),
-        expect.objectContaining({ pathKey: 'workspace.dashboard.pages.logs' }),
-      ])
-    )
-  }, 60000)
+      expect(report.usedKeys).toEqual(
+        expect.arrayContaining([
+          'workspace.widgets.customToolList.createMenu.create',
+          'workspace.widgets.mcpEditor.selectServer',
+          'workspace.widgets.selector.selectWidget',
+          'workspace.widgets.selector.widgetSelectionUnavailable',
+          usedHeaderKey,
+        ])
+      )
+      expect(report.usedKeys).not.toContain('workspace.widgets.quickOrder.body.submitOrder')
+      expect(report.missingKeys).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            pathKey: 'workspace.widgets.workflowLabels.pages.toLowerCase',
+          }),
+          expect.objectContaining({
+            pathKey: 'workspace.widgets.workflowLabels.issues.toLowerCase',
+          }),
+        ])
+      )
+      expect(report.orphanedKeys).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pathKey: 'workspace.widgets.customToolList.createMenu.create' }),
+          expect.objectContaining({ pathKey: 'workspace.widgets.mcpEditor.selectServer' }),
+          expect.objectContaining({ pathKey: 'workspace.widgets.selector.selectWidget' }),
+          expect.objectContaining({
+            pathKey: 'workspace.widgets.selector.widgetSelectionUnavailable',
+          }),
+          expect.objectContaining({ pathKey: usedHeaderKey }),
+          expect.objectContaining({ pathKey: 'workspace.dashboard.pages.logs' }),
+        ])
+      )
+    },
+    60000
+  )
 
   it('keeps dashboard route scans materially narrower than all-mode widget coverage', () => {
     const { routeScanResult, globalScanResult } = getRealAppDashboardFixture()

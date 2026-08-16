@@ -3,11 +3,8 @@
  */
 
 import { act, cloneElement } from 'react'
-import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import enMessages from '@/i18n/messages/en.json'
-import esMessages from '@/i18n/messages/es.json'
 
 const mocks = vi.hoisted(() => ({
   buildLogsRequestParams: vi.fn(() => 'workspaceId=workspace-1'),
@@ -26,27 +23,18 @@ const mocks = vi.hoisted(() => ({
   useLogsList: vi.fn(),
   useOrderDetail: vi.fn(),
   useOrdersList: vi.fn(),
-  copilotContext: null as Record<string, unknown> | null,
   workflowDetailsProps: null as any,
   workflowIds: [] as string[],
   workflowListProps: null as any,
 }))
 
 const order = { id: 'order-1' }
-const messagesByLocale = { en: enMessages, es: esMessages }
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ workspaceId: 'workspace-1' }),
 }))
 
 vi.mock('next/font/local', () => ({ default: () => ({ className: '' }) }))
-
-vi.mock('@/global-navbar/copilot-context', () => ({
-  GlobalCopilotContextPublisher: ({ context }: { context: Record<string, unknown> | null }) => {
-    mocks.copilotContext = context
-    return null
-  },
-}))
 
 vi.mock('@/components/ui/resizable', () => ({
   ResizableHandle: () => <div data-testid='resize-handle' />,
@@ -72,11 +60,7 @@ vi.mock('@/app/workspace/[workspaceId]/records/components/log-details/log-detail
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/records/components/logs-list', () => ({
-  LogsList: ({ logs, onLogClick }: any) => (
-    <button data-testid='logs-list' onClick={() => logs[0] && onLogClick(logs[0])} type='button'>
-      logs-list
-    </button>
-  ),
+  LogsList: () => <div data-testid='logs-list'>logs-list</div>,
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/records/components/logs-toolbar', () => ({
@@ -221,7 +205,6 @@ describe('Records', () => {
     mocks.triggers = []
     mocks.workflowDetailsProps = null
     mocks.workflowListProps = null
-    mocks.copilotContext = null
     reactActEnvironment.ResizeObserver = class {
       disconnect() {}
       observe() {}
@@ -248,14 +231,10 @@ describe('Records', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  const renderRecords = async (locale: keyof typeof messagesByLocale = 'en') => {
+  const renderRecords = async () => {
     const { default: Records } = await import('./records')
     await act(async () => {
-      root.render(
-        <NextIntlClientProvider locale={locale} messages={messagesByLocale[locale]}>
-          <Records />
-        </NextIntlClientProvider>
-      )
+      root.render(<Records />)
       await flush()
     })
   }
@@ -420,33 +399,6 @@ describe('Records', () => {
     expect(container.querySelector('[data-testid="logs-list"]')).toBeTruthy()
     expect(container.querySelector('[data-testid="orders-table"]')).toBeFalsy()
     expect(window.location.search).toBe('?tab=logs')
-  })
-
-  it('publishes the open log with a localized current Copilot context label', async () => {
-    window.history.pushState({}, '', '/workspace/workspace-1/records?tab=logs')
-    mocks.useLogsList.mockReturnValue({
-      data: {
-        pages: [
-          {
-            logs: [{ id: 'log-1' }],
-          },
-        ],
-      },
-      fetchNextPage: vi.fn(),
-      refetch: vi.fn(),
-    })
-
-    await renderRecords('es')
-    const logRow = container.querySelector('[data-testid="logs-list"]')
-    if (!(logRow instanceof HTMLButtonElement)) throw new Error('Expected log row')
-    await act(async () => logRow.click())
-
-    expect(mocks.copilotContext).toEqual({
-      kind: 'current_logs',
-      logId: 'log-1',
-      workspaceId: 'workspace-1',
-      label: esMessages.workspace.logs.details.currentLog,
-    })
   })
 
   it('renders Stats controls in the Records toolbar', async () => {

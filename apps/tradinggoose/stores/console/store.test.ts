@@ -11,11 +11,20 @@ vi.stubGlobal('crypto', {
   }),
 })
 
+vi.mock('@/lib/utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/utils')>()
+  return {
+    ...actual,
+    redactApiKeys: vi.fn((obj) => obj), // Return object as-is for testing
+  }
+})
+
 describe('Console Store', () => {
   beforeEach(() => {
     useConsoleStore.getState().clearConsole(null)
     vi.clearAllMocks()
     uuidCounter = 0
+    // Clear localStorage mock
     if (global.localStorage) {
       vi.mocked(global.localStorage.getItem).mockReturnValue(null)
       vi.mocked(global.localStorage.setItem).mockClear()
@@ -38,6 +47,7 @@ describe('Console Store', () => {
         endedAt: '2023-01-01T00:00:01.000Z',
       })
 
+      expect(newEntry).toBeDefined()
       expect(newEntry.id).toBe('test-uuid-1')
       expect(newEntry.workflowId).toBe('workflow-123')
       expect(newEntry.blockId).toBe('block-123')
@@ -348,6 +358,7 @@ describe('Console Store', () => {
     beforeEach(() => {
       const store = useConsoleStore.getState()
 
+      // Add multiple entries for different workflows
       store.addConsole({
         workflowId: 'workflow-1',
         blockId: 'block-1',
@@ -374,6 +385,8 @@ describe('Console Store', () => {
     it('should clear all entries when workflowId is null', () => {
       const store = useConsoleStore.getState()
 
+      expect(store.entries).toHaveLength(2)
+
       store.clearConsole(null)
 
       const state = useConsoleStore.getState()
@@ -382,6 +395,8 @@ describe('Console Store', () => {
 
     it('should clear only specific workflow entries', () => {
       const store = useConsoleStore.getState()
+
+      expect(store.entries).toHaveLength(2)
 
       store.clearConsole('workflow-1')
 

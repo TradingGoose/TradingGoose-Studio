@@ -14,10 +14,8 @@ import {
   useMonitorCopy,
 } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { LogDetails } from '@/app/workspace/[workspaceId]/records/components/log-details/log-details'
-import { GlobalCopilotContextPublisher } from '@/global-navbar/copilot-context'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { formatTemplate } from '@/i18n/utils'
-import type { ChatContext } from '@/stores/copilot/types'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
 import { MonitorBoard } from '../board/monitor-board'
@@ -48,7 +46,6 @@ import {
 } from '../view/view-config'
 
 type MonitorExecutionWorkspaceProps = {
-  workspaceId: string
   viewStateMode: 'loading' | 'server' | 'error'
   viewStateReloading: boolean
   viewsError: string | null
@@ -151,7 +148,6 @@ function ExecutionContextStrip({ execution }: { execution: MonitorExecutionItem 
 }
 
 export function MonitorExecutionWorkspace({
-  workspaceId,
   viewStateMode,
   viewStateReloading,
   viewsError,
@@ -300,19 +296,6 @@ export function MonitorExecutionWorkspace({
 
   const resolvedInspectorLog = selectedExecutionLog ?? null
   const showDesktopInspector = !isMobile && Boolean(selectedExecution)
-  const currentExecutionLogId = selectedExecution?.logId ?? null
-  const currentLogContext = useMemo<ChatContext | null>(
-    () =>
-      currentExecutionLogId
-        ? {
-            kind: 'current_logs',
-            logId: currentExecutionLogId,
-            workspaceId,
-            label: 'Current log',
-          }
-        : null,
-    [currentExecutionLogId, workspaceId]
-  )
 
   const handleSecondarySortFieldChange = (field: ExecutionMonitorSortField | '') => {
     onUpdateViewConfig((current) => {
@@ -531,44 +514,41 @@ export function MonitorExecutionWorkspace({
   )
 
   const inspectorContent = selectedExecution ? (
-    <>
-      <GlobalCopilotContextPublisher context={currentLogContext} />
-      {inspectorLoading && !resolvedInspectorLog ? (
-        <MonitorStateCard
-          loadingLabel={copy.execution.loadingDetails}
-          className='h-full bg-card/50'
-        />
-      ) : inspectorError ? (
-        <MonitorStateCard
-          title={copy.execution.detailsUnavailableTitle}
-          description={inspectorError}
-          actionLabel={copy.execution.closeInspector}
-          onAction={() => onSelectExecution(null)}
-        />
-      ) : !resolvedInspectorLog ? (
-        <MonitorStateCard
-          title={copy.execution.detailsUnavailableTitle}
-          description={copy.execution.detailsUnavailableDescription}
-          actionLabel={copy.execution.closeInspector}
-          onAction={() => onSelectExecution(null)}
-        />
-      ) : (
-        <Card className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/50'>
-          <ExecutionContextStrip execution={selectedExecution} />
-          <CardContent className='min-h-0 flex-1 overflow-hidden p-0'>
-            <LogDetails
-              log={resolvedInspectorLog}
-              isOpen
-              onClose={() => onSelectExecution(null)}
-              onNavigateNext={onNavigateNext}
-              onNavigatePrev={onNavigatePrev}
-              hasNext={hasNext}
-              hasPrev={hasPrev}
-            />
-          </CardContent>
-        </Card>
-      )}
-    </>
+    inspectorLoading && !resolvedInspectorLog ? (
+      <MonitorStateCard
+        loadingLabel={copy.execution.loadingDetails}
+        className='h-full bg-card/50'
+      />
+    ) : inspectorError ? (
+      <MonitorStateCard
+        title={copy.execution.detailsUnavailableTitle}
+        description={inspectorError}
+        actionLabel={copy.execution.closeInspector}
+        onAction={() => onSelectExecution(null)}
+      />
+    ) : !resolvedInspectorLog ? (
+      <MonitorStateCard
+        title={copy.execution.detailsUnavailableTitle}
+        description={copy.execution.detailsUnavailableDescription}
+        actionLabel={copy.execution.closeInspector}
+        onAction={() => onSelectExecution(null)}
+      />
+    ) : (
+      <Card className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/50'>
+        <ExecutionContextStrip execution={selectedExecution} />
+        <CardContent className='min-h-0 flex-1 overflow-hidden p-0'>
+          <LogDetails
+            log={resolvedInspectorLog}
+            isOpen
+            onClose={() => onSelectExecution(null)}
+            onNavigateNext={onNavigateNext}
+            onNavigatePrev={onNavigatePrev}
+            hasNext={hasNext}
+            hasPrev={hasPrev}
+          />
+        </CardContent>
+      </Card>
+    )
   ) : null
   const inspectorTitle =
     inspectorLoading && !resolvedInspectorLog

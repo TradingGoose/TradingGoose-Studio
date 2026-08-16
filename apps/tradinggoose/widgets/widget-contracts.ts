@@ -17,6 +17,7 @@ import {
   type WidgetMetadataProfile,
   type WidgetParamField,
 } from '@/widgets/widget-contract-types'
+import { copilotWidgetContract } from '@/widgets/widgets/copilot/contract'
 import { dataChartWidgetContract } from '@/widgets/widgets/data_chart/contract'
 import { customToolEditorWidgetContract } from '@/widgets/widgets/editor_custom_tool/contract'
 import { indicatorEditorWidgetContract } from '@/widgets/widgets/editor_indicator/contract'
@@ -61,6 +62,7 @@ const WIDGET_CONTRACTS = Object.fromEntries(
     workflowEditorWidgetContract,
     workflowChatWidgetContract,
     workflowConsoleWidgetContract,
+    copilotWidgetContract,
     indicatorListWidgetContract,
     mcpListWidgetContract,
     indicatorEditorWidgetContract,

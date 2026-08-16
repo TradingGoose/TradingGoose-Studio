@@ -238,7 +238,6 @@ describe('Copilot Chat Review Session GET', () => {
       ENTITY_KIND_CUSTOM_TOOL: 'custom_tool',
       ENTITY_KIND_DASHBOARD_LAYOUT: 'dashboard_layout',
       ENTITY_KIND_INDICATOR: 'indicator',
-      ENTITY_KIND_KNOWLEDGE_BASE: 'knowledge_base',
       ENTITY_KIND_MCP_SERVER: 'mcp_server',
       ENTITY_KIND_SKILL: 'skill',
       ENTITY_KIND_WATCHLIST: 'watchlist',

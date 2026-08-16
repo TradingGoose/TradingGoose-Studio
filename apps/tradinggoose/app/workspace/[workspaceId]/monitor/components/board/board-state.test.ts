@@ -14,6 +14,7 @@ const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecut
   outcome: 'success',
   trigger: 'manual',
   workflowName: 'Workflow One',
+  workflowColor: '#3972F6',
   monitorId: 'monitor-1',
   source: 'indicator',
   providerId: 'alpaca',
@@ -27,6 +28,19 @@ const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecut
   cost: 0.12,
   isOrphaned: false,
   isPartial: false,
+  sourceLog: {
+    id: 'log-1',
+    workspaceId: 'workspace-1',
+    workflowId: 'wf-1',
+    executionId: 'exec-1',
+    level: 'info',
+    trigger: 'manual',
+    startedAt: '2026-04-23T00:00:00.000Z',
+    recordCreatedAt: '2026-04-23T00:00:00.000Z',
+    endedAt: '2026-04-23T00:05:00.000Z',
+    durationMs: 300000,
+    outcome: 'success',
+  },
   ...overrides,
 })
 

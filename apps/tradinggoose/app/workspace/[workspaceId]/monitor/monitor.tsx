@@ -1446,7 +1446,6 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
 
   const executionWorkspace = (
     <MonitorExecutionWorkspace
-      workspaceId={workspaceId}
       viewStateMode={executionWorkspaceViewStateMode}
       viewStateReloading={viewStateReloading}
       viewsError={viewsError}

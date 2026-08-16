@@ -1,7 +1,6 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { deepRedactSecrets } from '@/lib/security/redaction'
 import {
   authorizeTradingConnectionRequest,
   logTradingBrokerRequestFailure,
@@ -9,6 +8,7 @@ import {
 } from '@/lib/trading/context'
 import { TradingServiceError } from '@/lib/trading/errors'
 import {
+  deepRedactSecrets,
   readOrderAccountId,
   readOrderCredentialId,
   readOrderServiceId,
@@ -28,6 +28,7 @@ export type TradingProviderOrderDetailResult = {
   orderDetail: TradingOrderDetailResult['orderDetail']
   provider: string
   providerOrderId: string
+  providerDetail: TradingOrderDetailResult
   workspaceId: string
 }
 
@@ -118,6 +119,9 @@ export async function getRecordedTradingOrderProviderDetail({
     ) as TradingProviderOrderDetailResult['orderDetail'],
     provider: order.provider,
     providerOrderId: providerDetail.providerOrderId,
+    providerDetail: deepRedactSecrets(
+      providerDetail
+    ) as TradingProviderOrderDetailResult['providerDetail'],
     workspaceId: order.workspaceId,
   }
 }
