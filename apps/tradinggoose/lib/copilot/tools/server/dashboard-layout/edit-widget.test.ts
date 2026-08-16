@@ -203,9 +203,11 @@ describe('edit_widget server tool', () => {
   it('clears a linked listing through review and socket color-pair mutations', async () => {
     toolMocks.shouldStage.mockReturnValue(true)
     const staged = await execute({ colorPair: { listing: null } }, { accessLevel: 'limited' })
+    const before = JSON.parse(staged.preview.documentDiff.before)
     const after = JSON.parse(staged.preview.documentDiff.after)
 
-    expect(after).not.toHaveProperty('colorPair')
+    expect(before.colorPair).toMatchObject({ listing: { listing_id: 'AAPL' } })
+    expect(after.colorPair).toEqual({})
     expect(after.widgetDocument.params).not.toHaveProperty('listing')
     expect(JSON.parse(staged.entityDocument)).not.toHaveProperty('colorPairs')
 
@@ -220,6 +222,20 @@ describe('edit_widget server tool', () => {
         patch: { colorPair: { listing: null } },
       })
     )
+  })
+
+  it('shows color-pair rebinding in the approval preview', async () => {
+    toolMocks.shouldStage.mockReturnValue(true)
+
+    const result = await execute({ pairColor: 'blue' }, { accessLevel: 'limited' })
+    const before = JSON.parse(result.preview.documentDiff.before)
+    const after = JSON.parse(result.preview.documentDiff.after)
+
+    expect(before.widgetDocument.pairColor).toBe('red')
+    expect(after.widgetDocument.pairColor).toBe('blue')
+    expect(before.colorPair).toMatchObject({ listing: { listing_id: 'AAPL' } })
+    expect(after.colorPair).toMatchObject({ listing: { listing_id: 'AAPL' } })
+    expect(after).not.toEqual(before)
   })
 
   it('stages edit_widget review with selected-widget JSON document diff', async () => {
@@ -252,18 +268,17 @@ describe('edit_widget server tool', () => {
     expect(before).toMatchObject({
       panelId: 'chart-panel',
       widgetKey: 'data_chart',
-      widgetDocument: { params: { listing: { listing_id: 'AAPL' } } },
+      widgetDocument: { pairColor: 'red' },
+      colorPair: { listing: { listing_id: 'AAPL' } },
     })
     expect(after).toMatchObject({
       panelId: 'chart-panel',
       widgetKey: 'data_chart',
       widgetDocument: {
+        pairColor: 'red',
         params: { data: { provider: 'polygon', auth: { apiKey: '[redacted]' } } },
       },
     })
-    expect(before).not.toHaveProperty('colorPair')
-    expect(before.widgetDocument).not.toHaveProperty('pairColor')
-    expect(after.widgetDocument).not.toHaveProperty('pairColor')
     expect(before.credentialWritePaths).toEqual([])
     expect(after.credentialWritePaths).toEqual(['widgetDocument.params.data.auth.apiKey'])
     expect(before.widgetDocument.params.data.auth.apiKey).toBe('[redacted]')

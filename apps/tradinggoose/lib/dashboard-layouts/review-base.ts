@@ -1,15 +1,14 @@
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import { omitPreservedDashboardCredentialValues } from '@/lib/dashboard-layouts/read-projection'
+import { readPairColorContext } from '@/widgets/color-pairs'
 import type {
   DashboardLayoutDocument,
   DashboardLayoutEditPlan,
   DashboardLayoutProjectionContent,
 } from '@/widgets/layout-document'
 import { findDashboardTopologyPanel } from '@/widgets/layout-document'
-import {
-  projectWidgetParamsForCopilot,
-  resolveEffectiveWidgetParams,
-} from '@/widgets/widget-contracts'
+import { isPairColor } from '@/widgets/pair-colors'
+import { projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
 import type {
   WidgetConfigMutationPatch,
   WidgetConfigMutationReviewBase,
@@ -50,19 +49,16 @@ export function buildDashboardWidgetReviewDocument(
 ) {
   const panel = requireDashboardWidgetPanel(content.layout, panelId)
   const widgetDocument = content.widgets[panel.identityId]!
+  const pairColor = isPairColor(widgetDocument.pairColor) ? widgetDocument.pairColor : 'gray'
   return {
     panelId,
     identityId: panel.identityId,
     widgetKey: panel.widgetKey,
     widgetDocument: {
-      params: projectWidgetParamsForCopilot(
-        panel.widgetKey,
-        resolveEffectiveWidgetParams(
-          { key: panel.widgetKey, ...widgetDocument },
-          content.colorPairs
-        )
-      ),
+      ...widgetDocument,
+      params: projectWidgetParamsForCopilot(panel.widgetKey, widgetDocument.params),
     },
+    colorPair: pairColor === 'gray' ? null : readPairColorContext(content.colorPairs, pairColor),
   }
 }
 
