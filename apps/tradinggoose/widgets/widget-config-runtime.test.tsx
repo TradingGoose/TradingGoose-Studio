@@ -19,6 +19,8 @@ import {
 const sessions = vi.hoisted(() => ({
   widgets: new Map<string, Y.Doc>(),
   pairs: new Map<string, Y.Doc>(),
+  errors: new Map<string, string>(),
+  retry: vi.fn<(entityId: string) => void>(),
 }))
 
 vi.mock('@/lib/yjs/use-entity-fields', () => ({
@@ -31,7 +33,9 @@ vi.mock('@/lib/yjs/use-entity-fields', () => ({
           ? (sessions.pairs.get(descriptor.entityId) ?? null)
           : null,
     isLoading: false,
-    error: null,
+    isRetrying: false,
+    error: descriptor ? (sessions.errors.get(descriptor.entityId) ?? null) : null,
+    retry: () => descriptor && sessions.retry(descriptor.entityId),
   }),
 }))
 
@@ -91,6 +95,8 @@ describe('independent widget config runtime owners', () => {
     sessions.widgets.set('widget-1', widgetDoc)
     sessions.pairs.set('red', pairDoc)
     sessions.pairs.set('blue', bluePairDoc)
+    sessions.errors.clear()
+    sessions.retry.mockClear()
     renderState = null
     actions = null
   })
@@ -103,6 +109,7 @@ describe('independent widget config runtime owners', () => {
     bluePairDoc.destroy()
     sessions.widgets.clear()
     sessions.pairs.clear()
+    sessions.errors.clear()
   })
 
   it('applies local parameter edits through the widget document and rerenders', () => {
@@ -207,5 +214,27 @@ describe('independent widget config runtime owners', () => {
       params: { view: { interval: '1m' }, listing: AAPL },
     })
     expect(readDashboardColorPairDocument(bluePairDoc)).toEqual({ listing: AAPL })
+  })
+
+  it('retains a failed destination pair and retries it through the pair failure state', () => {
+    sessions.pairs.delete('blue')
+    sessions.errors.set('blue', 'Failed to open destination color pair')
+    render()
+
+    act(() => actions?.changeWidgetPairColor?.('blue'))
+
+    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').pairColor).toBe('red')
+    expect(renderState?.loadFailure).toBe('pair')
+    expect(actions?.changeWidgetPairColor).toBeUndefined()
+
+    act(() => renderState?.retry())
+    expect(sessions.retry).toHaveBeenCalledWith('blue')
+
+    sessions.errors.delete('blue')
+    sessions.pairs.set('blue', bluePairDoc)
+    render()
+
+    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart').pairColor).toBe('blue')
+    expect(renderState?.loadFailure).toBeNull()
   })
 })

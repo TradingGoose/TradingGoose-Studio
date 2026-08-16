@@ -170,10 +170,7 @@ export function WidgetConfigRuntimeProvider({
       setPendingPairChange(null)
       return
     }
-    if (targetPairSession.error) {
-      setPendingPairChange(null)
-      return
-    }
+    if (targetPairSession.error) return
     if (pending.targetPairColor !== 'gray' && !targetPairSession.doc) return
 
     const pairs = [] as Array<{ color: LinkedPairColor } & PairColorContext>
@@ -221,7 +218,15 @@ export function WidgetConfigRuntimeProvider({
   const retry = useCallback(() => {
     if (widgetSession.error) widgetSession.retry()
     if (pairSession.error) pairSession.retry()
-  }, [pairSession.error, pairSession.retry, widgetSession.error, widgetSession.retry])
+    if (targetPairSession.error) targetPairSession.retry()
+  }, [
+    pairSession.error,
+    pairSession.retry,
+    targetPairSession.error,
+    targetPairSession.retry,
+    widgetSession.error,
+    widgetSession.retry,
+  ])
   const value = useMemo<WidgetConfigRuntime>(
     () => ({
       widgetKey,
@@ -229,8 +234,13 @@ export function WidgetConfigRuntimeProvider({
       pairContext,
       isWidgetReady,
       isPairReady,
-      loadFailure: widgetSession.error ? 'widget' : pairSession.error ? 'pair' : null,
-      isRetrying: widgetSession.isRetrying || pairSession.isRetrying,
+      loadFailure: widgetSession.error
+        ? 'widget'
+        : pairSession.error || targetPairSession.error
+          ? 'pair'
+          : null,
+      isRetrying:
+        widgetSession.isRetrying || pairSession.isRetrying || targetPairSession.isRetrying,
       retry,
       writeWidget,
       writePair,
@@ -244,6 +254,8 @@ export function WidgetConfigRuntimeProvider({
       pairSession.isRetrying,
       pendingPairChange,
       retry,
+      targetPairSession.error,
+      targetPairSession.isRetrying,
       widget,
       widgetKey,
       widgetSession.error,
