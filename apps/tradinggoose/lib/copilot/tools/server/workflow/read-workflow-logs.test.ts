@@ -112,12 +112,39 @@ describe('readWorkflowLogsServerTool', () => {
     expect(mocks.eq).toHaveBeenCalledWith('perm.userId', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith('ws.ownerId', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith('ws.personalKeys', true)
+    expect(mocks.eq).toHaveBeenCalledWith('workflowExecutionLogs.id', 'deleted-workflow-1')
     expect(mocks.eq).toHaveBeenCalledWith('workflowExecutionLogs.workflowId', 'deleted-workflow-1')
     expect(mocks.or).toHaveBeenCalled()
     expect(result).toMatchObject({
       totalEntries: 1,
-      workflowId: 'deleted-workflow-1',
+      entityId: 'deleted-workflow-1',
     })
+  })
+
+  it('returns bounded, redacted details only for the exact selected execution log', async () => {
+    mocks.rows[0].executionData = {
+      errorDetails: { error: 'selected failure', apiKey: 'raw-secret' },
+      finalOutput: { result: 'selected output' },
+    }
+    mocks.rows.push({ ...mocks.rows[0], id: 'log-2', executionId: 'execution-2' })
+
+    const { readWorkflowLogsServerTool } = await import('./read-workflow-logs')
+    const result = await readWorkflowLogsServerTool.execute(
+      { entityId: 'log-1' },
+      { userId: 'user-1' }
+    )
+
+    expect(result).toMatchObject({ entityId: 'log-1', totalEntries: 1 })
+    expect(result.entries).toEqual([
+      expect.objectContaining({
+        id: 'log-1',
+        executionData: {
+          errorDetails: { apiKey: '[redacted]', error: 'selected failure' },
+          finalOutput: { result: 'selected output' },
+        },
+      }),
+    ])
+    expect(JSON.stringify(result)).not.toContain('raw-secret')
   })
 
   it('requires authenticated server-tool context before reading console logs', async () => {

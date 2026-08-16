@@ -984,7 +984,7 @@ export const ToolResultSchemas = {
   [CopilotTool.read_workflow_logs]: z.object({
     entries: z.array(z.record(z.string(), z.unknown())),
     totalEntries: z.number().int().nonnegative(),
-    workflowId: z.string(),
+    entityId: z.string(),
     retrievedAt: z.string(),
     truncated: z.boolean(),
   }),

@@ -20,7 +20,7 @@ const editWorkflowExecute = vi.fn(async () => ({
 const readWorkflowLogsExecute = vi.fn(async () => ({
   entries: [],
   totalEntries: 0,
-  workflowId: 'workflow-123',
+  entityId: 'workflow-123',
   retrievedAt: '2026-08-13T00:00:00.000Z',
   truncated: true,
 }))
@@ -691,7 +691,7 @@ describe('routeExecution', () => {
     await expect(routeExecution('read_workflow_logs', payload, context)).resolves.toMatchObject({
       entries: expect.any(Array),
       totalEntries: 0,
-      workflowId: 'workflow-123',
+      entityId: 'workflow-123',
       truncated: true,
     })
 

@@ -33,10 +33,10 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
   async execute(rawArgs: ReadWorkflowLogsArgs, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('ReadWorkflowLogsServerTool')
     const limit = clampWorkflowLogLimit(rawArgs?.limit)
-    const workflowId = requireCopilotEntityId(rawArgs, { toolName: CopilotTool.read_workflow_logs })
+    const entityId = requireCopilotEntityId(rawArgs, { toolName: CopilotTool.read_workflow_logs })
     const userId = requireUserId(context)
 
-    logger.info('Reading workflow logs', { workflowId, limit })
+    logger.info('Reading workflow logs', { entityId, limit })
 
     const workspaceAccess = buildWorkspaceAccessScope(userId, workflowExecutionLogs.workspaceId)
     const apiKeyAccess =
@@ -61,20 +61,26 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
       .where(
         and(
           or(
-            eq(workflowExecutionLogs.workflowId, workflowId),
-            sql`${workflowExecutionLogs.workflowSummary}->>'id' = ${workflowId}`
+            eq(workflowExecutionLogs.id, entityId),
+            eq(workflowExecutionLogs.workflowId, entityId),
+            sql`${workflowExecutionLogs.workflowSummary}->>'id' = ${entityId}`
           ),
           workspaceAccess.accessFilter,
           apiKeyAccess
         )
       )
-      .orderBy(desc(workflowExecutionLogs.startedAt))
+      .orderBy(
+        desc(sql`CASE WHEN ${workflowExecutionLogs.id} = ${entityId} THEN 1 ELSE 0 END`),
+        desc(workflowExecutionLogs.startedAt)
+      )
       .limit(limit)
 
+    const exactLog = executionLogs.find((log) => log.id === entityId)
+    const targetLogs = exactLog ? [exactLog] : executionLogs
     const formattedEntries: Record<string, unknown>[] = []
     let resultBytes = 2
-    for (const log of executionLogs) {
-      const entry = projectExecutionLogContext(log, 'implicit').value
+    for (const log of targetLogs) {
+      const entry = projectExecutionLogContext(log, exactLog ? 'explicit' : 'implicit').value
       const entryBytes = Buffer.byteLength(JSON.stringify(entry), 'utf8')
       const separatorBytes = formattedEntries.length > 0 ? 1 : 0
       if (resultBytes + separatorBytes + entryBytes > MAX_COPILOT_CONTEXT_BYTES_PER_TURN) break
@@ -85,15 +91,15 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
     logger.info('Workflow logs result prepared', {
       entryCount: formattedEntries.length,
       resultSizeKB: Math.round(resultBytes / 1024),
-      resultTruncated: formattedEntries.length < executionLogs.length,
+      resultTruncated: formattedEntries.length < targetLogs.length,
     })
 
     return {
       entries: formattedEntries,
       totalEntries: formattedEntries.length,
-      workflowId,
+      entityId,
       retrievedAt: new Date().toISOString(),
-      truncated: formattedEntries.length < executionLogs.length,
+      truncated: formattedEntries.length < targetLogs.length,
     }
   },
 }

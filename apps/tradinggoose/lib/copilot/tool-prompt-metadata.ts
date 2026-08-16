@@ -72,7 +72,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_workflow_logs]: {
     description:
-      'Retrieve bounded, redacted workflow log summaries without execution inputs, outputs, or free-form errors.',
+      'Retrieve bounded, redacted logs by `entityId`. A workflow ID returns summary-only recent logs; an exact execution-log ID returns that selected run with bounded, redacted error and output details.',
     kind: 'read',
     entityKind: 'workflow',
   },
