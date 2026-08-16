@@ -158,6 +158,41 @@ export function generatePassword(length = 24): string {
 }
 
 /**
+ * Recursively redacts API keys in an object
+ * @param obj The object to redact API keys from
+ * @returns A new object with API keys redacted
+ */
+export const redactApiKeys = (obj: any): any => {
+  if (!obj || typeof obj !== 'object') {
+    return obj
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(redactApiKeys)
+  }
+
+  const result: Record<string, any> = {}
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (
+      key.toLowerCase() === 'apikey' ||
+      key.toLowerCase() === 'api_key' ||
+      key.toLowerCase() === 'access_token' ||
+      /\bsecret\b/i.test(key.toLowerCase()) ||
+      /\bpassword\b/i.test(key.toLowerCase())
+    ) {
+      result[key] = '***REDACTED***'
+    } else if (typeof value === 'object' && value !== null) {
+      result[key] = redactApiKeys(value)
+    } else {
+      result[key] = value
+    }
+  }
+
+  return result
+}
+
+/**
  * Validates a name by removing any characters that could cause issues
  * with variable references or node naming.
  *
@@ -262,13 +297,9 @@ export function normalizeStringArray(values: unknown): string[] {
     .filter((entry) => entry.length > 0)
 }
 
-export function sanitizeRecord(
-  record: Record<string, string> | null | undefined
-): Record<string, string> {
+export function sanitizeRecord(record: Record<string, string> | null | undefined): Record<string, string> {
   if (!record) return {}
   return Object.fromEntries(
-    Object.entries(record).filter(
-      ([key, value]) => key.trim().length > 0 && value.trim().length > 0
-    )
+    Object.entries(record).filter(([key, value]) => key.trim().length > 0 && value.trim().length > 0)
   )
 }

@@ -17,13 +17,7 @@ const editWorkflowExecute = vi.fn(async () => ({
   documentFormat: WORKFLOW_GRAPH_MERMAID_DOCUMENT_FORMAT,
   workflowState: { blocks: {} },
 }))
-const readWorkflowLogsExecute = vi.fn(async () => ({
-  entries: [],
-  totalEntries: 0,
-  workflowId: 'workflow-123',
-  retrievedAt: '2026-08-13T00:00:00.000Z',
-  truncated: true,
-}))
+const readWorkflowLogsExecute = vi.fn(async () => ({ entries: [] }))
 const getIndicatorCatalogExecute = vi.fn(async () => ({
   sections: [],
   items: [],
@@ -665,29 +659,15 @@ describe('routeExecution', () => {
     const payload = {
       entityId: 'workflow-123',
       limit: 5,
+      includeDetails: false,
     }
     const context = { userId: 'user-1', apiKeyType: 'personal' as const }
 
     await expect(routeExecution('read_workflow_logs', payload, context)).resolves.toMatchObject({
       entries: expect.any(Array),
-      totalEntries: 0,
-      workflowId: 'workflow-123',
-      truncated: true,
     })
 
     expect(readWorkflowLogsExecute).toHaveBeenCalledWith(payload, context)
-  })
-
-  it('rejects workflow log limits above the bounded server contract', async () => {
-    await expect(
-      routeExecution(
-        'read_workflow_logs',
-        { entityId: 'workflow-123', limit: 11 },
-        { userId: 'user-1' }
-      )
-    ).rejects.toThrow()
-
-    expect(readWorkflowLogsExecute).not.toHaveBeenCalled()
   })
 
   it('injects hosted workspace context for workspace-scoped writes', async () => {

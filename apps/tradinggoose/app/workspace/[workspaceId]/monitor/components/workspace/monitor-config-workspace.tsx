@@ -4,10 +4,8 @@ import { useCallback, useMemo } from 'react'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { getConfigBoardLabels, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
-import { GlobalCopilotContextPublisher } from '@/global-navbar/copilot-context'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { formatTemplate } from '@/i18n/utils'
-import type { ChatContext } from '@/stores/copilot/types'
 import { buildConfigBoardSections, type ConfigBoardContext } from '../config/config-board-state'
 import { buildConfigMonitorCards } from '../config/config-card-model'
 import {
@@ -195,24 +193,6 @@ export function MonitorConfigWorkspace({
   const activeSort = effectiveConfig.sortBy[0] ?? null
   const canReorder = effectiveConfig.sortBy.length === 0
   const hasEditorPanel = editorState.isEditorOpen || Boolean(editorState.selectedMonitor)
-  const currentMonitorContext = useMemo<ChatContext | null>(() => {
-    const monitorId = editorState.isEditorOpen
-      ? editorState.editingKey
-      : editorState.selectedMonitor?.monitorId
-    return monitorId
-      ? {
-          kind: 'current_monitor',
-          monitorId,
-          workspaceId,
-          label: 'Current monitor',
-        }
-      : null
-  }, [
-    editorState.editingKey,
-    editorState.isEditorOpen,
-    editorState.selectedMonitor?.monitorId,
-    workspaceId,
-  ])
   const noticeMessage =
     viewsError ??
     referenceData.warning ??
@@ -501,7 +481,6 @@ export function MonitorConfigWorkspace({
 
   return (
     <div className='flex h-full max-h-full min-h-0 w-full min-w-0 flex-col overflow-hidden p-1.5'>
-      <GlobalCopilotContextPublisher context={currentMonitorContext} />
       {isMobile ? (
         <div className='min-h-0 flex-1'>
           {board}

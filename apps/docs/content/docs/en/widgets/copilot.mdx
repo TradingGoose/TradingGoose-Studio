@@ -1,0 +1,61 @@
+---
+title: "Copilot"
+description: "AI assistant that manages workflows, MCP servers, skills, custom tools, knowledge bases, and more."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `copilot` |
+| **Category** | Utility |
+
+The Copilot widget is a workspace-wide AI assistant. It can manage workflows, MCP servers, skills, custom tools, knowledge bases, deployments, variables, and more. It maintains its own chat history per channel and supports multiple concurrent conversations.
+
+## Features
+
+- **Workspace-wide AI assistant** — not limited to workflows. Copilot can create and edit MCP servers, skills, custom tools, query knowledge bases, deploy workflows, set variables, and run workflows
+- **Context-aware** — when paired with an editor panel (workflow, indicator, skill, MCP, or custom tool), Copilot automatically includes that context so it can reference and modify the right resources
+- **Persistent chat history** — conversations are stored per channel and grouped by recency (Today, Yesterday, This Week, Older) in a history dropdown
+- **Multiple chats** — create new sessions with **+** in the header; switch between them without losing previous conversations
+- **Panel-scoped channels** — when paired via pair color, each panel gets its own channel so multiple Copilot widgets operate independently
+
+## Usage
+
+### Adding the widget
+
+Open the widget picker and select **Copilot**. It initializes a chat session scoped to the current workspace context.
+
+### Header layout
+
+- **Left** — chat history dropdown; click to browse and switch between past conversations
+- **Right** — new chat button (**+**) to start a fresh conversation
+
+### Key interactions
+
+1. Type a question or instruction in the input area and send it
+2. Copilot streams its response, executing tool calls to manage workspace resources as needed
+3. Open the history dropdown to revisit or delete earlier conversations
+4. Click **+** to start a new chat thread while keeping old ones accessible
+
+### Pair color syncing
+
+When assigned a pair color, Copilot follows the context of the paired editor — whether that's a workflow, indicator, skill, MCP server, or custom tool. Each panel still gets its own channel, so multiple Copilot widgets on the same pair color operate independently.
+
+<Callout>
+See the [Copilot feature guide](/copilot) for full details on capabilities, access levels, supported models, and setup.
+</Callout>
+
+## Related
+
+<Cards>
+  <Card title="Copilot Guide" href="/copilot">
+    Full feature guide: capabilities, models, access levels, and setup.
+  </Card>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">
+    Canvas interface to build and edit workflows.
+  </Card>
+</Cards>

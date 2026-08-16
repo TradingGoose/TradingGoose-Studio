@@ -32,7 +32,6 @@ import {
   useDashboardLayoutList,
 } from '@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc'
 import { GlobalNavbarHeader } from '@/global-navbar'
-import { GlobalCopilotActiveDashboardLayoutPublisher } from '@/global-navbar/copilot-context'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import { useRouter } from '@/i18n/navigation'
 import {
@@ -271,14 +270,14 @@ export function DashboardClient({
   const t = useTranslations('workspace.dashboard')
   const dashboardLayoutList = useDashboardLayoutList(workspaceId, ownerUserId, initialLayouts)
   const { layouts } = dashboardLayoutList
-  const activeLayout = layouts.find((layout) => layout.isActive) ?? null
-  const activeLayoutId = activeLayout?.id ?? null
-  const activeLayoutName = activeLayout?.name
+  const selectedLayout = layouts.find((layout) => layout.isActive) ?? null
+  const selectedLayoutId = selectedLayout?.id ?? null
+  const selectedLayoutName = selectedLayout?.name
   const layoutDocument = useDashboardLayoutDocument({
     workspaceId,
     ownerUserId,
-    layoutId: activeLayoutId,
-    initialTopology: activeLayoutId === layoutId ? initialTopology : null,
+    layoutId: selectedLayoutId,
+    initialTopology: selectedLayoutId === layoutId ? initialTopology : null,
   })
   const rawTree = layoutDocument.topology
   const canMutateLayouts = dashboardLayoutList.canMutate
@@ -354,11 +353,11 @@ export function DashboardClient({
   const widgetContext = useMemo<WidgetRuntimeContext>(
     () => ({
       workspaceId,
-      dashboardLayoutId: activeLayoutId ?? undefined,
-      dashboardLayoutName: activeLayoutName,
+      dashboardLayoutId: selectedLayoutId ?? undefined,
+      dashboardLayoutName: selectedLayoutName,
       dashboardLayoutOwnerUserId: ownerUserId,
     }),
-    [activeLayoutId, activeLayoutName, ownerUserId, workspaceId]
+    [ownerUserId, selectedLayoutId, selectedLayoutName, workspaceId]
   )
 
   const searchKnowledgeBases = useMemo(
@@ -476,10 +475,10 @@ export function DashboardClient({
 
   const handleSelectLayout = useCallback(
     (nextLayoutId: string) => {
-      if (!canMutateLayouts || !nextLayoutId || nextLayoutId === activeLayoutId) return
+      if (!canMutateLayouts || !nextLayoutId || nextLayoutId === selectedLayoutId) return
       void dashboardLayoutList.activateLayout(nextLayoutId)
     },
-    [activeLayoutId, canMutateLayouts, dashboardLayoutList.activateLayout]
+    [canMutateLayouts, dashboardLayoutList.activateLayout, selectedLayoutId]
   )
 
   const headerLeftContent = (
@@ -616,16 +615,15 @@ export function DashboardClient({
 
   return (
     <>
-      <GlobalCopilotActiveDashboardLayoutPublisher activeLayout={activeLayout} />
       <GlobalNavbarHeader left={headerLeftContent} center={headerCenterContent} />
       <div className='relative h-full min-h-0 w-full min-w-0 overflow-hidden'>
-        {activeLayoutId && rawTree && layoutDocument.doc ? (
+        {selectedLayoutId && rawTree && layoutDocument.doc ? (
           <DashboardNode
-            key={activeLayoutId}
+            key={selectedLayoutId}
             node={rawTree}
             workspaceId={workspaceId}
             ownerUserId={ownerUserId}
-            layoutId={activeLayoutId}
+            layoutId={selectedLayoutId}
             persistGroup={canMutateLayoutTopology ? persistGroup : undefined}
             resizeReconcileVersion={layoutDocument.resizeReconcileVersion}
             widgetContext={widgetContext}

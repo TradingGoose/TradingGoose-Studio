@@ -1,5 +1,5 @@
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
 
@@ -39,6 +39,7 @@ export interface CopilotMessage {
         startTime?: number
       }
     | { type: 'tool_call'; toolCall: CopilotToolCall; timestamp: number }
+    | { type: 'contexts'; contexts: ChatContext[]; timestamp: number }
   >
   fileAttachments?: MessageFileAttachment[]
   contexts?: ChatContext[]
@@ -50,33 +51,33 @@ type WorkspaceEntityContextIdFieldByKind = {
   workflow: 'workflowId'
   skill: 'skillId'
   indicator: 'indicatorId'
-  knowledge_base: 'knowledgeBaseId'
   custom_tool: 'customToolId'
   mcp_server: 'mcpServerId'
   watchlist: 'watchlistId'
   dashboard_layout: 'dashboardLayoutId'
 }
 
-type WorkspaceEntityContextBase<K extends keyof WorkspaceEntityContextIdFieldByKind> = {
+type WorkspaceEntityContextBase = {
+  workspaceId?: string
   ownerUserId?: string
   label: string
-} & (K extends 'knowledge_base' ? { workspaceId: string } : { workspaceId?: string })
+}
 
 type WorkspaceEntityExplicitChatContext = {
   [K in keyof WorkspaceEntityContextIdFieldByKind]: { kind: K } & Record<
     WorkspaceEntityContextIdFieldByKind[K],
     string
   > &
-    WorkspaceEntityContextBase<K>
+    WorkspaceEntityContextBase
 }[keyof WorkspaceEntityContextIdFieldByKind]
 
 type WorkspaceEntityCurrentChatContext = {
   [K in keyof WorkspaceEntityContextIdFieldByKind]: {
     kind: `current_${K}`
-  } & (K extends 'workflow' | 'knowledge_base'
+  } & (K extends 'workflow'
     ? Record<WorkspaceEntityContextIdFieldByKind[K], string>
     : Partial<Record<WorkspaceEntityContextIdFieldByKind[K], string>>) &
-    WorkspaceEntityContextBase<K>
+    WorkspaceEntityContextBase
 }[keyof WorkspaceEntityContextIdFieldByKind]
 
 type WorkspaceEntityChatContext =
@@ -87,27 +88,10 @@ export type ChatContext =
   | { kind: 'past_chat'; reviewSessionId: string; label: string }
   | WorkspaceEntityChatContext
   | { kind: 'blocks'; blockTypes?: string[]; label: string }
-  | {
-      kind: 'logs' | 'current_logs'
-      logId: string
-      workspaceId: string
-      label: string
-    }
+  | { kind: 'logs'; executionId?: string; label: string }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
-  | {
-      kind: 'current_monitor'
-      monitorId: string
-      workspaceId: string
-      label: string
-    }
+  | { kind: 'knowledge'; knowledgeId?: string; workspaceId?: string; label: string }
   | { kind: 'docs'; label: string }
-
-export interface CopilotDraft {
-  text: string
-  contexts: ChatContext[]
-}
-
-export type CopilotDraftUpdate = CopilotDraft | ((draft: CopilotDraft) => CopilotDraft)
 
 export interface CopilotChat {
   reviewSessionId: string
@@ -124,10 +108,16 @@ export interface CopilotChat {
   updatedAt: Date
 }
 
-export interface CopilotSendRuntimeContext {
+export interface CopilotLiveContext {
   workflowId: string | null
   workspaceId: string | null
+  reviewTarget: ReviewTargetDescriptor | null
+}
+
+export interface CopilotSendRuntimeContext {
+  liveContext: CopilotLiveContext
   implicitContexts: ChatContext[]
+  authenticatedUserId?: string | null
 }
 
 export interface CopilotToolExecutionProvenance {
@@ -161,7 +151,7 @@ export interface CopilotState {
   isAborting: boolean
 
   abortController: AbortController | null
-  draft: CopilotDraft
+  inputValue: string
 
   planTodos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
   showPlanTodos: boolean
@@ -201,19 +191,23 @@ export interface CopilotActions {
     }
   ) => Promise<void>
   abortMessage: () => void
+  setToolCallState: (toolCall: any, newState: ClientToolCallState, options?: any) => void
   saveChatMessages: (
     chatId: string,
     options?: { latestTurnStatus?: string | null }
   ) => Promise<void>
 
+  cleanup: () => void
   reset: () => void
 
-  setDraft: (update: CopilotDraftUpdate) => void
+  setInputValue: (value: string) => void
 
   setPlanTodos: (
     todos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
   ) => void
   updatePlanTodoStatus: (id: string, status: 'executing' | 'completed') => void
+  closePlanTodos: () => void
+
   handleStreamingResponse: (
     stream: ReadableStream,
     messageId: string,

@@ -959,12 +959,7 @@
         "integrations": "集成",
         "registration": "注册"
       },
-      "systemAdmin": "系统管理员",
-      "copilot": {
-        "label": "Copilot",
-        "show": "显示 Copilot",
-        "hide": "隐藏 Copilot"
-      }
+      "systemAdmin": "系统管理员"
     },
     "defaults": {
       "newWorkspaceName": "我的工作区",
@@ -1039,7 +1034,6 @@
         "noMatches": "没有与搜索匹配的知识库。"
       },
       "defaults": {
-        "untitledKnowledgeBase": "未命名知识库",
         "noDescriptionProvided": "未提供描述"
       },
       "header": {
@@ -1409,7 +1403,6 @@
       },
       "details": {
         "title": "日志详情",
-        "currentLog": "当前日志",
         "previous": "上一条日志",
         "next": "下一条日志",
         "close": "关闭",
@@ -2254,6 +2247,7 @@
         "editor_workflow": "工作流编辑器",
         "workflow_chat": "工作流聊天",
         "workflow_console": "工作流控制台",
+        "copilot": "Copilot",
         "list_indicator": "指标",
         "list_mcp": "MCP服务器",
         "editor_indicator": "指标编辑器",
@@ -21326,17 +21320,13 @@
           }
         },
         "mentions": {
-          "dashboardLayouts": "仪表盘布局",
           "workflowBlocks": "工作流模块",
-          "loadFailed": "无法加载此列表。重试",
           "matches": "匹配项",
           "noMatches": "未找到匹配项",
-          "noDashboardLayoutsFound": "未找到仪表盘布局。",
           "noPastChats": "没有历史聊天",
           "noBlocksFound": "未找到模块",
           "noBlocksInWorkflow": "此工作流中没有模块",
-          "noExecutionsFound": "未找到执行记录",
-          "untitledDashboardLayout": "未命名布局"
+          "noExecutionsFound": "未找到执行记录"
         },
         "accessLevel": {
           "limited": {

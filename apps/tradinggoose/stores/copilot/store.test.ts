@@ -2,13 +2,14 @@ import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { registerClientTool, unregisterClientTool } from '@/lib/copilot/tools/client/manager'
-import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { encodeSSE } from '@/lib/utils'
 import { environmentKeys } from '@/hooks/queries/environment'
-import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
 import { getCopilotStore } from '@/stores/copilot/store'
+import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
+import { createExecutionContext } from '@/stores/copilot/tool-registry'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { resetCopilotWorkspaceSelectionState } from '@/stores/copilot/workspace-selection'
+import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 type FetchCall = readonly [input: RequestInfo | URL, init?: RequestInit]
 
@@ -123,15 +124,21 @@ function createRuntimeContext({
   workspaceId = null,
   workflowId = null,
   implicitContexts = [],
+  authenticatedUserId = null,
 }: {
   workspaceId?: string | null
   workflowId?: string | null
   implicitContexts?: ChatContext[]
+  authenticatedUserId?: string | null
 } = {}): CopilotSendRuntimeContext {
   return {
-    workflowId,
-    workspaceId,
+    liveContext: {
+      workflowId,
+      workspaceId,
+      reviewTarget: null,
+    },
     implicitContexts,
+    authenticatedUserId,
   }
 }
 
@@ -140,6 +147,57 @@ describe('copilot tool execution provenance', () => {
     vi.restoreAllMocks()
     ensureRequestAnimationFrame()
     resetCopilotWorkspaceSelectionState()
+  })
+
+  it('createExecutionContext uses generic ambient entity provenance', () => {
+    const toolCallId = 'copilot-provenance-tool-a'
+
+    const context = createExecutionContext({
+      toolCallId,
+      toolName: 'edit_workflow',
+      provenance: {
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-current-a',
+      },
+    })
+
+    expect(context.contextEntityKind).toBe('workflow')
+    expect(context.contextEntityId).toBe('wf-current-a')
+  })
+
+  it('returns the first matching store when duplicate toolCallId exists', () => {
+    const toolCallId = 'copilot-provenance-duplicate'
+    const channelA = 'copilot-provenance-channel-c'
+    const channelB = 'copilot-provenance-channel-d'
+
+    const storeA = getCopilotStore(channelA)
+    const storeB = getCopilotStore(channelB)
+
+    storeA.setState({
+      toolCallsById: {
+        [toolCallId]: {
+          id: toolCallId,
+          name: 'edit_workflow',
+          state: ClientToolCallState.pending,
+        },
+      },
+    })
+
+    storeB.setState({
+      toolCallsById: {
+        [toolCallId]: {
+          id: toolCallId,
+          name: 'edit_workflow',
+          state: ClientToolCallState.pending,
+          provenance: {
+            contextEntityKind: 'workflow',
+            contextEntityId: 'wf-origin-c',
+          },
+        },
+      },
+    })
+
+    expect(getCopilotStoreForToolCall(toolCallId)).toBe(storeA)
   })
 
   it('parses JSON-string function call arguments before storing tool params', async () => {
@@ -306,11 +364,15 @@ describe('copilot tool execution provenance', () => {
 
     await sendPromise
 
-    expect(store.getState().toolCallsById[toolCallId].provenance).toEqual({
-      contextEntityKind: 'workflow',
-      contextEntityId: 'wf-live-at-send',
-      workspaceId: 'workspace-1',
+    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
+      provenance: {
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-live-at-send',
+        workspaceId: 'workspace-1',
+      },
     })
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
 
     const usageRequest = fetchMock.mock.calls.find(([input]) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -399,11 +461,107 @@ describe('copilot tool execution provenance', () => {
 
     await sendPromise
 
-    expect(store.getState().toolCallsById[toolCallId].provenance).toEqual({
-      contextEntityKind: 'workflow',
-      contextEntityId: 'wf-current',
-      workspaceId: 'workspace-1',
+    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
+      provenance: {
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-current',
+        workspaceId: 'workspace-1',
+      },
     })
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
+  })
+
+  it('does not derive entity edit provenance from live widget context', async () => {
+    const channelId = 'copilot-unsaved-review-target'
+    const toolCallId = 'copilot-unsaved-review-target-tool'
+    const store = getCopilotStore(channelId)
+    const deferredStream = createDeferredSseStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: true,
+          status: 200,
+          body: deferredStream.stream,
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      currentChat: {
+        reviewSessionId: 'review-panel-chat-draft-entity',
+        workspaceId: 'workspace-1',
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        title: 'Generic workspace chat',
+        messages: [],
+        messageCount: 0,
+        conversationId: 'conversation-draft-entity',
+        createdAt: new Date('2026-04-13T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-13T00:00:00.000Z'),
+      },
+      chats: [],
+    })
+
+    const sendPromise = store.getState().sendMessage('Fix this draft skill', {
+      runtimeContext: createRuntimeContext({
+        workspaceId: 'workspace-1',
+        workflowId: 'wf-current',
+        implicitContexts: [
+          {
+            kind: 'current_skill',
+            skillId: 'skill-viewing',
+            workspaceId: 'workspace-1',
+            label: 'Current Skill',
+          },
+        ],
+      }),
+    })
+    await deferredStream.ready
+
+    deferredStream.push({
+      type: 'response.output_item.done',
+      item: {
+        type: 'function_call',
+        call_id: toolCallId,
+        name: 'edit_skill',
+        arguments: { entityDocument: '{}' },
+      },
+    })
+    deferredStream.push({
+      type: 'response.completed',
+      response: { id: 'response-draft-review-target' },
+    })
+    deferredStream.close()
+
+    await sendPromise
+
+    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
+      provenance: {
+        contextEntityKind: 'workflow',
+        contextEntityId: 'wf-current',
+        workspaceId: 'workspace-1',
+      },
+    })
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityKind')
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty(
+      'reviewSessionId'
+    )
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty(
+      'draftSessionId'
+    )
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
   })
 })
 
@@ -2094,6 +2252,7 @@ describe('copilot streaming regressions', () => {
     const sendPromise = store.getState().sendMessage('Edit the current dashboard widget', {
       runtimeContext: createRuntimeContext({
         workspaceId: 'workspace-1',
+        authenticatedUserId: 'user-1',
         implicitContexts: [
           buildCopilotWorkspaceEntityContext({
             entityKind: 'watchlist',
@@ -2498,20 +2657,98 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().isLoadingChats).toBe(false)
   })
 
-  it('keeps stores isolated even when they reference the same review session', () => {
-    const reviewSessionId = 'review-isolated-session'
-    const primaryStore = getCopilotStore(
-      buildCopilotWorkspaceChannelId({
-        authenticatedUserId: 'user-isolated',
-        workspaceId: 'workspace-isolated-primary',
-      })
-    )
-    const secondaryStore = getCopilotStore(
-      buildCopilotWorkspaceChannelId({
-        authenticatedUserId: 'user-isolated',
-        workspaceId: 'workspace-isolated-secondary',
-      })
-    )
+  it('lets multiple copilot widgets resume the same workspace chat', async () => {
+    const workspaceId = 'workspace-resume-history'
+    const chat = {
+      reviewSessionId: 'review-resume-history',
+      workspaceId,
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      latestTurnStatus: 'completed',
+      title: 'Resume chat',
+      conversationId: null,
+      messages: [],
+      messageCount: 0,
+      createdAt: '2026-03-30T00:00:00.000Z',
+      updatedAt: '2026-03-30T00:00:00.000Z',
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === `/api/copilot/chat?workspaceId=${workspaceId}`) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            chats: [chat],
+          }),
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const primaryStore = getCopilotStore('pair-blue')
+    const resumedStore = getCopilotStore('copilot-panel-9')
+
+    primaryStore.setState({
+      currentChat: null,
+      chats: [],
+      messages: [],
+      toolCallsById: {},
+      isLoadingChats: false,
+      isSendingMessage: false,
+      abortController: null,
+    })
+    resumedStore.setState({
+      currentChat: null,
+      chats: [],
+      messages: [],
+      toolCallsById: {},
+      isLoadingChats: false,
+      isSendingMessage: false,
+      abortController: null,
+    })
+
+    await primaryStore.getState().loadChats({ workspaceId })
+    await resumedStore.getState().loadChats({ workspaceId })
+
+    expect(primaryStore.getState().currentChat?.reviewSessionId).toBe(chat.reviewSessionId)
+    expect(resumedStore.getState().currentChat?.reviewSessionId).toBe(chat.reviewSessionId)
+  })
+
+  it('mirrors same-session drafts and streaming updates across copilot widgets', async () => {
+    const reviewSessionId = 'review-shared-session-stream'
+    const toolCallId = 'shared-session-tool'
+    const deferredStream = createDeferredSseStream()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/chat') {
+        return {
+          ok: true,
+          status: 200,
+          body: deferredStream.stream,
+        }
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      }
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const primaryStore = getCopilotStore('pair-blue')
+    const secondaryStore = getCopilotStore('pair-red')
     const sharedChat = {
       reviewSessionId,
       workspaceId: 'workspace-1',
@@ -2519,75 +2756,100 @@ describe('copilot streaming regressions', () => {
       entityId: null,
       draftSessionId: null,
       latestTurnStatus: 'completed',
-      title: 'Shared chat identity',
-      conversationId: 'conversation-isolated-session',
+      title: 'Shared chat',
+      conversationId: 'conversation-shared-session',
       messages: [],
       messageCount: 0,
       createdAt: new Date('2026-04-17T00:00:00.000Z'),
       updatedAt: new Date('2026-04-17T00:00:00.000Z'),
     }
 
-    primaryStore.setState({ currentChat: sharedChat, chats: [sharedChat] })
-    secondaryStore.setState({ currentChat: sharedChat, chats: [sharedChat] })
-    expect(primaryStore.getState().draft).not.toBe(secondaryStore.getState().draft)
-    expect(primaryStore.getState().draft.contexts).not.toBe(
-      secondaryStore.getState().draft.contexts
-    )
-
-    primaryStore.getState().setDraft({
-      text: 'private @Documentation draft',
-      contexts: [{ kind: 'docs', label: 'Documentation' }],
+    primaryStore.setState({
+      currentChat: sharedChat,
+      chats: [sharedChat],
+      messages: [],
+      toolCallsById: {},
+      inputValue: '',
+    })
+    secondaryStore.setState({
+      currentChat: sharedChat,
+      chats: [sharedChat],
+      messages: [],
+      toolCallsById: {},
+      inputValue: '',
     })
 
-    expect(secondaryStore.getState().draft).toEqual({ text: '', contexts: [] })
-  })
+    primaryStore.getState().setInputValue('shared draft')
+    expect(secondaryStore.getState().inputValue).toBe('shared draft')
 
-  it('cancels pending persistence when deleting a non-current chat', async () => {
-    vi.useFakeTimers()
-    try {
-      const deletedReviewSessionId = 'review-delete-pending'
-      const store = getCopilotStore(
-        buildCopilotWorkspaceChannelId({
-          authenticatedUserId: 'user-delete-pending',
-          workspaceId: 'workspace-delete-pending',
-        })
-      )
-      const saveChatMessages = vi.fn(async () => undefined)
-      const fetchMock = vi.fn(async () => Response.json({ success: true }))
-      vi.stubGlobal('fetch', fetchMock)
+    const sendPromise = primaryStore.getState().sendMessage('Continue this session', {
+      runtimeContext: createRuntimeContext({
+        workspaceId: 'workspace-1',
+        workflowId: 'wf-blue',
+      }),
+    })
+    await deferredStream.ready
 
-      await store
-        .getState()
-        .handleNewReviewSessionCreation(deletedReviewSessionId, 'workspace-delete-pending')
-      const deletedChat = store.getState().currentChat
-      if (!deletedChat) throw new Error('Expected the pending chat')
-      const retainedChat = {
-        ...deletedChat,
-        reviewSessionId: 'review-current-retained',
+    deferredStream.push({
+      type: 'response.output_item.added',
+      item: {
+        id: 'assistant-stream-item',
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'output_text', text: '' }],
+      },
+    })
+    deferredStream.push({
+      type: 'response.output_text.delta',
+      item_id: 'assistant-stream-item',
+      delta: 'Shared reply',
+    })
+    deferredStream.push({
+      type: 'response.output_item.done',
+      item: {
+        id: 'assistant-stream-item',
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'output_text', text: 'Shared reply' }],
+      },
+    })
+    deferredStream.push({
+      type: 'response.output_item.done',
+      item: {
+        type: 'function_call',
+        call_id: toolCallId,
+        name: 'list_workflows',
+        arguments: {},
+      },
+    })
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      if (secondaryStore.getState().messages.length === 2) {
+        break
       }
-      const retainedAbortController = new AbortController()
-
-      store.setState({
-        currentChat: retainedChat,
-        chats: [deletedChat, retainedChat],
-        abortController: retainedAbortController,
-        saveChatMessages,
-      })
-
-      await store.getState().deleteChat(deletedReviewSessionId)
-      await vi.advanceTimersByTimeAsync(60)
-
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/copilot/chat/delete',
-        expect.objectContaining({ method: 'DELETE' })
-      )
-      expect(saveChatMessages).not.toHaveBeenCalled()
-      expect(retainedAbortController.signal.aborted).toBe(false)
-      expect(store.getState().currentChat?.reviewSessionId).toBe(retainedChat.reviewSessionId)
-    } finally {
-      vi.clearAllTimers()
-      vi.useRealTimers()
     }
+    expect(secondaryStore.getState().messages).toHaveLength(2)
+    expect(secondaryStore.getState().messages.at(-1)?.role).toBe('assistant')
+    expect(secondaryStore.getState().isSendingMessage).toBe(true)
+    deferredStream.push({
+      type: 'response.completed',
+      response: { id: 'response-shared-session' },
+    })
+    deferredStream.close()
+
+    await sendPromise
+
+    expect(secondaryStore.getState().messages.at(-1)?.content).toBe('Shared reply')
+    expect(secondaryStore.getState().toolCallsById[toolCallId]?.provenance).toMatchObject({
+      workspaceId: 'workspace-1',
+      contextEntityKind: 'workflow',
+      contextEntityId: 'wf-blue',
+    })
+    expect(secondaryStore.getState().isSendingMessage).toBe(
+      primaryStore.getState().isSendingMessage
+    )
   })
 
   it('keeps abort terminal when a live stream is still readable', async () => {

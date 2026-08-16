@@ -1,5 +1,4 @@
 import { Document } from '@/app/workspace/[workspaceId]/knowledge/[id]/[documentId]/document'
-import { GlobalCopilotKnowledgeContextPublisher } from '@/global-navbar/copilot-context'
 
 interface DocumentPageProps {
   params: Promise<{
@@ -15,18 +14,15 @@ interface DocumentPageProps {
 }
 
 export default async function DocumentChunksPage({ params, searchParams }: DocumentPageProps) {
-  const { id, documentId, workspaceId } = await params
+  const { id, documentId } = await params
   const { kbName, docName } = await searchParams
 
   return (
-    <>
-      <GlobalCopilotKnowledgeContextPublisher knowledgeBaseId={id} workspaceId={workspaceId} />
-      <Document
-        knowledgeBaseId={id}
-        documentId={documentId}
-        knowledgeBaseName={kbName || 'Knowledge Base'}
-        documentName={docName || 'Document'}
-      />
-    </>
+    <Document
+      knowledgeBaseId={id}
+      documentId={documentId}
+      knowledgeBaseName={kbName || 'Knowledge Base'}
+      documentName={docName || 'Document'}
+    />
   )
 }

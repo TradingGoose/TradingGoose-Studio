@@ -1,0 +1,407 @@
+'use client'
+
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
+import { ChevronDown, Clock3, Plus, Trash2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  widgetHeaderControlClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
+import { getCopilotStore } from '@/stores/copilot/store'
+import type { CopilotChat } from '@/stores/copilot/types'
+
+type CopilotHistoryMessages = ReturnType<typeof useCopilotMessages>['history']
+type ChatGroupKey = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'older'
+
+const formatRelativeTime = (
+  value: Date | string | undefined,
+  locale: LocaleCode,
+  historyCopy: CopilotHistoryMessages
+) => {
+  if (!value) return ''
+
+  const date = value instanceof Date ? value : new Date(value)
+  const diffMs = Date.now() - date.getTime()
+  if (!Number.isFinite(diffMs)) return ''
+
+  const minutes = Math.floor(diffMs / (1000 * 60))
+  if (minutes < 1) return historyCopy.justNow
+
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+
+  if (minutes < 60) return formatter.format(-minutes, 'minute')
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return formatter.format(-hours, 'hour')
+
+  const days = Math.floor(hours / 24)
+  if (days < 14) return formatter.format(-days, 'day')
+
+  return new Intl.DateTimeFormat(locale).format(date)
+}
+
+const groupChats = (chats: CopilotChat[]) => {
+  if (!chats || chats.length === 0) return [] as Array<[ChatGroupKey, CopilotChat[]]>
+  const sorted = [...chats].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  )
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+  const thisWeekStart = new Date(today.getTime() - today.getDay() * 24 * 60 * 60 * 1000)
+  const lastWeekStart = new Date(thisWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+  const groups: Record<ChatGroupKey, CopilotChat[]> = {
+    today: [],
+    yesterday: [],
+    thisWeek: [],
+    lastWeek: [],
+    older: [],
+  }
+
+  sorted.forEach((chat) => {
+    const chatDate = new Date(chat.updatedAt)
+    const chatDay = new Date(chatDate.getFullYear(), chatDate.getMonth(), chatDate.getDate())
+
+    if (chatDay.getTime() === today.getTime()) {
+      groups.today.push(chat)
+    } else if (chatDay.getTime() === yesterday.getTime()) {
+      groups.yesterday.push(chat)
+    } else if (chatDay.getTime() >= thisWeekStart.getTime()) {
+      groups.thisWeek.push(chat)
+    } else if (chatDay.getTime() >= lastWeekStart.getTime()) {
+      groups.lastWeek.push(chat)
+    } else {
+      groups.older.push(chat)
+    }
+  })
+
+  return Object.entries(groups).filter(([, list]) => list.length > 0) as Array<
+    [ChatGroupKey, CopilotChat[]]
+  >
+}
+
+interface ChatHistoryGroupProps {
+  label: string
+  chats: CopilotChat[]
+  onSelect: (chat: CopilotChat) => Promise<void> | void
+  onDelete: (chatId: string) => Promise<void> | void
+  isSendingMessage: boolean
+  hoveredChatId: string | null
+  onHoverChat: (chatId: string | null) => void
+  locale: LocaleCode
+  historyCopy: CopilotHistoryMessages
+}
+
+interface ChatHistoryItemProps {
+  chat: CopilotChat
+  onSelect: (chat: CopilotChat) => Promise<void> | void
+  onDelete: (chatId: string) => Promise<void> | void
+  isSendingMessage: boolean
+  isHovered: boolean
+  onHoverChat: (chatId: string | null) => void
+  locale: LocaleCode
+  historyCopy: CopilotHistoryMessages
+}
+
+function ChatHistoryItem({
+  chat,
+  onSelect,
+  onDelete,
+  isSendingMessage,
+  isHovered,
+  onHoverChat,
+  locale,
+  historyCopy,
+}: ChatHistoryItemProps) {
+  const updatedLabel = formatTemplate(
+    historyCopy.updated,
+    { value: formatRelativeTime(chat.updatedAt, locale, historyCopy) },
+    locale
+  )
+
+  return (
+    <div
+      className='group flex w-full items-center gap-1'
+      onMouseEnter={() => onHoverChat(chat.reviewSessionId)}
+      onMouseLeave={() => onHoverChat(null)}
+    >
+      <DropdownMenuItem
+        className='min-w-0 flex-1 rounded-xs py-2 text-left text-sm font-normal text-foreground transition-colors data-[highlighted]:bg-muted'
+        closeOnClick={false}
+        onClick={() => {
+          void onSelect(chat)
+        }}
+      >
+        <div className='min-w-0'>
+          <p className='min-w-0 whitespace-normal break-words text-foreground'>
+            {chat.title || historyCopy.newChat}
+          </p>
+          <p className='text-xs text-muted-foreground'>{updatedLabel}</p>
+        </div>
+      </DropdownMenuItem>
+      <button
+        type='button'
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          void onDelete(chat.reviewSessionId)
+        }}
+        disabled={isSendingMessage}
+        aria-label={historyCopy.deleteChatAria}
+        className={cn(
+          'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-muted h-6 w-6 p-0 text-muted-foreground transition-opacity hover:text-destructive',
+          isHovered ? 'opacity-100' : 'pointer-events-none opacity-0'
+        )}
+      >
+        <Trash2 className='h-3.5 w-3.5' />
+      </button>
+    </div>
+  )
+}
+
+function ChatHistoryGroup({
+  label,
+  chats,
+  onSelect,
+  onDelete,
+  isSendingMessage,
+  hoveredChatId,
+  onHoverChat,
+  locale,
+  historyCopy,
+}: ChatHistoryGroupProps) {
+  if (chats.length === 0) return null
+
+  return (
+    <div className='space-y-1.5'>
+      <p className='text-xs font-normal text-muted-foreground'>{label}</p>
+      <div className='space-y-1'>
+        {chats.map((chat) => (
+          <ChatHistoryItem
+            key={chat.reviewSessionId}
+            chat={chat}
+            onSelect={onSelect}
+            onDelete={onDelete}
+            isSendingMessage={isSendingMessage}
+            isHovered={hoveredChatId === chat.reviewSessionId}
+            onHoverChat={onHoverChat}
+            locale={locale}
+            historyCopy={historyCopy}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function CopilotHeader({
+  channelId,
+  workspaceId,
+}: {
+  channelId: string
+  workspaceId?: string
+}) {
+  const store = useMemo(() => getCopilotStore(channelId), [channelId])
+  const locale = useLocale() as LocaleCode
+  const historyCopy = useCopilotMessages().history
+  const [hoveredChatId, setHoveredChatId] = useState<string | null>(null)
+  const [deleteChatId, setDeleteChatId] = useState<string | null>(null)
+
+  const subscribe = useCallback(store.subscribe, [store])
+  const getSnapshot = useCallback(() => store.getState(), [store])
+  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+
+  const { currentChat, chats, isLoadingChats, isSendingMessage } = state
+  const scopedChats = useMemo(
+    () => (chats || []).filter((chat) => (chat.workspaceId ?? null) === (workspaceId ?? null)),
+    [chats, workspaceId]
+  )
+  const scopedCurrentChat =
+    currentChat && (currentChat.workspaceId ?? null) === (workspaceId ?? null) ? currentChat : null
+  const grouped = groupChats(scopedChats)
+  const groupLabels: Record<ChatGroupKey, string> = {
+    today: historyCopy.groups.today,
+    yesterday: historyCopy.groups.yesterday,
+    thisWeek: historyCopy.groups.thisWeek,
+    lastWeek: historyCopy.groups.lastWeek,
+    older: historyCopy.groups.older,
+  }
+
+  const handleSelectChat = async (chat: CopilotChat) => {
+    if (scopedCurrentChat?.reviewSessionId === chat.reviewSessionId) return
+    try {
+      await store.getState().selectChat(chat)
+    } catch {}
+  }
+
+  const handleDeleteChat = async (chatId: string) => {
+    setDeleteChatId(chatId)
+  }
+
+  const handleRefresh = async () => {
+    await store.getState().loadChats({ workspaceId: workspaceId ?? null })
+  }
+
+  const title = scopedCurrentChat?.title || historyCopy.newChat
+  const deleteChat = deleteChatId
+    ? scopedChats.find((chat) => chat.reviewSessionId === deleteChatId)
+    : null
+  const dropdownMenuBody = (() => {
+    if (isLoadingChats) {
+      return <div className='p-3 text-sm text-muted-foreground'>{historyCopy.loading}</div>
+    }
+
+    if (grouped.length === 0) {
+      return <div className='p-3 text-sm text-muted-foreground'>{historyCopy.noChatsYet}</div>
+    }
+
+    return (
+      <div className='space-y-4 p-2'>
+        {grouped.map(([groupKey, chatsInGroup]) => (
+          <ChatHistoryGroup
+            key={groupKey}
+            label={groupLabels[groupKey]}
+            chats={chatsInGroup}
+            onSelect={handleSelectChat}
+            onDelete={handleDeleteChat}
+            isSendingMessage={isSendingMessage}
+            hoveredChatId={hoveredChatId}
+            onHoverChat={setHoveredChatId}
+            locale={locale}
+            historyCopy={historyCopy}
+          />
+        ))}
+      </div>
+    )
+  })()
+
+  return (
+    <div className='flex w-full min-w-0 items-center gap-2'>
+      <DropdownMenu
+        onOpenChange={(open) => {
+          if (open) void handleRefresh()
+        }}
+      >
+        <DropdownMenuTrigger
+          render={
+            <button
+              type='button'
+              className={widgetHeaderControlClassName(
+                'group flex w-[240px] shrink-0 items-center justify-between gap-1'
+              )}
+              aria-label={historyCopy.openChatHistory}
+            />
+          }
+        >
+          <div className='bg-muted p-1 rounded-xs'>
+            <Clock3 className='h-3 w-3 text-muted-foreground' />
+          </div>
+          <span className='min-w-0 flex-1 truncate text-left text-sm font-medium'>{title}</span>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 text-muted-foreground transition-transform',
+              'group-data-[popup-open]:rotate-180'
+            )}
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          side='bottom'
+          sideOffset={6}
+          className='w-[var(--anchor-width)] overflow-hidden rounded-sm bg-background p-0 text-sm text-foreground shadow-xs'
+        >
+          <ScrollArea className='max-h-72 bg-background pr-1 text-sm text-foreground'>
+            {dropdownMenuBody}
+          </ScrollArea>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialog
+        open={!!deleteChatId}
+        onOpenChange={(open) => {
+          if (!open) setDeleteChatId(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{historyCopy.deleteDialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {formatTemplate(
+                historyCopy.deleteDialogDescription,
+                { title: deleteChat?.title || historyCopy.untitledCurrentChat },
+                locale
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{historyCopy.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              onClick={async () => {
+                if (!deleteChatId) return
+                try {
+                  await store.getState().deleteChat(deleteChatId)
+                } catch {}
+                setDeleteChatId(null)
+              }}
+            >
+              {historyCopy.deleteAction}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
+export function CopilotHeaderActions({
+  channelId,
+  workspaceId,
+}: {
+  channelId: string
+  workspaceId?: string
+}) {
+  const store = useMemo(() => getCopilotStore(channelId), [channelId])
+  const historyCopy = useCopilotMessages().history
+
+  const subscribe = useCallback(store.subscribe, [store])
+  const getSnapshot = useCallback(() => store.getState(), [store])
+  const { isSendingMessage } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+
+  const handleNewChat = async () => {
+    await store.getState().createNewChat(workspaceId ?? null)
+  }
+
+  return (
+    <button
+      type='button'
+      className={widgetHeaderIconButtonClassName()}
+      onClick={handleNewChat}
+      disabled={isSendingMessage}
+      aria-label={historyCopy.startNewChat}
+      title={isSendingMessage ? historyCopy.sending : historyCopy.newChat}
+    >
+      <Plus className='h-3.5 w-3.5' />
+    </button>
+  )
+}

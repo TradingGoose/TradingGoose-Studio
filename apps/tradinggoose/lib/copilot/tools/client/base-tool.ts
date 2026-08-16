@@ -81,7 +81,6 @@ export class BaseClientTool {
   protected metadata: BaseClientToolMetadata
   protected isMarkedComplete = false
   protected timeoutMs: number = DEFAULT_TOOL_TIMEOUT_MS
-  private isDisposed = false
   private executionContext: ClientToolExecutionContext | null = null
   private persistedToolCall: Record<string, any> | undefined
 
@@ -167,7 +166,6 @@ export class BaseClientTool {
   }
 
   setExecutionContext(context: ClientToolExecutionContext): void {
-    if (this.isDisposed) return
     this.executionContext = context
   }
 
@@ -183,12 +181,10 @@ export class BaseClientTool {
   }
 
   protected getAbortSignal(): AbortSignal | undefined {
-    if (this.isDisposed) return AbortSignal.abort()
     return getCopilotStoreForToolCall(this.toolCallId).getState().abortController?.signal
   }
 
   hydratePersistedToolCall(toolCall?: Record<string, any>): void {
-    if (this.isDisposed) return
     this.persistedToolCall = toolCall ? { ...toolCall } : undefined
     const persistedState = toolCall?.state as ClientToolCallState | undefined
     if (persistedState !== undefined && this.state === ClientToolCallState.generating) {
@@ -201,8 +197,6 @@ export class BaseClientTool {
    * Once called, the tool is considered complete and won't be marked again.
    */
   async markToolComplete(status: number, message?: any, data?: any): Promise<boolean> {
-    if (this.isDisposed) return true
-
     // Prevent double-marking
     if (this.isMarkedComplete) {
       baseToolLogger.warn('markToolComplete called but tool already marked complete', {
@@ -313,8 +307,6 @@ export class BaseClientTool {
 
   // Unified entry point for explicit user-triggered execution from the copilot UI.
   async handleUserAction(args?: Record<string, any>): Promise<void> {
-    if (this.isDisposed) return
-
     const effectiveState = this.resolveUserActionState()
 
     if (effectiveState === ClientToolCallState.review) {
@@ -360,8 +352,6 @@ export class BaseClientTool {
 
   // Transition to a new state (also sync to Copilot store)
   setState(next: ClientToolCallState, options?: { result?: any }): void {
-    if (this.isDisposed) return
-
     const prev = this.state
     this.state = next
     this.persistedToolCall = {
@@ -384,15 +374,5 @@ export class BaseClientTool {
   // Expose current state
   getState(): ClientToolCallState {
     return this.state
-  }
-
-  dispose(): void {
-    if (this.isDisposed) return
-
-    this.isDisposed = true
-    this.isMarkedComplete = true
-    this.state = ClientToolCallState.aborted
-    this.executionContext = null
-    this.persistedToolCall = undefined
   }
 }
