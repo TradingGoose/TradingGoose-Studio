@@ -30,10 +30,7 @@ import {
   hashServerToolReviewBase,
 } from '@/lib/copilot/tools/server/base-tool'
 import { commitDashboardLayoutStructure } from '@/lib/dashboard-layouts/operations'
-import {
-  preserveDashboardLayoutCredentialPlaceholders,
-  serializeDashboardLayoutForCopilot,
-} from '@/lib/dashboard-layouts/read-projection'
+import { preserveDashboardLayoutCredentialPlaceholders } from '@/lib/dashboard-layouts/read-projection'
 import {
   buildDashboardLayoutReviewBase,
   buildDashboardWidgetReviewBase,
@@ -87,6 +84,7 @@ import {
   DashboardLayoutValidationError,
   type DashboardWidgetDocument,
   normalizeDashboardLayoutStructureMutation,
+  serializeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
 import { isPairColor } from '@/widgets/pair-colors'
 import {
@@ -717,7 +715,7 @@ async function handleInternalDashboardEditRequest(
         const commit: RealtimeMutation = {
           ...mutation,
           serializeResult: ({ createdWidgets }) =>
-            serializeDashboardLayoutForCopilot({
+            serializeDashboardLayoutProjection({
               ...next,
               widgets: { ...next.widgets, ...createdWidgets },
             }),
@@ -860,7 +858,7 @@ async function handleInternalDashboardEditRequest(
             const commit = {
               ...mutation,
               serializeResult: () =>
-                serializeDashboardLayoutForCopilot({
+                serializeDashboardLayoutProjection({
                   ...current,
                   widgets: { ...current.widgets, [identityId]: planned.widgetDocument },
                   colorPairs: planned.colorPairs,

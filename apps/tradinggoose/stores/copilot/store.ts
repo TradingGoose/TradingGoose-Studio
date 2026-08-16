@@ -743,17 +743,13 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
           return
         }
 
-        const { implicitContexts, workflowId, workspaceId } = runtimeContext
+        const { implicitContexts, workspaceId } = runtimeContext
 
         const resolvedContexts = mergeCopilotContexts({
           explicitContexts: contexts,
           implicitContexts,
         })
-        const turnProvenance = buildTurnProvenanceFromContexts(
-          resolvedContexts,
-          workspaceId,
-          workflowId
-        )
+        const turnProvenance = buildTurnProvenanceFromContexts(resolvedContexts, workspaceId)
         const contextsToSend = resolvedContexts.length > 0 ? resolvedContexts : undefined
 
         const abortController = new AbortController()

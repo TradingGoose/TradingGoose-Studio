@@ -25,7 +25,7 @@ type CopilotWorkspaceEntityConfig = {
     | 'dashboardLayoutId'
 }
 
-export const COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS = [
+export const COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS = [
   {
     entityKind: ENTITY_KIND_WORKFLOW,
     idField: 'workflowId',
@@ -50,10 +50,6 @@ export const COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS = [
     entityKind: ENTITY_KIND_WATCHLIST,
     idField: 'watchlistId',
   },
-] as const satisfies readonly CopilotWorkspaceEntityConfig[]
-
-export const COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS = [
-  ...COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS,
   {
     entityKind: ENTITY_KIND_DASHBOARD_LAYOUT,
     idField: 'dashboardLayoutId',
@@ -66,8 +62,6 @@ export const COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS = [
 
 export type CopilotWorkspaceEntityKind =
   (typeof COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS)[number]['entityKind']
-export type CopilotEffectiveParamEntityKind =
-  (typeof COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS)[number]['entityKind']
 type CopilotWorkspaceEntityContextDetails = {
   entityKind: CopilotWorkspaceEntityKind
   entityId: string | null
@@ -172,30 +166,6 @@ export function getCopilotWorkspaceEntityIdFromContext(context: ChatContext): st
       return normalizeOptionalString(context.dashboardLayoutId) ?? null
     default:
       return null
-  }
-}
-
-export function getCopilotWorkspaceEntityIdFromEffectiveParams(
-  effectiveParams: Record<string, unknown> | null | undefined,
-  entityKind: CopilotEffectiveParamEntityKind
-): string | null {
-  if (!effectiveParams) {
-    return null
-  }
-
-  switch (entityKind) {
-    case ENTITY_KIND_WORKFLOW:
-      return normalizeOptionalString(effectiveParams.workflowId) ?? null
-    case ENTITY_KIND_SKILL:
-      return normalizeOptionalString(effectiveParams.skillId) ?? null
-    case ENTITY_KIND_INDICATOR:
-      return normalizeOptionalString(effectiveParams.indicatorId) ?? null
-    case ENTITY_KIND_CUSTOM_TOOL:
-      return normalizeOptionalString(effectiveParams.customToolId) ?? null
-    case ENTITY_KIND_MCP_SERVER:
-      return normalizeOptionalString(effectiveParams.mcpServerId) ?? null
-    case ENTITY_KIND_WATCHLIST:
-      return normalizeOptionalString(effectiveParams.watchlistId) ?? null
   }
 }
 

@@ -20,14 +20,9 @@ const m = vi.hoisted(() => ({
     workspaceId: string
     ownerUserId: string | null
     locale: string
-    workflowId: string | null
     mentionSources: MentionState['mentionSources']
     mentionLoading: MentionState['mentionLoading']
   }>,
-  registryGate: Promise.resolve() as Promise<void>,
-  registryLoadStarted: vi.fn(),
-  workflowBlocks: {},
-  workflowId: null as string | null,
   workflowInspectorMessages: {
     en: { locale: 'en' },
     zh: { locale: 'zh' },
@@ -50,26 +45,15 @@ vi.mock('@/blocks', async () => {
     ],
   }
 })
-vi.mock('@/blocks/registry', async () => {
-  m.registryLoadStarted()
-  await m.registryGate
-  return { registry: { agent: { name: 'Agent', bgColor: '#6B7280' } } }
-})
 vi.mock('@/lib/yjs/provider', () => ({ bootstrapYjsProvider: m.bootstrapYjsProvider }))
 vi.mock('@/lib/yjs/entity-session', () => ({ getEntityListMembers: m.getEntityListMembers }))
 vi.mock('@/lib/logs/console/logger', () => ({ createLogger: () => m.logger }))
 vi.mock('@/lib/yjs/use-entity-fields', () => ({ useEntityList: () => m.entityList }))
-vi.mock('@/lib/yjs/use-workflow-doc', () => ({ useWorkflowBlocks: () => m.workflowBlocks }))
-vi.mock('@/lib/yjs/workflow-session-host', () => ({
-  useOptionalWorkflowSession: () => (m.workflowId ? { workflowId: m.workflowId } : null),
-}))
 vi.mock('@/i18n/workflow-inspector-core', () => ({
   getLocalizedBlockNameWithCopy: (
     copy: { locale?: string },
     block: { name?: string; type: string }
   ) => `${copy.locale ?? 'en'}:${block.name ?? block.type}`,
-  getLocalizedDefaultBlockNameWithCopy: (_copy: unknown, blockType: string, blockName?: string) =>
-    blockName ?? blockType,
 }))
 vi.mock('@/i18n/workspace-widget-hooks', () => ({
   useWorkflowInspectorMessages: () =>
@@ -92,8 +76,6 @@ const entityMember = (entityId: string, entityName: string, updatedAt: string) =
   entityName,
   updatedAt,
 })
-const EMPTY_WORKFLOW_BLOCKS = {}
-
 let current: MentionState
 let root: Root
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -109,9 +91,6 @@ beforeEach(() => {
   m.entityList = { members: [], isLoading: false }
   m.locale = 'en'
   m.observations.length = 0
-  m.registryGate = Promise.resolve()
-  m.workflowBlocks = EMPTY_WORKFLOW_BLOCKS
-  m.workflowId = null
 })
 
 afterEach(() => {
@@ -132,7 +111,6 @@ const Harness = ({
     workspaceId,
     ownerUserId,
     locale: m.locale,
-    workflowId: m.workflowId,
     mentionSources: current.mentionSources,
     mentionLoading: current.mentionLoading,
   })
@@ -315,7 +293,7 @@ it('discards deferred entity mentions after the authenticated owner changes', as
   expect(current.mentionSources.workspaceEntities.watchlist).toEqual([])
 })
 
-it('suppresses automatic current-workflow retries but retries on explicit submenu demand', async () => {
+it('retries a failed workspace entity on explicit submenu demand', async () => {
   const fetchMock = vi
     .fn()
     .mockResolvedValueOnce({ ok: false, status: 500 })
@@ -327,9 +305,8 @@ it('suppresses automatic current-workflow retries but retries on explicit submen
     })
   vi.stubGlobal('fetch', fetchMock)
 
-  m.workflowId = 'workflow-1'
   await renderHarness('workspace-1')
-  await vi.waitFor(() => expect(m.logger.error).toHaveBeenCalledOnce())
+  await act(async () => current.ensureSubmenuLoaded('workflow'))
 
   expect(fetchMock).toHaveBeenCalledOnce()
   expect(current.mentionFailed.workflow).toBe(true)
@@ -374,49 +351,4 @@ it('discards a deferred block catalog load when the locale changes', async () =>
 
   expect(current.mentionSources.blocksList.map(({ name }) => name)).toEqual(['zh:Agent'])
   expect(current.mentionLoading.blocks).toBe(false)
-})
-
-it('discards a deferred workflow block load after switching to an empty workflow', async () => {
-  const registryGate = deferred()
-  m.registryGate = registryGate.promise
-
-  const workflowABlocks = {
-    'block-a': {
-      id: 'block-a',
-      type: 'agent',
-      name: 'Workflow A Block',
-    },
-  }
-
-  m.workflowId = 'workflow-a'
-  m.workflowBlocks = workflowABlocks
-  await renderHarness('workspace-1')
-  await vi.waitFor(() => expect(m.registryLoadStarted).toHaveBeenCalledOnce())
-  expect(current.mentionLoading.workflow_blocks).toBe(true)
-
-  m.observations.length = 0
-  m.workflowId = 'workflow-b'
-  m.workflowBlocks = EMPTY_WORKFLOW_BLOCKS
-  await renderHarness('workspace-1')
-
-  const workflowBObservations = m.observations.filter(
-    ({ workflowId }) => workflowId === 'workflow-b'
-  )
-  expect(workflowBObservations.length).toBeGreaterThan(0)
-  expect(
-    workflowBObservations.every(
-      ({ mentionSources, mentionLoading }) =>
-        mentionSources.workflowBlocks.length === 0 && !mentionLoading.workflow_blocks
-    )
-  ).toBe(true)
-
-  await act(async () => {
-    registryGate.resolve(undefined)
-    await registryGate.promise
-    await Promise.resolve()
-  })
-
-  expect(current.mentionSources.workflowBlocks).toEqual([])
-  expect(current.mentionLoading.workflow_blocks).toBe(false)
-  expect(m.logger.error).not.toHaveBeenCalled()
 })

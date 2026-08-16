@@ -12,6 +12,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 let mockStoreState: any
+let mockUserInputProps: any
 const scrollToMock = vi.fn()
 
 vi.mock('@/components/ui/button', () => ({
@@ -48,10 +49,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-vi.mock('@/i18n/workspace-widget-hooks', () => ({
-  useWorkspaceWidgetsMessages: () => ({ workflowLabels: {} }),
-}))
-
 vi.mock('@/stores/copilot/store', () => ({
   useCopilotStore: () => mockStoreState,
   useCopilotStoreApi: () => ({
@@ -70,15 +67,13 @@ vi.mock('@/stores/copilot/store-state', () => ({
   hasUiActiveToolCalls: () => false,
 }))
 
-vi.mock('@/lib/copilot/live-contexts', () => ({
-  buildImplicitCopilotContexts: () => [],
-  resolveCopilotWorkflowId: () => null,
-}))
-
 vi.mock('..', async () => {
   const React = await import('react')
 
-  const UserInput = React.forwardRef((_props: any, _ref: any) => <div data-testid='user-input' />)
+  const UserInput = React.forwardRef((props: any, _ref: any) => {
+    mockUserInputProps = props
+    return <div data-testid='user-input' />
+  })
   UserInput.displayName = 'UserInput'
 
   return {
@@ -148,6 +143,7 @@ describe('Copilot auto-scroll', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     vi.useFakeTimers()
     scrollToMock.mockReset()
+    mockUserInputProps = null
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
       value: scrollToMock,

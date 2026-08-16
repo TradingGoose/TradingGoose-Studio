@@ -18,7 +18,6 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 let mockStoreState: any
 
 const runtimeContext: CopilotSendRuntimeContext = {
-  workflowId: null,
   workspaceId: 'ws-1',
   implicitContexts: [],
 }
@@ -90,14 +89,22 @@ vi.mock('@/stores/copilot/store-state', () => ({
 }))
 
 vi.mock('../user-input/user-input', () => ({
-  UserInput: ({ draft, onSubmit }: any) => (
-    <button
-      type='button'
-      data-testid='user-input'
-      onClick={() => onSubmit(draft.text, undefined, draft.contexts)}
-    >
-      Submit edit
-    </button>
+  UserInput: ({ draft, isLoading, onAbort, onSubmit }: any) => (
+    <>
+      <button
+        type='button'
+        data-testid='user-input'
+        disabled={isLoading}
+        onClick={() => onSubmit(draft.text, undefined, draft.contexts)}
+      >
+        Submit edit
+      </button>
+      {isLoading && onAbort ? (
+        <button type='button' data-testid='abort-edit' onClick={onAbort}>
+          Stop generation
+        </button>
+      ) : null}
+    </>
   ),
 }))
 
@@ -168,6 +175,7 @@ describe('CopilotMessage', () => {
       sendMessage: vi.fn(),
       isSendingMessage: false,
       isAwaitingContinuation: false,
+      isAborting: false,
       abortMessage: vi.fn(),
       accessLevel: 'full',
       setAccessLevel: vi.fn(),
@@ -206,6 +214,24 @@ describe('CopilotMessage', () => {
       messageId: userMentionMessage.id,
       runtimeContext,
     })
+  })
+
+  it('keeps stop out of the edit composer and aborts before resending', async () => {
+    vi.useFakeTimers()
+    mockStoreState.currentChat.latestTurnStatus = 'in_progress'
+    mockStoreState.messages = [userMentionMessage]
+
+    await renderMessage(userMentionMessage)
+    await click('[data-message-box]')
+    expect(container.querySelector('[data-testid="abort-edit"]')).toBeNull()
+    expect(container.querySelector('[data-testid="user-input"]')).not.toBeDisabled()
+
+    await click('[data-testid="user-input"]')
+
+    expect(mockStoreState.abortMessage).toHaveBeenCalledOnce()
+    await act(async () => vi.advanceTimersByTimeAsync(100))
+    expect(mockStoreState.sendMessage).toHaveBeenCalledOnce()
+    vi.useRealTimers()
   })
 
   it('uses updated context identity when same-text mention props change', async () => {

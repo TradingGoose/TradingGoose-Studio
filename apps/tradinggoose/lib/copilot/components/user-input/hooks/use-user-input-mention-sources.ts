@@ -1,19 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
-import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
-import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useLatestRef } from '@/hooks/use-latest-ref'
-import {
-  getLocalizedBlockNameWithCopy,
-  getLocalizedDefaultBlockNameWithCopy,
-} from '@/i18n/workflow-inspector-core'
+import { getLocalizedBlockNameWithCopy } from '@/i18n/workflow-inspector-core'
 import { useWorkflowInspectorMessages } from '@/i18n/workspace-widget-hooks'
-import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import {
   COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS,
   isCopilotWorkspaceEntityMentionOption,
@@ -24,7 +18,6 @@ import type {
   MentionSources,
   MentionSubmenu,
   PastChatItem,
-  WorkflowBlockItem,
   WorkspaceEntityItem,
 } from '../types'
 import {
@@ -46,12 +39,6 @@ const LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS = COPILOT_WORKSPACE_ENTITY_MENTION_O
 type WorkspaceEntityMentionLoadState = Partial<
   Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[] | 'failed' | 'loading'>
 >
-
-type WorkflowBlockMentionLoadState = {
-  workflowId: string | null
-  items: WorkflowBlockItem[]
-  isLoading: boolean
-}
 
 type WorkspaceMentionScope = { key: string }
 
@@ -83,15 +70,6 @@ export function useUserInputMentionSources({
   const blockCatalogLoadGenerationRef = useRef(0)
   const [loadedLogsList, setLoadedLogsList] = useState<LogItem[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
-  const [workflowBlockState, setWorkflowBlockState] = useState<WorkflowBlockMentionLoadState>({
-    workflowId: null,
-    items: [],
-    isLoading: false,
-  })
-  const workflowBlockLoadGenerationRef = useRef(0)
-  const workflowSession = useOptionalWorkflowSession()
-  const workflowId = workflowSession?.workflowId ?? null
-  const workflowStoreBlocks = useWorkflowBlocks()
   const workspaceScopeIsCurrent = committedWorkspaceScopeKey === workspaceScopeKey
   const pastChats = workspaceScopeIsCurrent ? loadedPastChats : EMPTY_PAST_CHATS
   const isLoadingPastChats = workspaceScopeIsCurrent && pastChatsLoading
@@ -103,10 +81,6 @@ export function useUserInputMentionSources({
   const blockCatalogLocaleIsCurrent = committedBlockCatalogLocale === locale
   const blocksList = blockCatalogLocaleIsCurrent ? loadedBlocksList : EMPTY_BLOCK_CATALOG
   const isLoadingBlocks = blockCatalogLocaleIsCurrent && blockCatalogLoading
-  const workflowBlocks =
-    workflowBlockState.workflowId === workflowId ? workflowBlockState.items : []
-  const isLoadingWorkflowBlocks =
-    workflowBlockState.workflowId === workflowId && workflowBlockState.isLoading
   const { members: dashboardLayoutMembers, isLoading: isLoadingDashboardLayouts } = useEntityList(
     'dashboard_layout',
     workspaceId,
@@ -307,50 +281,6 @@ export function useUserInputMentionSources({
     }
   }, [isLoadingLogs, logsList.length, workspaceId, workspaceScopeIsActive, workspaceScopeKey])
 
-  const ensureWorkflowBlocksLoaded = useCallback(async () => {
-    const targetWorkflowId = workflowId
-    const generation = ++workflowBlockLoadGenerationRef.current
-
-    if (!targetWorkflowId || Object.keys(workflowStoreBlocks).length === 0) {
-      setWorkflowBlockState({ workflowId: targetWorkflowId, items: [], isLoading: false })
-      return
-    }
-
-    setWorkflowBlockState((current) => ({
-      workflowId: targetWorkflowId,
-      items: current.workflowId === targetWorkflowId ? current.items : [],
-      isLoading: true,
-    }))
-
-    try {
-      const { registry: blockRegistry } = await import('@/blocks/registry')
-      const mapped = Object.values(workflowStoreBlocks).map((block: any) => {
-        const registryEntry = (blockRegistry as any)[block.type]
-        const subflowConfig = getSubflowBlockConfig(block.type)
-        const presentation = registryEntry ?? subflowConfig
-
-        return {
-          id: block.id,
-          name: getLocalizedDefaultBlockNameWithCopy(
-            workflowInspectorCopy,
-            block.type,
-            block.name || presentation?.name
-          ),
-          type: block.type,
-          iconComponent: presentation?.icon,
-          bgColor: sanitizeSolidIconColor(presentation?.bgColor) || '#6B7280',
-        }
-      })
-
-      if (generation !== workflowBlockLoadGenerationRef.current) return
-      setWorkflowBlockState({ workflowId: targetWorkflowId, items: mapped, isLoading: false })
-    } catch (error) {
-      if (generation !== workflowBlockLoadGenerationRef.current) return
-      logger.error('Failed to sync workflow blocks:', error)
-      setWorkflowBlockState({ workflowId: targetWorkflowId, items: [], isLoading: false })
-    }
-  }, [workflowId, workflowInspectorCopy, workflowStoreBlocks])
-
   const ensureSubmenuLoadedRef = useLatestRef(async (submenu: MentionSubmenu) => {
     if (submenu === 'chats') return ensurePastChatsLoaded()
 
@@ -358,7 +288,6 @@ export function useUserInputMentionSources({
 
     if (isCopilotWorkspaceEntityMentionOption(submenu)) return ensureWorkspaceEntityLoaded(submenu)
     if (submenu === 'blocks') return ensureBlocksLoaded()
-    if (submenu === 'workflow_blocks') return ensureWorkflowBlocksLoaded()
     return ensureLogsLoaded()
   })
   const ensureSubmenuLoaded = useCallback(
@@ -375,19 +304,6 @@ export function useUserInputMentionSources({
       blockCatalogLoadGenerationRef.current += 1
     }
   }, [locale])
-
-  useEffect(() => {
-    void ensureWorkflowBlocksLoaded()
-    return () => {
-      workflowBlockLoadGenerationRef.current += 1
-    }
-  }, [ensureWorkflowBlocksLoaded])
-
-  useEffect(() => {
-    if (workflowId && scopedWorkspaceEntityState.workflow === undefined) {
-      void ensureWorkspaceEntityLoaded('workflow')
-    }
-  }, [ensureWorkspaceEntityLoaded, scopedWorkspaceEntityState.workflow, workflowId])
 
   useLayoutEffect(() => {
     const scope = { key: workspaceScopeKey }
@@ -422,14 +338,12 @@ export function useUserInputMentionSources({
     },
     blocksList,
     logsList,
-    workflowBlocks,
   }
 
   const mentionLoading: Record<MentionSubmenu, boolean> = {
     chats: isLoadingPastChats,
     ...workspaceEntityLoading,
     dashboard_layout: isLoadingDashboardLayouts,
-    workflow_blocks: isLoadingWorkflowBlocks,
     blocks: isLoadingBlocks,
     logs: isLoadingLogs,
   }

@@ -21327,14 +21327,12 @@
         },
         "mentions": {
           "dashboardLayouts": "仪表盘布局",
-          "workflowBlocks": "工作流模块",
           "loadFailed": "无法加载此列表。重试",
           "matches": "匹配项",
           "noMatches": "未找到匹配项",
           "noDashboardLayoutsFound": "未找到仪表盘布局。",
           "noPastChats": "没有历史聊天",
           "noBlocksFound": "未找到模块",
-          "noBlocksInWorkflow": "此工作流中没有模块",
           "noExecutionsFound": "未找到执行记录",
           "untitledDashboardLayout": "未命名布局"
         },

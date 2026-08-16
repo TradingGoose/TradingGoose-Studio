@@ -7,7 +7,7 @@ import {
 } from './store-provenance'
 
 describe('buildTurnProvenanceFromContexts', () => {
-  it('derives workflow scope from an explicit workflow mention when no live workflow is pinned', () => {
+  it('derives workflow scope from an explicit workflow mention', () => {
     expect(
       buildTurnProvenanceFromContexts(
         [
@@ -18,33 +18,11 @@ describe('buildTurnProvenanceFromContexts', () => {
             label: 'Attached Workflow',
           }),
         ],
-        null,
         null
       )
     ).toEqual({
       contextEntityKind: 'workflow',
       contextEntityId: 'workflow-explicit',
-      workspaceId: 'workspace-1',
-    })
-  })
-
-  it('keeps the live workflow scope ahead of attached workflow mentions', () => {
-    expect(
-      buildTurnProvenanceFromContexts(
-        [
-          buildCopilotWorkspaceEntityContext({
-            entityKind: 'workflow',
-            entityId: 'workflow-explicit',
-            workspaceId: 'workspace-1',
-            label: 'Attached Workflow',
-          }),
-        ],
-        'workspace-1',
-        'workflow-live'
-      )
-    ).toEqual({
-      contextEntityKind: 'workflow',
-      contextEntityId: 'workflow-live',
       workspaceId: 'workspace-1',
     })
   })
@@ -60,8 +38,7 @@ describe('buildTurnProvenanceFromContexts', () => {
             label: 'Growth',
           }),
         ],
-        'workspace-live',
-        null
+        'workspace-live'
       )
     ).toEqual({
       contextEntityKind: 'watchlist',
@@ -82,8 +59,7 @@ describe('buildTurnProvenanceFromContexts', () => {
             current: true,
           }),
         ],
-        'workspace-live',
-        null
+        'workspace-live'
       )
     ).toEqual({
       contextEntityKind: 'watchlist',
@@ -111,8 +87,7 @@ describe('buildTurnProvenanceFromContexts', () => {
           current: true,
         }),
       ],
-      'workspace-1',
-      null
+      'workspace-1'
     )
 
     expect(provenance).toEqual({

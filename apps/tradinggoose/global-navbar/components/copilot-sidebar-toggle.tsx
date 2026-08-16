@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { BotMessageSquare } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
@@ -17,13 +18,15 @@ export function CopilotSidebarToggle({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { isMobile, setOpenMobile, state } = useSidebar()
+  const { isMobile, state } = useSidebar()
   const tCopilot = useTranslations('workspace.nav.copilot')
   const actionLabel = open ? tCopilot('hide') : tCopilot('show')
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (isMobile && nextOpen) setOpenMobile(false)
-    onOpenChange(nextOpen)
-  }
+
+  useEffect(() => {
+    if (isMobile && open) onOpenChange(false)
+  }, [isMobile, onOpenChange, open])
+
+  if (isMobile) return null
 
   if (state === 'collapsed') {
     return (
@@ -36,7 +39,7 @@ export function CopilotSidebarToggle({
             tooltip={actionLabel}
             aria-label={actionLabel}
             aria-pressed={open}
-            onClick={() => handleOpenChange(!open)}
+            onClick={() => onOpenChange(!open)}
           >
             <BotMessageSquare />
             <span>{tCopilot('label')}</span>
@@ -52,7 +55,7 @@ export function CopilotSidebarToggle({
         <BotMessageSquare className='h-4 w-4 shrink-0' aria-hidden='true' />
         <span className='truncate'>{tCopilot('label')}</span>
       </span>
-      <Switch checked={open} onCheckedChange={handleOpenChange} aria-label={actionLabel} />
+      <Switch checked={open} onCheckedChange={onOpenChange} aria-label={actionLabel} />
     </div>
   )
 }

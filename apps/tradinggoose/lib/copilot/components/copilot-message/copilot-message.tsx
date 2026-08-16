@@ -2,6 +2,7 @@
 
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import {
   EDIT_REPLAY_BLOCKED_MESSAGE,
@@ -118,7 +119,6 @@ interface CopilotMessageProps {
   isStreaming?: boolean
   panelWidth?: number
   isDimmed?: boolean
-  sendDisabled?: boolean
   onEditModeChange?: (isEditing: boolean) => void
 }
 
@@ -129,7 +129,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     isStreaming,
     panelWidth = 308,
     isDimmed = false,
-    sendDisabled = false,
     onEditModeChange,
   }) => {
     const copilotCopy = useCopilotMessages()
@@ -152,6 +151,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       sendMessage,
       isSendingMessage,
       isAwaitingContinuation,
+      isAborting,
       abortMessage,
       accessLevel,
       setAccessLevel,
@@ -234,7 +234,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       fileAttachments?: MessageFileAttachment[],
       contexts?: ChatContext[]
     ) => {
-      if (!editedMessage.trim() || sendDisabled) return
+      if (!editedMessage.trim()) return
 
       if (isReplayBlockedForEdit) {
         handleCancelEdit()
@@ -440,13 +440,9 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const handleOptionSelect = useCallback(
       (_optionKey: string, optionText: string) => {
-        if (sendDisabled) {
-          return
-        }
-
         sendMessage(optionText, { runtimeContext })
       },
-      [runtimeContext, sendDisabled, sendMessage]
+      [runtimeContext, sendMessage]
     )
 
     const assistantSegments = useMemo(() => {
@@ -579,9 +575,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 ref={userInputRef}
                 workspaceId={currentChat?.workspaceId ?? ''}
                 onSubmit={handleSubmitEdit}
-                onAbort={handleCancelEdit}
-                isLoading={isTurnInProgress && isLastUserMessage}
-                disabled={sendDisabled}
                 draft={editDraft}
                 onDraftChange={setEditDraft}
                 placeholder={copilotCopy.message.editPlaceholder}
@@ -634,16 +627,27 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 {/* Abort button when hovering and response is generating (only on last user message) */}
                 {isTurnInProgress && isHoveringMessage && isLastUserMessage && (
                   <div className='absolute right-2 bottom-2'>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        abortMessage()
-                      }}
-                      className='flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600'
-                      title={copilotCopy.message.stopGeneration}
-                    >
-                      <X className='h-4 w-4' />
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            type='button'
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              abortMessage()
+                            }}
+                            disabled={isAborting}
+                            className='flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60'
+                            aria-label={copilotCopy.message.stopGeneration}
+                          >
+                            <X className='h-4 w-4' />
+                          </button>
+                        }
+                      />
+                      <TooltipContent side='top'>
+                        {copilotCopy.message.stopGeneration}
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 )}
               </div>
@@ -705,7 +709,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 <OptionsSelector
                   options={options}
                   onSelect={handleOptionSelect}
-                  disabled={sendDisabled}
                   enableKeyboardNav={true}
                   streaming={false}
                 />
@@ -735,10 +738,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     // If dimmed state changed, re-render
     if (prevProps.isDimmed !== nextProps.isDimmed) {
-      return false
-    }
-
-    if (prevProps.sendDisabled !== nextProps.sendDisabled) {
       return false
     }
 

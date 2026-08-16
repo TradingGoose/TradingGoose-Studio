@@ -32,7 +32,6 @@ const createMentionSources = (): MentionSources => ({
   },
   blocksList: [],
   logsList: [],
-  workflowBlocks: [],
 })
 
 const getMentionCopy = (messages: any) =>

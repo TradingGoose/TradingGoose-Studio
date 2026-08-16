@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react'
 import { AtSign, Loader2, Paperclip, Send, X } from 'lucide-react'
-import { Button, Textarea } from '@/components/ui'
+import { Button, Textarea, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
@@ -36,7 +36,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       workspaceId,
       onSubmit,
       onAbort,
-      disabled = false,
       isLoading = false,
       isAborting = false,
       placeholder,
@@ -105,7 +104,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       submenuActiveIndex,
       submenuQuery,
     } = useUserInputMentions({
-      disabled,
       draft,
       isLoading,
       menuListRef,
@@ -149,9 +147,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         return
       }
 
-      textarea.style.height = 'auto'
-      const nextHeight = Math.min(textarea.scrollHeight, MAX_TEXTAREA_HEIGHT)
-      const overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden'
+      textarea.style.height = ''
+      const scrollHeight = textarea.scrollHeight
+      const nextHeight = message
+        ? Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT)
+        : textarea.clientHeight
+      const overflowY = message && scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden'
       textarea.style.height = `${nextHeight}px`
       textarea.style.overflowY = overflowY
 
@@ -161,7 +162,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         overlay.scrollTop = textarea.scrollTop
         overlay.scrollLeft = textarea.scrollLeft
       }
-    }, [message])
+    }, [message, panelWidth])
 
     useEffect(() => {
       const textarea = textareaRef.current
@@ -311,7 +312,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
     const handleSubmit = async () => {
       const trimmedMessage = message.trim()
-      if (!trimmedMessage || disabled || isLoading) {
+      if (!trimmedMessage || isLoading) {
         return
       }
 
@@ -377,7 +378,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     }
 
     const handleFileSelect = () => {
-      if (disabled || isLoading) {
+      if (isLoading) {
         return
       }
 
@@ -405,7 +406,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       }
     }
 
-    const canSubmit = message.trim().length > 0 && !disabled && !isLoading
+    const canSubmit = message.trim().length > 0 && !isLoading
     const showAbortButton = isLoading && onAbort
 
     return (
@@ -437,12 +438,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           />
 
           <div className='relative'>
-            {!message && (
-              <div className='pointer-events-none absolute inset-x-[2px] top-1 z-[1] truncate pr-14 font-sans text-muted-foreground text-sm leading-[1.25rem]'>
-                {isDragging ? copilotCopy.input.dropFilesHere : effectivePlaceholder}
-              </div>
-            )}
-
             <div
               ref={overlayRef}
               className='pointer-events-none absolute inset-0 z-[3] max-h-[120px] overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words [&::-webkit-scrollbar]:hidden'
@@ -491,7 +486,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                   overlayRef.current.scrollLeft = event.currentTarget.scrollLeft
                 }
               }}
-              disabled={disabled}
+              placeholder={isDragging ? copilotCopy.input.dropFilesHere : effectivePlaceholder}
               rows={1}
               className='relative z-[2] mb-2 min-h-[32px] w-full resize-none overflow-y-auto overflow-x-hidden break-words border-0 bg-transparent py-1 pr-14 pl-[2px] font-sans text-sm text-transparent leading-[1.25rem] caret-foreground focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden'
               style={{
@@ -541,44 +536,65 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 onAccessLevelChange={onAccessLevelChange}
               />
               <ModelSelector isNearTop={isNearTop} panelWidth={panelWidth} />
-              <Button
-                variant='ghost'
-                size='icon'
-                onClick={handleOpenMentionMenuWithAt}
-                disabled={disabled || isLoading}
-                className='h-6 w-6 text-muted-foreground hover:text-foreground'
-                title={copilotCopy.input.insertMention}
-              >
-                <AtSign className='h-3 w-3' />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={handleOpenMentionMenuWithAt}
+                      disabled={isLoading}
+                      className='h-6 w-6 text-muted-foreground hover:text-foreground'
+                      aria-label={copilotCopy.input.insertMention}
+                    >
+                      <AtSign className='h-3 w-3' />
+                    </Button>
+                  }
+                />
+                <TooltipContent side='top'>{copilotCopy.input.insertMention}</TooltipContent>
+              </Tooltip>
             </div>
 
             <div className='flex items-center gap-1.5 pl-1.5'>
-              <Button
-                variant='ghost'
-                size='icon'
-                onClick={handleFileSelect}
-                disabled={disabled || isLoading}
-                className='h-6 w-6 text-muted-foreground hover:text-foreground'
-                title={copilotCopy.input.attachFile}
-              >
-                <Paperclip className='h-3 w-3' />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={handleFileSelect}
+                      disabled={isLoading}
+                      className='h-6 w-6 text-muted-foreground hover:text-foreground'
+                      aria-label={copilotCopy.input.attachFile}
+                    >
+                      <Paperclip className='h-3 w-3' />
+                    </Button>
+                  }
+                />
+                <TooltipContent side='top'>{copilotCopy.input.attachFile}</TooltipContent>
+              </Tooltip>
 
               {showAbortButton ? (
-                <Button
-                  onClick={handleAbort}
-                  disabled={isAborting}
-                  size='icon'
-                  className='h-6 w-6 rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600'
-                  title={copilotCopy.input.stopGeneration}
-                >
-                  {isAborting ? (
-                    <Loader2 className='h-3 w-3 animate-spin' />
-                  ) : (
-                    <X className='h-3 w-3' />
-                  )}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        onClick={handleAbort}
+                        disabled={isAborting}
+                        size='icon'
+                        className='h-6 w-6 rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600'
+                        aria-label={copilotCopy.input.stopGeneration}
+                      >
+                        {isAborting ? (
+                          <Loader2 className='h-3 w-3 animate-spin' />
+                        ) : (
+                          <X className='h-3 w-3' />
+                        )}
+                      </Button>
+                    }
+                  />
+                  <TooltipContent side='top'>{copilotCopy.input.stopGeneration}</TooltipContent>
+                </Tooltip>
               ) : (
                 <Button
                   onClick={() => void handleSubmit()}
@@ -603,7 +619,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             className='hidden'
             accept='image/*'
             multiple
-            disabled={disabled || isLoading}
+            disabled={isLoading}
           />
         </div>
       </div>

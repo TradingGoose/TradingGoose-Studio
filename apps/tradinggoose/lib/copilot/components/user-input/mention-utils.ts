@@ -29,7 +29,6 @@ import type {
   MentionSources,
   MentionSubmenu,
   PastChatItem,
-  WorkflowBlockItem,
   WorkspaceEntityItem,
 } from './types'
 
@@ -134,10 +133,6 @@ export function filterBlocks(items: BlockItem[], query: string) {
   return items.filter((item) => includesNormalized(item.name || item.id, query))
 }
 
-export function filterWorkflowBlocks(items: WorkflowBlockItem[], query: string) {
-  return items.filter((item) => includesNormalized(item.name || item.id, query))
-}
-
 export function filterLogs(items: LogItem[], query: string, monitorCopy: MonitorCopy) {
   return items.filter((item) =>
     includesNormalized(getLogMentionSearchText(monitorCopy, item), query)
@@ -163,10 +158,6 @@ export function filterMentionItems(
     return filterBlocks(sources.blocksList, query)
   }
 
-  if (submenu === 'workflow_blocks') {
-    return filterWorkflowBlocks(sources.workflowBlocks, query)
-  }
-
   return filterLogs(sources.logsList, query, monitorCopy)
 }
 
@@ -183,11 +174,6 @@ export function buildAggregatedMentionItems(
   }
 
   return [
-    ...filterWorkflowBlocks(sources.workflowBlocks, query).map((value) => ({
-      type: 'workflow_blocks' as const,
-      id: value.id,
-      value,
-    })),
     ...COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.flatMap((config) =>
       filterWorkspaceEntities(sources.workspaceEntities[config.entityKind], query, mentionCopy).map(
         (value) => ({

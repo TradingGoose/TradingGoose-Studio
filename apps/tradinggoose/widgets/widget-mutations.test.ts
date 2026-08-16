@@ -129,7 +129,7 @@ describe('applyWidgetConfigMutation', () => {
     })
   })
 
-  it('changes pairColor without copying, clearing, or dirtying shared pair state', () => {
+  it('keeps existing destination values when changing pair color', () => {
     const colorPairs = {
       pairs: [
         { color: 'blue' as const, listing },
@@ -156,7 +156,7 @@ describe('applyWidgetConfigMutation', () => {
     })
   })
 
-  it('preserves gray local linked params when selecting a shared pair', () => {
+  it('moves gray linked params into missing destination fields', () => {
     const result = apply({
       widgetKey: 'watchlist',
       widget: widget('gray', { listing }),
@@ -167,12 +167,81 @@ describe('applyWidgetConfigMutation', () => {
     expect(widgetOf(result)).toEqual({
       key: 'watchlist',
       pairColor: 'blue',
-      params: { listing },
+      params: null,
     })
     expect(result.colorPairs).toEqual({
-      pairs: [{ color: 'blue', watchlistId: 'watchlist-blue' }],
+      pairs: [{ color: 'blue', watchlistId: 'watchlist-blue', listing }],
     })
+    expect(result.colorPairDiff).toEqual([
+      {
+        color: 'blue',
+        before: { watchlistId: 'watchlist-blue' },
+        after: { watchlistId: 'watchlist-blue', listing },
+        changedFields: ['listing'],
+      },
+    ])
+  })
+
+  it('inherits missing destination fields from the active pair without changing the source', () => {
+    const result = apply({
+      widget: widget('red', { data: { provider: 'alpaca' } }),
+      colorPairs: {
+        pairs: [
+          { color: 'blue', workflowId: 'workflow-blue' },
+          { color: 'red', listing },
+        ],
+      },
+      patch: { pairColor: 'blue' },
+    })
+
+    expect(widgetOf(result)).toEqual({
+      key: 'data_chart',
+      pairColor: 'blue',
+      params: { data: { provider: 'alpaca' } },
+    })
+    expect(result.colorPairs).toEqual({
+      pairs: [
+        { color: 'blue', workflowId: 'workflow-blue', listing },
+        { color: 'red', listing },
+      ],
+    })
+  })
+
+  it('moves active pair fields into local params when changing to gray', () => {
+    const result = apply({
+      widget: widget('red', { data: { provider: 'alpaca' } }),
+      colorPairs: { pairs: [{ color: 'red', listing }] },
+      patch: { pairColor: 'gray' },
+    })
+
+    expect(widgetOf(result)).toEqual({
+      key: 'data_chart',
+      pairColor: 'gray',
+      params: { data: { provider: 'alpaca' }, listing },
+    })
+    expect(result.colorPairs).toEqual({ pairs: [{ color: 'red', listing }] })
     expect(result.colorPairDiff).toEqual([])
+  })
+
+  it('lets explicit destination edits override inherited and existing values', () => {
+    const explicitListing = { ...listing, listing_id: 'NVDA' }
+    const result = apply({
+      widget: widget('red'),
+      colorPairs: {
+        pairs: [
+          { color: 'blue', listing: { ...listing, listing_id: 'MSFT' } },
+          { color: 'red', listing },
+        ],
+      },
+      patch: { pairColor: 'blue', colorPair: { listing: explicitListing } },
+    })
+
+    expect(result.colorPairs).toEqual({
+      pairs: [
+        { color: 'blue', listing: explicitListing },
+        { color: 'red', listing },
+      ],
+    })
   })
 
   it.each([{ colorPair: { listing } }, { colorPair: null }])(

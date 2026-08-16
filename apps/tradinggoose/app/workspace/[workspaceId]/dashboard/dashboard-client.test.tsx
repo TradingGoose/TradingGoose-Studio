@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import type { DashboardLayoutTab } from '@/lib/dashboard-layouts/operations'
 import {
+  readDashboardColorPairDocument,
   seedDashboardColorPairSession,
   seedDashboardLayoutSession,
   seedDashboardWidgetSession,
@@ -27,7 +28,7 @@ import type { PairColor } from '@/widgets/pair-colors'
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
-const copilotContextMocks = vi.hoisted(() => ({ publishActiveLayout: vi.fn() }))
+const copilotContextMocks = vi.hoisted(() => ({ publishDashboardContext: vi.fn() }))
 
 const mockFetch = vi.fn()
 let mockSelectLayout: ((layoutId: string) => void) | null = null
@@ -152,12 +153,13 @@ vi.mock('@/global-navbar', () => ({
 }))
 
 vi.mock('@/global-navbar/copilot-context', () => ({
-  GlobalCopilotActiveDashboardLayoutPublisher: ({
-    activeLayout,
-  }: {
-    activeLayout: DashboardLayoutTab | null
+  GlobalCopilotDashboardContextPublisher: (props: {
+    layoutId: string | null
+    layoutName: string | null
+    ownerUserId: string
+    workspaceId: string
   }) => {
-    copilotContextMocks.publishActiveLayout(activeLayout)
+    copilotContextMocks.publishDashboardContext(props)
     return null
   },
 }))
@@ -325,9 +327,12 @@ describe('DashboardClient', () => {
   it('rebinds widget data and runtime context when the dashboard identity changes', async () => {
     await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
 
-    expect(copilotContextMocks.publishActiveLayout).toHaveBeenLastCalledWith(
-      expect.objectContaining({ id: 'layout-a', isActive: true })
-    )
+    expect(copilotContextMocks.publishDashboardContext).toHaveBeenLastCalledWith({
+      layoutId: 'layout-a',
+      layoutName: 'Layout A',
+      ownerUserId: 'user-a',
+      workspaceId: 'ws-a',
+    })
     expect(readWidgetSurface(container)).toEqual({
       workflowId: 'wf-a',
       workspaceId: 'ws-a',
@@ -364,9 +369,12 @@ describe('DashboardClient', () => {
       switchToRedButton.click()
     })
     expect(readWidgetSurface(container, 'panel-a')).toMatchObject({
-      workflowId: '',
+      workflowId: 'wf-a',
       workspaceId: 'ws-a',
       pairColor: 'red',
+    })
+    expect(readDashboardColorPairDocument(mockPairDocuments.get('red')!)).toEqual({
+      workflowId: 'wf-a',
     })
   })
 
@@ -450,7 +458,12 @@ describe('DashboardClient', () => {
     await act(async () => resolveActivation({ ok: true, json: () => Promise.resolve(projected) }))
     expect(mockLayoutDocumentLayoutId).toBe('layout-b')
     expect(mockLayoutTabsLayouts).toEqual(projected)
-    expect(copilotContextMocks.publishActiveLayout).toHaveBeenLastCalledWith(projected[1])
+    expect(copilotContextMocks.publishDashboardContext).toHaveBeenLastCalledWith({
+      layoutId: projected[1]?.id,
+      layoutName: projected[1]?.name,
+      ownerUserId: 'user-a',
+      workspaceId: 'ws-a',
+    })
 
     mockDashboardLayoutList = {
       layouts: projected.filter((layout) => layout.id !== 'layout-a'),

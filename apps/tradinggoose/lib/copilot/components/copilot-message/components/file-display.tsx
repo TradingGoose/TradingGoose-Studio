@@ -1,5 +1,6 @@
 import { memo, useState } from 'react'
 import { FileText, Image } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { MessageFileAttachment } from '@/stores/copilot/types'
 
 interface FileAttachmentDisplayProps {
@@ -46,37 +47,41 @@ export const FileAttachmentDisplay = memo(({ fileAttachments }: FileAttachmentDi
   return (
     <>
       {fileAttachments.map((file) => (
-        <div
-          key={file.id}
-          className='group relative h-16 w-16 cursor-pointer overflow-hidden rounded-md border border-border/50 bg-muted/20 transition-all hover:bg-card/40'
-          onClick={() => handleFileClick(file)}
-          title={`${file.filename} (${formatFileSize(file.size)})`}
-        >
-          {isImageFile(file.media_type) && !failedImageIds.has(file.id) ? (
-            // For images, show actual thumbnail
-            <img
-              src={getFileUrl(file)}
-              alt={file.filename}
-              className='h-full w-full object-cover'
-              onError={() => {
-                setFailedImageIds((current) => {
-                  if (current.has(file.id)) return current
-                  const next = new Set(current)
-                  next.add(file.id)
-                  return next
-                })
-              }}
-            />
-          ) : (
-            // For other files, show icon centered
-            <div className='flex h-full w-full items-center justify-center bg-background/50'>
-              {getFileIcon(file.media_type)}
-            </div>
-          )}
+        <Tooltip key={file.id}>
+          <TooltipTrigger
+            render={
+              <button
+                type='button'
+                className='group relative h-16 w-16 cursor-pointer overflow-hidden rounded-md border border-border/50 bg-muted/20 transition-all hover:bg-card/40'
+                onClick={() => handleFileClick(file)}
+                aria-label={file.filename}
+              >
+                {isImageFile(file.media_type) && !failedImageIds.has(file.id) ? (
+                  <img
+                    src={getFileUrl(file)}
+                    alt={file.filename}
+                    className='h-full w-full object-cover'
+                    onError={() => {
+                      setFailedImageIds((current) => {
+                        if (current.has(file.id)) return current
+                        const next = new Set(current)
+                        next.add(file.id)
+                        return next
+                      })
+                    }}
+                  />
+                ) : (
+                  <span className='flex h-full w-full items-center justify-center bg-background/50'>
+                    {getFileIcon(file.media_type)}
+                  </span>
+                )}
 
-          {/* Hover overlay effect */}
-          <div className='pointer-events-none absolute inset-0 bg-black/10 opacity-0 transition-opacity group-hover:opacity-100' />
-        </div>
+                <span className='pointer-events-none absolute inset-0 bg-black/10 opacity-0 transition-opacity group-hover:opacity-100' />
+              </button>
+            }
+          />
+          <TooltipContent side='top'>{`${file.filename} (${formatFileSize(file.size)})`}</TooltipContent>
+        </Tooltip>
       ))}
     </>
   )

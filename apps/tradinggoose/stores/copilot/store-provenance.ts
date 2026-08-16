@@ -70,21 +70,13 @@ function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance |
 
 export function buildTurnProvenanceFromContexts(
   contexts: ChatContext[] | undefined,
-  workspaceId: string | null | undefined,
-  liveWorkflowId: string | null | undefined
+  workspaceId: string | null | undefined
 ): CopilotToolExecutionProvenance | undefined {
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
-  const normalizedLiveWorkflowId = normalizeOptionalString(liveWorkflowId)
   const provenance: CopilotToolExecutionProvenance = {
-    ...(normalizedLiveWorkflowId
-      ? {
-          contextEntityKind: 'workflow' as const,
-          contextEntityId: normalizedLiveWorkflowId,
-        }
-      : {}),
     ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
   }
-  let hasContext = !!normalizedWorkspaceId || !!normalizedLiveWorkflowId
+  let hasContext = !!normalizedWorkspaceId
 
   for (const context of contexts ?? []) {
     const entityContext = getContextTurnProvenance(context)

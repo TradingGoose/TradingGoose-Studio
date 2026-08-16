@@ -3,6 +3,7 @@
 import { memo } from 'react'
 import { Plus } from 'lucide-react'
 import { useLocale } from 'next-intl'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
@@ -48,21 +49,32 @@ export const ContextUsagePill = memo(
           isHighUsage && 'border border-red-500/50',
           className
         )}
-        title={title}
       >
-        <span>{formattedPercentage}%</span>
+        <Tooltip>
+          <TooltipTrigger render={<span>{formattedPercentage}%</span>} />
+          <TooltipContent side='top'>{title}</TooltipContent>
+        </Tooltip>
         {isHighUsage && onCreateNewChat && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onCreateNewChat()
-            }}
-            className='inline-flex items-center justify-center transition-opacity hover:opacity-70'
-            title={copilotCopy.contextUsage.recommendedNewChat}
-            type='button'
-          >
-            <Plus className='h-3 w-3' />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onCreateNewChat()
+                  }}
+                  className='inline-flex items-center justify-center transition-opacity hover:opacity-70'
+                  aria-label={copilotCopy.contextUsage.recommendedNewChat}
+                  type='button'
+                >
+                  <Plus className='h-3 w-3' />
+                </button>
+              }
+            />
+            <TooltipContent side='top'>
+              {copilotCopy.contextUsage.recommendedNewChat}
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
     )

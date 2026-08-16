@@ -139,6 +139,18 @@ export function projectWidgetParamsForCopilot(
   return getWidgetContract(widgetKey).projectCopilotParams(params)
 }
 
+export function stripLinkedWidgetParams(
+  widgetKey: WidgetKey,
+  params: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null {
+  if (!params) return null
+  const linkedFields = new Set<string>(getWidgetContract(widgetKey).linkedParamFields)
+  const localParams = Object.fromEntries(
+    Object.entries(params).filter(([field]) => !linkedFields.has(field))
+  )
+  return Object.keys(localParams).length > 0 ? localParams : null
+}
+
 export function resolveEffectiveWidgetParams(
   widget: WidgetInstance,
   colorPairs: PersistedColorPairsState | unknown
@@ -205,7 +217,6 @@ export function listWidgetCatalogItems(
       description: contract.description,
       editable: contract.editable,
       editableFields: [...contract.editableFields],
-      linkedParamFields: [...contract.linkedParamFields],
     }))
 }
 
@@ -221,7 +232,6 @@ export function readWidgetMetadataProfiles(widgetKeys: readonly string[]): Widge
       defaultParams: contract.projectCopilotParams(contract.defaultParams),
       editableFields: [...contract.editableFields],
       paramContract: contract.editableFields.map((field) => FIELD_CONTRACTS[field]),
-      linkedParamFields: [...contract.linkedParamFields],
     }
   })
 }

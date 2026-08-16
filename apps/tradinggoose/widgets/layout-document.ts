@@ -1,6 +1,5 @@
 import { isEqual } from 'lodash'
 import { z } from 'zod'
-import { ListingIdentitySchema } from '@/lib/listing/identity'
 import type { PairColorContext } from '@/widgets/color-pairs'
 import { normalizePairColorContext } from '@/widgets/color-pairs'
 import {
@@ -8,7 +7,6 @@ import {
   createDefaultLayoutState,
   createLayoutNodeId,
   type LayoutNode,
-  type LinkedPairColor,
   normalizeColorPairsState,
   type PersistedColorPairsState,
 } from '@/widgets/layout'
@@ -18,6 +16,7 @@ import {
   isWidgetContractValidationError,
   isWidgetKey,
   sanitizeWidgetInstance,
+  stripLinkedWidgetParams,
   WIDGET_KEYS,
 } from '@/widgets/widget-contracts'
 
@@ -76,12 +75,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const WidgetKeySchema = z.enum(WIDGET_KEYS)
 const PairColorSchema = z.enum(PAIR_COLORS as [PairColor, ...PairColor[]])
-const LinkedPairColorSchema = z.enum(
-  PAIR_COLORS.filter((color): color is LinkedPairColor => color !== 'gray') as [
-    LinkedPairColor,
-    ...LinkedPairColor[],
-  ]
-)
 
 // Annotated with its real output type rather than `z.ZodTypeAny`: Zod 4 infers
 // `ZodTypeAny` as `unknown` (Zod 3 inferred `any`), which would erase the node
@@ -195,36 +188,18 @@ export const DashboardWidgetDocumentSchema = z
   })
   .strict()
 
-const DashboardWidgetsSchema = z.record(z.string(), DashboardWidgetDocumentSchema)
-const DashboardColorPairsSchema = z
-  .object({
-    pairs: z.array(
-      z
-        .object({
-          color: LinkedPairColorSchema,
-          workflowId: z.string().nullable().optional(),
-          watchlistId: z.string().nullable().optional(),
-          listing: ListingIdentitySchema.nullable().optional(),
-          indicatorId: z.string().nullable().optional(),
-          mcpServerId: z.string().nullable().optional(),
-          customToolId: z.string().nullable().optional(),
-          skillId: z.string().nullable().optional(),
-        })
-        .strict()
-    ),
-  })
-  .strict()
-  .refine(
-    ({ pairs }) => new Set(pairs.map((pair) => pair.color)).size === pairs.length,
-    'colorPairs cannot contain duplicate colors'
-  )
-
-/** Complete read-time projection. It is never persisted or connected as one Yjs document. */
+/** Public Copilot read projection. Runtime pair ownership stays internal. */
 export const DashboardLayoutProjectionSchema = z
   .object({
     layout: DashboardLayoutNodeSchema,
-    widgets: DashboardWidgetsSchema,
-    colorPairs: DashboardColorPairsSchema,
+    widgets: z.record(
+      z.string(),
+      z
+        .object({
+          params: z.record(z.string(), z.unknown()).nullable(),
+        })
+        .strict()
+    ),
   })
   .strict()
 
@@ -422,11 +397,16 @@ export function normalizeDashboardWidgetDocument(
     failDashboardLayout('widget', error instanceof Error ? error.message : 'Widget is invalid')
   }
   if (!sanitized) failDashboardLayout('widget', `Dashboard widget ${widgetKey} is invalid`)
-  const params = sanitized.params ?? null
-  if (!isEqual(parsed.params, params)) {
+  const sanitizedParams = sanitized.params ?? null
+  if (!isEqual(parsed.params, sanitizedParams)) {
     failDashboardLayout('widget.params', `Dashboard widget ${widgetKey}.params must be canonical`)
   }
-  return { pairColor: sanitized.pairColor ?? 'gray', params }
+  const pairColor = sanitized.pairColor ?? 'gray'
+  return {
+    pairColor,
+    params:
+      pairColor === 'gray' ? sanitizedParams : stripLinkedWidgetParams(widgetKey, sanitizedParams),
+  }
 }
 
 export function normalizeDashboardWidgetStorageDocument(value: unknown): DashboardWidgetDocument {

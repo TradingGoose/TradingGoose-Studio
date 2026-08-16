@@ -390,9 +390,8 @@ describe('InlineToolCall', () => {
           widgetKey,
         },
         widgets: {
-          'widget-a': { pairColor: 'gray', params: null },
+          'widget-a': { params: null },
         },
-        colorPairs: { pairs: [] },
       })
       const currentLayout = layoutDocument('data_chart')
       const proposedLayout = layoutDocument('watchlist')

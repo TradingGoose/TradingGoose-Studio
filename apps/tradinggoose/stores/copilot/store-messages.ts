@@ -4,7 +4,7 @@ import {
   buildTurnProvenanceFromContexts,
   withPinnedToolExecutionProvenance,
 } from '@/stores/copilot/store-provenance'
-import { normalizeReloadedToolState } from '@/stores/copilot/store-state'
+import { ACTIVE_TURN_STATUS, normalizeReloadedToolState } from '@/stores/copilot/store-state'
 import { ensureClientToolInstance, resolveToolDisplay } from '@/stores/copilot/tool-registry'
 import type {
   ChatContext,
@@ -136,7 +136,7 @@ export function normalizeMessagesForUI(
   latestTurnStatus?: string | null
 ): CopilotMessage[] {
   try {
-    return messages.map((message) => {
+    const normalizedMessages = messages.map((message) => {
       if (message.role !== 'assistant') {
         return message
       }
@@ -211,6 +211,11 @@ export function normalizeMessagesForUI(
         ...(finalBlocks.length > 0 ? { contentBlocks: finalBlocks } : {}),
       }
     })
+
+    const lastMessage = normalizedMessages[normalizedMessages.length - 1]
+    return latestTurnStatus === ACTIVE_TURN_STATUS && lastMessage?.role !== 'assistant'
+      ? [...normalizedMessages, createStreamingMessage()]
+      : normalizedMessages
   } catch {
     return messages
   }
@@ -239,8 +244,7 @@ export function buildPinnedToolCallsById(
     if (message.role === 'user') {
       turnProvenance = buildTurnProvenanceFromContexts(
         Array.isArray(message.contexts) ? message.contexts : undefined,
-        opts.workspaceId,
-        null
+        opts.workspaceId
       )
       continue
     }

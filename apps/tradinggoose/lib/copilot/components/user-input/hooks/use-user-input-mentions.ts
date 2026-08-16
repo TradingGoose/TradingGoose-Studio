@@ -2,7 +2,6 @@
 
 import { type KeyboardEvent, type RefObject, useEffect, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
-import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import type { ChatContext, CopilotDraftUpdate } from '@/stores/copilot/types'
 import {
@@ -37,7 +36,6 @@ import type {
 } from '../types'
 
 interface UseUserInputMentionsOptions {
-  disabled: boolean
   draft: { text: string; contexts: ChatContext[] }
   isLoading: boolean
   menuListRef: RefObject<HTMLDivElement | null>
@@ -53,7 +51,6 @@ interface UseUserInputMentionsOptions {
 type MentionInsertion = { cursor: number; start: number; text: string }
 
 export function useUserInputMentions({
-  disabled,
   draft,
   isLoading,
   menuListRef,
@@ -74,8 +71,6 @@ export function useUserInputMentions({
   const [submenuActiveIndex, setSubmenuActiveIndex] = useState(0)
   const [submenuQueryStart, setSubmenuQueryStart] = useState<number | null>(null)
   const [inAggregated, setInAggregated] = useState(false)
-  const workflowSession = useOptionalWorkflowSession()
-  const currentWorkflowId = workflowSession?.workflowId ?? null
   const lastSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
   const ensureSubmenuLoaded = loaders.ensureSubmenuLoaded
   const getEditorTextLength = () => textareaRef.current?.value.length ?? message.length
@@ -365,22 +360,6 @@ export function useUserInputMentions({
     closeMentionMenu()
   }
 
-  const insertWorkflowBlockMention = (block: { id: string; name: string }) => {
-    if (!currentWorkflowId) {
-      closeMentionMenu()
-      return
-    }
-
-    const label = block.name
-    insertMentionContext(label, {
-      kind: 'workflow_block',
-      workflowId: currentWorkflowId,
-      blockId: block.id,
-      label,
-    })
-    closeMentionMenu()
-  }
-
   const insertDocsMention = () => {
     const label = getMentionOptionLabel(mentionCopy, 'docs')
     insertMentionContext(label, { kind: 'docs', label })
@@ -411,8 +390,6 @@ export function useUserInputMentions({
       insertWorkspaceEntityMention(item as WorkspaceEntityItem)
     } else if (submenu === 'blocks') {
       insertBlockMention(item as any)
-    } else if (submenu === 'workflow_blocks') {
-      insertWorkflowBlockMention(item as any)
     } else if (submenu === 'logs') {
       insertLogMention(item as any)
     }
@@ -427,8 +404,6 @@ export function useUserInputMentions({
       insertWorkspaceEntityMention(item.value as WorkspaceEntityItem)
     } else if (item.type === 'blocks') {
       insertBlockMention(item.value as any)
-    } else if (item.type === 'workflow_blocks') {
-      insertWorkflowBlockMention(item.value as any)
     } else if (item.type === 'logs') {
       insertLogMention(item.value as any)
     }
@@ -487,7 +462,6 @@ export function useUserInputMentions({
     const active = getActiveMentionQueryAtPosition(normalizedSelection.start, newValue)
 
     if (active) {
-      void ensureSubmenuLoaded('workflow_blocks')
       setShowMentionMenu(true)
       setInAggregated(false)
 
@@ -527,7 +501,7 @@ export function useUserInputMentions({
   }
 
   const handleOpenMentionMenuWithAt = () => {
-    if (disabled || isLoading) {
+    if (isLoading) {
       return
     }
 
@@ -537,7 +511,6 @@ export function useUserInputMentions({
     const pos = getSelection()?.start ?? message.length
     const needsSpaceBefore = pos > 0 && !/\s/.test(message.charAt(pos - 1))
     insertAtCursor(needsSpaceBefore ? ' @' : '@')
-    void ensureSubmenuLoaded('workflow_blocks')
     setShowMentionMenu(true)
     setOpenSubmenuFor(null)
     setMentionActiveIndex(0)

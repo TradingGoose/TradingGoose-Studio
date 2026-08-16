@@ -2,11 +2,11 @@
  * @vitest-environment jsdom
  */
 
-import { act, type ReactNode, useEffect, useState } from 'react'
+import { act, type ReactNode, useState } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SidebarProvider, useSidebar } from '@/components/ui/sidebar'
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { CopilotSidebarToggle } from '@/global-navbar/components/copilot-sidebar-toggle'
 import { getPublicCopy } from '@/i18n/public-copy'
 
@@ -19,20 +19,6 @@ vi.mock('@/hooks/use-mobile', () => ({
 function ControlledToggle({ initialOpen }: { initialOpen: boolean }) {
   const [open, setOpen] = useState(initialOpen)
   return <CopilotSidebarToggle open={open} onOpenChange={setOpen} />
-}
-
-function MobileControlledToggle() {
-  const { openMobile, setOpenMobile } = useSidebar()
-  const [open, setOpen] = useState(false)
-
-  useEffect(() => setOpenMobile(true), [setOpenMobile])
-
-  return (
-    <>
-      <CopilotSidebarToggle open={open} onOpenChange={setOpen} />
-      <output data-testid='mobile-sidebar-state'>{String(openMobile)}</output>
-    </>
-  )
 }
 
 describe('CopilotSidebarToggle', () => {
@@ -105,24 +91,14 @@ describe('CopilotSidebarToggle', () => {
     expect(button.getAttribute('aria-label')).toBe('Hide Copilot')
   })
 
-  it('closes the mobile sidebar before opening Copilot', async () => {
+  it('does not expose the desktop Copilot panel on mobile', async () => {
     mobileState.value = true
+    const onOpenChange = vi.fn()
 
-    await renderToggle(<MobileControlledToggle />)
+    await renderToggle(<CopilotSidebarToggle open onOpenChange={onOpenChange} />)
 
-    const toggle = container.querySelector('button[aria-pressed]')
-    if (!(toggle instanceof HTMLButtonElement)) {
-      throw new Error('Expected a mobile copilot toggle')
-    }
-
-    expect(container.querySelector('[data-testid="mobile-sidebar-state"]')).toHaveTextContent(
-      'true'
-    )
-
-    await act(async () => toggle.click())
-
-    expect(container.querySelector('[data-testid="mobile-sidebar-state"]')).toHaveTextContent(
-      'false'
-    )
+    expect(container.querySelector('button[aria-pressed]')).toBeNull()
+    expect(container.querySelector('[data-slot="switch"]')).toBeNull()
+    expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 })

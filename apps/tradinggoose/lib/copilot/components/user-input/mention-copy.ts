@@ -43,7 +43,6 @@ export function getCopilotMentionCopy({
       mcp_server: widgets.workflowLabels.mcpServers,
       watchlist: widgets.workflowLabels.watchlists,
       dashboard_layout: copilot.mentions.dashboardLayouts,
-      workflow_blocks: copilot.mentions.workflowBlocks,
       blocks: widgets.workflowToolbar.blocks,
       knowledge_base: dashboard.pages.knowledge,
       docs: nav.docs,
@@ -58,7 +57,6 @@ export function getCopilotMentionCopy({
       mcp_server: widgets.workflowLabels.mcpServers,
       watchlist: widgets.workflowLabels.watchlists,
       dashboard_layout: copilot.mentions.dashboardLayouts,
-      workflow_blocks: copilot.mentions.workflowBlocks,
       blocks: widgets.workflowToolbar.blocks,
       knowledge_base: dashboard.sections.knowledgeBases,
       logs: dashboard.pages.logs,
@@ -74,7 +72,6 @@ export function getCopilotMentionCopy({
       dashboard_layout: copilot.mentions.noDashboardLayoutsFound,
       knowledge_base: knowledge.emptyState.noMatches,
       blocks: copilot.mentions.noBlocksFound,
-      workflow_blocks: copilot.mentions.noBlocksInWorkflow,
       logs: copilot.mentions.noExecutionsFound,
     } satisfies Record<MentionSubmenu, string>,
     untitledLabels: {

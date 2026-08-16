@@ -121,15 +121,12 @@ function parseJsonRequestBody(request: FetchCall | undefined): Record<string, un
 
 function createRuntimeContext({
   workspaceId = null,
-  workflowId = null,
   implicitContexts = [],
 }: {
   workspaceId?: string | null
-  workflowId?: string | null
   implicitContexts?: ChatContext[]
 } = {}): CopilotSendRuntimeContext {
   return {
-    workflowId,
     workspaceId,
     implicitContexts,
   }
@@ -270,7 +267,6 @@ describe('copilot tool execution provenance', () => {
       ],
       runtimeContext: createRuntimeContext({
         workspaceId: 'workspace-1',
-        workflowId: 'wf-live-at-send',
         implicitContexts: [
           {
             kind: 'current_workflow',
@@ -308,7 +304,7 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId].provenance).toEqual({
       contextEntityKind: 'workflow',
-      contextEntityId: 'wf-live-at-send',
+      contextEntityId: 'wf-message-context',
       workspaceId: 'workspace-1',
     })
 
@@ -364,7 +360,6 @@ describe('copilot tool execution provenance', () => {
       contexts: [{ kind: 'workflow', workflowId: 'wf-explicit', label: 'Attached Workflow' }],
       runtimeContext: createRuntimeContext({
         workspaceId: 'workspace-1',
-        workflowId: 'wf-current',
         implicitContexts: [
           {
             kind: 'current_workflow',
@@ -401,7 +396,7 @@ describe('copilot tool execution provenance', () => {
 
     expect(store.getState().toolCallsById[toolCallId].provenance).toEqual({
       contextEntityKind: 'workflow',
-      contextEntityId: 'wf-current',
+      contextEntityId: 'wf-explicit',
       workspaceId: 'workspace-1',
     })
   })
@@ -1008,7 +1003,6 @@ describe('copilot streaming regressions', () => {
       await store.getState().sendMessage('Trigger a failed send', {
         runtimeContext: createRuntimeContext({
           workspaceId: 'workspace-1',
-          workflowId: 'wf-send-failure',
         }),
       })
 
@@ -1761,7 +1755,6 @@ describe('copilot streaming regressions', () => {
       ],
       runtimeContext: createRuntimeContext({
         workspaceId: 'workspace-1',
-        workflowId: 'workflow-1',
         implicitContexts: [
           {
             kind: 'current_workflow',
@@ -1841,7 +1834,6 @@ describe('copilot streaming regressions', () => {
     await store.getState().sendMessage('Now help me with workflow B', {
       runtimeContext: createRuntimeContext({
         workspaceId: 'workspace-1',
-        workflowId: 'workflow-b',
         implicitContexts: [
           {
             kind: 'current_workflow',
@@ -1911,7 +1903,6 @@ describe('copilot streaming regressions', () => {
     await store.getState().sendMessage('Help me inspect this indicator', {
       runtimeContext: createRuntimeContext({
         workspaceId: 'workspace-1',
-        workflowId: null,
         implicitContexts: [
           {
             kind: 'current_indicator',

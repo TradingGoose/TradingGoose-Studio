@@ -1,25 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildCopilotWorkspaceEntityContext,
-  COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS,
   COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS,
-  getCopilotWorkspaceEntityIdFromEffectiveParams,
   getCopilotWorkspaceEntityKindFromContext,
   readCopilotWorkspaceEntityContext,
 } from './workspace-entities'
 
 describe('workspace-entities', () => {
-  it('keeps dashboard layouts mentionable but out of effective-param entity configs', () => {
+  it('keeps dashboard layouts and knowledge bases mentionable', () => {
     expect(COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => config.entityKind)).toContain(
       'dashboard_layout'
     )
-    expect(COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS.map((config) => config.entityKind)).not.toContain(
-      'dashboard_layout'
-    )
     expect(COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => config.entityKind)).toContain(
-      'knowledge_base'
-    )
-    expect(COPILOT_EFFECTIVE_PARAM_ENTITY_CONFIGS.map((config) => config.entityKind)).not.toContain(
       'knowledge_base'
     )
   })
@@ -158,39 +150,5 @@ describe('workspace-entities', () => {
       ownerUserId: 'user-1',
       current: false,
     })
-  })
-
-  it('reads entity ids from effective params consistently', () => {
-    expect(
-      getCopilotWorkspaceEntityIdFromEffectiveParams(
-        {
-          workflowId: 'workflow-1',
-          customToolId: 'tool-1',
-        },
-        'workflow'
-      )
-    ).toBe('workflow-1')
-
-    expect(
-      getCopilotWorkspaceEntityIdFromEffectiveParams(
-        {
-          workflowId: 'workflow-1',
-          customToolId: 'tool-1',
-          watchlistId: 'watchlist-1',
-        },
-        'custom_tool'
-      )
-    ).toBe('tool-1')
-
-    expect(
-      getCopilotWorkspaceEntityIdFromEffectiveParams(
-        {
-          workflowId: 'workflow-1',
-          customToolId: 'tool-1',
-          watchlistId: 'watchlist-1',
-        },
-        'watchlist'
-      )
-    ).toBe('watchlist-1')
   })
 })

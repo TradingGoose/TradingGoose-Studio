@@ -270,18 +270,25 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
           <div className='my-6 w-0 min-w-full rounded-md bg-gray-900 text-sm dark:bg-black'>
             <div className='flex items-center justify-between border-gray-700 border-b px-4 py-1.5 dark:border-gray-800'>
               <span className='font-geist-sans text-gray-400 text-xs'>{language}</span>
-              <button
-                type='button'
-                onClick={handleCopy}
-                className='text-muted-foreground transition-colors hover:text-gray-300'
-                title={copilotCopy.message.copy}
-              >
-                {showCopySuccess ? (
-                  <Check className='h-3 w-3' strokeWidth={2} />
-                ) : (
-                  <Copy className='h-3 w-3' strokeWidth={2} />
-                )}
-              </button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type='button'
+                      onClick={handleCopy}
+                      className='text-muted-foreground transition-colors hover:text-gray-300'
+                      aria-label={copilotCopy.message.copy}
+                    >
+                      {showCopySuccess ? (
+                        <Check className='h-3 w-3' strokeWidth={2} />
+                      ) : (
+                        <Copy className='h-3 w-3' strokeWidth={2} />
+                      )}
+                    </button>
+                  }
+                />
+                <TooltipContent side='top'>{copilotCopy.message.copy}</TooltipContent>
+              </Tooltip>
             </div>
             <div className='overflow-x-auto'>
               <pre className='whitespace-pre p-4 font-mono text-gray-100 text-sm leading-relaxed'>

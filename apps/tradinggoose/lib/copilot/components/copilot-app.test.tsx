@@ -30,23 +30,13 @@ vi.mock('@/lib/auth-client', () => ({
   }),
 }))
 
+vi.mock('@/components/ui/loading-agent', () => ({
+  LoadingAgent: () => <div data-testid='loading-agent' />,
+}))
+
 vi.mock('@/app/workspace/[workspaceId]/providers/providers', () => ({
   default: (props: { children: React.ReactNode; workspaceId: string; userId?: string }) =>
     mockProviders(props),
-}))
-
-vi.mock('@/lib/yjs/workflow-session-host', () => ({
-  WorkflowSessionProvider: ({
-    children,
-    workflowId,
-  }: {
-    children: React.ReactNode
-    workflowId: string | null
-  }) => (
-    <div data-testid='workflow-session-host' data-workflow-id={workflowId ?? ''}>
-      {children}
-    </div>
-  ),
 }))
 
 vi.mock('./copilot/copilot', () => ({
@@ -57,11 +47,9 @@ describe('CopilotApp', () => {
   let container: HTMLDivElement
   let root: Root
 
-  const renderApp = async (effectiveParams?: Record<string, unknown> | null) => {
+  const renderApp = async () => {
     await act(async () => {
-      root.render(
-        <CopilotApp workspaceId='ws-1' panelWidth={480} effectiveParams={effectiveParams} />
-      )
+      root.render(<CopilotApp workspaceId='ws-1' panelWidth={480} />)
     })
   }
 
@@ -84,30 +72,13 @@ describe('CopilotApp', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('mounts explicit workspace providers and preserves Copilot across workflow changes', async () => {
+  it('mounts explicit workspace providers', async () => {
     await renderApp()
 
-    expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
-      'data-workflow-id',
-      ''
-    )
     expect(mockProviders).toHaveBeenCalledWith(
       expect.objectContaining({ workspaceId: 'ws-1', userId: 'user-1' })
     )
-    const initialInstanceId = container
-      .querySelector('[data-testid="copilot"]')
-      ?.getAttribute('data-instance-id')
-
-    await renderApp({ workflowId: 'workflow-current' })
-
-    expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
-      'data-workflow-id',
-      'workflow-current'
-    )
-    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
-      'data-instance-id',
-      initialInstanceId
-    )
+    expect(container.querySelector('[data-testid="copilot"]')).not.toBeNull()
   })
 
   it('waits for an authenticated user before mounting workspace providers', async () => {
@@ -116,5 +87,6 @@ describe('CopilotApp', () => {
     await renderApp()
 
     expect(mockProviders).not.toHaveBeenCalled()
+    expect(container.querySelector('[data-testid="loading-agent"]')).not.toBeNull()
   })
 })

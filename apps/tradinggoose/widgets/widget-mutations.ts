@@ -14,7 +14,9 @@ import {
   isWidgetKey,
   mergeWidgetParams,
   normalizeWidgetColorPairPatch,
+  resolveEffectiveWidgetParams,
   sanitizeWidgetParams,
+  stripLinkedWidgetParams,
   type WidgetKey,
 } from '@/widgets/widget-contracts'
 
@@ -112,21 +114,44 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
     defaultPairColor: currentPairColor,
   })
   assertLinkedParamsUseColorPair(nextKey, nextPairColor, input.patch.params)
-  const widgetParams = withWidgetConfigErrors('params', () =>
+  const currentEffectiveParams = resolveEffectiveWidgetParams(current, input.colorPairs)
+  const baseParams =
+    currentPairColor !== 'gray' && nextPairColor === 'gray'
+      ? currentEffectiveParams
+      : current.params
+  const sanitizedWidgetParams = withWidgetConfigErrors('params', () =>
     sanitizeWidgetParams(
       nextKey,
-      resolveMutationParams(current, nextKey, input.patch, input.origin),
-      { strictUnknown: true }
+      resolveMutationParams(baseParams, nextKey, input.patch, input.origin),
+      {
+        strictUnknown: true,
+      }
     )
   )
+  const widgetParams =
+    nextPairColor === 'gray'
+      ? sanitizedWidgetParams
+      : stripLinkedWidgetParams(nextKey, sanitizedWidgetParams)
   if (nextPairColor === 'gray' && input.patch.colorPair !== undefined) {
     failWidgetConfig('colorPair', 'edit_widget colorPair requires a non-gray pairColor')
   }
-  const pairPatch = withWidgetConfigErrors('colorPair', () =>
+  const explicitPairPatch = withWidgetConfigErrors('colorPair', () =>
     input.patch.colorPair && nextPairColor !== 'gray'
       ? normalizeWidgetColorPairPatch(nextKey, input.patch.colorPair)
       : {}
   )
+  const pairPatch =
+    currentPairColor !== nextPairColor && nextPairColor !== 'gray' && input.patch.colorPair !== null
+      ? {
+          ...buildInheritedColorPairPatch({
+            widgetKey: nextKey,
+            effectiveParams: currentEffectiveParams,
+            destination: readPairColorContext(input.colorPairs, nextPairColor),
+            explicitPairPatch,
+          }),
+          ...explicitPairPatch,
+        }
+      : explicitPairPatch
   const reviewBase = buildWidgetConfigMutationReviewBase({
     widgetKey: nextKey,
     current,
@@ -260,13 +285,11 @@ function resolveNextPairColor({
 }
 
 function resolveMutationParams(
-  current: NonNullable<WidgetInstance>,
+  baseParams: Record<string, unknown> | null | undefined,
   nextKey: WidgetKey,
   patch: WidgetConfigMutationPatch,
   origin: WidgetConfigMutationInput['origin']
 ): Record<string, unknown> | null {
-  const baseParams = current.params
-
   if (patch.params === undefined) return baseParams ?? null
   if (origin === 'copilot') {
     return getWidgetContract(nextKey).mergeCopilotParams(baseParams, patch.params)
@@ -291,15 +314,40 @@ function assertLinkedParamsUseColorPair(
   if (issues.length > 0) throw new WidgetConfigValidationError(issues)
 }
 
+function buildInheritedColorPairPatch(input: {
+  widgetKey: WidgetKey
+  effectiveParams: Record<string, unknown> | null
+  destination: PairColorContext
+  explicitPairPatch: Record<string, unknown>
+}): Record<string, unknown> {
+  const effectiveParams = input.effectiveParams
+  if (!effectiveParams) return {}
+
+  return Object.fromEntries(
+    getWidgetContract(input.widgetKey).linkedParamFields.flatMap((field) => {
+      if (
+        Object.hasOwn(input.destination, field) ||
+        Object.hasOwn(input.explicitPairPatch, field)
+      ) {
+        return []
+      }
+      const value = effectiveParams[field]
+      return value == null ? [] : [[field, value]]
+    })
+  )
+}
+
 function buildNextColorPairs(input: {
   colorPairs: PersistedColorPairsState
   pairColor: PairColor
   colorPair?: Record<string, unknown> | null
   pairPatch: Record<string, unknown>
 }): PersistedColorPairsState {
-  if (input.colorPair === undefined) return input.colorPairs
   if (input.pairColor === 'gray') {
-    failWidgetConfig('colorPair', 'edit_widget colorPair requires a non-gray pairColor')
+    if (input.colorPair !== undefined) {
+      failWidgetConfig('colorPair', 'edit_widget colorPair requires a non-gray pairColor')
+    }
+    return input.colorPairs
   }
 
   if (input.colorPair === null) {

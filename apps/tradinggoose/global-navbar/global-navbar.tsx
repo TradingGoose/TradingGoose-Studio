@@ -63,7 +63,6 @@ export function GlobalNavbar({
   const activeKey =
     navigationMode === 'admin' ? adminNavState.activeKey : workspaceNavState.activeKey
   const workspaceSection = navigationMode === 'workspace' ? workspaceNavState.activeKey : null
-  const dashboardMode = navigationMode === 'workspace' && selectedSegments[1] === 'dashboard'
   const workspaceNavCopy = React.useMemo(
     () => ({
       workspace: {
@@ -318,7 +317,6 @@ export function GlobalNavbar({
                   <GlobalCopilotLayout
                     workspaceId={workspaceId}
                     ownerUserId={userId}
-                    dashboardMode={dashboardMode}
                     open={isCopilotOpen}
                     onOpenChange={setIsCopilotOpen}
                   >

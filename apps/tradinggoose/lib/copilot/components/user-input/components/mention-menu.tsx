@@ -6,7 +6,6 @@ import {
   Blocks,
   BookOpen,
   Bot,
-  Box,
   Check,
   ChevronRight,
   Grid2x2,
@@ -52,7 +51,6 @@ import type {
   MentionSources,
   MentionSubmenu,
   PastChatItem,
-  WorkflowBlockItem,
   WorkspaceEntityItem,
 } from '../types'
 
@@ -93,7 +91,7 @@ const formatTimestamp = (iso: string) => {
   }
 }
 
-const renderBlockIcon = (item: BlockItem | WorkflowBlockItem) => {
+const renderBlockIcon = (item: BlockItem) => {
   const Icon = item.iconComponent
 
   return (
@@ -173,10 +171,6 @@ const renderMainOptionIcon = (option: MentionOption) => {
     return <Blocks className='h-3.5 w-3.5 text-muted-foreground' />
   }
 
-  if (option === 'workflow_blocks') {
-    return <Box className='h-3.5 w-3.5 text-muted-foreground' />
-  }
-
   if (option === 'docs') {
     return <BookOpen className='h-3.5 w-3.5 text-muted-foreground' />
   }
@@ -213,16 +207,6 @@ const renderMentionItemContent = (
 
   if (type === 'blocks') {
     const block = item as BlockItem
-    return (
-      <>
-        {renderBlockIcon(block)}
-        <span className='truncate'>{block.name || block.id}</span>
-      </>
-    )
-  }
-
-  if (type === 'workflow_blocks') {
-    const block = item as WorkflowBlockItem
     return (
       <>
         {renderBlockIcon(block)}

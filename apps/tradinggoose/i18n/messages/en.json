@@ -21340,14 +21340,12 @@
         },
         "mentions": {
           "dashboardLayouts": "Dashboard layouts",
-          "workflowBlocks": "Workflow Blocks",
           "loadFailed": "Could not load this list. Try again",
           "matches": "Matches",
           "noMatches": "No matches",
           "noDashboardLayoutsFound": "No dashboard layouts found.",
           "noPastChats": "No past chats",
           "noBlocksFound": "No blocks found",
-          "noBlocksInWorkflow": "No blocks in this workflow",
           "noExecutionsFound": "No executions found",
           "untitledDashboardLayout": "Untitled layout"
         },

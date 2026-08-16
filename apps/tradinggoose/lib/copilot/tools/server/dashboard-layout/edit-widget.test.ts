@@ -53,7 +53,10 @@ const withWidgetParams = (
   }
 }
 
-const execute = async (args: Record<string, unknown>, context?: Record<string, unknown>) => {
+const execute = async (
+  args: { params: Record<string, unknown>; panelId?: string },
+  context?: Record<string, unknown>
+) => {
   const { editWidgetServerTool } = await import('./edit-widget')
   const ctx = { ...fx.TEST_EXECUTION_CONTEXT, ...context } as any
   return editWidgetServerTool.execute(
@@ -67,8 +70,12 @@ describe('edit_widget server tool', () => {
     fx.resetDashboardToolMocks(toolMocks)
   })
 
-  it('applies edit_widget without pruning the independent color store', async () => {
-    const result = await execute({ pairColor: 'gray' }, { workspaceId: undefined })
+  it('routes effective params through the existing widget mutation path', async () => {
+    const listing = { ...fx.AAPL_LISTING, listing_id: 'MSFT' }
+    const result = await execute(
+      { params: { listing, view: { interval: '1h' } } },
+      { workspaceId: undefined }
+    )
 
     expect(toolMocks.verifySavedEntityContext).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user-1', workspaceId: undefined }),
@@ -80,23 +87,24 @@ describe('edit_widget server tool', () => {
       expect.objectContaining({
         entityId: 'layout-1',
         panelId: 'chart-panel',
-        patch: { pairColor: 'gray' },
+        patch: { params: { view: { interval: '1h' } }, colorPair: { listing } },
         expectedReviewBaseStateHash: 'base-hash',
       })
     )
     expect(JSON.parse(result.entityDocument)).toMatchObject({
       widgets: {
-        'chart-widget': { pairColor: 'gray', params: { data: { provider: 'alpaca' } } },
-        'order-widget': { pairColor: 'red', params: null },
+        'chart-widget': {
+          params: { listing, data: { provider: 'alpaca' }, view: { interval: '1h' } },
+        },
       },
-      colorPairs: { pairs: [{ color: 'red', listing: fx.AAPL_LISTING }] },
     })
+    expect(JSON.parse(result.entityDocument)).not.toHaveProperty('colorPairs')
   })
 
   it('rejects a layout outside the authenticated owner scope before reading its snapshot', async () => {
     toolMocks.readMetadata.mockRejectedValueOnce(new Error('Dashboard layout not found'))
 
-    await expect(execute({ pairColor: 'gray' })).rejects.toThrow('Dashboard layout not found')
+    await expect(execute({ params: {} })).rejects.toThrow('Dashboard layout not found')
     expect(toolMocks.readFields).not.toHaveBeenCalled()
   })
 
@@ -123,7 +131,7 @@ describe('edit_widget server tool', () => {
     expect(toolMocks.applyWidgetEdit).not.toHaveBeenCalled()
 
     toolMocks.setCurrentContent(fx.createDashboardLayoutTestContent())
-    await expect(execute({ panelId: 'missing-panel', pairColor: 'gray' })).rejects.toHaveProperty(
+    await expect(execute({ panelId: 'missing-panel', params: {} })).rejects.toHaveProperty(
       'code',
       'invalid_widget_target'
     )
@@ -144,6 +152,10 @@ describe('edit_widget server tool', () => {
     toolMocks.setCurrentContent(withWidgetParams('chart-widget', DATA_CHART_PARAMS))
 
     const result = await execute({ params: { view: { interval: '1h' } } })
+
+    expect(toolMocks.applyWidgetEdit).toHaveBeenCalledWith(
+      expect.objectContaining({ patch: { params: { view: { interval: '1h' } } } })
+    )
 
     expect(JSON.parse(result.entityDocument).widgets['chart-widget'].params).toMatchObject({
       ...DATA_CHART_PARAMS,
@@ -181,7 +193,7 @@ describe('edit_widget server tool', () => {
       view: { interval: '15m', drawTools, pineIndicators: [{ id: 'indicator-1' }] },
     })
 
-    const cleared = await execute({ params: null })
+    const cleared = await execute({ params: { view: null } })
     expect(JSON.parse(cleared.entityDocument).widgets['chart-widget'].params).toBeNull()
     expect(toolMocks.getCurrentContent().widgets['chart-widget'].params).toEqual({
       view: { drawTools },
@@ -197,17 +209,19 @@ describe('edit_widget server tool', () => {
     expect(toolMocks.applyWidgetEdit).not.toHaveBeenCalled()
   })
 
-  it('clears a linked listing through review and socket color-pair mutations', async () => {
+  it('routes a linked-field clear through the selected widget owner', async () => {
     toolMocks.shouldStage.mockReturnValue(true)
-    const staged = await execute({ colorPair: { listing: null } }, { accessLevel: 'limited' })
+    const staged = await execute({ params: { listing: null } }, { accessLevel: 'limited' })
     const after = JSON.parse(staged.preview.documentDiff.after)
 
-    expect(after.colorPair).toEqual({})
-    expect(JSON.parse(staged.entityDocument).colorPairs).toEqual({ pairs: [] })
+    expect(after.widgetDocument.params).not.toHaveProperty('listing')
+    expect(JSON.parse(staged.entityDocument)).not.toHaveProperty('colorPairs')
 
     toolMocks.shouldStage.mockReturnValue(false)
-    const applied = await execute({ colorPair: { listing: null } })
-    expect(JSON.parse(applied.entityDocument).colorPairs).toEqual({ pairs: [] })
+    const applied = await execute({ params: { listing: null } })
+    expect(JSON.parse(applied.entityDocument).widgets['chart-widget'].params).not.toHaveProperty(
+      'listing'
+    )
     expect(toolMocks.applyWidgetEdit).toHaveBeenCalledWith(
       expect.objectContaining({
         panelId: 'chart-panel',
@@ -240,21 +254,18 @@ describe('edit_widget server tool', () => {
         },
         'order-widget': { params: null },
       },
-      colorPairs: { pairs: [expect.objectContaining({ color: 'red' })] },
     })
     const before = JSON.parse(result.preview.documentDiff.before)
     const after = JSON.parse(result.preview.documentDiff.after)
     expect(before).toMatchObject({
       panelId: 'chart-panel',
       widgetKey: 'data_chart',
-      widgetDocument: { pairColor: 'red' },
-      colorPair: { listing: { listing_id: 'AAPL' } },
+      widgetDocument: { params: { listing: { listing_id: 'AAPL' } } },
     })
     expect(after).toMatchObject({
       panelId: 'chart-panel',
       widgetKey: 'data_chart',
       widgetDocument: {
-        pairColor: 'red',
         params: { data: { provider: 'polygon', auth: { apiKey: '[redacted]' } } },
       },
     })
@@ -268,7 +279,7 @@ describe('edit_widget server tool', () => {
 
   it('rejects accepted edit_widget when the reviewed base hash is stale', async () => {
     await expect(
-      execute({ pairColor: 'gray' }, { acceptedReviewBaseStateHash: 'different-hash' })
+      execute({ params: {} }, { acceptedReviewBaseStateHash: 'different-hash' })
     ).rejects.toThrow('stale_server_tool_review')
   })
 })

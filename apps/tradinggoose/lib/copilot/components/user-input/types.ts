@@ -24,7 +24,6 @@ export interface UserInputProps {
     contexts?: ChatContext[]
   ) => void
   onAbort?: () => void
-  disabled?: boolean
   isLoading?: boolean
   isAborting?: boolean
   placeholder?: string
@@ -42,13 +41,7 @@ export interface UserInputRef {
   focus: () => void
 }
 
-export type MentionOption =
-  | 'chats'
-  | CopilotWorkspaceEntityKind
-  | 'workflow_blocks'
-  | 'blocks'
-  | 'docs'
-  | 'logs'
+export type MentionOption = 'chats' | CopilotWorkspaceEntityKind | 'blocks' | 'docs' | 'logs'
 
 export type MentionSubmenu = Exclude<MentionOption, 'docs'>
 
@@ -88,10 +81,6 @@ export interface BlockItem {
   bgColor?: string
 }
 
-export interface WorkflowBlockItem extends BlockItem {
-  type: string
-}
-
 export interface LogItem {
   id: string
   level: string
@@ -100,19 +89,13 @@ export interface LogItem {
   entityName: string
 }
 
-export type MentionItem =
-  | PastChatItem
-  | WorkspaceEntityItem
-  | BlockItem
-  | WorkflowBlockItem
-  | LogItem
+export type MentionItem = PastChatItem | WorkspaceEntityItem | BlockItem | LogItem
 
 export interface MentionSources {
   pastChats: PastChatItem[]
   workspaceEntities: Record<CopilotWorkspaceEntityKind, WorkspaceEntityItem[]>
   blocksList: BlockItem[]
   logsList: LogItem[]
-  workflowBlocks: WorkflowBlockItem[]
 }
 
 export interface AggregatedMentionItem {

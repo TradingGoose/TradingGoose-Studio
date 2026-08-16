@@ -125,7 +125,6 @@ export interface CopilotChat {
 }
 
 export interface CopilotSendRuntimeContext {
-  workflowId: string | null
   workspaceId: string | null
   implicitContexts: ChatContext[]
 }

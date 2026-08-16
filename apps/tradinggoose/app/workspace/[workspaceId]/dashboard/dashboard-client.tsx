@@ -32,7 +32,7 @@ import {
   useDashboardLayoutList,
 } from '@/app/workspace/[workspaceId]/dashboard/use-dashboard-layout-doc'
 import { GlobalNavbarHeader } from '@/global-navbar'
-import { GlobalCopilotActiveDashboardLayoutPublisher } from '@/global-navbar/copilot-context'
+import { GlobalCopilotDashboardContextPublisher } from '@/global-navbar/copilot-context'
 import { useKnowledgeBasesList } from '@/hooks/use-knowledge'
 import { useRouter } from '@/i18n/navigation'
 import {
@@ -616,7 +616,12 @@ export function DashboardClient({
 
   return (
     <>
-      <GlobalCopilotActiveDashboardLayoutPublisher activeLayout={activeLayout} />
+      <GlobalCopilotDashboardContextPublisher
+        layoutId={activeLayoutId}
+        layoutName={activeLayoutName ?? null}
+        ownerUserId={ownerUserId}
+        workspaceId={workspaceId}
+      />
       <GlobalNavbarHeader left={headerLeftContent} center={headerCenterContent} />
       <div className='relative h-full min-h-0 w-full min-w-0 overflow-hidden'>
         {activeLayoutId && rawTree && layoutDocument.doc ? (

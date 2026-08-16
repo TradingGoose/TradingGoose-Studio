@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   widgetHeaderControlClassName,
   widgetHeaderIconButtonClassName,
@@ -148,7 +149,7 @@ function ChatHistoryItem({
       onMouseLeave={() => onHoverChat(null)}
     >
       <DropdownMenuItem
-        className='min-w-0 flex-1 rounded-xs py-2 text-left text-sm font-normal text-foreground transition-colors data-[highlighted]:bg-muted'
+        className='min-w-0 flex-1 rounded-xs py-2 text-left font-normal text-foreground text-sm transition-colors data-[highlighted]:bg-muted'
         closeOnClick={false}
         onClick={() => {
           void onSelect(chat)
@@ -158,7 +159,7 @@ function ChatHistoryItem({
           <p className='min-w-0 whitespace-normal break-words text-foreground'>
             {chat.title || historyCopy.newChat}
           </p>
-          <p className='text-xs text-muted-foreground'>{updatedLabel}</p>
+          <p className='text-muted-foreground text-xs'>{updatedLabel}</p>
         </div>
       </DropdownMenuItem>
       <button
@@ -171,7 +172,7 @@ function ChatHistoryItem({
         disabled={isSendingMessage}
         aria-label={historyCopy.deleteChatAria}
         className={cn(
-          'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-muted h-6 w-6 p-0 text-muted-foreground transition-opacity hover:text-destructive',
+          'inline-flex h-6 w-6 items-center justify-center gap-2 whitespace-nowrap rounded-md p-0 font-medium text-muted-foreground text-sm ring-offset-background transition-opacity hover:bg-muted hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
           isHovered ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
       >
@@ -196,7 +197,7 @@ function ChatHistoryGroup({
 
   return (
     <div className='space-y-1.5'>
-      <p className='text-xs font-normal text-muted-foreground'>{label}</p>
+      <p className='font-normal text-muted-foreground text-xs'>{label}</p>
       <div className='space-y-1'>
         {chats.map((chat) => (
           <ChatHistoryItem
@@ -260,11 +261,11 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
     : null
   const dropdownMenuBody = (() => {
     if (isLoadingChats) {
-      return <div className='p-3 text-sm text-muted-foreground'>{historyCopy.loading}</div>
+      return <div className='p-3 text-muted-foreground text-sm'>{historyCopy.loading}</div>
     }
 
     if (grouped.length === 0) {
-      return <div className='p-3 text-sm text-muted-foreground'>{historyCopy.noChatsYet}</div>
+      return <div className='p-3 text-muted-foreground text-sm'>{historyCopy.noChatsYet}</div>
     }
 
     return (
@@ -294,34 +295,45 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
           if (open) void handleRefresh()
         }}
       >
-        <DropdownMenuTrigger
-          render={
-            <button
-              type='button'
-              className={widgetHeaderControlClassName(
-                'group flex w-full min-w-0 max-w-[240px] items-center justify-between gap-1'
-              )}
-              aria-label={historyCopy.openChatHistory}
-            />
-          }
-        >
-          <div className='bg-muted p-1 rounded-xs'>
-            <Clock3 className='h-3 w-3 text-muted-foreground' />
-          </div>
-          <span className='min-w-0 flex-1 truncate text-left text-sm font-medium'>{title}</span>
-          <ChevronDown
-            className={cn(
-              'h-4 w-4 text-muted-foreground transition-transform',
-              'group-data-[popup-open]:rotate-180'
-            )}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span className='inline-flex'>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type='button'
+                      className={widgetHeaderControlClassName(
+                        'group flex w-[240px] shrink-0 items-center justify-between gap-1'
+                      )}
+                      aria-label={historyCopy.openChatHistory}
+                    />
+                  }
+                >
+                  <div className='rounded-xs bg-muted p-1'>
+                    <Clock3 className='h-3 w-3 text-muted-foreground' />
+                  </div>
+                  <span className='min-w-0 flex-1 truncate text-left font-medium text-sm'>
+                    {title}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 text-muted-foreground transition-transform',
+                      'group-data-[popup-open]:rotate-180'
+                    )}
+                  />
+                </DropdownMenuTrigger>
+              </span>
+            }
           />
-        </DropdownMenuTrigger>
+          <TooltipContent side='top'>{title}</TooltipContent>
+        </Tooltip>
         <DropdownMenuContent
           side='bottom'
           sideOffset={6}
-          className='w-[var(--anchor-width)] overflow-hidden rounded-sm bg-background p-0 text-sm text-foreground shadow-xs'
+          className='w-[var(--anchor-width)] overflow-hidden rounded-sm bg-background p-0 text-foreground text-sm shadow-xs'
         >
-          <ScrollArea className='max-h-72 bg-background pr-1 text-sm text-foreground'>
+          <ScrollArea className='max-h-72 bg-background pr-1 text-foreground text-sm'>
             {dropdownMenuBody}
           </ScrollArea>
         </DropdownMenuContent>
@@ -372,17 +384,26 @@ export function CopilotHeaderActions({ workspaceId }: { workspaceId: string }) {
   const handleNewChat = async () => {
     await store.getState().createNewChat(workspaceId)
   }
+  const tooltip = isSendingMessage ? historyCopy.sending : historyCopy.newChat
 
   return (
-    <button
-      type='button'
-      className={widgetHeaderIconButtonClassName()}
-      onClick={handleNewChat}
-      disabled={isSendingMessage}
-      aria-label={historyCopy.startNewChat}
-      title={isSendingMessage ? historyCopy.sending : historyCopy.newChat}
-    >
-      <Plus className='h-3.5 w-3.5' />
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span className='inline-flex'>
+            <button
+              type='button'
+              className={widgetHeaderIconButtonClassName()}
+              onClick={handleNewChat}
+              disabled={isSendingMessage}
+              aria-label={historyCopy.startNewChat}
+            >
+              <Plus className='h-3.5 w-3.5' />
+            </button>
+          </span>
+        }
+      />
+      <TooltipContent side='top'>{tooltip}</TooltipContent>
+    </Tooltip>
   )
 }

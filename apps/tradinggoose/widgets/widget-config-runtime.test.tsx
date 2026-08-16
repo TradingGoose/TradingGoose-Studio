@@ -186,4 +186,26 @@ describe('independent widget config runtime owners', () => {
       listing: { ...AAPL, listing_id: 'NVDA' },
     })
   })
+
+  it('fills a missing destination field before switching owners and preserves it when unlinked', () => {
+    seedDashboardColorPairSession(bluePairDoc, {})
+    render()
+
+    act(() => actions?.changeWidgetPairColor?.('blue'))
+
+    expect(readDashboardColorPairDocument(bluePairDoc)).toEqual({ listing: AAPL })
+    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart')).toEqual({
+      pairColor: 'blue',
+      params: { view: { interval: '1m' } },
+    })
+    expect(readDashboardColorPairDocument(pairDoc)).toEqual({ listing: AAPL })
+
+    act(() => actions?.changeWidgetPairColor?.('gray'))
+
+    expect(readDashboardWidgetDocument(widgetDoc, 'data_chart')).toEqual({
+      pairColor: 'gray',
+      params: { view: { interval: '1m' }, listing: AAPL },
+    })
+    expect(readDashboardColorPairDocument(bluePairDoc)).toEqual({ listing: AAPL })
+  })
 })

@@ -5,11 +5,9 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { buildImplicitCopilotContexts, resolveCopilotWorkflowId } from '@/lib/copilot/live-contexts'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
-import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type {
@@ -35,24 +33,10 @@ export function shouldMarkUserScrolledDuringStream(params: {
 interface CopilotProps {
   workspaceId: string
   panelWidth: number
-  effectiveParams?: Record<string, unknown> | null
-  layoutId?: string | null
-  ownerUserId?: string | null
-  layoutName?: string | null
   currentContext?: ChatContext | null
-  inputDisabled?: boolean
 }
 
-export function Copilot({
-  workspaceId,
-  panelWidth,
-  effectiveParams,
-  layoutId = null,
-  ownerUserId = null,
-  layoutName = null,
-  currentContext = null,
-  inputDisabled = false,
-}: CopilotProps) {
+export function Copilot({ workspaceId, panelWidth, currentContext = null }: CopilotProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isInitialized, setIsInitialized] = useState(false)
@@ -68,35 +52,13 @@ export function Copilot({
   const programmaticScrollResetTimerRef = useRef<number | null>(null)
   const programmaticScrollInFlightRef = useRef(false)
 
-  const entityLabels = useWorkspaceWidgetsMessages().workflowLabels
-  const implicitContexts = useMemo(
-    () =>
-      buildImplicitCopilotContexts({
-        workspaceId,
-        effectiveParams,
-        currentLayoutId: layoutId,
-        currentLayoutOwnerUserId: ownerUserId,
-        currentLabels: {
-          dashboard_layout: normalizeOptionalString(layoutName) ?? 'Current dashboard layout',
-          workflow: entityLabels.currentWorkflow,
-          skill: entityLabels.currentSkill,
-          custom_tool: entityLabels.currentTool,
-          indicator: entityLabels.currentIndicator,
-          mcp_server: entityLabels.currentMcpServer,
-          watchlist: entityLabels.currentWatchlist,
-        },
-        currentContext,
-      }),
-    [currentContext, effectiveParams, entityLabels, layoutId, layoutName, ownerUserId, workspaceId]
-  )
-  const workflowId = resolveCopilotWorkflowId(effectiveParams) ?? null
+  const implicitContexts = useMemo(() => (currentContext ? [currentContext] : []), [currentContext])
   const sendRuntimeContext = useMemo<CopilotSendRuntimeContext>(
     () => ({
-      workflowId,
       workspaceId: normalizeOptionalString(workspaceId) ?? null,
       implicitContexts,
     }),
-    [implicitContexts, workflowId, workspaceId]
+    [implicitContexts, workspaceId]
   )
   const {
     messages,
@@ -104,7 +66,6 @@ export function Copilot({
     isLoadingChats,
     isSendingMessage,
     isAwaitingContinuation,
-    abortController,
     isAborting,
     accessLevel,
     draft,
@@ -382,18 +343,6 @@ export function Copilot({
     }
   }, [showPlanTodos, planTodos.length, isTurnInProgress])
 
-  // Only abort during unmount when there is a live request to cancel.
-  // Reloaded/resumable turns intentionally restore isSendingMessage without
-  // an abortController, and those should remain resumable across unloads.
-  useEffect(() => {
-    return () => {
-      if (isSendingMessage && abortController) {
-        abortMessage()
-        logger.info('Aborted active message streaming due to component unmount')
-      }
-    }
-  }, [isSendingMessage, abortController, abortMessage])
-
   // Handle abort action
   const handleAbort = useCallback(() => {
     abortMessage()
@@ -406,7 +355,7 @@ export function Copilot({
   // Handle message submission
   const handleSubmit = useCallback(
     async (query: string, fileAttachments?: MessageFileAttachment[], contexts?: ChatContext[]) => {
-      if (!query || inputDisabled || isTurnInProgress) return
+      if (!query || isTurnInProgress) return
 
       try {
         await sendMessage(query, {
@@ -423,7 +372,7 @@ export function Copilot({
         logger.error('Failed to send message:', error)
       }
     },
-    [inputDisabled, isTurnInProgress, sendMessage, sendRuntimeContext]
+    [isTurnInProgress, sendMessage, sendRuntimeContext]
   )
 
   const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
@@ -478,12 +427,10 @@ export function Copilot({
                           message={message}
                           runtimeContext={sendRuntimeContext}
                           isStreaming={
-                            (isSendingMessage || isAwaitingContinuation) &&
-                            message.id === messages[messages.length - 1]?.id
+                            isTurnInProgress && message.id === messages[messages.length - 1]?.id
                           }
                           panelWidth={panelWidth}
                           isDimmed={isDimmed}
-                          sendDisabled={inputDisabled}
                           onEditModeChange={(isEditing) =>
                             handleEditModeChange(message.id, isEditing)
                           }
@@ -519,7 +466,6 @@ export function Copilot({
                 workspaceId={workspaceId}
                 onSubmit={handleSubmit}
                 onAbort={handleAbort}
-                disabled={inputDisabled}
                 isLoading={isTurnInProgress}
                 isAborting={isAborting}
                 accessLevel={accessLevel}

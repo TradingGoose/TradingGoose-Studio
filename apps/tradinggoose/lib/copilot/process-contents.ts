@@ -11,8 +11,6 @@ import { and, asc, eq } from 'drizzle-orm'
 import * as Y from 'yjs'
 import { buildCopilotContextIdentityKey, isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import {
-  COPILOT_CONTEXT_PROJECTION_LIMITS,
-  MAX_COPILOT_CONTEXT_BYTES_PER_ITEM,
   MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
   MAX_COPILOT_CONTEXTS_PER_TURN,
 } from '@/lib/copilot/context-limits'
@@ -23,7 +21,6 @@ import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
 import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
-import { projectBoundedRedactedJson } from '@/lib/security/redaction'
 import { escapeRegExp } from '@/lib/utils'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
@@ -42,61 +39,6 @@ type ProcessContextsServerOptions = {
 }
 
 const logger = createLogger('ProcessContents')
-
-function readJsonDocument(value: unknown): unknown {
-  if (typeof value !== 'string') return value
-
-  try {
-    return JSON.parse(value)
-  } catch {
-    return '[invalid document omitted]'
-  }
-}
-
-function stringifyImplicitMonitorContext(value: unknown): string {
-  const monitor =
-    value && typeof value === 'object' && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {}
-  const projected = projectBoundedRedactedJson(
-    {
-      ...(monitor.surfaceKind !== undefined ? { surfaceKind: monitor.surfaceKind } : {}),
-      ...(monitor.monitorId !== undefined ? { monitorId: monitor.monitorId } : {}),
-      ...(monitor.documentFormat !== undefined ? { documentFormat: monitor.documentFormat } : {}),
-      ...(monitor.workspaceId !== undefined ? { workspaceId: monitor.workspaceId } : {}),
-      ...(monitor.monitorDocument !== undefined
-        ? { monitorDocument: readJsonDocument(monitor.monitorDocument) }
-        : {}),
-    },
-    COPILOT_CONTEXT_PROJECTION_LIMITS
-  )
-  const projectedRecord =
-    projected.value && typeof projected.value === 'object' && !Array.isArray(projected.value)
-      ? (projected.value as Record<string, unknown>)
-      : {}
-  const content = JSON.stringify(
-    projected.truncated ? { ...projectedRecord, contextTruncated: true } : projectedRecord
-  )
-  if (Buffer.byteLength(content, 'utf8') <= MAX_COPILOT_CONTEXT_BYTES_PER_ITEM) {
-    return content
-  }
-
-  const fallback = projectBoundedRedactedJson(
-    {
-      surfaceKind: monitor.surfaceKind,
-      monitorId: monitor.monitorId,
-      documentFormat: monitor.documentFormat,
-      workspaceId: monitor.workspaceId,
-      monitorDetailsOmitted: true,
-      contextTruncated: true,
-    },
-    { ...COPILOT_CONTEXT_PROJECTION_LIMITS, maxStringBytes: 512 }
-  )
-  const fallbackContent = JSON.stringify(fallback.value)
-  return Buffer.byteLength(fallbackContent, 'utf8') <= MAX_COPILOT_CONTEXT_BYTES_PER_ITEM
-    ? fallbackContent
-    : '{"contextTruncated":true,"monitorDetailsOmitted":true}'
-}
 
 function throwIfContextProcessingAborted(signal?: AbortSignal): void {
   if (!signal?.aborted) return
@@ -154,6 +96,21 @@ export async function processContextsServer(
         return null
       }
 
+      const currentEntityId =
+        entityContext?.entityId ??
+        (ctx.kind === 'current_logs'
+          ? ctx.logId
+          : ctx.kind === 'current_monitor'
+            ? ctx.monitorId
+            : null)
+      if (isHiddenCopilotContext(ctx) && currentEntityId) {
+        return {
+          type: ctx.kind,
+          tag: `@${currentEntityId}`,
+          content: JSON.stringify({ entityId: currentEntityId }, null, 2),
+        }
+      }
+
       if (entityContext?.entityId) {
         if (entityContext.entityKind === ENTITY_KIND_KNOWLEDGE_BASE) {
           const { readKnowledgeBaseServerTool } = await import(
@@ -187,33 +144,13 @@ export async function processContextsServer(
       if (ctx.kind === 'blocks') {
         return await processBlocksMetadata(ctx.blockTypes ?? [], ctx.label ? `@${ctx.label}` : '@')
       }
-      if ((ctx.kind === 'logs' || ctx.kind === 'current_logs') && ctx.logId) {
+      if (ctx.kind === 'logs' && ctx.logId) {
         return await processLogContext(
           ctx.logId,
           ctx.workspaceId,
           userId,
-          ctx.kind,
           ctx.label ? `@${ctx.label}` : '@'
         )
-      }
-      if (ctx.kind === 'current_monitor' && ctx.monitorId) {
-        const { readMonitorServerTool } = await import(
-          '@/lib/copilot/tools/server/monitor/read-monitor'
-        )
-        const monitor = await readMonitorServerTool.execute(
-          { monitorId: ctx.monitorId },
-          {
-            userId,
-            workspaceId: ctx.workspaceId,
-            ...(options.signal ? { signal: options.signal } : {}),
-          }
-        )
-        throwIfContextProcessingAborted(options.signal)
-        return {
-          type: 'current_monitor',
-          tag: ctx.label ? `@${ctx.label}` : '@',
-          content: stringifyImplicitMonitorContext(monitor),
-        }
       }
       if (ctx.kind === 'workflow_block' && ctx.workflowId && ctx.blockId) {
         return await processWorkflowBlockContext(ctx.workflowId, ctx.blockId, userId, ctx.label)
@@ -493,7 +430,6 @@ async function processLogContext(
   logId: string,
   contextWorkspaceId: string,
   userId: string,
-  contextType: 'logs' | 'current_logs',
   tag: string
 ): Promise<AgentContext | null> {
   try {
@@ -528,11 +464,8 @@ async function processLogContext(
 
     const log = rows?.[0] as any
     if (!log) return null
-    const { content } = projectExecutionLogContext(
-      log,
-      contextType === 'current_logs' ? 'implicit' : 'explicit'
-    )
-    return { type: contextType, tag, content }
+    const { content } = projectExecutionLogContext(log, 'explicit')
+    return { type: 'logs', tag, content }
   } catch (error) {
     logger.error('Error processing log context', { logId, error })
     return null

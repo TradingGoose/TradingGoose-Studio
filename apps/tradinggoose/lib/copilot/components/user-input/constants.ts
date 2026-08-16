@@ -16,7 +16,6 @@ export const OPENAI_MODELS: readonly CopilotRuntimeModel[] = ['gpt-5.4', 'gpt-5.
 export const MENTION_OPTIONS: readonly MentionOption[] = [
   'chats',
   ...COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS,
-  'workflow_blocks',
   'blocks',
   'docs',
   'logs',

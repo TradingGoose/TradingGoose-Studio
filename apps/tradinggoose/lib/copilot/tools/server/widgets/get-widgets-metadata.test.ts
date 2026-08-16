@@ -14,6 +14,7 @@ describe('get_widgets_metadata server tool', () => {
     expect(Object.keys(metadata.metadata)).toEqual(['data_chart', 'watchlist'])
     expect(metadata.metadata.data_chart.widgetKey).toBe('data_chart')
     expect(metadata.metadata.data_chart.sanitizeLocalParams).toBeUndefined()
+    expect(metadata.metadata.data_chart.linkedParamFields).toBeUndefined()
     expect(metadata.metadata.data_chart.paramContract.map((field: any) => field.field)).toEqual([
       'listing',
       'data',
