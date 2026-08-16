@@ -93,6 +93,30 @@ describe('security redaction', () => {
     })
   })
 
+  it('redacts signed-URL credentials in structured fields and free-form text', () => {
+    expect(
+      deepRedactSecrets({
+        sig: 'raw-structured-signature',
+        signature: 'raw-generic-signature',
+        'X-Amz-Signature': 'raw-amz-signature',
+        'X-Goog-Signature': 'raw-goog-signature',
+        signatureAlgorithm: 'SHA256',
+        thoughtSignature: 'safe-model-metadata',
+        note: 'sig=not-a-url-query',
+        urls: 'azure=https://storage.test/blob?sv=2024-01-01&sig=raw-azure-signature&se=2099-01-01; aws=https://storage.test/blob?X-Amz-Signature=raw-amz-url-signature&safe=visible; google=https://storage.test/blob?X-Goog-Signature=raw-goog-url-signature&safe=visible; generic=https://storage.test/blob?Signature=raw-generic-url-signature&safe=visible',
+      })
+    ).toEqual({
+      sig: '[redacted]',
+      signature: '[redacted]',
+      'X-Amz-Signature': '[redacted]',
+      'X-Goog-Signature': '[redacted]',
+      signatureAlgorithm: 'SHA256',
+      thoughtSignature: 'safe-model-metadata',
+      note: 'sig=not-a-url-query',
+      urls: 'azure=https://storage.test/blob?sv=2024-01-01&sig=[redacted]&se=2099-01-01; aws=https://storage.test/blob?X-Amz-Signature=[redacted]&safe=visible; google=https://storage.test/blob?X-Goog-Signature=[redacted]&safe=visible; generic=https://storage.test/blob?Signature=[redacted]&safe=visible',
+    })
+  })
+
   it('applies string byte and object entry limits', () => {
     const result = projectBoundedRedactedJson('🪿'.repeat(100), {
       maxArrayItems: 4,
