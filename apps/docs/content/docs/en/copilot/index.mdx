@@ -7,7 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-Copilot is an AI-powered assistant that works across the entire TradingGoose workspace — not just workflows. It can manage workflows, MCP servers, skills, custom tools, knowledge bases, deployments, variables, and more. Open or close its persistent workspace panel with the **Copilot** control in the global sidebar.
+Copilot is an AI-powered assistant that works across the entire TradingGoose workspace — not just workflows. It can manage workflows, MCP servers, skills, custom tools, knowledge bases, deployments, variables, and more. In the desktop workspace, open or close its persistent panel with the **Copilot** control in the global sidebar. The panel is not available in the mobile workspace layout.
 
 ## Capabilities
 
@@ -87,11 +87,11 @@ Each Copilot session is scoped to the authenticated user and workspace. The head
 - **Start a new chat** -- click the **+** button in the header to create a fresh session.
 - **Delete a chat** -- hover a chat entry and click the trash icon. A confirmation dialog prevents accidental deletion.
 
-Chat state persists while you navigate the workspace or collapse and reopen the panel. Copilot follows the current page and selection: for example, a knowledge detail, selected execution log, or monitor. On the dashboard, you can choose a pair color from the Copilot header to include the active layout and the entities published by widgets using that color. Dashboard pair colors do not apply on other pages.
+Chat state persists while you navigate the workspace or collapse and reopen the panel. Copilot follows the current page and selection: for example, a knowledge detail, selected execution log, or monitor. On the dashboard, the current context identifies only the active layout. Copilot can read that layout through its dashboard tools when the task requires more detail.
 
 ## Editor Integration
 
-Copilot is context-aware. On the dashboard, select the same pair color as an editor widget to include its active context (workflow, indicator, skill, MCP server, or custom tool) when sending messages. On other pages, Copilot uses the page's current route or selection context instead of dashboard pairing.
+Copilot is context-aware. The current page publishes only the selected object's identity, such as the active dashboard layout, knowledge base, execution log, or monitor. Use the `@` mention menu when you want to add other explicit context to a message.
 
 When Copilot streams a response that includes tool calls (for example adding a block, creating a skill, or configuring an MCP server), each action is rendered as an inline preview. In **Limited** mode you approve or reject each change; in **Full** mode changes are applied automatically.
 
