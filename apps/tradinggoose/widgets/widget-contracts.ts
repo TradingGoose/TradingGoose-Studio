@@ -217,6 +217,7 @@ export function listWidgetCatalogItems(
       description: contract.description,
       editable: contract.editable,
       editableFields: [...contract.editableFields],
+      linkedParamFields: [...contract.linkedParamFields],
     }))
 }
 
@@ -232,6 +233,7 @@ export function readWidgetMetadataProfiles(widgetKeys: readonly string[]): Widge
       defaultParams: contract.projectCopilotParams(contract.defaultParams),
       editableFields: [...contract.editableFields],
       paramContract: contract.editableFields.map((field) => FIELD_CONTRACTS[field]),
+      linkedParamFields: [...contract.linkedParamFields],
     }
   })
 }

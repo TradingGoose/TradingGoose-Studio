@@ -310,8 +310,7 @@ describe('Copilot MCP route', () => {
         documentFormat: 'tg-dashboard-layout-document-v3',
         entityDocument: JSON.stringify({
           layout: { id: 'panel-1', type: 'panel' },
-          widgets: { 'widget-1': { pairColor: 'gray', params: null } },
-          colorPairs: { pairs: [] },
+          widgets: { 'widget-1': { params: null } },
         }),
       }
       mockGetMcpServerToolIds.mockReturnValueOnce([toolName])

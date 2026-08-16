@@ -16,6 +16,6 @@ describe('get_available_widgets server tool', () => {
     expect(listed.widgets.some((widget: any) => widget.widgetKey === 'data_chart')).toBe(true)
     expect(listed.widgets[0].defaultParams).toBeUndefined()
     expect(listed.widgets[0].paramContract).toBeUndefined()
-    expect(listed.widgets[0].linkedParamFields).toBeUndefined()
+    expect(listed.widgets[0].linkedParamFields).toBeDefined()
   })
 })

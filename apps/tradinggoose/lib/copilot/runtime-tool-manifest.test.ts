@@ -346,8 +346,8 @@ describe('copilot runtime tool manifest', () => {
     expect(editWidgetProperties).not.toHaveProperty('widgetKey')
     expect(editWidgetProperties).toHaveProperty('panelId')
     expect(editWidgetProperties).toHaveProperty('params')
-    expect(editWidgetProperties).not.toHaveProperty('pairColor')
-    expect(editWidgetProperties).not.toHaveProperty('colorPair')
+    expect(editWidgetProperties).toHaveProperty('pairColor')
+    expect(editWidgetProperties).toHaveProperty('colorPair')
     expect(manifest.tools.find((tool) => tool.name === 'read_layout')?.description).toContain(
       'current effective params'
     )
@@ -355,7 +355,7 @@ describe('copilot runtime tool manifest', () => {
       'same complete layout document shape as `read_layout`'
     )
     expect(manifest.tools.find((tool) => tool.name === 'edit_widget')?.description).toContain(
-      'current effective `params`'
+      'shared linked fields'
     )
     expect(manifest.tools.find((tool) => tool.name === 'edit_widget')?.description).toContain(
       'drawing state is user-managed'
@@ -366,7 +366,6 @@ describe('copilot runtime tool manifest', () => {
     expect(editWidgetDescription).toContain('`[redacted]` preserve')
     expect(editWidgetDescription).toContain('concrete value to replace')
     expect(editWidgetDescription).toContain('omit it from a submitted credential object to delete')
-    expect(editWidgetDescription).not.toContain('color')
     expect(manifest.tools.find((tool) => tool.name === 'create_layout')?.description).toContain(
       'first layout is active automatically; later layouts are inactive'
     )
@@ -375,9 +374,9 @@ describe('copilot runtime tool manifest', () => {
       .join(' ')
     expect(mcpServerDescriptions).toContain('Header/env values are redacted as `[redacted]`')
     const editWidgetSchemaText = JSON.stringify(editWidgetProperties)
-    expect(editWidgetSchemaText).not.toContain('pairColor')
-    expect(editWidgetSchemaText).not.toContain('colorPair')
-    expect(editWidgetSchemaText).toContain("widget's current effective params")
+    expect(editWidgetSchemaText).toContain('layout-scoped color-store channel')
+    expect(editWidgetSchemaText).toContain('get_widgets_metadata.linkedParamFields')
+    expect(editWidgetSchemaText).toContain('clear the whole selected color channel')
     expect(editWidgetSchemaText).toContain('drawing fields are user-managed')
     expect(toolNames).toEqual(
       expect.arrayContaining([

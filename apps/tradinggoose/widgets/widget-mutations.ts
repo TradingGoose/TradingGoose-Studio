@@ -140,21 +140,21 @@ function computeWidgetConfigMutation(input: WidgetConfigMutationInput): {
       ? normalizeWidgetColorPairPatch(nextKey, input.patch.colorPair)
       : {}
   )
-  const pairPatch =
+  const inheritedPairPatch =
     currentPairColor !== nextPairColor && nextPairColor !== 'gray' && input.patch.colorPair !== null
-      ? {
-          ...buildInheritedColorPairPatch({
-            widgetKey: nextKey,
-            effectiveParams: currentEffectiveParams,
-            destination: readPairColorContext(input.colorPairs, nextPairColor),
-            explicitPairPatch,
-          }),
-          ...explicitPairPatch,
-        }
-      : explicitPairPatch
+      ? buildInheritedColorPairPatch({
+          widgetKey: nextKey,
+          effectiveParams: currentEffectiveParams,
+          destination: readPairColorContext(input.colorPairs, nextPairColor),
+          explicitPairPatch,
+        })
+      : {}
+  const pairPatch = { ...inheritedPairPatch, ...explicitPairPatch }
   const reviewBase = buildWidgetConfigMutationReviewBase({
     widgetKey: nextKey,
     current,
+    currentEffectiveParams,
+    inheritedPairPatch,
     currentPairColor,
     nextPairColor,
     colorPairs: input.colorPairs,
@@ -210,6 +210,8 @@ export function applyWidgetConfigMutation(
 function buildWidgetConfigMutationReviewBase(input: {
   widgetKey: WidgetKey
   current: NonNullable<WidgetInstance>
+  currentEffectiveParams: Record<string, unknown> | null
+  inheritedPairPatch: Record<string, unknown>
   currentPairColor: PairColor
   nextPairColor: PairColor
   colorPairs: PersistedColorPairsState
@@ -226,17 +228,21 @@ function buildWidgetConfigMutationReviewBase(input: {
         ? contract.projectCopilotParams(input.current.params)
         : contract.projectCopilotParamsReviewBase(input.current.params, input.patch.params)
   const linkedFields = changesPairColor ? contract.linkedParamFields : []
-  const localLinkedBase =
-    input.nextPairColor === 'gray' && linkedFields.length > 0
+  const inheritedLinkedFields =
+    input.nextPairColor === 'gray'
+      ? linkedFields
+      : linkedFields.filter((field) => Object.hasOwn(input.inheritedPairPatch, field))
+  const effectiveLinkedBase =
+    inheritedLinkedFields.length > 0
       ? contract.projectCopilotParamsReviewBase(
-          input.current.params,
-          Object.fromEntries(linkedFields.map((field) => [field, null]))
+          input.currentEffectiveParams,
+          Object.fromEntries(inheritedLinkedFields.map((field) => [field, null]))
         )
       : undefined
   const params =
-    localLinkedBase === undefined || paramsPatchBase === null
+    effectiveLinkedBase === undefined
       ? paramsPatchBase
-      : { ...localLinkedBase, ...(paramsPatchBase ?? {}) }
+      : { ...effectiveLinkedBase, ...(paramsPatchBase ?? {}) }
   const colorPairFields = new Set([
     ...(input.nextPairColor === 'gray' ? [] : linkedFields),
     ...Object.keys(input.pairPatch),

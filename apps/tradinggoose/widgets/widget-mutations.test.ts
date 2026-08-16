@@ -205,6 +205,11 @@ describe('applyWidgetConfigMutation', () => {
         { color: 'red', listing },
       ],
     })
+    expect(result.reviewBase).toEqual({
+      pairColor: 'red',
+      params: { listing },
+      colorPair: { color: 'blue', context: { listing: null } },
+    })
   })
 
   it('moves active pair fields into local params when changing to gray', () => {

@@ -156,15 +156,14 @@ describe('dashboard review bases', () => {
     expect(samePairHash(sourceChanged)).toBe(samePairHash(content))
   })
 
-  it('tracks only local linked fields activated when unlinking to gray', () => {
+  it('tracks active pair fields when unlinking to gray', () => {
     const content = createContent()
     content.widgets['chart-widget'].params = {
-      listing: listing('MSFT'),
       view: { interval: '15m' },
     }
     const hash = widgetReviewHash({ pairColor: 'gray' })
     const linkedChanged = structuredClone(content)
-    linkedChanged.widgets['chart-widget'].params!.listing = listing('GOOG')
+    linkedChanged.colorPairs.pairs[2].listing = listing('GOOG')
     const unrelatedChanged = structuredClone(content)
     ;(unrelatedChanged.widgets['chart-widget'].params!.view as Record<string, unknown>).interval =
       '1h'

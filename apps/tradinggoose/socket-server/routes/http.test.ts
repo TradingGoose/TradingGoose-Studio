@@ -481,7 +481,10 @@ describe('socket internal HTTP Yjs routes', () => {
 
   it('lets a topology review commit after an independent widget changes', async () => {
     setDashboardDocuments({
-      widget: createWidgetDoc('gray', { view: { interval: '1h' } }),
+      widget: createWidgetDoc('gray', {
+        data: { provider: 'alpaca', auth: { apiKey: 'raw-layout-key' } },
+        view: { interval: '1h' },
+      }),
       blue: createPairDoc({ watchlistId: 'preserved-watchlist' }),
     })
     const entityDocument = JSON.stringify({
@@ -500,7 +503,9 @@ describe('socket internal HTTP Yjs routes', () => {
       removedPanelIds: [],
     })
 
+    expect(response.body.content.widgets['widget-1'].pairColor).toBe('gray')
     expect(response.body.content.widgets['widget-1'].params.view.interval).toBe('1h')
+    expect(response.body.content.widgets['widget-1'].params.data.auth.apiKey).toBe('[redacted]')
     expect(response.body.content.colorPairs.pairs).toContainEqual({
       color: 'blue',
       watchlistId: 'preserved-watchlist',
@@ -764,6 +769,15 @@ describe('socket internal HTTP Yjs routes', () => {
     const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
     expect(response.status).toBe(200)
+    expect(response.body.content.widgets['widget-1'].pairColor).toBe('gray')
+    expect(response.body.content.widgets['widget-1'].params.view.pineIndicators).toEqual([
+      { id: 'indicator-b', inputs: { apiKey: '[redacted]' } },
+      { id: 'indicator-a', inputs: { apiKey: '[redacted]' } },
+    ])
+    expect(response.body.content.colorPairs).toEqual({ pairs: [] })
+    expect(JSON.parse(mocks.saveDashboard.mock.calls[0]?.[2].serializeResult())).toEqual(
+      response.body.content
+    )
     expect(savedWidget?.params?.view).toEqual({
       pineIndicators: [
         { id: 'indicator-b', inputs: { apiKey: 'latest-b' } },

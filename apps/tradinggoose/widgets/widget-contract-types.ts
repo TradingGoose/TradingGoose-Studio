@@ -164,6 +164,7 @@ export type WidgetCatalogItem = {
   description: string
   editable: boolean
   editableFields: WidgetParamField[]
+  linkedParamFields: WidgetParamField[]
 }
 
 export type WidgetMetadataProfile = {
@@ -175,6 +176,7 @@ export type WidgetMetadataProfile = {
   defaultParams: Record<string, unknown> | null
   editableFields: WidgetParamField[]
   paramContract: WidgetParamFieldContract[]
+  linkedParamFields: WidgetParamField[]
 }
 
 export type WidgetContract = {

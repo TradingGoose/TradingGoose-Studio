@@ -30,7 +30,10 @@ import {
   hashServerToolReviewBase,
 } from '@/lib/copilot/tools/server/base-tool'
 import { commitDashboardLayoutStructure } from '@/lib/dashboard-layouts/operations'
-import { preserveDashboardLayoutCredentialPlaceholders } from '@/lib/dashboard-layouts/read-projection'
+import {
+  preserveDashboardLayoutCredentialPlaceholders,
+  projectDashboardLayoutValueForCopilot,
+} from '@/lib/dashboard-layouts/read-projection'
 import {
   buildDashboardLayoutReviewBase,
   buildDashboardWidgetReviewBase,
@@ -715,10 +718,12 @@ async function handleInternalDashboardEditRequest(
         const commit: RealtimeMutation = {
           ...mutation,
           serializeResult: ({ createdWidgets }) =>
-            serializeDashboardLayoutProjection({
-              ...next,
-              widgets: { ...next.widgets, ...createdWidgets },
-            }),
+            serializeDashboardLayoutProjection(
+              projectDashboardLayoutValueForCopilot({
+                ...next,
+                widgets: { ...next.widgets, ...createdWidgets },
+              }) as DashboardLayoutProjectionContent
+            ),
         }
         const result = await commitDashboardStructurePlan({
           layoutDoc,
@@ -858,11 +863,13 @@ async function handleInternalDashboardEditRequest(
             const commit = {
               ...mutation,
               serializeResult: () =>
-                serializeDashboardLayoutProjection({
-                  ...current,
-                  widgets: { ...current.widgets, [identityId]: planned.widgetDocument },
-                  colorPairs: planned.colorPairs,
-                }),
+                serializeDashboardLayoutProjection(
+                  projectDashboardLayoutValueForCopilot({
+                    ...current,
+                    widgets: { ...current.widgets, [identityId]: planned.widgetDocument },
+                    colorPairs: planned.colorPairs,
+                  }) as DashboardLayoutProjectionContent
+                ),
             }
             await persistStagedDocuments(targets, (staged) =>
               saveDashboardYjsDocsToDb(
