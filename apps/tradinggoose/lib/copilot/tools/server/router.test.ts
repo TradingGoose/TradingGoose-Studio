@@ -281,26 +281,6 @@ describe('copilot contract registry', () => {
     expect(getMcpServerToolIds()).not.toContain('make_api_request')
   })
 
-  it('preserves linked widget fields through routed result validation', async () => {
-    const context = { userId: 'user-1' }
-    const catalog = await routeExecution('get_available_widgets', { category: 'trading' }, context)
-    const metadata = await routeExecution(
-      'get_widgets_metadata',
-      { widgetKeys: ['data_chart'] },
-      context
-    )
-
-    expect(catalog.widgets).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          widgetKey: 'data_chart',
-          linkedParamFields: expect.arrayContaining(['listing']),
-        }),
-      ])
-    )
-    expect(metadata.metadata.data_chart?.linkedParamFields).toContain('listing')
-  })
-
   it('requires personal or workspace scope for credential and environment reads', () => {
     for (const toolName of [
       'read_environment_variables',

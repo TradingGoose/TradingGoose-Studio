@@ -25,9 +25,9 @@ const SAFE_TOKEN_METRIC_FIELDS = new Set([
   'total',
 ])
 const SECRET_KEY_PATTERN =
-  /^(?:accountid|accountnumber|serviceid|sig|signature|xamzsignature|xgoogsignature)$|accesskey|apikey|apisecret|authkey|cookie|credential|privatekey|secretkey|secret|password|passwd|authorization|token/
+  /^(?:accountid|accountnumber|serviceid|sig|signature|xamzsignature|xgoogsignature)$|accesskey|apikey|apisecret|authkey|cookie|credential|passphrase|privatekey|secretkey|secret|password|passwd|authorization|token/
 const SECRET_TEXT_PATTERN =
-  /((?:["'])?(?:access[-_ ]?key|api[-_ ]?key|api[-_ ]?secret|auth[-_ ]?key|authorization|client[-_ ]?secret|cookie|credential|password|passwd|private[-_ ]?key|secret[-_ ]?key|secret|token)(?:["'])?\s*[:=]\s*)(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|[^,;&\r\n}]+)/giu
+  /((?:["'])?(?:access[-_ ]?key|api[-_ ]?key|api[-_ ]?secret|auth[-_ ]?key|authorization|client[-_ ]?secret|cookie|credential|passphrase|password|passwd|private[-_ ]?key|secret[-_ ]?key|secret|token)(?:["'])?\s*[:=]\s*)(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|[^,;&\r\n}]+)/giu
 const PRIVATE_KEY_PEM_PATTERN =
   /-----BEGIN ((?:[A-Z0-9]+[ -])*PRIVATE KEY)-----[\s\S]*?-----END \1-----/giu
 const AUTH_VALUE_PATTERN = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/giu

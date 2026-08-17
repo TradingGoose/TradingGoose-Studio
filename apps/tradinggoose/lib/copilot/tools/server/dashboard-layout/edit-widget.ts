@@ -19,7 +19,7 @@ import {
 import { readBootstrappedDashboardLayoutProjection } from '@/lib/yjs/server/bootstrap-review-target'
 import { applyDashboardWidgetEditInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { normalizeDashboardLayoutProjection } from '@/widgets/layout-document'
-import { projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
+import { getWidgetContract, projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
 import {
   applyWidgetConfigMutation,
   type WidgetConfigMutationPatch,
@@ -28,9 +28,28 @@ import {
 type EditWidgetArgs = {
   entityId: string
   panelId: string
-  pairColor?: string
-  params?: Record<string, unknown> | null
-  colorPair?: Record<string, unknown> | null
+  params: Record<string, unknown>
+}
+
+function buildWidgetMutationPatch(
+  widgetKey: Parameters<typeof getWidgetContract>[0],
+  pairColor: string,
+  params: Record<string, unknown>
+): Pick<WidgetConfigMutationPatch, 'params' | 'colorPair'> {
+  if (pairColor === 'gray') return { params }
+
+  const linkedFields = new Set<string>(getWidgetContract(widgetKey).linkedParamFields)
+  const localParams: Record<string, unknown> = {}
+  const colorPair: Record<string, unknown> = {}
+  for (const [field, value] of Object.entries(params)) {
+    const target = linkedFields.has(field) ? colorPair : localParams
+    target[field] = value
+  }
+
+  return {
+    ...(Object.keys(localParams).length === 0 ? {} : { params: localParams }),
+    ...(Object.keys(colorPair).length === 0 ? {} : { colorPair }),
+  }
 }
 
 export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
@@ -51,11 +70,7 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
     )
     const panel = requireDashboardWidgetPanel(current.layout, args.panelId)
     const currentWidget = current.widgets[panel.identityId]!
-    const patch = {
-      ...(args.pairColor === undefined ? {} : { pairColor: args.pairColor }),
-      ...(args.params === undefined ? {} : { params: args.params }),
-      ...(args.colorPair === undefined ? {} : { colorPair: args.colorPair }),
-    } satisfies WidgetConfigMutationPatch
+    const patch = buildWidgetMutationPatch(panel.widgetKey, currentWidget.pairColor, args.params)
     const next = applyWidgetConfigMutation({
       origin: 'copilot',
       widgetKey: panel.widgetKey,
@@ -75,9 +90,7 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
     const reviewDiff = buildDashboardWidgetReviewDiffForCopilot({
       before: buildDashboardWidgetReviewDocument(current, args.panelId),
       after: buildDashboardWidgetReviewDocument(nextContent, args.panelId),
-      requestedParams: patch.params
-        ? projectWidgetParamsForCopilot(panel.widgetKey, patch.params)
-        : patch.params,
+      requestedParams: projectWidgetParamsForCopilot(panel.widgetKey, args.params),
     })
     const result = {
       success: true,

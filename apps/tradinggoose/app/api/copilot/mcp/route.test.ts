@@ -295,7 +295,7 @@ describe('Copilot MCP route', () => {
     ['create_layout', { workspaceId: 'workspace-1', name: 'Trading Desk' }, true],
     ['read_layout', { entityId: 'layout-1' }, false],
     ['edit_layout', { entityId: 'layout-1', entityDocument: '{"layout":{}}' }, true],
-    ['edit_widget', { entityId: 'layout-1', panelId: 'panel-1', params: null }, true],
+    ['edit_widget', { entityId: 'layout-1', panelId: 'panel-1', params: {} }, true],
   ] as const)(
     'returns the complete %s layout document unchanged through MCP',
     async (toolName, args, isMutation) => {

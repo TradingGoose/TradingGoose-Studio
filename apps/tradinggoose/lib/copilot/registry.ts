@@ -322,25 +322,10 @@ const EditDashboardLayoutArgs = EntityTargetArgs.extend({
 }).strict()
 const EditDashboardWidgetArgs = EntityTargetArgs.extend({
   panelId: RequiredId.describe('Exact dashboard panel id containing the target widget.'),
-  pairColor: z
-    .enum(['gray', 'red', 'orange', 'blue', 'green', 'purple'])
-    .optional()
-    .describe(
-      "Select this widget's layout-scoped color-store channel. Gray is unlinked/local. Compatible widgets synchronize linked fields only when assigned the same non-gray color; changing color preserves existing local and shared state."
-    ),
   params: z
     .record(z.string(), z.any())
-    .nullable()
-    .optional()
     .describe(
-      'Patch persisted local widget params. For a non-gray widget, do not put fields from get_widgets_metadata.linkedParamFields here; update those through colorPair. Data-chart drawing fields are user-managed and unavailable to Copilot.'
-    ),
-  colorPair: z
-    .record(z.string(), z.any())
-    .nullable()
-    .optional()
-    .describe(
-      "Patch shared fields in the widget's selected non-gray layout color store. Use { field: null } to clear one shared field, or null to clear the whole selected color channel."
+      "Partial patch for the widget's current effective params. Use null for an individual field to clear it. Data-chart drawing fields are user-managed and unavailable to Copilot."
     ),
 }).strict()
 const GetWidgetsMetadataArgs = z

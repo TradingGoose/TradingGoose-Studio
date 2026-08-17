@@ -375,12 +375,13 @@ describe('processContextsServer', () => {
     mockLogRowsQueue.push([
       buildLogRow({
         executionData: {
-          errorMessage: `failed https://storage.test/blob?sv=2024-01-01&sig=raw-azure-signature&se=2099-01-01\nprivateKey=${privateKey}`,
+          errorMessage: `failed https://storage.test/blob?sv=2024-01-01&sig=raw-azure-signature&se=2099-01-01\npassphrase=raw-passphrase\nprivateKey=${privateKey}`,
           traceSpans: [
             {
               id: 'span-1',
               input: {
                 authToken: 'raw-auth-token',
+                passphrase: 'raw-passphrase',
                 longText: 'x'.repeat(5_000),
                 values: Array.from({ length: 40 }, (_, index) => index),
                 deep: { a: { b: { c: { d: { e: { value: 'too deep' } } } } } },
@@ -404,11 +405,13 @@ describe('processContextsServer', () => {
     const content = JSON.parse(result!.content)
     const input = content.executionData.traceSpans[0].input
     expect(input.authToken).toBe('[redacted]')
+    expect(input.passphrase).toBe('[redacted]')
     expect(input.longText).toContain('[truncated]')
     expect(input.values).toHaveLength(25)
     expect(input.deep.a).toBe('[truncated]')
     expect(content.executionData.traceSpans[0].output.apiSecret).toBe('[redacted]')
     expect(content.executionData.errorMessage).toContain('sig=[redacted]&se=2099-01-01')
+    expect(content.executionData.errorMessage).toContain('passphrase=[redacted]')
     expect(content.executionData.finalOutput).toEqual({
       header: { Key: 'X-API-Key', Value: '[redacted]' },
       named: { name: 'idToken', value: '[redacted]' },
@@ -418,7 +421,9 @@ describe('processContextsServer', () => {
     })
     expect(content.contextTruncated).toBe(true)
     expectContextWithinItemLimit(result!.content)
-    expect(result!.content).not.toMatch(/raw-(?:amz|auth|azure|named|output|private|table)/)
+    expect(result!.content).not.toMatch(
+      /raw-(?:amz|auth|azure|named|output|passphrase|private|table)/
+    )
   })
 
   it('falls back deterministically when bounded explicit details still exceed the byte cap', async () => {

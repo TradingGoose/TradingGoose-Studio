@@ -14,7 +14,6 @@ export const WidgetCatalogItemSchema = z.object({
   description: z.string(),
   editable: z.boolean(),
   editableFields: z.array(z.string()),
-  linkedParamFields: z.array(z.string()),
 })
 
 const WidgetParamFieldContractSchema = z.object({
@@ -33,7 +32,6 @@ export const WidgetMetadataProfileSchema = z.object({
   defaultParams: z.record(z.string(), z.any()).nullable(),
   editableFields: z.array(z.string()),
   paramContract: z.array(WidgetParamFieldContractSchema),
-  linkedParamFields: z.array(z.string()),
 })
 
 // get_available_blocks

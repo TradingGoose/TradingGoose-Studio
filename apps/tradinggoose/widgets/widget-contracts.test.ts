@@ -65,7 +65,7 @@ describe('dashboard widget contracts', () => {
     expect(profile?.widgetKey).toBe(key)
     expect(profile.defaultParams).toEqual(getWidgetContract(key).defaultParams)
     expect(profile.editableFields).toBeDefined()
-    expect(profile.linkedParamFields).toEqual(getWidgetContract(key).linkedParamFields)
+    expect(profile.linkedParamFields).toBeUndefined()
     for (const fn of ['createDefaultInstance', ...CONTRACT_FNS]) {
       expect(profile[fn]).toBeUndefined()
     }
@@ -78,7 +78,7 @@ describe('dashboard widget contracts', () => {
     expect(item?.widgetKey).toBeDefined()
     expect(item?.defaultParams).toBeUndefined()
     expect(item?.paramContract).toBeUndefined()
-    expect(item?.linkedParamFields).toBeDefined()
+    expect(item?.linkedParamFields).toBeUndefined()
   })
 
   it('rejects unknown widget keys during contract sanitization', () => {
