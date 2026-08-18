@@ -32,7 +32,7 @@ import {
 import { commitDashboardLayoutStructure } from '@/lib/dashboard-layouts/operations'
 import {
   preserveDashboardLayoutCredentialPlaceholders,
-  projectDashboardLayoutValueForCopilot,
+  redactDashboardLayoutCredentials,
 } from '@/lib/dashboard-layouts/read-projection'
 import {
   buildDashboardLayoutReviewBase,
@@ -89,7 +89,6 @@ import {
   normalizeDashboardLayoutStructureMutation,
   serializeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
-import { isPairColor } from '@/widgets/pair-colors'
 import {
   applyWidgetConfigMutation,
   type WidgetConfigMutationPatch,
@@ -132,6 +131,14 @@ type ApplyEntityStateRequest = {
   fields: Record<string, any>
   expectedReviewBaseStateHash?: string
   identity?: SavedEntityIdentityMutation
+}
+
+function serializeRedactedDashboardReplayProjection(
+  content: DashboardLayoutProjectionContent
+): string {
+  return serializeDashboardLayoutProjection(
+    redactDashboardLayoutCredentials(content) as DashboardLayoutProjectionContent
+  )
 }
 
 class InvalidInternalYjsRequestError extends Error {
@@ -712,18 +719,16 @@ async function handleInternalDashboardEditRequest(
         )
         assertAcceptedServerToolReviewBase(
           { userId: ownerUserId, acceptedReviewBaseStateHash: expectedReviewBaseStateHash },
-          hashServerToolReviewBase(buildDashboardLayoutReviewBase({ layout: current.layout }, plan))
+          hashServerToolReviewBase(buildDashboardLayoutReviewBase({ layout: current.layout }))
         )
         const next = applyDashboardLayoutEditPlan(current, plan)
         const commit: RealtimeMutation = {
           ...mutation,
           serializeResult: ({ createdWidgets }) =>
-            serializeDashboardLayoutProjection(
-              projectDashboardLayoutValueForCopilot({
-                ...next,
-                widgets: { ...next.widgets, ...createdWidgets },
-              }) as DashboardLayoutProjectionContent
-            ),
+            serializeRedactedDashboardReplayProjection({
+              ...next,
+              widgets: { ...next.widgets, ...createdWidgets },
+            }),
         }
         const result = await commitDashboardStructurePlan({
           layoutDoc,
@@ -763,7 +768,13 @@ async function handleInternalDashboardEditRequest(
         ) {
           throw new InvalidInternalYjsRequestError('panelId and patch are required')
         }
-        const requestedPatch = body.patch as WidgetConfigMutationPatch
+        const rawPatch = body.patch as Record<string, unknown>
+        if (Object.hasOwn(rawPatch, 'pairColor') || rawPatch.colorPair === null) {
+          throw new InvalidInternalYjsRequestError(
+            'Widget edits accept params and colorPair field patches only'
+          )
+        }
+        const requestedPatch = rawPatch as WidgetConfigMutationPatch
         const scope = { workspaceId, ownerUserId }
         const panel = requireDashboardWidgetPanel(
           readDashboardLayoutDocument(layoutDoc).layout,
@@ -785,11 +796,7 @@ async function handleInternalDashboardEditRequest(
               widget.params
             ) as Record<string, unknown> | null
           }
-          const pairColor = isPairColor(requestedPatch.pairColor)
-            ? requestedPatch.pairColor
-            : requestedPatch.pairColor === undefined
-              ? widget.pairColor
-              : 'gray'
+          const pairColor = widget.pairColor
           const pairDescriptor =
             pairColor === 'gray'
               ? null
@@ -814,7 +821,6 @@ async function handleInternalDashboardEditRequest(
               widgetKey,
               widget,
               colorPairs: current.colorPairs,
-              panelId,
               patch,
             })
             assertAcceptedServerToolReviewBase(
@@ -823,7 +829,6 @@ async function handleInternalDashboardEditRequest(
                 buildDashboardWidgetReviewBase(current, panelId, planned.reviewBase, requestedPatch)
               )
             )
-            const widgetChanged = planned.changedPaths.some((path) => path.startsWith('widget.'))
             const pairChange = planned.colorPairDiff[0]
             const targets: Array<{
               part: 'widget' | 'colorPair'
@@ -831,7 +836,7 @@ async function handleInternalDashboardEditRequest(
               doc: Y.Doc
               mutate: (staged: Y.Doc) => void
             }> = []
-            if (widgetChanged) {
+            if (planned.widgetChanged) {
               targets.push({
                 part: 'widget',
                 sessionId: widgetDescriptor.yjsSessionId,
@@ -863,13 +868,11 @@ async function handleInternalDashboardEditRequest(
             const commit = {
               ...mutation,
               serializeResult: () =>
-                serializeDashboardLayoutProjection(
-                  projectDashboardLayoutValueForCopilot({
-                    ...current,
-                    widgets: { ...current.widgets, [identityId]: planned.widgetDocument },
-                    colorPairs: planned.colorPairs,
-                  }) as DashboardLayoutProjectionContent
-                ),
+                serializeRedactedDashboardReplayProjection({
+                  ...current,
+                  widgets: { ...current.widgets, [identityId]: planned.widgetDocument },
+                  colorPairs: planned.colorPairs,
+                }),
             }
             await persistStagedDocuments(targets, (staged) =>
               saveDashboardYjsDocsToDb(

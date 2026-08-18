@@ -24,10 +24,7 @@ import {
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { ReviewTargetBootstrapError } from '@/lib/yjs/server/bootstrap-review-target'
 import type { DocumentAdmission } from '@/socket-server/yjs/upstream-utils'
-import {
-  applyLayoutEditDocument,
-  type DashboardLayoutProjectionContent,
-} from '@/widgets/layout-document'
+import type { DashboardLayoutProjectionContent } from '@/widgets/layout-document'
 import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
 import { createHttpHandler } from './http'
 
@@ -232,7 +229,6 @@ function widgetReviewHash(
     widgetKey: 'data_chart',
     widget: current.widgets['widget-1'],
     colorPairs: current.colorPairs,
-    panelId: 'panel-1',
     patch,
   })
   return hashServerToolReviewBase(
@@ -491,9 +487,8 @@ describe('socket internal HTTP Yjs routes', () => {
       layout: { id: 'panel-1', type: 'panel' },
     })
     const currentLayout = readDashboardLayoutDocument(documents.get('layout-1')!)
-    const plan = applyLayoutEditDocument(currentLayout, entityDocument)
     const expectedReviewBaseStateHash = hashServerToolReviewBase(
-      buildDashboardLayoutReviewBase(currentLayout, plan)
+      buildDashboardLayoutReviewBase(currentLayout)
     )
 
     const response = await invokeDashboardEdit({
@@ -784,30 +779,6 @@ describe('socket internal HTTP Yjs routes', () => {
         { id: 'indicator-a', inputs: { apiKey: 'replacement-a' } },
       ],
     })
-  })
-
-  it('rejects pair rebinding when the destination pair changed after review', async () => {
-    const widget = { pairColor: 'red' as const, params: null }
-    setDashboardDocuments({
-      widget: createWidgetDoc('red'),
-      red: createPairDoc({ listing: listing('AAPL') }),
-      blue: createPairDoc({ listing: listing('GOOG') }),
-    })
-    const reviewed = dashboardProjection({
-      widget,
-      red: { listing: listing('AAPL') },
-      blue: { listing: listing('MSFT') },
-    })
-    const patch = { pairColor: 'blue' }
-    const expectedReviewBaseStateHash = widgetReviewHash(reviewed, patch)
-
-    const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
-
-    expect(response).toMatchObject({
-      status: 409,
-      body: { code: 'stale_server_tool_review' },
-    })
-    expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
   it('delegates idempotent target drains and leaves removed lease routes absent', async () => {

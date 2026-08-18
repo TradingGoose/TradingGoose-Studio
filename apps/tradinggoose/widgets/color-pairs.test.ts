@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  createDefaultColorPairsState,
   type PairColorContext,
   readPairColorContext,
   upsertPairColorContext,
 } from '@/widgets/color-pairs'
+import { createDefaultColorPairsState } from '@/widgets/layout'
 
 type LoosePairContext = PairColorContext & { channelId?: string }
 

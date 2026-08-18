@@ -21,14 +21,13 @@ const withDefaults = (over: Partial<MutationInput>): MutationInput => ({
     params: { data: { provider: 'alpaca' } },
   },
   colorPairs: { pairs: [] },
-  panelId: 'chart-panel',
   patch: {},
   ...over,
 })
 
 const apply = (over: Partial<MutationInput>) => applyWidgetConfigMutation(withDefaults(over))
-const widgetOf = (result: MutationResult) => ({
-  key: result.widgetKey,
+const widgetOf = (result: MutationResult, key = 'data_chart') => ({
+  key,
   ...result.widgetDocument,
 })
 const widget = (
@@ -50,7 +49,7 @@ describe('applyWidgetConfigMutation', () => {
     })
     expect(result.colorPairs).toEqual(colorPairs)
     expect(result.colorPairDiff).toEqual([])
-    expect(result.changedPaths).toEqual(['widget.params'])
+    expect(result.widgetChanged).toBe(true)
   })
 
   it('rejects linked params for a non-gray widget with explicit colorPair guidance', () => {
@@ -68,7 +67,7 @@ describe('applyWidgetConfigMutation', () => {
       patch: { params: { listing } },
     })
 
-    expect(widgetOf(result)).toEqual({
+    expect(widgetOf(result, 'watchlist')).toEqual({
       key: 'watchlist',
       pairColor: 'gray',
       params: { provider: 'alpaca', listing },
@@ -99,19 +98,6 @@ describe('applyWidgetConfigMutation', () => {
     expect(resolveEffectiveWidgetParams(widgetOf(result), result.colorPairs)).toMatchObject({
       listing,
     })
-  })
-
-  it('uses explicit colorPair null as the only whole-pair clear path', () => {
-    const result = apply({
-      colorPairs: {
-        pairs: [{ color: 'red', workflowId: 'workflow-red', listing }],
-      },
-      patch: { colorPair: null },
-    })
-
-    expect(result.colorPairs).toEqual({ pairs: [] })
-    expect(result.colorPairDiff).toHaveLength(1)
-    expect(result.changedPaths).toEqual(['colorPairs'])
   })
 
   it('clears one explicit pair field while preserving unrelated shared fields', () => {
@@ -149,11 +135,7 @@ describe('applyWidgetConfigMutation', () => {
     })
     expect(result.colorPairs).toEqual(colorPairs)
     expect(result.colorPairDiff).toEqual([])
-    expect(result.changedPaths).toEqual(['widget.pairColor'])
-    expect(result.reviewBase).toEqual({
-      pairColor: 'red',
-      colorPair: { color: 'blue', context: { listing } },
-    })
+    expect(result.widgetChanged).toBe(true)
   })
 
   it('moves gray linked params into missing destination fields', () => {
@@ -164,7 +146,7 @@ describe('applyWidgetConfigMutation', () => {
       patch: { pairColor: 'blue' },
     })
 
-    expect(widgetOf(result)).toEqual({
+    expect(widgetOf(result, 'watchlist')).toEqual({
       key: 'watchlist',
       pairColor: 'blue',
       params: null,
@@ -205,11 +187,6 @@ describe('applyWidgetConfigMutation', () => {
         { color: 'red', listing },
       ],
     })
-    expect(result.reviewBase).toEqual({
-      pairColor: 'red',
-      params: { listing },
-      colorPair: { color: 'blue', context: { listing: null } },
-    })
   })
 
   it('moves active pair fields into local params when changing to gray', () => {
@@ -228,35 +205,11 @@ describe('applyWidgetConfigMutation', () => {
     expect(result.colorPairDiff).toEqual([])
   })
 
-  it('lets explicit destination edits override inherited and existing values', () => {
-    const explicitListing = { ...listing, listing_id: 'NVDA' }
-    const result = apply({
-      widget: widget('red'),
-      colorPairs: {
-        pairs: [
-          { color: 'blue', listing: { ...listing, listing_id: 'MSFT' } },
-          { color: 'red', listing },
-        ],
-      },
-      patch: { pairColor: 'blue', colorPair: { listing: explicitListing } },
-    })
-
-    expect(result.colorPairs).toEqual({
-      pairs: [
-        { color: 'blue', listing: explicitListing },
-        { color: 'red', listing },
-      ],
-    })
+  it('rejects explicit colorPair mutations for gray widgets', () => {
+    expect(() => apply({ widget: widget('gray'), patch: { colorPair: { listing } } })).toThrow(
+      'colorPair requires a non-gray pairColor'
+    )
   })
-
-  it.each([{ colorPair: { listing } }, { colorPair: null }])(
-    'rejects explicit colorPair mutations for gray widgets',
-    (patch) => {
-      expect(() => apply({ widget: widget('gray'), patch })).toThrow(
-        'colorPair requires a non-gray pairColor'
-      )
-    }
-  )
 
   it('rejects unsupported widget params before persistence', () => {
     expect(() => apply({ patch: { params: { invented: true } } })).toThrow(

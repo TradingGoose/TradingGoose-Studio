@@ -27,6 +27,7 @@ import {
   type DashboardLayoutProjectionContent,
   normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
+import type { WidgetConfigMutationPatch } from '@/widgets/widget-mutations'
 
 const logger = createLogger('YjsSnapshotBridge')
 const DRAIN_ATTEMPTS = 3
@@ -312,11 +313,7 @@ export function applyDashboardWidgetEditInSocketServer(input: {
   workspaceId: string
   ownerUserId: string
   panelId: string
-  patch: {
-    pairColor?: string
-    params?: Record<string, unknown> | null
-    colorPair?: Record<string, unknown> | null
-  }
+  patch: Pick<WidgetConfigMutationPatch, 'params' | 'colorPair'>
   expectedReviewBaseStateHash: string
 }): Promise<DashboardLayoutProjectionContent> {
   return applyDashboardEditInSocketServer(input.entityId, input.ownerUserId, {

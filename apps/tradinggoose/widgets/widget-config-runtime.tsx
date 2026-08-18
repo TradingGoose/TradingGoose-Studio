@@ -21,10 +21,10 @@ import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { useDashboardColorPair } from '@/lib/yjs/use-dashboard-color-pair'
 import { useYjsTargetSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
-import type { LinkedPairColor, PairColorContext } from '@/widgets/color-pairs'
-import type { WidgetInstance } from '@/widgets/layout'
+import type { PairColorContext } from '@/widgets/color-pairs'
+import type { LinkedPairColor, WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDocument } from '@/widgets/layout-document'
-import { isPairColor, type PairColor } from '@/widgets/pair-colors'
+import type { PairColor } from '@/widgets/pair-colors'
 import {
   isWidgetKey,
   normalizeWidgetColorPairPatch,
@@ -99,13 +99,12 @@ export function WidgetConfigRuntimeProvider({
     return readDashboardWidgetDocument(widgetDoc, widgetKey)
   }, [widgetDoc, widgetKey])
   const widget = useYjsSubscription(subscribeWidget, readWidget, null, areJsonValuesEqual)
-  const pairColor = widget && isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
+  const pairColor = widget?.pairColor ?? 'gray'
   const pairSession = useDashboardColorPair({
     workspaceId,
     ownerUserId,
     layoutId,
     pairColor,
-    accessMode: 'write',
     failureMessage: 'Failed to open color pair',
   })
   const pairDoc = pairSession.doc
@@ -118,7 +117,6 @@ export function WidgetConfigRuntimeProvider({
     ownerUserId,
     layoutId,
     pairColor: pendingTargetPairColor,
-    accessMode: 'write',
     failureMessage: 'Failed to open destination color pair',
   })
   const isWidgetReady = Boolean(widgetDoc)
@@ -183,7 +181,6 @@ export function WidgetConfigRuntimeProvider({
       widgetKey,
       widget,
       colorPairs: { pairs },
-      panelId: '',
       patch: { pairColor: pending.targetPairColor },
     })
 
@@ -198,7 +195,7 @@ export function WidgetConfigRuntimeProvider({
         YJS_ORIGINS.USER
       )
     }
-    if (next.changedPaths.some((path) => path.startsWith('widget.'))) {
+    if (next.widgetChanged) {
       writeWidget(widget, next.widgetDocument)
     }
     setPendingPairChange((current) => (current === pending ? null : current))
@@ -340,15 +337,14 @@ export const useWidgetConfigRuntimeActions = () => {
   return useMemo(() => {
     const widgetOwnerReady =
       runtime.isWidgetReady && runtime.widget !== null && isWidgetKey(runtime.widgetKey)
-    const pairColor =
-      runtime.widget && isPairColor(runtime.widget.pairColor) ? runtime.widget.pairColor : 'gray'
+    const pairColor = runtime.widget?.pairColor ?? 'gray'
     const linkedOwnerReady = widgetOwnerReady && (pairColor === 'gray' || runtime.isPairReady)
     const apply = (
       patch: Parameters<typeof applyWidgetConfigMutation>[0]['patch'],
       requireLinkedOwner = false
     ) => {
       if (!widgetOwnerReady || !runtime.widget || !isWidgetKey(runtime.widgetKey)) return
-      const color = isPairColor(runtime.widget.pairColor) ? runtime.widget.pairColor : 'gray'
+      const color = runtime.widget.pairColor
       if (requireLinkedOwner && color !== 'gray' && !runtime.isPairReady) return
       const next = applyWidgetConfigMutation({
         origin: 'human',
@@ -356,10 +352,9 @@ export const useWidgetConfigRuntimeActions = () => {
         widget: runtime.widget,
         colorPairs:
           color === 'gray' ? { pairs: [] } : { pairs: [{ color, ...runtime.pairContext }] },
-        panelId: '',
         patch,
       })
-      if (next.changedPaths.some((path) => path.startsWith('widget.'))) {
+      if (next.widgetChanged) {
         runtime.writeWidget(runtime.widget, next.widgetDocument)
       }
       const pairChange = next.colorPairDiff.find((change) => change.color === color)
@@ -409,7 +404,7 @@ export const useDashboardWidgetRenderState = (): {
     retry,
   } = useWidgetConfigRuntime()
   const isEffectiveParamsReady = isWidgetReady && isPairReady
-  const pairColor = widget && isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
+  const pairColor = widget?.pairColor ?? 'gray'
   if (!isEffectiveParamsReady || !widget || !isWidgetKey(widgetKey)) {
     return {
       renderWidget: null,

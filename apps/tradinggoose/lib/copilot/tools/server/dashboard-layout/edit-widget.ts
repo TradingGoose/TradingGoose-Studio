@@ -76,7 +76,6 @@ export const editWidgetServerTool: BaseServerTool<EditWidgetArgs, any> = {
       widgetKey: panel.widgetKey,
       widget: currentWidget,
       colorPairs: current.colorPairs,
-      panelId: args.panelId,
       patch,
     })
     const identityId = panel.identityId

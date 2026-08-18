@@ -58,7 +58,7 @@ function mapCredentialSlots(
   )
 }
 
-export function projectDashboardLayoutValueForCopilot(value: unknown): unknown {
+export function redactDashboardLayoutCredentials(value: unknown): unknown {
   return mapCredentialSlots(value, undefined, '', (item) =>
     typeof item === 'string' && item.length > 0 && !isEnvironmentReference(item)
       ? DASHBOARD_CREDENTIAL_PLACEHOLDER
@@ -86,8 +86,8 @@ export function buildDashboardWidgetReviewDiffForCopilot({
     if (isConcreteCredentialWrite(value)) credentialWritePaths.push(path)
     return value
   })
-  const projectedBefore = projectDashboardLayoutValueForCopilot(before) as Record<string, unknown>
-  const projectedAfter = projectDashboardLayoutValueForCopilot(after) as Record<string, unknown>
+  const projectedBefore = redactDashboardLayoutCredentials(before) as Record<string, unknown>
+  const projectedAfter = redactDashboardLayoutCredentials(after) as Record<string, unknown>
   if (credentialWritePaths.length > 0) {
     projectedBefore.credentialWritePaths = []
     projectedAfter.credentialWritePaths = credentialWritePaths.sort()
@@ -136,7 +136,7 @@ function projectDashboardLayoutForCopilot(content: DashboardLayoutProjectionCont
     layout: normalized.layout,
     widgets,
   }
-  return projectDashboardLayoutValueForCopilot(projection) as typeof projection
+  return redactDashboardLayoutCredentials(projection) as typeof projection
 }
 
 export function serializeDashboardLayoutForCopilot(

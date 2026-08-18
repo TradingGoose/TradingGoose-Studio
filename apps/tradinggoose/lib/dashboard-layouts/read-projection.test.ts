@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DASHBOARD_CREDENTIAL_PLACEHOLDER,
   preserveDashboardLayoutCredentialPlaceholders,
-  projectDashboardLayoutValueForCopilot,
+  redactDashboardLayoutCredentials,
   serializeDashboardLayoutForCopilot,
 } from './read-projection'
 
@@ -42,7 +42,7 @@ describe('dashboard Copilot projection', () => {
 
   it('redacts stored provider credentials recursively while preserving environment references', () => {
     expect(
-      projectDashboardLayoutValueForCopilot({
+      redactDashboardLayoutCredentials({
         apiKey: 'plain-key',
         nested: [{ apiSecret: 'plain-secret' }, { apiKey: '{{MARKET_API_KEY}}' }],
       })

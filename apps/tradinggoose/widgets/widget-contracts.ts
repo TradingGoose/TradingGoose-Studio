@@ -1,10 +1,9 @@
 import {
   normalizePairColorContext,
   type PairColorContext,
-  type PersistedColorPairsState,
   readPairColorContext,
 } from '@/widgets/color-pairs'
-import type { WidgetInstance } from '@/widgets/layout'
+import type { PersistedColorPairsState, WidgetInstance } from '@/widgets/layout'
 import { isPairColor } from '@/widgets/pair-colors'
 import {
   FIELD_CONTRACTS,
@@ -171,10 +170,8 @@ export function resolveEffectiveWidgetParams(
 
 export function normalizeWidgetColorPairPatch(
   widgetKey: WidgetKey,
-  value: Record<string, unknown> | null | undefined
+  value: Record<string, unknown>
 ): Record<string, unknown> {
-  if (!value) return {}
-
   const allowedFields = new Set(getWidgetContract(widgetKey).linkedParamFields)
   const unsupported = Object.keys(value).filter(
     (field) => !allowedFields.has(field as WidgetParamField)

@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo } from 'react'
 import { buildDashboardColorPairDescriptor } from '@/lib/copilot/review-sessions/identity'
-import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import {
   getDashboardColorPairMap,
   readDashboardColorPairDocument,
@@ -20,14 +19,13 @@ const arePairContextsEqual = (left: PairColorContext, right: PairColorContext) =
 export function useDashboardColorPair(input: {
   workspaceId: string
   ownerUserId: string
-  layoutId: string | null
+  layoutId: string
   pairColor: PairColor
-  accessMode: ReviewAccessMode
   failureMessage: string
 }) {
   const descriptor = useMemo(
     () =>
-      input.layoutId && input.pairColor !== 'gray'
+      input.pairColor !== 'gray'
         ? buildDashboardColorPairDescriptor({
             layoutId: input.layoutId,
             color: input.pairColor,
@@ -37,7 +35,7 @@ export function useDashboardColorPair(input: {
         : null,
     [input.layoutId, input.ownerUserId, input.pairColor, input.workspaceId]
   )
-  const session = useYjsTargetSession(descriptor, input.accessMode, input.failureMessage)
+  const session = useYjsTargetSession(descriptor, 'write', input.failureMessage)
   const subscribe = useMemo(() => {
     if (!session.doc) return (_listener: () => void) => () => {}
     const map = getDashboardColorPairMap(session.doc)
