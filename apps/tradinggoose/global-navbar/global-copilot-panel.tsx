@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { scrollVerticalWheelHorizontally } from '@/components/widget-header-control'
+import { useHorizontalWheelScrollRef } from '@/components/widget-header-control'
 import {
   CopilotHeader,
   CopilotHeaderActions,
@@ -14,6 +14,7 @@ const DEFAULT_PANEL_WIDTH = 1200
 
 export function GlobalCopilotPanel({ workspaceId }: { workspaceId: string }) {
   const currentContext = useGlobalCopilotCurrentContext()
+  const headerScrollRef = useHorizontalWheelScrollRef<HTMLDivElement>()
   const panelRef = useRef<HTMLDivElement>(null)
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH)
 
@@ -36,7 +37,7 @@ export function GlobalCopilotPanel({ workspaceId }: { workspaceId: string }) {
       <Card className='flex h-full max-h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background'>
         <header className='border-border/80 border-b bg-muted/40 text-accent-foreground'>
           <div
-            onWheel={scrollVerticalWheelHorizontally}
+            ref={headerScrollRef}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
           >
             <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 font-medium text-accent-foreground text-sm'>

@@ -5,7 +5,7 @@ import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { scrollVerticalWheelHorizontally } from '@/components/widget-header-control'
+import { useHorizontalWheelScrollRef } from '@/components/widget-header-control'
 import type { PairColor } from '@/widgets/pair-colors'
 import { getWidgetDefinition } from '@/widgets/registry'
 import type { WidgetComponentProps, WidgetHeaderSlots, WidgetRuntimeContext } from '@/widgets/types'
@@ -43,6 +43,7 @@ function WidgetSurfaceComponent({
   onWidgetLinkedParamsPatch,
 }: WidgetSurfaceProps) {
   const copy = useMessages().workspace.widgets.surface
+  const headerScrollRef = useHorizontalWheelScrollRef<HTMLDivElement>()
   const renderState = useDashboardWidgetRenderState()
   const renderWidget = renderState.renderWidget
   const widgetKey = renderState.widgetKey ?? 'empty'
@@ -96,7 +97,7 @@ function WidgetSurfaceComponent({
       <Card className='flex h-full max-h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-background'>
         <header className='border-border/80 border-b bg-muted/40 text-accent-foreground'>
           <div
-            onWheel={scrollVerticalWheelHorizontally}
+            ref={headerScrollRef}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             aria-label='Widget header'
           >

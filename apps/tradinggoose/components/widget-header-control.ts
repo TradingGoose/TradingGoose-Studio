@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState, type WheelEvent } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 const BASE_CONTROL_CLASS =
@@ -42,10 +42,29 @@ export function widgetHeaderButtonGroupClassName(className?: string) {
   return cn(HEADER_BUTTON_GROUP_CLASS, className)
 }
 
-export function scrollVerticalWheelHorizontally(event: WheelEvent<HTMLElement>) {
-  if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
-  event.preventDefault()
-  event.currentTarget.scrollLeft += event.deltaY
+export function useHorizontalWheelScrollRef<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const handleWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+      const maxScrollLeft = element.scrollWidth - element.clientWidth
+      if (
+        maxScrollLeft <= 0 ||
+        (event.deltaY < 0 && element.scrollLeft <= 0) ||
+        (event.deltaY > 0 && element.scrollLeft >= maxScrollLeft)
+      )
+        return
+      event.preventDefault()
+      element.scrollLeft += event.deltaY
+    }
+    element.addEventListener('wheel', handleWheel, { passive: false })
+    return () => element.removeEventListener('wheel', handleWheel)
+  }, [])
+
+  return ref
 }
 
 interface HoverMenuProps {

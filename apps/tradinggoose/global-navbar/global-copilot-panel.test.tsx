@@ -56,6 +56,10 @@ describe('GlobalCopilotPanel', () => {
 
     const headerScroller = container.querySelector('header > div')
     if (!(headerScroller instanceof HTMLDivElement)) throw new Error('Expected header scroller')
+    Object.defineProperties(headerScroller, {
+      clientWidth: { value: 100 },
+      scrollWidth: { value: 200 },
+    })
     await act(async () =>
       headerScroller.dispatchEvent(
         new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 24 })
