@@ -184,6 +184,7 @@ describe('CopilotMessage', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     act(() => {
       root.unmount()
     })
@@ -231,7 +232,6 @@ describe('CopilotMessage', () => {
     expect(mockStoreState.abortMessage).toHaveBeenCalledOnce()
     await act(async () => vi.advanceTimersByTimeAsync(100))
     expect(mockStoreState.sendMessage).toHaveBeenCalledOnce()
-    vi.useRealTimers()
   })
 
   it('uses updated context identity when same-text mention props change', async () => {

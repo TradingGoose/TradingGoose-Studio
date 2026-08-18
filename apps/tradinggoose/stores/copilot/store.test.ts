@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { registerClientTool, unregisterClientTool } from '@/lib/copilot/tools/client/manager'
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
@@ -98,12 +98,14 @@ function createDeferredSseStream() {
 }
 
 function ensureRequestAnimationFrame() {
-  ;(globalThis as any).requestAnimationFrame = (callback: FrameRequestCallback) => {
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
     callback(0)
     return 0
-  }
-  ;(globalThis as any).cancelAnimationFrame = () => {}
+  })
+  vi.stubGlobal('cancelAnimationFrame', () => {})
 }
+
+afterEach(() => vi.unstubAllGlobals())
 
 function parseJsonRequestBody(request: FetchCall | undefined): Record<string, unknown> {
   expect(request).toBeDefined()
@@ -412,9 +414,11 @@ describe('copilot streaming regressions', () => {
 
   it('isolates batched streaming updates and resets between workspace stores', () => {
     const frames: Array<FrameRequestCallback | undefined> = []
-    ;(globalThis as any).requestAnimationFrame = (callback: FrameRequestCallback) =>
-      frames.push(callback) - 1
-    ;(globalThis as any).cancelAnimationFrame = (frameId: number) => (frames[frameId] = undefined)
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      (callback: FrameRequestCallback) => frames.push(callback) - 1
+    )
+    vi.stubGlobal('cancelAnimationFrame', (frameId: number) => (frames[frameId] = undefined))
     const queue = (set: (update: any) => unknown, messageId: string) =>
       updateStreamingMessage(set, { messageId, contentBlocks: [] } as any)
     const flushFrames = () => frames.splice(0).forEach((callback) => callback?.(0))
