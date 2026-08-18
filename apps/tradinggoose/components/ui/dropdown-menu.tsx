@@ -23,7 +23,6 @@ type DropdownMenuContentProps = MenuPrimitive.Popup.Props &
     | 'sideOffset'
   > & {
     container?: MenuPrimitive.Portal.Props['container']
-    portal?: boolean
     zIndex?: number
   }
 
@@ -37,7 +36,6 @@ const DropdownMenuContent = React.forwardRef<HTMLDivElement, DropdownMenuContent
       collisionAvoidance,
       collisionPadding = 8,
       container,
-      portal = true,
       positionMethod,
       side = 'bottom',
       sideOffset = 4,
@@ -45,8 +43,8 @@ const DropdownMenuContent = React.forwardRef<HTMLDivElement, DropdownMenuContent
       ...props
     },
     ref
-  ) => {
-    const content = (
+  ) => (
+    <MenuPrimitive.Portal container={container}>
       <MenuPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}
@@ -69,14 +67,8 @@ const DropdownMenuContent = React.forwardRef<HTMLDivElement, DropdownMenuContent
           {children}
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
-    )
-
-    return portal ? (
-      <MenuPrimitive.Portal container={container}>{content}</MenuPrimitive.Portal>
-    ) : (
-      content
-    )
-  }
+    </MenuPrimitive.Portal>
+  )
 )
 DropdownMenuContent.displayName = 'DropdownMenuContent'
 

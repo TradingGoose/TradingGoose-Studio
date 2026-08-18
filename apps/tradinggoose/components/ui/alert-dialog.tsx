@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Dialog as AlertDialogPrimitive } from '@base-ui/react/dialog'
+import { AlertDialog as AlertDialogPrimitive } from '@base-ui/react/alert-dialog'
 import { X } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -25,7 +25,6 @@ const AlertDialogContent = React.forwardRef<HTMLDivElement, AlertDialogContentPr
       <AlertDialogPrimitive.Viewport className='pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4'>
         <AlertDialogPrimitive.Popup
           ref={ref}
-          role='alertdialog'
           className={cn(
             'data-[ending-style]:fade-out-0 data-[ending-style]:zoom-out-95 data-[starting-style]:fade-in-0 data-[starting-style]:zoom-in-95 pointer-events-auto relative grid w-full max-w-xl gap-4 rounded-lg border border-border bg-background px-6 py-5 shadow-lg duration-200 data-[ending-style]:animate-out data-[starting-style]:animate-in',
             className
