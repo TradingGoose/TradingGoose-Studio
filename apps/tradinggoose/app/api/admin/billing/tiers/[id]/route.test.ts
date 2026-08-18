@@ -114,7 +114,7 @@ function createPayload() {
     seatMaximum: 20,
     stripeMonthlyPriceId: 'price_monthly',
     stripeYearlyPriceId: 'price_yearly',
-    stripeProductId: 'prod_123',
+    stripeProductId: null,
     syncRateLimitPerMinute: 120,
     asyncRateLimitPerMinute: 60,
     apiEndpointRateLimitPerMinute: 300,
@@ -158,7 +158,7 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
         yearlyPriceUsd: '499',
         stripeMonthlyPriceId: 'price_monthly',
         stripeYearlyPriceId: 'price_yearly',
-        stripeProductId: 'prod_123',
+        stripeProductId: null,
       },
     ])
     mockCountWhere.mockResolvedValue([{ count: 3 }])

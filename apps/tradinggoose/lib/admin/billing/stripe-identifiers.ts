@@ -4,7 +4,6 @@ import { and, eq, inArray, ne, or, sql } from 'drizzle-orm'
 import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
 
 const BILLING_TIER_STRIPE_IDENTIFIER_LOCK = 4_126_093
-const STRIPE_PORTAL_PRODUCT_LIMIT = 10
 
 export class BillingTierStripeIdentifierError extends Error {}
 
@@ -12,7 +11,7 @@ export async function assertBillingTierStripeIdentifiers(
   tx: Pick<typeof db, 'execute' | 'select'>,
   input: Pick<
     AdminBillingTierMutationInput,
-    'status' | 'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
+    'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
   > & { excludeTierId?: string }
 ) {
   await tx.execute(sql`select pg_advisory_xact_lock(${BILLING_TIER_STRIPE_IDENTIFIER_LOCK})`)
@@ -49,44 +48,6 @@ export async function assertBillingTierStripeIdentifiers(
         'Stripe product and price IDs must be unique across all billing tiers'
       )
     }
-  }
-
-  if (input.status !== 'active' || !input.stripeMonthlyPriceId) {
-    return
-  }
-  if (!input.stripeProductId) {
-    throw new BillingTierStripeIdentifierError(
-      'Active Stripe-backed tiers must configure a Stripe product ID'
-    )
-  }
-
-  const activeTiers = await tx
-    .select({
-      id: systemBillingTier.id,
-      stripeMonthlyPriceId: systemBillingTier.stripeMonthlyPriceId,
-      stripeProductId: systemBillingTier.stripeProductId,
-    })
-    .from(systemBillingTier)
-    .where(eq(systemBillingTier.status, 'active'))
-
-  const activeProductIds = new Set(
-    activeTiers
-      .filter((tier) => tier.id !== input.excludeTierId && Boolean(tier.stripeMonthlyPriceId))
-      .map((tier) => {
-        if (!tier.stripeProductId) {
-          throw new BillingTierStripeIdentifierError(
-            `Active Stripe tier ${tier.id} has no Stripe product ID`
-          )
-        }
-        return tier.stripeProductId
-      })
-  )
-  activeProductIds.add(input.stripeProductId)
-
-  if (activeProductIds.size > STRIPE_PORTAL_PRODUCT_LIMIT) {
-    throw new BillingTierStripeIdentifierError(
-      `Stripe Billing Portal supports at most ${STRIPE_PORTAL_PRODUCT_LIMIT} active plan products`
-    )
   }
 }
 

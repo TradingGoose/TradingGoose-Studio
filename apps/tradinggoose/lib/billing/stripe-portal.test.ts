@@ -30,9 +30,13 @@ function createStripe(configurations: unknown[]) {
   const update = vi.fn().mockResolvedValue({ id: 'bpc_default' })
   const create = vi.fn().mockResolvedValue({ id: 'bpc_management' })
   const createSession = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.test/session' })
+  const retrievePrice = vi
+    .fn()
+    .mockImplementation(async (id: string) => ({ id, product: 'prod_team' }))
 
   return {
     stripe: {
+      prices: { retrieve: retrievePrice },
       billingPortal: {
         configurations: { create, list, update },
         sessions: { create: createSession },
@@ -50,7 +54,7 @@ describe('Stripe portal configurations', () => {
     getActiveStripeBillingTiers.mockResolvedValue([
       {
         id: 'private-team',
-        stripeProductId: 'prod_team',
+        stripeProductId: null,
         stripeMonthlyPriceId: 'price_monthly',
         stripeYearlyPriceId: 'price_yearly',
       },

@@ -30,21 +30,27 @@ function normalizeCatalog(
     .sort((left, right) => left.product.localeCompare(right.product))
 }
 
-async function getPlanChangeCatalog() {
+async function getPlanChangeCatalog(stripe: Stripe) {
   const tiers = await getActiveStripeBillingTiers()
+  const priceIds = tiers.flatMap((tier) =>
+    [tier.stripeMonthlyPriceId, tier.stripeYearlyPriceId].filter((priceId): priceId is string =>
+      Boolean(priceId)
+    )
+  )
+  const prices = await Promise.all(priceIds.map((priceId) => stripe.prices.retrieve(priceId)))
+  const pricesByProduct = new Map<string, string[]>()
 
-  const products = tiers.map((tier) => {
-    if (!tier.stripeProductId || !tier.stripeMonthlyPriceId) {
-      throw new Error(`Active Stripe tier ${tier.id} has an incomplete Stripe catalog identity`)
-    }
+  for (const price of prices) {
+    const productId = typeof price.product === 'string' ? price.product : price.product.id
+    const productPrices = pricesByProduct.get(productId) ?? []
+    productPrices.push(price.id)
+    pricesByProduct.set(productId, productPrices)
+  }
 
-    return {
-      product: tier.stripeProductId,
-      prices: [tier.stripeMonthlyPriceId, tier.stripeYearlyPriceId].filter(
-        (priceId): priceId is string => Boolean(priceId)
-      ),
-    }
-  })
+  const products = Array.from(pricesByProduct, ([product, productPrices]) => ({
+    product,
+    prices: productPrices,
+  }))
 
   if (products.length > STRIPE_PORTAL_PRODUCT_LIMIT) {
     throw new Error(
@@ -58,7 +64,7 @@ async function getPlanChangeCatalog() {
 export async function ensurePlanChangePortalConfiguration(stripe: Stripe) {
   const [{ defaultConfiguration }, products] = await Promise.all([
     listPortalConfigurations(stripe),
-    getPlanChangeCatalog(),
+    getPlanChangeCatalog(stripe),
   ])
   const subscriptionUpdate = defaultConfiguration.features.subscription_update
   const currentProducts = normalizeCatalog(subscriptionUpdate.products)

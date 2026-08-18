@@ -92,14 +92,6 @@ export function validateAdminBillingTierInput(
     return 'Stripe yearly prices require a Stripe monthly price ID'
   }
 
-  if (input.stripeProductId && !input.stripeMonthlyPriceId) {
-    return 'Stripe products require a Stripe monthly price ID'
-  }
-
-  if (input.stripeMonthlyPriceId && !input.stripeProductId) {
-    return 'Stripe-backed tiers must configure a Stripe product ID'
-  }
-
   if (input.stripeMonthlyPriceId && input.stripeMonthlyPriceId === input.stripeYearlyPriceId) {
     return 'Stripe monthly and yearly price IDs must be different'
   }
