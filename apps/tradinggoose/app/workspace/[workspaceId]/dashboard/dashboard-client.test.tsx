@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import type { DashboardLayoutTab } from '@/lib/dashboard-layouts/operations'
 import {
+  readDashboardColorPairDocument,
   seedDashboardColorPairSession,
   seedDashboardLayoutSession,
   seedDashboardWidgetSession,
@@ -27,6 +28,7 @@ import type { PairColor } from '@/widgets/pair-colors'
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
+const copilotContextMocks = vi.hoisted(() => ({ publishDashboardContext: vi.fn() }))
 
 const mockFetch = vi.fn()
 let mockSelectLayout: ((layoutId: string) => void) | null = null
@@ -148,6 +150,18 @@ vi.mock(
 
 vi.mock('@/global-navbar', () => ({
   GlobalNavbarHeader: ({ center }: { center?: ReactNode }) => <>{center}</>,
+}))
+
+vi.mock('@/global-navbar/copilot-context', () => ({
+  GlobalCopilotDashboardContextPublisher: (props: {
+    layoutId: string | null
+    layoutName: string | null
+    ownerUserId: string
+    workspaceId: string
+  }) => {
+    copilotContextMocks.publishDashboardContext(props)
+    return null
+  },
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/dashboard/layout-tabs', () => ({
@@ -313,6 +327,12 @@ describe('DashboardClient', () => {
   it('rebinds widget data and runtime context when the dashboard identity changes', async () => {
     await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
 
+    expect(copilotContextMocks.publishDashboardContext).toHaveBeenLastCalledWith({
+      layoutId: 'layout-a',
+      layoutName: 'Layout A',
+      ownerUserId: 'user-a',
+      workspaceId: 'ws-a',
+    })
     expect(readWidgetSurface(container)).toEqual({
       workflowId: 'wf-a',
       workspaceId: 'ws-a',
@@ -342,19 +362,19 @@ describe('DashboardClient', () => {
   it('keeps personal widget controls independent of workspace entity permission', async () => {
     await renderDashboard({ topology: createPanelLayout('panel-a', 'wf-a') })
 
-    const switchToRedButton = container.querySelector('[data-testid="pair-color-red-panel-a"]')
-    if (!(switchToRedButton instanceof HTMLButtonElement)) {
-      throw new Error('Expected pair color switch button to be rendered')
-    }
+    const switchToRedButton = getButton(container, 'pair-color-red-panel-a')
 
     expect(switchToRedButton.disabled).toBe(false)
     await act(async () => {
       switchToRedButton.click()
     })
     expect(readWidgetSurface(container, 'panel-a')).toMatchObject({
-      workflowId: '',
+      workflowId: 'wf-a',
       workspaceId: 'ws-a',
       pairColor: 'red',
+    })
+    expect(readDashboardColorPairDocument(mockPairDocuments.get('red')!)).toEqual({
+      workflowId: 'wf-a',
     })
   })
 
@@ -394,12 +414,8 @@ describe('DashboardClient', () => {
     try {
       await renderDashboard({ topology: createGroupLayout([50, 50]) })
 
-      const closePanel = container.querySelector('[data-testid="close-panel-panel-left"]')
-      if (!(closePanel instanceof HTMLButtonElement)) throw new Error('Expected panel close button')
-      const replacePanel = container.querySelector('[data-testid="widget-watchlist-panel-left"]')
-      if (!(replacePanel instanceof HTMLButtonElement)) {
-        throw new Error('Expected panel replacement button')
-      }
+      const closePanel = getButton(container, 'close-panel-panel-left')
+      const replacePanel = getButton(container, 'widget-watchlist-panel-left')
       await act(async () => {
         closePanel.click()
         replacePanel.click()
@@ -442,6 +458,12 @@ describe('DashboardClient', () => {
     await act(async () => resolveActivation({ ok: true, json: () => Promise.resolve(projected) }))
     expect(mockLayoutDocumentLayoutId).toBe('layout-b')
     expect(mockLayoutTabsLayouts).toEqual(projected)
+    expect(copilotContextMocks.publishDashboardContext).toHaveBeenLastCalledWith({
+      layoutId: projected[1]?.id,
+      layoutName: projected[1]?.name,
+      ownerUserId: 'user-a',
+      workspaceId: 'ws-a',
+    })
 
     mockDashboardLayoutList = {
       layouts: projected.filter((layout) => layout.id !== 'layout-a'),
@@ -466,8 +488,7 @@ describe('DashboardClient', () => {
 
     await renderDashboard({ topology: createGroupLayout([50, 50]) })
 
-    const closePanel = container.querySelector('[data-testid="close-panel-panel-left"]')
-    if (!(closePanel instanceof HTMLButtonElement)) throw new Error('Expected panel close control')
+    const closePanel = getButton(container, 'close-panel-panel-left')
     expect(closePanel.disabled).toBe(false)
   })
 })
@@ -507,13 +528,13 @@ function createGroupLayout(sizes: number[]): DashboardLayoutTopologyNode {
         id: 'panel-left',
         type: 'panel',
         identityId: 'widget-left',
-        widgetKey: 'copilot',
+        widgetKey: 'editor_workflow',
       },
       {
         id: 'panel-right',
         type: 'panel',
         identityId: 'widget-right',
-        widgetKey: 'copilot',
+        widgetKey: 'editor_workflow',
       },
     ],
   }
@@ -582,4 +603,10 @@ function readWidgetSurface(container: HTMLDivElement, panelId?: string) {
     dashboardLayoutName: element.dataset.dashboardLayoutName ?? '',
     dashboardLayoutOwnerUserId: element.dataset.dashboardLayoutOwnerUserId ?? '',
   }
+}
+
+function getButton(container: HTMLDivElement, testId: string) {
+  const button = container.querySelector(`[data-testid="${testId}"]`)
+  if (!(button instanceof HTMLButtonElement)) throw new Error(`Expected ${testId}`)
+  return button
 }

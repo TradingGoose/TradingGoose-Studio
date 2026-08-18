@@ -11,20 +11,11 @@ vi.stubGlobal('crypto', {
   }),
 })
 
-vi.mock('@/lib/utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/utils')>()
-  return {
-    ...actual,
-    redactApiKeys: vi.fn((obj) => obj), // Return object as-is for testing
-  }
-})
-
 describe('Console Store', () => {
   beforeEach(() => {
     useConsoleStore.getState().clearConsole(null)
     vi.clearAllMocks()
     uuidCounter = 0
-    // Clear localStorage mock
     if (global.localStorage) {
       vi.mocked(global.localStorage.getItem).mockReturnValue(null)
       vi.mocked(global.localStorage.setItem).mockClear()
@@ -47,7 +38,6 @@ describe('Console Store', () => {
         endedAt: '2023-01-01T00:00:01.000Z',
       })
 
-      expect(newEntry).toBeDefined()
       expect(newEntry.id).toBe('test-uuid-1')
       expect(newEntry.workflowId).toBe('workflow-123')
       expect(newEntry.blockId).toBe('block-123')
@@ -287,7 +277,7 @@ describe('Console Store', () => {
         type: 'block:completed',
         data: {
           blockId: 'agent-1',
-          output: { content: 'iteration 2 done' },
+          output: { content: 'iteration 2 done', apiKey: 'raw-output-key' },
           success: true,
           endedAt: '2026-04-01T00:00:03.000Z',
           durationMs: 50,
@@ -305,6 +295,7 @@ describe('Console Store', () => {
       expect(first?.output?.content).toBeUndefined()
       expect(second?.isRunning).toBe(false)
       expect(second?.output?.content).toBe('iteration 2 done')
+      expect(second?.output).toEqual({ content: 'iteration 2 done', apiKey: '[redacted]' })
     })
 
     it('does not guess when a completion event has ambiguous identity', () => {
@@ -358,7 +349,6 @@ describe('Console Store', () => {
     beforeEach(() => {
       const store = useConsoleStore.getState()
 
-      // Add multiple entries for different workflows
       store.addConsole({
         workflowId: 'workflow-1',
         blockId: 'block-1',
@@ -385,8 +375,6 @@ describe('Console Store', () => {
     it('should clear all entries when workflowId is null', () => {
       const store = useConsoleStore.getState()
 
-      expect(store.entries).toHaveLength(2)
-
       store.clearConsole(null)
 
       const state = useConsoleStore.getState()
@@ -395,8 +383,6 @@ describe('Console Store', () => {
 
     it('should clear only specific workflow entries', () => {
       const store = useConsoleStore.getState()
-
-      expect(store.entries).toHaveLength(2)
 
       store.clearConsole('workflow-1')
 

@@ -329,7 +329,15 @@ function readDashboardLayoutReviewDocument(
   try {
     const parsed = parseEntityDocument('dashboard_layout', value)
     return {
-      layout: resolveDashboardLayout(parsed.layout, parsed.widgets),
+      layout: resolveDashboardLayout(
+        parsed.layout,
+        Object.fromEntries(
+          Object.entries(parsed.widgets).map(([identityId, widget]) => [
+            identityId,
+            { pairColor: 'gray', params: widget.params },
+          ])
+        )
+      ),
       name,
     }
   } catch {

@@ -21,14 +21,13 @@ const withDefaults = (over: Partial<MutationInput>): MutationInput => ({
     params: { data: { provider: 'alpaca' } },
   },
   colorPairs: { pairs: [] },
-  panelId: 'chart-panel',
   patch: {},
   ...over,
 })
 
 const apply = (over: Partial<MutationInput>) => applyWidgetConfigMutation(withDefaults(over))
-const widgetOf = (result: MutationResult) => ({
-  key: result.widgetKey,
+const widgetOf = (result: MutationResult, key = 'data_chart') => ({
+  key,
   ...result.widgetDocument,
 })
 const widget = (
@@ -50,7 +49,7 @@ describe('applyWidgetConfigMutation', () => {
     })
     expect(result.colorPairs).toEqual(colorPairs)
     expect(result.colorPairDiff).toEqual([])
-    expect(result.changedPaths).toEqual(['widget.params'])
+    expect(result.widgetChanged).toBe(true)
   })
 
   it('rejects linked params for a non-gray widget with explicit colorPair guidance', () => {
@@ -68,7 +67,7 @@ describe('applyWidgetConfigMutation', () => {
       patch: { params: { listing } },
     })
 
-    expect(widgetOf(result)).toEqual({
+    expect(widgetOf(result, 'watchlist')).toEqual({
       key: 'watchlist',
       pairColor: 'gray',
       params: { provider: 'alpaca', listing },
@@ -101,19 +100,6 @@ describe('applyWidgetConfigMutation', () => {
     })
   })
 
-  it('uses explicit colorPair null as the only whole-pair clear path', () => {
-    const result = apply({
-      colorPairs: {
-        pairs: [{ color: 'red', workflowId: 'workflow-red', listing }],
-      },
-      patch: { colorPair: null },
-    })
-
-    expect(result.colorPairs).toEqual({ pairs: [] })
-    expect(result.colorPairDiff).toHaveLength(1)
-    expect(result.changedPaths).toEqual(['colorPairs'])
-  })
-
   it('clears one explicit pair field while preserving unrelated shared fields', () => {
     const result = apply({
       widgetKey: 'watchlist',
@@ -129,7 +115,7 @@ describe('applyWidgetConfigMutation', () => {
     })
   })
 
-  it('changes pairColor without copying, clearing, or dirtying shared pair state', () => {
+  it('keeps existing destination values when changing pair color', () => {
     const colorPairs = {
       pairs: [
         { color: 'blue' as const, listing },
@@ -149,14 +135,10 @@ describe('applyWidgetConfigMutation', () => {
     })
     expect(result.colorPairs).toEqual(colorPairs)
     expect(result.colorPairDiff).toEqual([])
-    expect(result.changedPaths).toEqual(['widget.pairColor'])
-    expect(result.reviewBase).toEqual({
-      pairColor: 'red',
-      colorPair: { color: 'blue', context: { listing } },
-    })
+    expect(result.widgetChanged).toBe(true)
   })
 
-  it('preserves gray local linked params when selecting a shared pair', () => {
+  it('moves gray linked params into missing destination fields', () => {
     const result = apply({
       widgetKey: 'watchlist',
       widget: widget('gray', { listing }),
@@ -164,25 +146,70 @@ describe('applyWidgetConfigMutation', () => {
       patch: { pairColor: 'blue' },
     })
 
-    expect(widgetOf(result)).toEqual({
+    expect(widgetOf(result, 'watchlist')).toEqual({
       key: 'watchlist',
       pairColor: 'blue',
-      params: { listing },
+      params: null,
     })
     expect(result.colorPairs).toEqual({
-      pairs: [{ color: 'blue', watchlistId: 'watchlist-blue' }],
+      pairs: [{ color: 'blue', watchlistId: 'watchlist-blue', listing }],
     })
+    expect(result.colorPairDiff).toEqual([
+      {
+        color: 'blue',
+        before: { watchlistId: 'watchlist-blue' },
+        after: { watchlistId: 'watchlist-blue', listing },
+        changedFields: ['listing'],
+      },
+    ])
+  })
+
+  it('inherits missing destination fields from the active pair without changing the source', () => {
+    const result = apply({
+      widget: widget('red', { data: { provider: 'alpaca' } }),
+      colorPairs: {
+        pairs: [
+          { color: 'blue', workflowId: 'workflow-blue' },
+          { color: 'red', listing },
+        ],
+      },
+      patch: { pairColor: 'blue' },
+    })
+
+    expect(widgetOf(result)).toEqual({
+      key: 'data_chart',
+      pairColor: 'blue',
+      params: { data: { provider: 'alpaca' } },
+    })
+    expect(result.colorPairs).toEqual({
+      pairs: [
+        { color: 'blue', workflowId: 'workflow-blue', listing },
+        { color: 'red', listing },
+      ],
+    })
+  })
+
+  it('moves active pair fields into local params when changing to gray', () => {
+    const result = apply({
+      widget: widget('red', { data: { provider: 'alpaca' } }),
+      colorPairs: { pairs: [{ color: 'red', listing }] },
+      patch: { pairColor: 'gray' },
+    })
+
+    expect(widgetOf(result)).toEqual({
+      key: 'data_chart',
+      pairColor: 'gray',
+      params: { data: { provider: 'alpaca' }, listing },
+    })
+    expect(result.colorPairs).toEqual({ pairs: [{ color: 'red', listing }] })
     expect(result.colorPairDiff).toEqual([])
   })
 
-  it.each([{ colorPair: { listing } }, { colorPair: null }])(
-    'rejects explicit colorPair mutations for gray widgets',
-    (patch) => {
-      expect(() => apply({ widget: widget('gray'), patch })).toThrow(
-        'colorPair requires a non-gray pairColor'
-      )
-    }
-  )
+  it('rejects explicit colorPair mutations for gray widgets', () => {
+    expect(() => apply({ widget: widget('gray'), patch: { colorPair: { listing } } })).toThrow(
+      'colorPair requires a non-gray pairColor'
+    )
+  })
 
   it('rejects unsupported widget params before persistence', () => {
     expect(() => apply({ patch: { params: { invented: true } } })).toThrow(

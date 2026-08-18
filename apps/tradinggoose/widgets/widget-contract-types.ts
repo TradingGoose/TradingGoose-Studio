@@ -15,7 +15,6 @@ export const WIDGET_KEYS = [
   'editor_workflow',
   'workflow_chat',
   'workflow_console',
-  'copilot',
   'list_indicator',
   'list_mcp',
   'editor_indicator',
@@ -165,7 +164,6 @@ export type WidgetCatalogItem = {
   description: string
   editable: boolean
   editableFields: WidgetParamField[]
-  linkedParamFields: WidgetParamField[]
 }
 
 export type WidgetMetadataProfile = {
@@ -177,7 +175,6 @@ export type WidgetMetadataProfile = {
   defaultParams: Record<string, unknown> | null
   editableFields: WidgetParamField[]
   paramContract: WidgetParamFieldContract[]
-  linkedParamFields: WidgetParamField[]
 }
 
 export type WidgetContract = {

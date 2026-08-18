@@ -3,21 +3,16 @@ import { omitPreservedDashboardCredentialValues } from '@/lib/dashboard-layouts/
 import { readPairColorContext } from '@/widgets/color-pairs'
 import type {
   DashboardLayoutDocument,
-  DashboardLayoutEditPlan,
   DashboardLayoutProjectionContent,
 } from '@/widgets/layout-document'
 import { findDashboardTopologyPanel } from '@/widgets/layout-document'
-import { isPairColor } from '@/widgets/pair-colors'
 import { projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
 import type {
   WidgetConfigMutationPatch,
   WidgetConfigMutationReviewBase,
 } from '@/widgets/widget-mutations'
 
-export const buildDashboardLayoutReviewBase = (
-  content: DashboardLayoutDocument,
-  _plan: DashboardLayoutEditPlan
-) => ({
+export const buildDashboardLayoutReviewBase = (content: DashboardLayoutDocument) => ({
   layout: content.layout,
 })
 
@@ -49,7 +44,7 @@ export function buildDashboardWidgetReviewDocument(
 ) {
   const panel = requireDashboardWidgetPanel(content.layout, panelId)
   const widgetDocument = content.widgets[panel.identityId]!
-  const pairColor = isPairColor(widgetDocument.pairColor) ? widgetDocument.pairColor : 'gray'
+  const pairColor = widgetDocument.pairColor
   return {
     panelId,
     identityId: panel.identityId,

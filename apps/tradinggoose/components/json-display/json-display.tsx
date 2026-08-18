@@ -9,7 +9,8 @@ import {
   ListingResolvedSchema,
   toListingValueObject,
 } from '@/lib/listing/identity'
-import { cn, redactApiKeys } from '@/lib/utils'
+import { deepRedactSecrets } from '@/lib/security/redaction'
+import { cn } from '@/lib/utils'
 
 export type JsonDisplayMode = 'beauty' | 'raw'
 type ValueType =
@@ -92,7 +93,7 @@ const STRUCTURED_STYLES = {
   emptyValue: 'py-[2px] text-[13px] text-muted-foreground',
 } as const
 
-const getDisplayData = (data: unknown, redact: boolean) => (redact ? redactApiKeys(data) : data)
+const getDisplayData = (data: unknown, redact: boolean) => (redact ? deepRedactSecrets(data) : data)
 
 export function stringifyJsonDisplay(data: unknown, redact = true): string {
   const displayData = getDisplayData(data, redact)

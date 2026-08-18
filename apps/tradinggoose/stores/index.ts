@@ -4,7 +4,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getQueryClient } from '@/app/query-provider'
 import { resetWorkspacePermissionsStore } from '@/hooks/use-workspace-permissions'
 import { useConsoleStore } from '@/stores/console/store'
-import { getCopilotStore, useCopilotStore } from '@/stores/copilot/store'
+import { resetCopilotStoreRegistry } from '@/stores/copilot/store'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
@@ -44,7 +44,6 @@ export {
   useEnvironmentStore,
   useExecutionStore,
   useConsoleStore,
-  useCopilotStore,
   useCustomToolsStore,
   useSubscriptionStore,
 }
@@ -68,7 +67,7 @@ export const resetAllStores = () => {
   })
   useExecutionStore.getState().reset()
   useConsoleStore.setState({ entries: [] })
-  getCopilotStore().setState({ messages: [], isSendingMessage: false })
+  resetCopilotStoreRegistry()
   useCustomToolsStore.getState().resetAll()
   resetWorkspacePermissionsStore()
   // Variables store has no tracking to reset; registry hydrates
@@ -82,7 +81,6 @@ export const logAllStores = () => {
     environment: useEnvironmentStore.getState(),
     execution: useExecutionStore.getState(),
     console: useConsoleStore.getState(),
-    copilot: getCopilotStore().getState(),
     customTools: useCustomToolsStore.getState(),
     subscription: useSubscriptionStore.getState(),
   }

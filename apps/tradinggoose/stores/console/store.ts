@@ -1,6 +1,6 @@
 import { devtools, persist } from 'zustand/middleware'
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { redactApiKeys } from '@/lib/utils'
+import { deepRedactSecrets } from '@/lib/security/redaction'
 import type {
   WorkflowExecutionBlockData,
   WorkflowExecutionEvent,
@@ -35,10 +35,7 @@ type ConsoleEntryPatchFields = Partial<
 >
 
 type ConsoleEntryPatch = ConsoleEntryPatchFields &
-  (
-    | { content: string; output?: never }
-    | { content?: never; output?: NormalizedBlockOutput }
-  )
+  ({ content: string; output?: never } | { content?: never; output?: NormalizedBlockOutput })
 
 /**
  * Safely clone and update a NormalizedBlockOutput
@@ -131,14 +128,17 @@ const processSafeStorage = (obj: any): any => {
 }
 
 const applyConsolePatch = (entry: ConsoleEntry, patch: ConsoleEntryPatch): ConsoleEntry => {
-  const { content, ...entryPatch } = patch
+  const { content, output, ...entryPatch } = patch
   const definedPatch = Object.fromEntries(
     Object.entries(entryPatch).filter(([, value]) => value !== undefined)
   ) as Partial<ConsoleEntry>
+  if (output !== undefined) {
+    definedPatch.output = deepRedactSecrets(output) as NormalizedBlockOutput
+  }
   const updatedEntry = { ...entry, ...definedPatch }
 
   if (content !== undefined) {
-    updatedEntry.output = updateBlockOutput(entry.output, content)
+    updatedEntry.output = updateBlockOutput(entry.output, deepRedactSecrets(content) as string)
   }
 
   return updatedEntry
@@ -223,7 +223,7 @@ export const useConsoleStore = create<ConsoleStore>()(
 
           const redactedEntry = { ...entry }
           if (redactedEntry.output && typeof redactedEntry.output === 'object') {
-            redactedEntry.output = redactApiKeys(redactedEntry.output)
+            redactedEntry.output = deepRedactSecrets(redactedEntry.output) as NormalizedBlockOutput
           }
 
           const newEntry = {

@@ -1,0 +1,427 @@
+'use client'
+
+import type { MouseEvent, RefObject } from 'react'
+import {
+  Activity,
+  Blocks,
+  BookOpen,
+  Bot,
+  Check,
+  ChevronRight,
+  Grid2x2,
+  LibraryBig,
+  ListChecks,
+  type LucideIcon,
+  Server,
+  SquareChevronRight,
+  ToolCase,
+  Workflow,
+  Wrench,
+  X,
+} from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { getEntityIconColor, getIconTileStyle } from '@/lib/ui/icon-colors'
+import { cn } from '@/lib/utils'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
+import {
+  type CopilotWorkspaceEntityKind,
+  isCopilotWorkspaceEntityMentionOption,
+} from '../../../workspace-entities'
+import {
+  type CopilotMentionCopy,
+  getLogMentionTriggerLabel,
+  getMentionOptionLabel,
+  getMentionSubmenuTitle,
+  getPastChatMentionLabel,
+  getWorkspaceEntityMentionLabel,
+  useCopilotMentionCopy,
+} from '../mention-copy'
+import {
+  buildAggregatedMentionItems,
+  filterMentionItems,
+  filterMentionOptions,
+} from '../mention-utils'
+import type {
+  AggregatedMentionItem,
+  BlockItem,
+  LogItem,
+  MentionItem,
+  MentionOption,
+  MentionPortalStyle,
+  MentionSources,
+  MentionSubmenu,
+  PastChatItem,
+  WorkspaceEntityItem,
+} from '../types'
+
+interface MentionMenuProps {
+  failed: Partial<Record<MentionSubmenu, boolean>>
+  inAggregated: boolean
+  loading: Record<MentionSubmenu, boolean>
+  mentionActiveIndex: number
+  mentionMenuRef: RefObject<HTMLDivElement | null>
+  mentionPortalRef: RefObject<HTMLDivElement | null>
+  mentionPortalStyle: MentionPortalStyle | null
+  mentionQuery: string
+  menuListRef: RefObject<HTMLDivElement | null>
+  onAggregatedItemHover: (index: number) => void
+  onMainOptionHover: (index: number) => void
+  onRetry: (submenu: MentionSubmenu) => Promise<void>
+  onSelectAggregatedItem: (item: AggregatedMentionItem) => void
+  onSelectMainOption: (option: MentionOption) => void
+  onSelectSubmenuItem: (submenu: MentionSubmenu, item: MentionItem) => void
+  onSubmenuItemHover: (index: number) => void
+  openSubmenuFor: MentionSubmenu | null
+  showMentionMenu: boolean
+  sources: MentionSources
+  submenuActiveIndex: number
+  submenuQuery: string
+}
+
+const formatTimestamp = (iso: string) => {
+  const date = new Date(iso)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${month}-${day} ${hours}:${minutes}`
+}
+
+const renderBlockIcon = (item: BlockItem) => {
+  const Icon = item.iconComponent
+
+  return (
+    <div
+      className='relative flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-secondary text-foreground'
+      style={getIconTileStyle(item.bgColor)}
+    >
+      {Icon ? <Icon className='!h-3 !w-3' /> : null}
+    </div>
+  )
+}
+
+const renderEntityBadge = ({
+  icon: Icon,
+  entityId,
+  color,
+}: {
+  icon: LucideIcon
+  entityId: string
+  color?: string
+}) => {
+  const iconColor = getEntityIconColor(entityId, color)
+
+  return (
+    <span
+      className='flex h-5 w-5 shrink-0 items-center justify-center rounded-xs p-0.5'
+      style={{ backgroundColor: `${iconColor}20` }}
+      aria-hidden='true'
+    >
+      <Icon className='h-4 w-4' aria-hidden='true' style={{ color: iconColor }} />
+    </span>
+  )
+}
+
+const WORKSPACE_ENTITY_ICONS: Record<CopilotWorkspaceEntityKind, LucideIcon> = {
+  workflow: Workflow,
+  skill: ToolCase,
+  indicator: Activity,
+  custom_tool: Wrench,
+  mcp_server: Server,
+  watchlist: ListChecks,
+  dashboard_layout: Grid2x2,
+  knowledge_base: LibraryBig,
+}
+
+const renderWorkspaceEntityMainOptionIcon = (entityKind: CopilotWorkspaceEntityKind) => {
+  const Icon = WORKSPACE_ENTITY_ICONS[entityKind]
+  return <Icon className='h-3.5 w-3.5 text-muted-foreground' />
+}
+
+const renderWorkspaceEntityItem = (entity: WorkspaceEntityItem, label: string) => {
+  const color =
+    entity.entityKind === 'workflow' || entity.entityKind === 'indicator' ? entity.color : undefined
+
+  return (
+    <>
+      {renderEntityBadge({
+        icon: WORKSPACE_ENTITY_ICONS[entity.entityKind],
+        entityId: entity.id,
+        color,
+      })}
+      <span className='truncate'>{label}</span>
+    </>
+  )
+}
+
+const renderMainOptionIcon = (option: MentionOption) => {
+  if (option === 'chats') {
+    return <Bot className='h-3.5 w-3.5 text-muted-foreground' />
+  }
+
+  if (isCopilotWorkspaceEntityMentionOption(option)) {
+    return renderWorkspaceEntityMainOptionIcon(option)
+  }
+
+  if (option === 'blocks') {
+    return <Blocks className='h-3.5 w-3.5 text-muted-foreground' />
+  }
+
+  if (option === 'docs') {
+    return <BookOpen className='h-3.5 w-3.5 text-muted-foreground' />
+  }
+
+  if (option === 'logs') {
+    return <SquareChevronRight className='h-3.5 w-3.5 text-muted-foreground' />
+  }
+}
+
+const renderMentionItemContent = (
+  type: MentionSubmenu,
+  item: MentionItem,
+  monitorCopy: ReturnType<typeof useMonitorCopy>['copy'],
+  mentionCopy: CopilotMentionCopy
+) => {
+  if (type === 'chats') {
+    const chat = item as PastChatItem
+    return (
+      <>
+        <div className='flex h-4 w-4 flex-shrink-0 items-center justify-center'>
+          <Bot className='h-3.5 w-3.5 text-muted-foreground' strokeWidth={1.5} />
+        </div>
+        <span className='truncate'>{getPastChatMentionLabel(mentionCopy, chat)}</span>
+      </>
+    )
+  }
+
+  if (isCopilotWorkspaceEntityMentionOption(type)) {
+    const entity = item as WorkspaceEntityItem
+    return renderWorkspaceEntityItem(entity, getWorkspaceEntityMentionLabel(mentionCopy, entity))
+  }
+
+  if (type === 'blocks') {
+    const block = item as BlockItem
+    return (
+      <>
+        {renderBlockIcon(block)}
+        <span className='truncate'>{block.name || block.id}</span>
+      </>
+    )
+  }
+
+  if (type === 'logs') {
+    const log = item as LogItem
+    return (
+      <>
+        {log.level === 'error' ? (
+          <X className='h-3.5 w-3.5 text-red-500' />
+        ) : (
+          <Check className='h-3.5 w-3.5 text-green-500' />
+        )}
+        <span className='min-w-0 truncate'>{log.entityName}</span>
+        <span className='text-muted-foreground'>·</span>
+        <span className='whitespace-nowrap'>{formatTimestamp(log.startedAt)}</span>
+        <span className='text-muted-foreground'>·</span>
+        <span className='capitalize'>{getLogMentionTriggerLabel(monitorCopy, log)}</span>
+      </>
+    )
+  }
+}
+
+const preserveEditorSelection = (event: MouseEvent<HTMLElement>) => {
+  event.preventDefault()
+}
+
+export function MentionMenu({
+  failed,
+  inAggregated,
+  loading,
+  mentionActiveIndex,
+  mentionMenuRef,
+  mentionPortalRef,
+  mentionPortalStyle,
+  mentionQuery,
+  menuListRef,
+  onAggregatedItemHover,
+  onMainOptionHover,
+  onRetry,
+  onSelectAggregatedItem,
+  onSelectMainOption,
+  onSelectSubmenuItem,
+  onSubmenuItemHover,
+  openSubmenuFor,
+  showMentionMenu,
+  sources,
+  submenuActiveIndex,
+  submenuQuery,
+}: MentionMenuProps) {
+  const mentionCopy = useCopilotMentionCopy()
+  const { copy: monitorCopy } = useMonitorCopy()
+
+  if (!showMentionMenu || !mentionPortalStyle) {
+    return null
+  }
+
+  const filteredOptions = filterMentionOptions(mentionQuery, mentionCopy)
+  const aggregatedItems = buildAggregatedMentionItems(
+    mentionQuery,
+    sources,
+    monitorCopy,
+    mentionCopy
+  )
+  const showAggregatedSearch = mentionQuery.length > 0 && filteredOptions.length === 0
+  const submenuItems = openSubmenuFor
+    ? filterMentionItems(openSubmenuFor, sources, submenuQuery, monitorCopy, mentionCopy)
+    : []
+
+  return createPortal(
+    <div
+      ref={mentionPortalRef}
+      style={{
+        position: 'fixed',
+        top: mentionPortalStyle.top,
+        left: mentionPortalStyle.left,
+        width: mentionPortalStyle.width,
+        maxHeight: mentionPortalStyle.maxHeight,
+        zIndex: 9999999,
+        pointerEvents: 'auto',
+        isolation: 'isolate',
+        transform: mentionPortalStyle.showBelow ? 'none' : 'translateY(-100%)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <div
+        ref={mentionMenuRef}
+        className='flex flex-col overflow-hidden rounded-sm border bg-popover p-1 text-foreground shadow-md'
+        style={{
+          maxHeight: mentionPortalStyle.maxHeight,
+          height: '100%',
+          position: 'relative',
+          zIndex: 9999999,
+        }}
+      >
+        {openSubmenuFor ? (
+          <>
+            <div className='px-2 py-1.5 text-muted-foreground text-xs'>
+              {getMentionSubmenuTitle(mentionCopy, openSubmenuFor)}
+            </div>
+            <div ref={menuListRef} className='flex-1 overflow-auto overscroll-contain'>
+              {loading[openSubmenuFor] ? (
+                <div className='px-2 py-2 text-muted-foreground text-sm'>{mentionCopy.loading}</div>
+              ) : failed[openSubmenuFor] ? (
+                <button
+                  type='button'
+                  className='w-full px-2 py-2 text-left text-muted-foreground text-sm underline'
+                  onMouseDown={preserveEditorSelection}
+                  onClick={() => void onRetry(openSubmenuFor)}
+                >
+                  {mentionCopy.loadFailed}
+                </button>
+              ) : submenuItems.length === 0 ? (
+                <div className='px-2 py-2 text-muted-foreground text-sm'>
+                  {mentionCopy.emptyStates[openSubmenuFor]}
+                </div>
+              ) : (
+                submenuItems.map((item, index) => (
+                  <div
+                    key={`${openSubmenuFor}-${(item as any).id || (item as any).reviewSessionId || index}`}
+                    data-idx={index}
+                    className={cn(
+                      'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-muted',
+                      submenuActiveIndex === index && 'bg-muted'
+                    )}
+                    role='menuitem'
+                    aria-selected={submenuActiveIndex === index}
+                    onMouseDown={preserveEditorSelection}
+                    onMouseEnter={() => onSubmenuItemHover(index)}
+                    onClick={() => onSelectSubmenuItem(openSubmenuFor, item)}
+                  >
+                    {renderMentionItemContent(openSubmenuFor, item, monitorCopy, mentionCopy)}
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        ) : showAggregatedSearch ? (
+          <div ref={menuListRef} className='flex-1 overflow-auto overscroll-contain'>
+            {aggregatedItems.length === 0 ? (
+              <div className='px-2 py-2 text-muted-foreground text-sm'>{mentionCopy.noMatches}</div>
+            ) : (
+              aggregatedItems.map((item, index) => (
+                <div
+                  key={`${item.type}-${item.id}`}
+                  data-idx={index}
+                  className={cn(
+                    'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted',
+                    submenuActiveIndex === index && 'bg-muted'
+                  )}
+                  role='menuitem'
+                  aria-selected={submenuActiveIndex === index}
+                  onMouseDown={preserveEditorSelection}
+                  onMouseEnter={() => onAggregatedItemHover(index)}
+                  onClick={() => onSelectAggregatedItem(item)}
+                >
+                  {renderMentionItemContent(item.type, item.value, monitorCopy, mentionCopy)}
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <div ref={menuListRef} className='flex-1 overflow-auto overscroll-contain'>
+            {filteredOptions.map((option, index) => (
+              <div
+                key={option}
+                data-idx={index}
+                className={cn(
+                  'flex cursor-default items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted',
+                  !inAggregated && mentionActiveIndex === index && 'bg-muted'
+                )}
+                role='menuitem'
+                aria-selected={!inAggregated && mentionActiveIndex === index}
+                onMouseDown={preserveEditorSelection}
+                onMouseEnter={() => onMainOptionHover(index)}
+                onClick={() => onSelectMainOption(option)}
+              >
+                <div className='flex items-center gap-1'>
+                  {renderMainOptionIcon(option)}
+                  <span>{getMentionOptionLabel(mentionCopy, option)}</span>
+                </div>
+                {option !== 'docs' && (
+                  <ChevronRight className='h-3.5 w-3.5 text-muted-foreground' />
+                )}
+              </div>
+            ))}
+
+            {mentionQuery.length > 0 && aggregatedItems.length > 0 && (
+              <>
+                <div className='my-1 h-px bg-border/70' />
+                <div className='px-2 py-1 text-[11px] text-muted-foreground'>
+                  {mentionCopy.matches}
+                </div>
+                {aggregatedItems.map((item, index) => (
+                  <div
+                    key={`${item.type}-${item.id}`}
+                    data-idx={filteredOptions.length + index}
+                    className={cn(
+                      'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted',
+                      inAggregated && submenuActiveIndex === index && 'bg-muted'
+                    )}
+                    role='menuitem'
+                    aria-selected={inAggregated && submenuActiveIndex === index}
+                    onMouseDown={preserveEditorSelection}
+                    onMouseEnter={() => onAggregatedItemHover(index)}
+                    onClick={() => onSelectAggregatedItem(item)}
+                  >
+                    {renderMentionItemContent(item.type, item.value, monitorCopy, mentionCopy)}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  )
+}

@@ -4,7 +4,7 @@ import {
   buildTurnProvenanceFromContexts,
   withPinnedToolExecutionProvenance,
 } from '@/stores/copilot/store-provenance'
-import { normalizeReloadedToolState } from '@/stores/copilot/store-state'
+import { ACTIVE_TURN_STATUS, normalizeReloadedToolState } from '@/stores/copilot/store-state'
 import { ensureClientToolInstance, resolveToolDisplay } from '@/stores/copilot/tool-registry'
 import type {
   ChatContext,
@@ -136,17 +136,8 @@ export function normalizeMessagesForUI(
   latestTurnStatus?: string | null
 ): CopilotMessage[] {
   try {
-    return messages.map((message) => {
+    const normalizedMessages = messages.map((message) => {
       if (message.role !== 'assistant') {
-        if (Array.isArray(message.contentBlocks) && message.contentBlocks.length > 0) {
-          const ctxBlock = (message.contentBlocks as any[]).find((b: any) => b?.type === 'contexts')
-          if (ctxBlock && Array.isArray((ctxBlock as any).contexts)) {
-            return {
-              ...message,
-              contexts: (ctxBlock as any).contexts,
-            }
-          }
-        }
         return message
       }
 
@@ -220,6 +211,11 @@ export function normalizeMessagesForUI(
         ...(finalBlocks.length > 0 ? { contentBlocks: finalBlocks } : {}),
       }
     })
+
+    const lastMessage = normalizedMessages[normalizedMessages.length - 1]
+    return latestTurnStatus === ACTIVE_TURN_STATUS && lastMessage?.role !== 'assistant'
+      ? [...normalizedMessages, createStreamingMessage()]
+      : normalizedMessages
   } catch {
     return messages
   }
@@ -247,12 +243,8 @@ export function buildPinnedToolCallsById(
   for (const message of messages) {
     if (message.role === 'user') {
       turnProvenance = buildTurnProvenanceFromContexts(
-        Array.isArray((message as any).contexts)
-          ? ((message as any).contexts as ChatContext[])
-          : undefined,
-        opts.workspaceId,
-        null,
-        null
+        Array.isArray(message.contexts) ? message.contexts : undefined,
+        opts.workspaceId
       )
       continue
     }
@@ -301,6 +293,8 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
   let todos: PlanTodo[] = []
 
   for (const message of messages) {
+    if (message.role === 'user') todos = []
+
     for (const toolCall of readToolCallsInMessageOrder(message)) {
       if (toolCall.state !== 'success') {
         continue
@@ -431,12 +425,6 @@ export function createUserMessage(
     timestamp: new Date().toISOString(),
     ...(fileAttachments && fileAttachments.length > 0 && { fileAttachments }),
     ...(contexts && contexts.length > 0 && { contexts }),
-    ...(contexts &&
-      contexts.length > 0 && {
-        contentBlocks: [
-          { type: 'contexts', contexts: contexts as any, timestamp: Date.now() },
-        ] as any,
-      }),
   }
 }
 
@@ -499,10 +487,7 @@ export function validateMessagesForLLM(messages: CopilotMessage[]): any[] {
           msg.fileAttachments.length > 0 && {
             fileAttachments: msg.fileAttachments,
           }),
-        ...((msg as any).contexts &&
-          Array.isArray((msg as any).contexts) && {
-            contexts: (msg as any).contexts,
-          }),
+        ...(Array.isArray(msg.contexts) && { contexts: msg.contexts }),
       }
     })
     .filter((m) => {

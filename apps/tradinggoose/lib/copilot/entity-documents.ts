@@ -6,9 +6,11 @@ import {
   WatchlistContentDocumentSchema,
 } from '@/lib/watchlists/validation'
 import {
+  collectDashboardTopologyReferences,
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
   DashboardLayoutProjectionSchema,
-  normalizeDashboardLayoutProjection,
+  normalizeDashboardLayoutDocument,
+  normalizeDashboardWidgetDocument,
 } from '@/widgets/layout-document'
 
 export { DASHBOARD_LAYOUT_DOCUMENT_FORMAT } from '@/widgets/layout-document'
@@ -116,6 +118,27 @@ const EntityDocumentSchemas = {
 type EntityDocumentFields<K extends EntityDocumentKind> = z.infer<(typeof EntityDocumentSchemas)[K]>
 
 const HTTP_HEADER_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/
+
+function normalizeDashboardLayoutEntityDocument(value: unknown) {
+  const parsed = DashboardLayoutProjectionSchema.parse(value)
+  const document = normalizeDashboardLayoutDocument({ layout: parsed.layout })
+  const widgets = Object.fromEntries(
+    [...collectDashboardTopologyReferences(document.layout)].map(([identityId, widgetKey]) => {
+      const widget = parsed.widgets[identityId]
+      if (!widget) throw new Error(`Dashboard widget ${identityId} is missing`)
+      return [
+        identityId,
+        {
+          params: normalizeDashboardWidgetDocument(widgetKey, {
+            pairColor: 'gray',
+            params: widget.params,
+          }).params,
+        },
+      ]
+    })
+  )
+  return { ...document, widgets }
+}
 
 function normalizeStringRecord(value: unknown): Record<string, string> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -236,7 +259,7 @@ export function normalizeEntityFields(
     case 'watchlist':
       return normalizeWatchlistDocumentContent(source)
     case 'dashboard_layout':
-      return normalizeDashboardLayoutProjection(source)
+      return normalizeDashboardLayoutEntityDocument(source)
   }
 }
 
@@ -254,7 +277,7 @@ export function parseEntityDocument<K extends EntityDocumentKind>(
 ): EntityDocumentFields<K> {
   const raw = JSON.parse(entityDocument)
   if (kind === 'dashboard_layout') {
-    return normalizeDashboardLayoutProjection(raw) as EntityDocumentFields<K>
+    return normalizeDashboardLayoutEntityDocument(raw) as EntityDocumentFields<K>
   }
   const parsedJson = EntityDocumentSchemas[kind].parse(raw)
   const normalized = normalizeEntityFields(kind, parsedJson)

@@ -41,6 +41,7 @@ import {
   syncOrdersStateToUrl,
   syncRecordsTabToUrl,
 } from '@/app/workspace/[workspaceId]/records/utils'
+import { GlobalCopilotContextPublisher } from '@/global-navbar/copilot-context'
 import { useFolders } from '@/hooks/queries/folders'
 import { buildLogsRequestParams, useLogDetail, useLogsList } from '@/hooks/queries/logs'
 import {
@@ -49,6 +50,7 @@ import {
   useOrdersList,
 } from '@/hooks/queries/records-orders'
 import { useDebounce } from '@/hooks/use-debounce'
+import type { ChatContext } from '@/stores/copilot/types'
 import { useFolderStore } from '@/stores/folders/store'
 import { useFilterStore } from '@/stores/logs/filters/store'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
@@ -343,6 +345,27 @@ export default function Records() {
       ? ('background' as const)
       : ('initial' as const)
     : null
+  const currentLogContext = useMemo<ChatContext | null>(() => {
+    const logId =
+      activeTab === 'logs' && isLogDetailOpen
+        ? selectedLog?.id
+        : activeTab === 'orders' && isOrderDetailOpen && orderDetailMode === 'log'
+          ? selectedOrder?.logId
+          : null
+
+    return logId
+      ? { kind: 'current_logs', logId, workspaceId, label: tLogs('details.currentLog') }
+      : null
+  }, [
+    activeTab,
+    isLogDetailOpen,
+    isOrderDetailOpen,
+    orderDetailMode,
+    selectedLog?.id,
+    selectedOrder?.logId,
+    tLogs,
+    workspaceId,
+  ])
 
   useEffect(() => {
     if (activeTab === 'orders' && selectedOrderRowRef.current) {
@@ -909,6 +932,7 @@ export default function Records() {
 
   return (
     <div className='flex h-full min-h-0 flex-col'>
+      <GlobalCopilotContextPublisher context={currentLogContext} />
       <style jsx global>
         {selectedRowAnimation}
       </style>

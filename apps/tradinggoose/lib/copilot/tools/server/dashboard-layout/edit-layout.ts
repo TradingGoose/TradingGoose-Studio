@@ -54,7 +54,7 @@ export const editLayoutServerTool: BaseServerTool<EditLayoutArgs, any> = {
       args.removedPanelIds ?? []
     )
     const next = applyDashboardLayoutEditPlan(current, plan)
-    const reviewBase = buildDashboardLayoutReviewBase(current, plan)
+    const reviewBase = buildDashboardLayoutReviewBase(current)
     const result = {
       success: true,
       ...buildDashboardLayoutResult({

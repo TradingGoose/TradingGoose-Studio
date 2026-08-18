@@ -1,18 +1,39 @@
-const instances: Record<string, any> = {}
+const instances = new Map<string, any>()
 
 let syncStateFn: ((toolCallId: string, nextState: any, options?: { result?: any }) => void) | null =
   null
 
 export function registerClientTool(toolCallId: string, instance: any) {
-  instances[toolCallId] = instance
+  if (instances.get(toolCallId) === instance) return
+  if (instances.has(toolCallId)) {
+    unregisterClientTool(toolCallId)
+  }
+  instances.set(toolCallId, instance)
 }
 
 export function getClientTool(toolCallId: string): any | undefined {
-  return instances[toolCallId]
+  return instances.get(toolCallId)
 }
 
 export function unregisterClientTool(toolCallId: string) {
-  delete instances[toolCallId]
+  const instance = instances.get(toolCallId)
+  instances.delete(toolCallId)
+
+  try {
+    instance?.dispose?.()
+  } catch {}
+}
+
+export function disposeClientToolsExcept(retainedToolCallIds: ReadonlySet<string>) {
+  for (const toolCallId of instances.keys()) {
+    if (!retainedToolCallIds.has(toolCallId)) {
+      unregisterClientTool(toolCallId)
+    }
+  }
+}
+
+export function disposeAllClientTools() {
+  disposeClientToolsExcept(new Set())
 }
 
 export function registerToolStateSync(

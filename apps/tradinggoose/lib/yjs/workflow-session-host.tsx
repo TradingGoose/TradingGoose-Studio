@@ -64,10 +64,15 @@ export interface WorkflowSessionUser {
 }
 
 interface WorkflowSessionProviderProps {
-  workspaceId: string | null
+  workspaceId: string
   workflowId: string
   user?: WorkflowSessionUser
   children: ReactNode
+}
+
+type ScopedWorkflowWriteState = {
+  workflowId: string
+  state: SharedWorkflowSessionState
 }
 
 export function WorkflowSessionProvider({
@@ -78,9 +83,14 @@ export function WorkflowSessionProvider({
 }: WorkflowSessionProviderProps) {
   const { canEdit: canEditWorkspace, isLoading: isPermissionsLoading } = useUserPermissionsContext()
   const canEdit = !isPermissionsLoading && canEditWorkspace
-  const [writeState, setWriteState] = useState<SharedWorkflowSessionState>(() =>
-    getSharedWorkflowSessionState(workflowId)
-  )
+  const [scopedWriteState, setScopedWriteState] = useState<ScopedWorkflowWriteState>(() => ({
+    workflowId,
+    state: getSharedWorkflowSessionState(workflowId),
+  }))
+  const writeState =
+    scopedWriteState.workflowId === workflowId
+      ? scopedWriteState.state
+      : EMPTY_SHARED_WORKFLOW_SESSION_STATE
   const readDescriptor = useMemo(
     () =>
       !isPermissionsLoading && !canEdit && workspaceId
@@ -114,10 +124,16 @@ export function WorkflowSessionProvider({
   const canRedo = canEdit && writeState.canRedo
 
   useEffect(() => {
-    if (!canEdit) return
+    if (!canEdit) {
+      setScopedWriteState({
+        workflowId,
+        state: { ...EMPTY_SHARED_WORKFLOW_SESSION_STATE },
+      })
+      return
+    }
 
     const syncState = () => {
-      setWriteState(getSharedWorkflowSessionState(workflowId))
+      setScopedWriteState({ workflowId, state: getSharedWorkflowSessionState(workflowId) })
     }
 
     syncState()
@@ -131,7 +147,6 @@ export function WorkflowSessionProvider({
     return () => {
       unsubscribe()
       release()
-      setWriteState({ ...EMPTY_SHARED_WORKFLOW_SESSION_STATE })
     }
   }, [canEdit, workflowId, workspaceId])
 

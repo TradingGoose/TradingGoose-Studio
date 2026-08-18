@@ -972,7 +972,12 @@
         "integrations": "Integraciones",
         "registration": "Registro"
       },
-      "systemAdmin": "Admin del sistema"
+      "systemAdmin": "Admin del sistema",
+      "copilot": {
+        "label": "Copilot",
+        "show": "Mostrar Copilot",
+        "hide": "Ocultar Copilot"
+      }
     },
     "defaults": {
       "newWorkspaceName": "Mi espacio de trabajo",
@@ -1047,6 +1052,7 @@
         "noMatches": "Ninguna base de conocimiento coincide con tu búsqueda."
       },
       "defaults": {
+        "untitledKnowledgeBase": "Base de conocimiento sin título",
         "noDescriptionProvided": "Sin descripción"
       },
       "header": {
@@ -1416,6 +1422,7 @@
       },
       "details": {
         "title": "Detalles del registro",
+        "currentLog": "Registro actual",
         "previous": "Registro anterior",
         "next": "Siguiente registro",
         "close": "Cerrar",
@@ -2260,7 +2267,6 @@
         "editor_workflow": "Editor de flujos",
         "workflow_chat": "Chat de flujos",
         "workflow_console": "Consola de flujos",
-        "copilot": "Copiloto",
         "list_indicator": "Indicadores",
         "list_mcp": "Servidores MCP",
         "editor_indicator": "Editor de indicadores",
@@ -21283,13 +21289,16 @@
           "dropFilesHere": "Suelta archivos aquí...",
           "insertMention": "Insertar @",
           "attachFile": "Adjuntar archivo",
+          "sendMessage": "Enviar mensaje",
           "stopGeneration": "Detener generación"
         },
         "message": {
           "editPlaceholder": "Edita tu mensaje...",
           "stopGeneration": "Detener generación",
           "sources": "Fuentes:",
-          "copy": "Copiar"
+          "copy": "Copiar",
+          "copied": "Copiado",
+          "scrollToBottom": "Ir al final"
         },
         "review": {
           "sideLabel": "{side, select, current {Actual} proposed {Propuesto} other {Actual}}",
@@ -21315,6 +21324,7 @@
           "updated": "Actualizado {value}",
           "justNow": "Justo ahora",
           "loading": "Cargando…",
+          "loadingChatHistory": "Cargando historial del chat...",
           "noChatsYet": "Aún no hay chats",
           "openChatHistory": "Abrir historial de chats",
           "deleteChatAria": "Eliminar chat",
@@ -21333,13 +21343,15 @@
           }
         },
         "mentions": {
-          "workflowBlocks": "Bloques del flujo de trabajo",
+          "dashboardLayouts": "Diseños del panel",
+          "loadFailed": "No se pudo cargar esta lista. Inténtalo de nuevo.",
           "matches": "Coincidencias",
           "noMatches": "No hay coincidencias",
+          "noDashboardLayoutsFound": "No se encontraron diseños del panel.",
           "noPastChats": "No hay chats anteriores",
           "noBlocksFound": "No se encontraron bloques",
-          "noBlocksInWorkflow": "No hay bloques en este flujo de trabajo",
-          "noExecutionsFound": "No se encontraron ejecuciones"
+          "noExecutionsFound": "No se encontraron ejecuciones",
+          "untitledDashboardLayout": "Diseño sin título"
         },
         "accessLevel": {
           "limited": {
@@ -21354,7 +21366,6 @@
         "model": {
           "choose": "Elegir modelo",
           "label": "Modelo",
-          "lite": "Lite",
           "providers": {
             "anthropic": "Anthropic",
             "openai": "OpenAI"

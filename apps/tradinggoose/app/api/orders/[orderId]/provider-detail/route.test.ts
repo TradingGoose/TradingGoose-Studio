@@ -207,10 +207,6 @@ describe('order provider detail route', () => {
         orderDetail: { status: 'filled' },
         provider: 'alpaca',
         providerOrderId: 'provider-order-1',
-        providerDetail: {
-          providerOrderId: 'provider-order-1',
-          orderDetail: { status: 'filled' },
-        },
         workspaceId: 'workspace-1',
       },
     })

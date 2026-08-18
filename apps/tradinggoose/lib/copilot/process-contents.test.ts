@@ -3,7 +3,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { buildCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
+import {
+  MAX_COPILOT_CONTEXT_BYTES_PER_ITEM,
+  MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
+} from '@/lib/copilot/context-limits'
+import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
+import type { ChatContext } from '@/stores/copilot/types'
 
 const WORKSPACE_CONTEXT_ENTITY_KINDS = [
   'workflow',
@@ -14,17 +19,65 @@ const WORKSPACE_CONTEXT_ENTITY_KINDS = [
   'watchlist',
   'dashboard_layout',
 ] as const
+const WORKFLOW_BLOCK_CONTEXT = {
+  kind: 'workflow_block',
+  workflowId: 'workflow-1',
+  blockId: 'block-1',
+  label: 'Attached Block',
+} satisfies ChatContext
 
 const mockGetBlocksMetadataExecute = vi.fn()
 const mockVerifyWorkflowAccess = vi.fn()
-const mockVerifyReviewTargetAccess = vi.fn()
 const mockReadBootstrappedReviewTargetSnapshot = vi.fn()
-const mockReadBootstrappedSavedEntityFields = vi.fn()
 const mockReadWorkflowSnapshot = vi.fn()
+const mockReadKnowledgeBaseExecute = vi.fn()
 const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
 const mockOr = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' }))
 const mockLogRowsQueue: unknown[][] = []
+const buildLogRow = (overrides: Record<string, unknown> = {}) => ({
+  id: 'log-1',
+  workflowId: 'workflow-1',
+  executionId: 'execution-1',
+  level: 'info',
+  trigger: 'manual',
+  startedAt: new Date('2026-04-23T00:00:00.000Z'),
+  endedAt: null,
+  totalDurationMs: null,
+  executionData: {},
+  cost: null,
+  workflowSummary: { id: 'workflow-1', name: 'Workflow' },
+  ...overrides,
+})
+const buildLogContext = (
+  kind: 'logs' | 'current_logs' = 'logs',
+  workspaceId = 'workspace-1',
+  label = kind === 'logs' ? 'Attached log' : 'Current log'
+): ChatContext => ({ kind, logId: 'log-1', workspaceId, label })
+const buildMonitorContext = (workspaceId = 'workspace-1'): ChatContext => ({
+  kind: 'current_monitor',
+  monitorId: 'monitor-1',
+  workspaceId,
+  label: 'Current monitor',
+})
+const buildKnowledgeContext = (workspaceId: string) =>
+  buildCopilotWorkspaceEntityContext({
+    entityKind: 'knowledge_base',
+    entityId: 'knowledge-1',
+    workspaceId,
+    label: 'Research',
+  })
+const processContexts = async (
+  contexts: ChatContext[],
+  workspaceId?: string,
+  options?: { signal?: AbortSignal }
+) => {
+  const { processContextsServer } = await import('@/lib/copilot/process-contents')
+  return processContextsServer(contexts, 'user-1', undefined, workspaceId, options)
+}
+const processWorkspaceContext = (context: ChatContext) => processContexts([context], 'workspace-1')
+const expectContextWithinItemLimit = (content: string) =>
+  expect(Buffer.byteLength(content, 'utf8')).toBeLessThanOrEqual(MAX_COPILOT_CONTEXT_BYTES_PER_ITEM)
 const mockSelectChain: Record<string, any> = {}
 mockSelectChain.from = vi.fn(() => mockSelectChain)
 mockSelectChain.leftJoin = vi.fn(() => mockSelectChain)
@@ -42,16 +95,10 @@ vi.mock('@tradinggoose/db', () => ({
 vi.mock('@tradinggoose/db/schema', () => ({
   copilotReviewItems: {},
   copilotReviewSessions: {},
-  document: {},
-  knowledgeBase: {},
   permissions: {
     entityType: 'permissions.entityType',
     entityId: 'permissions.entityId',
     userId: 'permissions.userId',
-  },
-  workflow: {
-    id: 'workflow.id',
-    name: 'workflow.name',
   },
   workflowExecutionLogs: {
     id: 'workflowExecutionLogs.id',
@@ -77,7 +124,6 @@ vi.mock('drizzle-orm', () => ({
   and: mockAnd,
   asc: vi.fn(),
   eq: mockEq,
-  isNull: vi.fn(),
   or: mockOr,
 }))
 
@@ -91,7 +137,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
-  verifyReviewTargetAccess: mockVerifyReviewTargetAccess,
   verifyWorkflowAccess: mockVerifyWorkflowAccess,
 }))
 
@@ -101,9 +146,14 @@ vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata', () => ({
   },
 }))
 
+vi.mock('@/lib/copilot/tools/server/knowledge/knowledge-base', () => ({
+  readKnowledgeBaseServerTool: {
+    execute: mockReadKnowledgeBaseExecute,
+  },
+}))
+
 vi.mock('@/lib/yjs/server/bootstrap-review-target', () => ({
   readBootstrappedReviewTargetSnapshot: mockReadBootstrappedReviewTargetSnapshot,
-  readBootstrappedSavedEntityFields: mockReadBootstrappedSavedEntityFields,
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
@@ -115,10 +165,9 @@ describe('processContextsServer', () => {
     vi.resetModules()
     mockGetBlocksMetadataExecute.mockReset()
     mockVerifyWorkflowAccess.mockReset()
-    mockVerifyReviewTargetAccess.mockReset()
     mockReadBootstrappedReviewTargetSnapshot.mockReset()
-    mockReadBootstrappedSavedEntityFields.mockReset()
     mockReadWorkflowSnapshot.mockReset()
+    mockReadKnowledgeBaseExecute.mockReset()
     mockAnd.mockClear()
     mockEq.mockClear()
     mockOr.mockClear()
@@ -126,12 +175,6 @@ describe('processContextsServer', () => {
     mockDbSelect.mockClear()
     mockSelectChain.leftJoin.mockClear()
     mockSelectChain.innerJoin.mockClear()
-    mockVerifyReviewTargetAccess.mockResolvedValue({
-      hasAccess: true,
-      userPermission: 'read',
-      workspaceId: 'workspace-1',
-      isOwner: false,
-    })
     mockVerifyWorkflowAccess.mockResolvedValue({
       hasAccess: true,
       userPermission: 'read',
@@ -151,11 +194,9 @@ describe('processContextsServer', () => {
       },
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [{ kind: 'blocks', blockTypes: ['block-1'], label: 'RSI' }],
-      'user-1'
-    )
+    const result = await processContexts([
+      { kind: 'blocks', blockTypes: ['block-1'], label: 'RSI' },
+    ])
 
     expect(mockGetBlocksMetadataExecute).toHaveBeenCalledWith({ blockTypes: ['block-1'] })
     expect(result).toEqual([
@@ -176,48 +217,97 @@ describe('processContextsServer', () => {
   })
 
   it('skips block contexts without block types', async () => {
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer([{ kind: 'blocks', label: 'Blocks' }], 'user-1')
+    const result = await processContexts([{ kind: 'blocks', label: 'Blocks' }])
 
     expect(mockGetBlocksMetadataExecute).not.toHaveBeenCalled()
     expect(result).toEqual([])
   })
 
   it.each(WORKSPACE_CONTEXT_ENTITY_KINDS)(
-    'emits attached and current %s contexts as entity references',
+    'emits attached %s contexts as entity references',
     async (entityKind) => {
       const entityId = `${entityKind}-1`
       const label = `Attached ${entityKind}`
-      const { processContextsServer } = await import('@/lib/copilot/process-contents')
+      const context = buildCopilotWorkspaceEntityContext({
+        entityKind,
+        entityId,
+        workspaceId: 'workspace-metadata',
+        ...(entityKind === 'dashboard_layout' ? { ownerUserId: 'user-1' } : {}),
+        label,
+      })
+      const result = await processContexts([context])
 
-      const contexts = [false, true].map((current) =>
-        buildCopilotWorkspaceEntityContext({
-          entityKind,
-          entityId,
-          workspaceId: 'workspace-metadata',
-          ...(entityKind === 'dashboard_layout' ? { ownerUserId: 'user-1' } : {}),
-          label,
-          current,
-        })
-      )
-      const result = await processContextsServer(contexts, 'user-1')
-
-      expect(result).toEqual(
-        contexts.map((context) => ({
+      expect(result).toEqual([
+        {
           type: context.kind,
           tag: `@${entityId}`,
           content: JSON.stringify({ entityId }, null, 2),
-        }))
-      )
+        },
+      ])
       for (const context of result) {
         expect(Object.keys(JSON.parse(context.content))).toEqual(['entityId'])
       }
 
-      expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
       expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
-      expect(mockReadBootstrappedSavedEntityFields).not.toHaveBeenCalled()
     }
   )
+
+  it.each([
+    [
+      'knowledge',
+      {
+        kind: 'current_knowledge_base',
+        knowledgeBaseId: 'knowledge-1',
+        workspaceId: 'workspace-1',
+        label: 'Current knowledge base',
+      } satisfies ChatContext,
+      'knowledge-1',
+    ],
+    ['log', buildLogContext('current_logs'), 'log-1'],
+    ['monitor', buildMonitorContext(), 'monitor-1'],
+  ])('emits the current %s as an ID-only reference', async (_source, context, entityId) => {
+    const result = await processWorkspaceContext(context)
+
+    expect(result).toEqual([
+      {
+        type: context.kind,
+        tag: `@${entityId}`,
+        content: JSON.stringify({ entityId }, null, 2),
+      },
+    ])
+    expect(mockReadKnowledgeBaseExecute).not.toHaveBeenCalled()
+    expect(mockDbSelect).not.toHaveBeenCalled()
+  })
+
+  it('bounds and redacts explicitly attached knowledge-base content', async () => {
+    mockReadKnowledgeBaseExecute.mockResolvedValue({
+      entityId: 'knowledge-1',
+      entityDocument: { description: 'x'.repeat(50_000), apiKey: 'raw-secret' },
+    })
+
+    const [result] = await processWorkspaceContext(buildKnowledgeContext('workspace-1'))
+    const content = JSON.parse(result!.content)
+
+    expect(mockReadKnowledgeBaseExecute).toHaveBeenCalledOnce()
+    expect(content.contextTruncated).toBe(true)
+    expect(content.entityDocument.apiKey).toBe('[redacted]')
+    expectContextWithinItemLimit(result!.content)
+    expect(result!.content).not.toContain('raw-secret')
+  })
+
+  it.each<[string, ChatContext, string | undefined]>([
+    ['knowledge from another workspace', buildKnowledgeContext('workspace-2'), 'workspace-1'],
+    ['log from another workspace', buildLogContext('logs', 'workspace-2', 'Run'), 'workspace-1'],
+    ['log without an active workspace', buildLogContext('logs', 'workspace-1', 'Run'), undefined],
+    ['monitor from another workspace', buildMonitorContext('workspace-2'), 'workspace-1'],
+    ['monitor without an active workspace', buildMonitorContext(), undefined],
+  ])('rejects %s', async (_source, context, activeWorkspaceId) => {
+    const result = await processContexts([context], activeWorkspaceId)
+
+    expect(result).toEqual([])
+    expect(mockReadKnowledgeBaseExecute).not.toHaveBeenCalled()
+    expect(mockDbSelect).not.toHaveBeenCalled()
+  })
 
   it('reads workflow document content only for an attached workflow block', async () => {
     const doc = new Y.Doc()
@@ -237,18 +327,7 @@ describe('processContextsServer', () => {
       parallels: {},
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'workflow_block',
-          workflowId: 'workflow-1',
-          blockId: 'block-1',
-          label: 'Attached Block',
-        },
-      ],
-      'user-1'
-    )
+    const result = await processContexts([WORKFLOW_BLOCK_CONTEXT])
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockReadBootstrappedReviewTargetSnapshot).toHaveBeenCalledTimes(1)
@@ -272,80 +351,98 @@ describe('processContextsServer', () => {
       isOwner: false,
     })
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [
-        {
-          kind: 'workflow_block',
-          workflowId: 'workflow-1',
-          blockId: 'block-1',
-          label: 'Attached Block',
-        },
-      ],
-      'user-1'
-    )
+    const result = await processWorkspaceContext(WORKFLOW_BLOCK_CONTEXT)
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockReadBootstrappedReviewTargetSnapshot).not.toHaveBeenCalled()
     expect(result).toEqual([])
   })
 
-  it('hydrates deleted workflow log contexts from the durable workflow summary', async () => {
-    mockLogRowsQueue.push([
-      {
-        id: 'log-1',
-        workflowId: null,
-        executionId: 'execution-1',
-        level: 'info',
-        trigger: 'manual',
-        startedAt: new Date('2026-04-23T00:00:00.000Z'),
-        endedAt: null,
-        totalDurationMs: null,
-        executionData: {},
-        cost: null,
-        workflowSummary: {
-          id: 'deleted-workflow-1',
-          name: 'Deleted workflow',
-        },
-        entityName: null,
-      },
+  it('deduplicates canonical context identities before hydration', async () => {
+    mockGetBlocksMetadataExecute.mockResolvedValue({
+      metadata: { request: { blockType: 'request' } },
+    })
+
+    const result = await processContexts([
+      { kind: 'blocks', blockTypes: ['request'], label: 'Request' },
+      { kind: 'blocks', blockTypes: ['request'], label: 'Duplicate request' },
     ])
 
-    const { processContextsServer } = await import('@/lib/copilot/process-contents')
-    const result = await processContextsServer(
-      [{ kind: 'logs', executionId: 'execution-1', label: 'Deleted Run' }],
-      'user-1'
-    )
-
-    expect(mockSelectChain.innerJoin).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'workspace.id',
-        ownerId: 'workspace.ownerId',
-      }),
-      {
-        field: 'workspace.id',
-        type: 'eq',
-        value: 'workflowExecutionLogs.workspaceId',
-      }
-    )
-    expect(mockSelectChain.leftJoin).toHaveBeenCalledWith(
-      expect.objectContaining({
-        entityId: 'permissions.entityId',
-        entityType: 'permissions.entityType',
-        userId: 'permissions.userId',
-      }),
-      expect.objectContaining({ type: 'and' })
-    )
-    expect(mockEq).toHaveBeenCalledWith('permissions.entityType', 'workspace')
-    expect(mockEq).toHaveBeenCalledWith('permissions.entityId', 'workflowExecutionLogs.workspaceId')
-    expect(mockEq).toHaveBeenCalledWith('permissions.userId', 'user-1')
-    expect(mockEq).toHaveBeenCalledWith('workspace.ownerId', 'user-1')
-    expect(mockOr).toHaveBeenCalled()
+    expect(mockGetBlocksMetadataExecute).toHaveBeenCalledTimes(1)
     expect(result).toHaveLength(1)
-    const content = JSON.parse(result[0]!.content)
-    expect(content).toMatchObject({
-      workflowId: 'deleted-workflow-1',
-      entityName: 'Deleted workflow',
+  })
+
+  it('enforces one aggregate byte budget across processed contexts', async () => {
+    mockGetBlocksMetadataExecute.mockResolvedValue({
+      metadata: { request: { description: 'x'.repeat(MAX_COPILOT_CONTEXT_BYTES_PER_TURN) } },
     })
+
+    const result = await processContexts([
+      { kind: 'blocks', blockTypes: ['request'], label: 'Request' },
+    ])
+
+    expect(mockGetBlocksMetadataExecute).toHaveBeenCalledTimes(1)
+    expect(result).toEqual([])
+  })
+
+  it('redacts and structurally bounds explicitly attached log details', async () => {
+    mockLogRowsQueue.push([
+      buildLogRow({
+        executionData: {
+          traceSpans: [
+            {
+              id: 'span-1',
+              input: {
+                authToken: 'raw-auth-token',
+                longText: 'x'.repeat(5_000),
+              },
+            },
+          ],
+        },
+      }),
+    ])
+
+    const [result] = await processWorkspaceContext(buildLogContext())
+
+    const content = JSON.parse(result!.content)
+    const input = content.executionData.traceSpans[0].input
+    expect(input.authToken).toBe('[redacted]')
+    expect(input.longText).toContain('[truncated]')
+    expect(content.contextTruncated).toBe(true)
+    expectContextWithinItemLimit(result!.content)
+    expect(result!.content).not.toContain('raw-auth-token')
+  })
+
+  it('falls back deterministically when bounded explicit details still exceed the byte cap', async () => {
+    mockLogRowsQueue.push([
+      buildLogRow({
+        executionData: {
+          traceSpans: Array.from({ length: 24 }, (_, index) => ({
+            id: `span-${index}`,
+            output: Object.fromEntries(
+              Array.from({ length: 24 }, (__, field) => [`field-${field}`, 'x'.repeat(2_048)])
+            ),
+          })),
+        },
+      }),
+    ])
+
+    const [result] = await processWorkspaceContext(buildLogContext())
+
+    expectContextWithinItemLimit(result!.content)
+    expect(JSON.parse(result!.content)).toMatchObject({
+      id: 'log-1',
+      contextTruncated: true,
+      executionDetailsOmitted: true,
+    })
+  })
+
+  it('preserves a caller abort before processing current context IDs', async () => {
+    const controller = new AbortController()
+    controller.abort('Request was already cancelled')
+
+    await expect(
+      processContexts([buildMonitorContext()], 'workspace-1', { signal: controller.signal })
+    ).rejects.toMatchObject({ name: 'AbortError', message: 'Aborted' })
   })
 })

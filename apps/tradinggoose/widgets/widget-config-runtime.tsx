@@ -1,26 +1,30 @@
 'use client'
 
-import { createContext, type ReactNode, useCallback, useContext, useMemo } from 'react'
-import type * as Y from 'yjs'
 import {
-  buildDashboardColorPairDescriptor,
-  buildDashboardWidgetDescriptor,
-} from '@/lib/copilot/review-sessions/identity'
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import type * as Y from 'yjs'
+import { buildDashboardWidgetDescriptor } from '@/lib/copilot/review-sessions/identity'
 import {
   applyDashboardColorPairDocumentDelta,
   applyDashboardWidgetDocumentDelta,
-  getDashboardColorPairMap,
   getDashboardWidgetMap,
-  readDashboardColorPairDocument,
   readDashboardWidgetDocument,
 } from '@/lib/yjs/dashboard-layout-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { useDashboardColorPair } from '@/lib/yjs/use-dashboard-color-pair'
 import { useYjsTargetSession } from '@/lib/yjs/use-entity-fields'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
 import type { PairColorContext } from '@/widgets/color-pairs'
-import type { WidgetInstance } from '@/widgets/layout'
+import type { LinkedPairColor, WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDocument } from '@/widgets/layout-document'
-import { isPairColor, type PairColor } from '@/widgets/pair-colors'
+import type { PairColor } from '@/widgets/pair-colors'
 import {
   isWidgetKey,
   normalizeWidgetColorPairPatch,
@@ -39,10 +43,16 @@ type WidgetConfigRuntime = {
   retry: () => void
   writeWidget: (baseline: DashboardWidgetDocument, target: DashboardWidgetDocument) => void
   writePair: (baseline: PairColorContext, target: PairColorContext) => void
+  changePairColor?: (pairColor: PairColor) => void
 }
 
 const WidgetConfigRuntimeContext = createContext<WidgetConfigRuntime | null>(null)
 const EMPTY_PAIR_CONTEXT: PairColorContext = {}
+
+type PendingPairChange = {
+  scope: string
+  targetPairColor: PairColor
+}
 
 function areJsonValuesEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
@@ -89,40 +99,26 @@ export function WidgetConfigRuntimeProvider({
     return readDashboardWidgetDocument(widgetDoc, widgetKey)
   }, [widgetDoc, widgetKey])
   const widget = useYjsSubscription(subscribeWidget, readWidget, null, areJsonValuesEqual)
-  const pairColor = widget && isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
-  const pairDescriptor = useMemo(
-    () =>
-      pairColor === 'gray'
-        ? null
-        : buildDashboardColorPairDescriptor({
-            layoutId,
-            color: pairColor,
-            workspaceId,
-            ownerUserId,
-          }),
-    [layoutId, ownerUserId, pairColor, workspaceId]
-  )
-  const pairSession = useYjsTargetSession(pairDescriptor, 'write', 'Failed to open color pair')
+  const pairColor = widget?.pairColor ?? 'gray'
+  const pairSession = useDashboardColorPair({
+    workspaceId,
+    ownerUserId,
+    layoutId,
+    pairColor,
+    failureMessage: 'Failed to open color pair',
+  })
   const pairDoc = pairSession.doc
-  const subscribePair = useMemo(() => {
-    if (!pairDoc) return (_listener: () => void) => () => {}
-    const map = getDashboardColorPairMap(pairDoc)
-    return (listener: () => void) => {
-      const onChange = () => listener()
-      map.observeDeep(onChange)
-      return () => map.unobserveDeep(onChange)
-    }
-  }, [pairDoc])
-  const readPair = useCallback(
-    () => (pairDoc ? readDashboardColorPairDocument(pairDoc) : EMPTY_PAIR_CONTEXT),
-    [pairDoc]
-  )
-  const pairContext = useYjsSubscription(
-    subscribePair,
-    readPair,
-    EMPTY_PAIR_CONTEXT,
-    areJsonValuesEqual
-  )
+  const pairContext = pairSession.context
+  const [pendingPairChange, setPendingPairChange] = useState<PendingPairChange | null>(null)
+  const pairChangeScope = `${identityId}:${widgetKey ?? ''}`
+  const pendingTargetPairColor = pendingPairChange?.targetPairColor ?? 'gray'
+  const targetPairSession = useDashboardColorPair({
+    workspaceId,
+    ownerUserId,
+    layoutId,
+    pairColor: pendingTargetPairColor,
+    failureMessage: 'Failed to open destination color pair',
+  })
   const isWidgetReady = Boolean(widgetDoc)
   const isPairReady = pairColor === 'gray' || Boolean(pairDoc)
   const writeWidget = useCallback(
@@ -139,10 +135,95 @@ export function WidgetConfigRuntimeProvider({
     },
     [pairDoc]
   )
+  const changePairColor = useCallback(
+    (targetPairColor: PairColor) => {
+      if (
+        pendingPairChange ||
+        !widgetDoc ||
+        !widget ||
+        !isWidgetKey(widgetKey) ||
+        targetPairColor === pairColor ||
+        (pairColor !== 'gray' && !pairDoc)
+      ) {
+        return
+      }
+      setPendingPairChange({
+        scope: pairChangeScope,
+        targetPairColor,
+      })
+    },
+    [pairChangeScope, pairColor, pairDoc, pendingPairChange, widget, widgetDoc, widgetKey]
+  )
+
+  useEffect(() => {
+    const pending = pendingPairChange
+    if (!pending) return
+    if (
+      pending.scope !== pairChangeScope ||
+      pending.targetPairColor === pairColor ||
+      !widgetDoc ||
+      !widget ||
+      !isWidgetKey(widgetKey)
+    ) {
+      setPendingPairChange(null)
+      return
+    }
+    if (targetPairSession.error) return
+    if (pending.targetPairColor !== 'gray' && !targetPairSession.doc) return
+
+    const pairs = [] as Array<{ color: LinkedPairColor } & PairColorContext>
+    if (pairColor !== 'gray') pairs.push({ ...pairContext, color: pairColor })
+    if (pending.targetPairColor !== 'gray') {
+      pairs.push({ ...targetPairSession.context, color: pending.targetPairColor })
+    }
+    const next = applyWidgetConfigMutation({
+      origin: 'human',
+      widgetKey,
+      widget,
+      colorPairs: { pairs },
+      patch: { pairColor: pending.targetPairColor },
+    })
+
+    const targetPairChange = next.colorPairDiff.find(
+      (change) => change.color === pending.targetPairColor
+    )
+    if (targetPairChange && targetPairSession.doc) {
+      applyDashboardColorPairDocumentDelta(
+        targetPairSession.doc,
+        targetPairChange.before,
+        targetPairChange.after,
+        YJS_ORIGINS.USER
+      )
+    }
+    if (next.widgetChanged) {
+      writeWidget(widget, next.widgetDocument)
+    }
+    setPendingPairChange((current) => (current === pending ? null : current))
+  }, [
+    pairColor,
+    pairChangeScope,
+    pairContext,
+    pendingPairChange,
+    targetPairSession.context,
+    targetPairSession.doc,
+    targetPairSession.error,
+    widget,
+    widgetDoc,
+    widgetKey,
+    writeWidget,
+  ])
   const retry = useCallback(() => {
     if (widgetSession.error) widgetSession.retry()
     if (pairSession.error) pairSession.retry()
-  }, [pairSession.error, pairSession.retry, widgetSession.error, widgetSession.retry])
+    if (targetPairSession.error) targetPairSession.retry()
+  }, [
+    pairSession.error,
+    pairSession.retry,
+    targetPairSession.error,
+    targetPairSession.retry,
+    widgetSession.error,
+    widgetSession.retry,
+  ])
   const value = useMemo<WidgetConfigRuntime>(
     () => ({
       widgetKey,
@@ -150,11 +231,17 @@ export function WidgetConfigRuntimeProvider({
       pairContext,
       isWidgetReady,
       isPairReady,
-      loadFailure: widgetSession.error ? 'widget' : pairSession.error ? 'pair' : null,
-      isRetrying: widgetSession.isRetrying || pairSession.isRetrying,
+      loadFailure: widgetSession.error
+        ? 'widget'
+        : pairSession.error || targetPairSession.error
+          ? 'pair'
+          : null,
+      isRetrying:
+        widgetSession.isRetrying || pairSession.isRetrying || targetPairSession.isRetrying,
       retry,
       writeWidget,
       writePair,
+      changePairColor: pendingPairChange ? undefined : changePairColor,
     }),
     [
       isPairReady,
@@ -162,11 +249,15 @@ export function WidgetConfigRuntimeProvider({
       pairContext,
       pairSession.error,
       pairSession.isRetrying,
+      pendingPairChange,
       retry,
+      targetPairSession.error,
+      targetPairSession.isRetrying,
       widget,
       widgetKey,
       widgetSession.error,
       widgetSession.isRetrying,
+      changePairColor,
       writePair,
       writeWidget,
     ]
@@ -246,15 +337,14 @@ export const useWidgetConfigRuntimeActions = () => {
   return useMemo(() => {
     const widgetOwnerReady =
       runtime.isWidgetReady && runtime.widget !== null && isWidgetKey(runtime.widgetKey)
-    const pairColor =
-      runtime.widget && isPairColor(runtime.widget.pairColor) ? runtime.widget.pairColor : 'gray'
+    const pairColor = runtime.widget?.pairColor ?? 'gray'
     const linkedOwnerReady = widgetOwnerReady && (pairColor === 'gray' || runtime.isPairReady)
     const apply = (
       patch: Parameters<typeof applyWidgetConfigMutation>[0]['patch'],
       requireLinkedOwner = false
     ) => {
       if (!widgetOwnerReady || !runtime.widget || !isWidgetKey(runtime.widgetKey)) return
-      const color = isPairColor(runtime.widget.pairColor) ? runtime.widget.pairColor : 'gray'
+      const color = runtime.widget.pairColor
       if (requireLinkedOwner && color !== 'gray' && !runtime.isPairReady) return
       const next = applyWidgetConfigMutation({
         origin: 'human',
@@ -262,10 +352,9 @@ export const useWidgetConfigRuntimeActions = () => {
         widget: runtime.widget,
         colorPairs:
           color === 'gray' ? { pairs: [] } : { pairs: [{ color, ...runtime.pairContext }] },
-        panelId: '',
         patch,
       })
-      if (next.changedPaths.some((path) => path.startsWith('widget.'))) {
+      if (next.widgetChanged) {
         runtime.writeWidget(runtime.widget, next.widgetDocument)
       }
       const pairChange = next.colorPairDiff.find((change) => change.color === color)
@@ -274,9 +363,7 @@ export const useWidgetConfigRuntimeActions = () => {
       }
     }
     return {
-      changeWidgetPairColor: widgetOwnerReady
-        ? (nextPairColor: PairColor) => apply({ pairColor: nextPairColor })
-        : undefined,
+      changeWidgetPairColor: linkedOwnerReady ? runtime.changePairColor : undefined,
       patchWidgetParams: widgetOwnerReady
         ? (params: Record<string, unknown>) => apply({ params })
         : undefined,
@@ -317,7 +404,7 @@ export const useDashboardWidgetRenderState = (): {
     retry,
   } = useWidgetConfigRuntime()
   const isEffectiveParamsReady = isWidgetReady && isPairReady
-  const pairColor = widget && isPairColor(widget.pairColor) ? widget.pairColor : 'gray'
+  const pairColor = widget?.pairColor ?? 'gray'
   if (!isEffectiveParamsReady || !widget || !isWidgetKey(widgetKey)) {
     return {
       renderWidget: null,

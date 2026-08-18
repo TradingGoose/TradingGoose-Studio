@@ -1,10 +1,11 @@
 'use client'
 
-import { Fragment, memo, type ReactNode, useCallback, useRef } from 'react'
+import { Fragment, memo, type ReactNode, useCallback } from 'react'
 import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { useHorizontalWheelScrollRef } from '@/components/widget-header-control'
 import type { PairColor } from '@/widgets/pair-colors'
 import { getWidgetDefinition } from '@/widgets/registry'
 import type { WidgetComponentProps, WidgetHeaderSlots, WidgetRuntimeContext } from '@/widgets/types'
@@ -42,6 +43,7 @@ function WidgetSurfaceComponent({
   onWidgetLinkedParamsPatch,
 }: WidgetSurfaceProps) {
   const copy = useMessages().workspace.widgets.surface
+  const headerScrollRef = useHorizontalWheelScrollRef<HTMLDivElement>()
   const renderState = useDashboardWidgetRenderState()
   const renderWidget = renderState.renderWidget
   const widgetKey = renderState.widgetKey ?? 'empty'
@@ -67,17 +69,6 @@ function WidgetSurfaceComponent({
   const registryHeader = renderState.isEffectiveParamsReady
     ? (definition?.renderHeader?.(headerContext) ?? emptyDefinition?.renderHeader?.(headerContext))
     : undefined
-  const headerScrollRef = useRef<HTMLDivElement>(null)
-
-  const handleHorizontalWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    if (!headerScrollRef.current) return
-    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
-      return
-    }
-    event.preventDefault()
-    headerScrollRef.current.scrollLeft += event.deltaY
-  }, [])
-
   const handleWidgetSelect = useCallback(
     (key: string) => {
       if (!onWidgetChange) return
@@ -107,7 +98,6 @@ function WidgetSurfaceComponent({
         <header className='border-border/80 border-b bg-muted/40 text-accent-foreground'>
           <div
             ref={headerScrollRef}
-            onWheel={handleHorizontalWheel}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             aria-label='Widget header'
           >

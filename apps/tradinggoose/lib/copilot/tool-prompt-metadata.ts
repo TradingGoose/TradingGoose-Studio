@@ -13,13 +13,10 @@ const KNOWLEDGE_BASE_DOCUMENT_GUIDANCE =
   'Use `tg-knowledge-base-document-v1` content JSON with exactly `description` and `chunkingConfig`. Identity is outside the document: supply `name` to create and use `rename_knowledge_base` to rename. `chunkingConfig` must include numeric `maxSize`, `minSize`, and `overlap`.'
 const WATCHLIST_DOCUMENT_GUIDANCE =
   'Use `tg-watchlist-document-v1` content JSON with exactly `settings` and flat ordered `items`. Identity is outside the document: supply `name` to create and use `rename_watchlist` to rename. Items are explicit `type: "section"` or `type: "listing"` entries. Submitted item ids are document-local references; use a section id as its listings\' `parentId`, and the persisted result will return generated item ids. Sections cannot nest and always use `parentId: null`; root listings use `parentId: null`, and listings under a section use that section id. Each listing item must use `listing` with a canonical `search_listing` result\'s `listingIdentity` value.'
-const DASHBOARD_COLOR_STORE_GUIDANCE =
-  'The layout color store is `colorPairs`: each non-gray color is one layout-scoped shared channel, while `gray` means the widget is unlinked and uses only local `params`. Widgets synchronize a field only when they select the same non-gray `pairColor` and both list that field in `get_widgets_metadata.linkedParamFields`; other fields remain local. Set both widgets to the same `pairColor`, then update shared fields through `colorPair`, not `params`. Changing `pairColor` only changes the subscription and preserves both local params and stored color channels.'
 const DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE =
-  "Returns a complete `tg-dashboard-layout-document-v3` inspection document with exactly `layout`, `widgets`, and `colorPairs`. These are independent owners: `layout` selects each panel's `identityId` and `widgetKey`, `widgets[identityId]` owns that widget's local `params` and selected `pairColor`, and each non-gray `colorPairs` entry owns shared parameters for that layout/color. This response is never one persisted or Yjs document. Layout identity is returned separately as `entityName`. `widgets[identityId].params` may canonically be `null`, meaning no local overrides rather than a missing widget. At runtime, the mounted widget combines its local params with its selected color-pair params. An entity ID in those params is only a reference; the mounted entity independently connects to its own entity Yjs document. Do not submit this complete read document to `edit_layout`. " +
-  DASHBOARD_COLOR_STORE_GUIDANCE
+  "Returns a complete `tg-dashboard-layout-document-v3` inspection document with exactly `layout` and `widgets`. `layout` selects each panel's `identityId` and `widgetKey`; `widgets[identityId].params` contains that mounted widget's current effective params and may be `null` when it has no params. Layout identity is returned separately as `entityName`. An entity ID in widget params is only a reference; the mounted entity independently connects to its own entity document. Do not submit this complete read document to `edit_layout`."
 const DASHBOARD_LAYOUT_STRUCTURE_GUIDANCE =
-  'Use raw `tg-dashboard-layout-structure-v3` JSON with top-level `layout` only. Existing panels use `{ id, type: "panel" }` to preserve their widget or `{ id, type: "panel", widget: { key } }` to add or replace it. New panels use `{ type: "panel", widget: { key } }`. Omitted existing panels must be listed in `removedPanelIds`. Names belong to `rename_layout`; existing widget params and color-pair edits belong to `edit_widget`.'
+  'Use raw `tg-dashboard-layout-structure-v3` JSON with top-level `layout` only. Existing panels use `{ id, type: "panel" }` to preserve their widget or `{ id, type: "panel", widget: { key } }` to add or replace it. New panels use `{ type: "panel", widget: { key } }`. Omitted existing panels must be listed in `removedPanelIds`. Names belong to `rename_layout`; existing widget parameter edits belong to `edit_widget`.'
 
 export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   plan: {
@@ -74,7 +71,8 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'workflow',
   },
   [CopilotTool.read_workflow_logs]: {
-    description: 'Retrieve workflow logs or log output.',
+    description:
+      'Retrieve bounded, redacted logs by `entityId`. A workflow ID returns summary-only recent logs; an exact execution-log ID returns that selected run with bounded, redacted error and output details.',
     kind: 'read',
     entityKind: 'workflow',
   },
@@ -393,7 +391,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   edit_widget: {
     description:
-      'Patch the existing widget in one dashboard panel by exact `entityId` and `panelId`, then return the same complete layout document shape as `read_layout`. Use `params` for local or non-linked widget params, `pairColor` to select its color-store channel, and `colorPair` for shared linked fields. Use `colorPair: { field: null }` to clear one shared field or `colorPair: null` to clear the selected channel. Use `edit_layout` to add, replace, or remove widget bindings. ' +
+      'Patch the current effective `params` of the existing widget in one dashboard panel by exact `entityId` and `panelId`, then return the same complete layout document shape as `read_layout`. Use `edit_layout` to add, replace, or remove widget bindings. ' +
       'Credential values returned as `[redacted]` preserve the existing same-slot value; submit a concrete value to replace one and omit it from a submitted credential object to delete it. ' +
       'Data-chart drawing state is user-managed and is neither returned nor editable through Copilot. ' +
       DASHBOARD_LAYOUT_DOCUMENT_GUIDANCE,
@@ -402,14 +400,14 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   get_available_widgets: {
     description:
-      'List canonical dashboard widget catalog items, including widget keys, categories, editable fields, and linked color-pair fields. Use the selected key with edit_layout when adding or replacing a dashboard widget.',
+      'List canonical dashboard widget catalog items, including widget keys, categories, and editable fields. Use the selected key with edit_layout when adding or replacing a dashboard widget.',
     kind: 'inspect',
     entityKind: 'dashboard_layout',
     surfaceKind: 'dashboard_widget',
   },
   get_widgets_metadata: {
     description:
-      'Get canonical dashboard widget contracts by exact `widgetKeys`, including defaults, editable params, and authoritative `linkedParamFields` that can synchronize through a shared non-gray layout color store.',
+      'Get canonical dashboard widget contracts by exact `widgetKeys`, including defaults and editable params.',
     kind: 'inspect',
     entityKind: 'dashboard_layout',
     surfaceKind: 'dashboard_widget',

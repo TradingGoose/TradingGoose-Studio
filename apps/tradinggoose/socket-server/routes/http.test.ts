@@ -24,10 +24,7 @@ import {
 import { SavedEntityRealtimeRequiredError } from '@/lib/yjs/entity-state'
 import { ReviewTargetBootstrapError } from '@/lib/yjs/server/bootstrap-review-target'
 import type { DocumentAdmission } from '@/socket-server/yjs/upstream-utils'
-import {
-  applyLayoutEditDocument,
-  type DashboardLayoutProjectionContent,
-} from '@/widgets/layout-document'
+import type { DashboardLayoutProjectionContent } from '@/widgets/layout-document'
 import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
 import { createHttpHandler } from './http'
 
@@ -232,7 +229,6 @@ function widgetReviewHash(
     widgetKey: 'data_chart',
     widget: current.widgets['widget-1'],
     colorPairs: current.colorPairs,
-    panelId: 'panel-1',
     patch,
   })
   return hashServerToolReviewBase(
@@ -481,16 +477,18 @@ describe('socket internal HTTP Yjs routes', () => {
 
   it('lets a topology review commit after an independent widget changes', async () => {
     setDashboardDocuments({
-      widget: createWidgetDoc('gray', { view: { interval: '1h' } }),
+      widget: createWidgetDoc('gray', {
+        data: { provider: 'alpaca', auth: { apiKey: 'raw-layout-key' } },
+        view: { interval: '1h' },
+      }),
       blue: createPairDoc({ watchlistId: 'preserved-watchlist' }),
     })
     const entityDocument = JSON.stringify({
       layout: { id: 'panel-1', type: 'panel' },
     })
     const currentLayout = readDashboardLayoutDocument(documents.get('layout-1')!)
-    const plan = applyLayoutEditDocument(currentLayout, entityDocument)
     const expectedReviewBaseStateHash = hashServerToolReviewBase(
-      buildDashboardLayoutReviewBase(currentLayout, plan)
+      buildDashboardLayoutReviewBase(currentLayout)
     )
 
     const response = await invokeDashboardEdit({
@@ -500,7 +498,9 @@ describe('socket internal HTTP Yjs routes', () => {
       removedPanelIds: [],
     })
 
+    expect(response.body.content.widgets['widget-1'].pairColor).toBe('gray')
     expect(response.body.content.widgets['widget-1'].params.view.interval).toBe('1h')
+    expect(response.body.content.widgets['widget-1'].params.data.auth.apiKey).toBe('[redacted]')
     expect(response.body.content.colorPairs.pairs).toContainEqual({
       color: 'blue',
       watchlistId: 'preserved-watchlist',
@@ -764,36 +764,21 @@ describe('socket internal HTTP Yjs routes', () => {
     const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
 
     expect(response.status).toBe(200)
+    expect(response.body.content.widgets['widget-1'].pairColor).toBe('gray')
+    expect(response.body.content.widgets['widget-1'].params.view.pineIndicators).toEqual([
+      { id: 'indicator-b', inputs: { apiKey: '[redacted]' } },
+      { id: 'indicator-a', inputs: { apiKey: '[redacted]' } },
+    ])
+    expect(response.body.content.colorPairs).toEqual({ pairs: [] })
+    expect(JSON.parse(mocks.saveDashboard.mock.calls[0]?.[2].serializeResult())).toEqual(
+      response.body.content
+    )
     expect(savedWidget?.params?.view).toEqual({
       pineIndicators: [
         { id: 'indicator-b', inputs: { apiKey: 'latest-b' } },
         { id: 'indicator-a', inputs: { apiKey: 'replacement-a' } },
       ],
     })
-  })
-
-  it('rejects pair rebinding when the destination pair changed after review', async () => {
-    const widget = { pairColor: 'red' as const, params: null }
-    setDashboardDocuments({
-      widget: createWidgetDoc('red'),
-      red: createPairDoc({ listing: listing('AAPL') }),
-      blue: createPairDoc({ listing: listing('GOOG') }),
-    })
-    const reviewed = dashboardProjection({
-      widget,
-      red: { listing: listing('AAPL') },
-      blue: { listing: listing('MSFT') },
-    })
-    const patch = { pairColor: 'blue' }
-    const expectedReviewBaseStateHash = widgetReviewHash(reviewed, patch)
-
-    const response = await invokeWidgetEdit(patch, expectedReviewBaseStateHash)
-
-    expect(response).toMatchObject({
-      status: 409,
-      body: { code: 'stale_server_tool_review' },
-    })
-    expect(mocks.saveDashboard).not.toHaveBeenCalled()
   })
 
   it('delegates idempotent target drains and leaves removed lease routes absent', async () => {

@@ -41,7 +41,6 @@ describe('MonitorBoard interactions', () => {
       outcome: 'success' as const,
       trigger: 'manual',
       workflowName: 'Workflow One',
-      workflowColor: '#3972F6',
       monitorId: 'monitor-1',
 
       source: 'indicator',
@@ -60,19 +59,6 @@ describe('MonitorBoard interactions', () => {
       cost: 0.2,
       isOrphaned: false,
       isPartial: false,
-      sourceLog: {
-        id: logId,
-        workspaceId: 'workspace-1',
-        workflowId: 'wf-1',
-        executionId: `exec-${index + 1}`,
-        level: 'info',
-        trigger: 'manual',
-        startedAt: '2026-04-23T00:00:00.000Z',
-        recordCreatedAt: '2026-04-23T00:00:00.000Z',
-        endedAt: '2026-04-23T00:05:00.000Z',
-        durationMs: 300000,
-        outcome: 'success' as const,
-      },
     }))
 
     await act(async () => {

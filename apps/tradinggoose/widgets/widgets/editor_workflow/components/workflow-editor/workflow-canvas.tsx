@@ -18,10 +18,8 @@ import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useWorkspacePermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
-import { useStreamCleanup } from '@/hooks/use-stream-cleanup'
 import { useCurrentWorkflow } from '@/hooks/workflow'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { useCopilotStore } from '@/stores/copilot/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
@@ -259,12 +257,6 @@ const WorkflowCanvas = React.memo(
       y: number
       parentId?: string | null
     } | null>(null)
-
-    // Get copilot cleanup function
-    const copilotCleanup = useCopilotStore((state) => state.cleanup)
-
-    // Handle copilot stream cleanup on page unload and component unmount
-    useStreamCleanup(copilotCleanup)
 
     // Extract workflow data from the abstraction
     const { blocks, edges } = currentWorkflow

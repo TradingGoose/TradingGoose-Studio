@@ -8,7 +8,6 @@ import {
   formatTime,
   getInvalidCharacters,
   isValidName,
-  redactApiKeys,
   validateName,
 } from '@/lib/utils'
 import { decryptSecret, encryptSecret } from '@/lib/utils-server'
@@ -238,86 +237,6 @@ describe('formatDuration', () => {
   it.concurrent('should format hours, minutes correctly', () => {
     const result = formatDuration(3725000) // 1h 2m 5s
     expect(result).toBe('1h 2m')
-  })
-})
-
-describe('redactApiKeys', () => {
-  it.concurrent('should redact API keys in objects', () => {
-    const obj = {
-      apiKey: 'secret-key',
-      api_key: 'another-secret',
-      access_token: 'token-value',
-      secret: 'secret-value',
-      password: 'password-value',
-      normalField: 'normal-value',
-    }
-
-    const result = redactApiKeys(obj)
-
-    expect(result.apiKey).toBe('***REDACTED***')
-    expect(result.api_key).toBe('***REDACTED***')
-    expect(result.access_token).toBe('***REDACTED***')
-    expect(result.secret).toBe('***REDACTED***')
-    expect(result.password).toBe('***REDACTED***')
-    expect(result.normalField).toBe('normal-value')
-  })
-
-  it.concurrent('should redact API keys in nested objects', () => {
-    const obj = {
-      config: {
-        apiKey: 'secret-key',
-        normalField: 'normal-value',
-      },
-    }
-
-    const result = redactApiKeys(obj)
-
-    expect(result.config.apiKey).toBe('***REDACTED***')
-    expect(result.config.normalField).toBe('normal-value')
-  })
-
-  it.concurrent('should redact API keys in arrays', () => {
-    const arr = [{ apiKey: 'secret-key-1' }, { apiKey: 'secret-key-2' }]
-
-    const result = redactApiKeys(arr)
-
-    expect(result[0].apiKey).toBe('***REDACTED***')
-    expect(result[1].apiKey).toBe('***REDACTED***')
-  })
-
-  it.concurrent('should handle primitive values', () => {
-    expect(redactApiKeys('string')).toBe('string')
-    expect(redactApiKeys(123)).toBe(123)
-    expect(redactApiKeys(null)).toBe(null)
-    expect(redactApiKeys(undefined)).toBe(undefined)
-  })
-
-  it.concurrent('should handle complex nested structures', () => {
-    const obj = {
-      users: [
-        {
-          name: 'John',
-          credentials: {
-            apiKey: 'secret-key',
-            username: 'john_doe',
-          },
-        },
-      ],
-      config: {
-        database: {
-          password: 'db-password',
-          host: 'localhost',
-        },
-      },
-    }
-
-    const result = redactApiKeys(obj)
-
-    expect(result.users[0].name).toBe('John')
-    expect(result.users[0].credentials.apiKey).toBe('***REDACTED***')
-    expect(result.users[0].credentials.username).toBe('john_doe')
-    expect(result.config.database.password).toBe('***REDACTED***')
-    expect(result.config.database.host).toBe('localhost')
   })
 })
 

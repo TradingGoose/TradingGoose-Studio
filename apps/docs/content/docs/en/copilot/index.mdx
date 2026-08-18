@@ -7,7 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-Copilot is an AI-powered assistant that works across the entire TradingGoose workspace — not just workflows. It can manage workflows, MCP servers, skills, custom tools, knowledge bases, deployments, variables, and more. Copilot runs inside the [Copilot widget](/widgets/copilot).
+Copilot is an AI-powered assistant that works across the entire TradingGoose workspace — not just workflows. It can manage workflows, MCP servers, skills, custom tools, knowledge bases, deployments, variables, and more. In the desktop workspace, open or close its persistent panel with the **Copilot** control in the global sidebar. The panel is not available in the mobile workspace layout.
 
 ## Capabilities
 
@@ -47,13 +47,11 @@ The access-level toggle in the input bar controls how much autonomy Copilot has.
 
 ## Supported Models
 
-Copilot supports models from both Anthropic and OpenAI. You can enable or disable individual models in **Settings > Copilot**. The active model can be switched per-message from the input bar.
+Copilot supports models from Anthropic and OpenAI. Switch the active model from the input bar.
 
-**Anthropic** -- claude-4.5-haiku, claude-4-sonnet, claude-4.5-sonnet, claude-4.1-opus
+**Anthropic** -- claude-sonnet-4.6, claude-opus-4.6
 
-**OpenAI** -- gpt-4o, gpt-4.1, gpt-5-fast, gpt-5, gpt-5-medium, gpt-5-high, o3
-
-Models are grouped by capability tier (fast, standard, reasoning). Enabled models sync across the widget and settings so your selection is consistent everywhere.
+**OpenAI** -- gpt-5.4, gpt-5.4-mini
 
 ## Setup
 
@@ -61,7 +59,7 @@ Models are grouped by capability tier (fast, standard, reasoning). Enabled model
   <Step>
     ### Hosted (tradinggoose.ai)
 
-    Copilot works out of the box. Open any workspace, add the **Copilot** widget to a panel, and start chatting.
+    Copilot works out of the box. Open any workspace, use the **Copilot** control in the global sidebar to open the workspace panel, and start chatting.
   </Step>
   <Step>
     ### Self-hosted
@@ -71,7 +69,7 @@ Models are grouped by capability tier (fast, standard, reasoning). Enabled model
     1. Sign in at [tradinggoose.ai](https://tradinggoose.ai) and open **Settings > Copilot**.
     2. Click **Create** to generate a new API key. Copy it immediately -- it is shown only once.
     3. Set the `COPILOT_API_KEY` environment variable in your self-hosted deployment to the copied value.
-    4. Restart the application. The Copilot widget will now connect through the key.
+    4. Restart the application. The global Copilot panel will now connect through the key.
   </Step>
 </Steps>
 
@@ -81,17 +79,17 @@ Models are grouped by capability tier (fast, standard, reasoning). Enabled model
 
 ## Chat Management
 
-Each Copilot session is scoped to the active panel context. The header dropdown lists all past chats grouped by recency (Today, Yesterday, This Week, Last Week, Older). From the header you can:
+Each Copilot session is scoped to the authenticated user and workspace. The header dropdown lists all past chats grouped by recency (Today, Yesterday, This Week, Last Week, Older). From the header you can:
 
 - **Switch chats** -- click any previous conversation to resume it.
 - **Start a new chat** -- click the **+** button in the header to create a fresh session.
 - **Delete a chat** -- hover a chat entry and click the trash icon. A confirmation dialog prevents accidental deletion.
 
-Chat state persists across page reloads and panel resizes. When a widget is paired with an editor panel, the chat channel is scoped to that specific panel so you can run independent conversations side by side.
+Chat state persists while you navigate the workspace or collapse and reopen the panel. Copilot follows the current page and selection: for example, a knowledge detail, selected execution log, or monitor. On the dashboard, the current context identifies only the active layout. Copilot can read that layout through its dashboard tools when the task requires more detail.
 
 ## Editor Integration
 
-Copilot is context-aware — when paired with an editor panel, it automatically includes the active context (workflow, indicator, skill, MCP server, or custom tool) when sending messages, so it can reference and modify the correct resources without extra prompting.
+Copilot is context-aware. The current page publishes only the selected object's identity, such as the active dashboard layout, knowledge base, execution log, or monitor. Use the `@` mention menu when you want to add other explicit context to a message.
 
 When Copilot streams a response that includes tool calls (for example adding a block, creating a skill, or configuring an MCP server), each action is rendered as an inline preview. In **Limited** mode you approve or reject each change; in **Full** mode changes are applied automatically.
 
