@@ -43,12 +43,12 @@ describe('global Copilot context', () => {
     await act(async () => root.render(children))
   }
 
-  const renderContexts = async (contexts: ChatContext[]) => {
+  const renderContexts = async (contexts: Array<ChatContext | null>) => {
     await render(
       <GlobalCopilotContextProvider>
-        {contexts.map((context) => (
+        {contexts.map((context, index) => (
           <GlobalCopilotContextPublisher
-            key={`${context.kind}:${context.label}`}
+            key={context ? `${context.kind}:${context.label}` : `empty:${index}`}
             context={context}
           />
         ))}
@@ -76,6 +76,9 @@ describe('global Copilot context', () => {
 
     await renderContexts([monitorContext])
     expect(container.textContent).toBe(JSON.stringify(monitorContext))
+
+    await renderContexts([monitorContext, null])
+    expect(container.textContent).toBe('')
 
     await renderContexts([])
     expect(container.textContent).toBe('')

@@ -293,6 +293,8 @@ export function buildPlanTodosFromMessages(messages: CopilotMessage[]): PlanTodo
   let todos: PlanTodo[] = []
 
   for (const message of messages) {
+    if (message.role === 'user') todos = []
+
     for (const toolCall of readToolCallsInMessageOrder(message)) {
       if (toolCall.state !== 'success') {
         continue

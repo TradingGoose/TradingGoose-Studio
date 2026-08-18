@@ -14,7 +14,7 @@ import {
 import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import type { ChatContext } from '@/stores/copilot/types'
 
-type PublishedValue<T> = { owner: symbol; value: T }
+type PublishedValue<T> = { owner: symbol; value: T | null }
 
 type GlobalCopilotContextValue = {
   currentContext: ChatContext | null
@@ -55,7 +55,7 @@ function useGlobalCopilotPublisher<T>(
   const owner = useRef(Symbol('global-copilot-publisher')).current
 
   useLayoutEffect(() => {
-    if (value === null || !setPublished) return
+    if (!setPublished) return
     setPublished({ owner, value })
     return () => setPublished((current) => (current?.owner === owner ? null : current))
   }, [owner, setPublished, value])

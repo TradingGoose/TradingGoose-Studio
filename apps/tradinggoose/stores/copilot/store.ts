@@ -753,7 +753,13 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
         const contextsToSend = resolvedContexts.length > 0 ? resolvedContexts : undefined
 
         const abortController = new AbortController()
-        set({ isSendingMessage: true, isAwaitingContinuation: false, abortController })
+        set({
+          isSendingMessage: true,
+          isAwaitingContinuation: false,
+          abortController,
+          planTodos: [],
+          showPlanTodos: false,
+        })
 
         const userMessage = createUserMessage(message, fileAttachments, contextsToSend, messageId)
         const streamingMessage = createStreamingMessage()

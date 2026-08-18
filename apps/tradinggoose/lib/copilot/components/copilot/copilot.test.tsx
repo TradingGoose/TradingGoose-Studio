@@ -237,6 +237,20 @@ describe('Copilot auto-scroll', () => {
     expect(scrollToMock).toHaveBeenCalled()
   })
 
+  it('hides unfinished todos when no turn is active', async () => {
+    mockStoreState = {
+      ...mockStoreState,
+      isSendingMessage: false,
+      currentChat: { ...mockStoreState.currentChat, latestTurnStatus: 'completed' },
+      planTodos: [{ id: 'old-todo', content: 'Previous turn', completed: false }],
+      showPlanTodos: true,
+    }
+
+    await renderCopilot()
+
+    expect(container.querySelector('[data-testid="todo-list"]')).toBeNull()
+  })
+
   it.each([
     ['real user scroll-up', true, false, 'user', true],
     ['programmatic scroll', true, false, 'programmatic', false],

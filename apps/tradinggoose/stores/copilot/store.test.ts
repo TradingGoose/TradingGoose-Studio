@@ -641,6 +641,17 @@ describe('copilot streaming regressions', () => {
 
     store.getState().updatePlanTodoStatus('todo-2', 'executing')
     expect(store.getState().showPlanTodos).toBe(true)
+
+    persistedMessages.push({
+      id: 'user-next-turn',
+      role: 'user',
+      content: 'Answer without a plan',
+      timestamp: '2026-04-13T00:00:02.000Z',
+    })
+    await store.getState().loadChats({ workspaceId: 'ws-1' })
+
+    expect(store.getState().planTodos).toEqual([])
+    expect(store.getState().showPlanTodos).toBe(false)
   })
 
   it('uses the final output item text when it differs from streamed deltas', async () => {
@@ -1744,6 +1755,10 @@ describe('copilot streaming regressions', () => {
     })
 
     vi.stubGlobal('fetch', fetchMock)
+    store.setState({
+      planTodos: [{ id: 'old-todo', content: 'Previous turn', completed: false }],
+      showPlanTodos: true,
+    })
 
     await store.getState().sendMessage('Update the current setup', {
       contexts: [
@@ -1791,6 +1806,8 @@ describe('copilot streaming regressions', () => {
         label: 'Current Skill',
       },
     ])
+    expect(store.getState().planTodos).toEqual([])
+    expect(store.getState().showPlanTodos).toBe(false)
   })
 
   it('keeps the same panel chat while sending the currently viewed workflow as live context', async () => {
