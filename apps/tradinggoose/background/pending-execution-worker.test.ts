@@ -140,10 +140,6 @@ const runTask = (pendingExecutionId: string) =>
     }
   ).run({ pendingExecutionId })
 
-function mockRun(status: string, durationMs = 1_000) {
-  return { id: `run-${status}`, status, durationMs }
-}
-
 describe('pending execution worker', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -254,6 +250,17 @@ describe('pending execution worker', () => {
     expect(mocks.completePendingExecution).toHaveBeenCalledWith({ pendingExecutionId: row.id })
   })
 
+  it('settles reconciled failures without starting a nested queue wake', async () => {
+    const row = processingRow()
+
+    await finalizePendingExecutionFailure(row as any, 'Timed out', 1_000, { wake: false })
+
+    expect(mocks.completePendingExecution).toHaveBeenCalledWith({
+      pendingExecutionId: row.id,
+      wake: false,
+    })
+  })
+
   it('retains parent capacity until a processing child is gone', async () => {
     const parent = processingRow()
     const child = processingRow({ id: 'child-1', source: 'workflow_block' })
@@ -263,19 +270,31 @@ describe('pending execution worker', () => {
       parentReads += 1
       return Promise.resolve([child])
     })
-    mocks.runsList.mockResolvedValueOnce({ data: [mockRun('EXECUTING')], pagination: {} })
+    mocks.runsList.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'run-EXECUTING',
+          status: 'EXECUTING',
+          durationMs: 1_000,
+          isCompleted: false,
+          isCancelled: false,
+        },
+      ],
+      pagination: {},
+    })
 
     await expect(
-      finalizePendingExecutionFailure(parent as any, 'Parent failed', 1_000)
+      finalizePendingExecutionFailure(parent as any, 'Parent failed', 1_000, { wake: false })
     ).resolves.toBe(false)
 
     expect(parentReads).toBe(2)
     expect(mocks.cancelPendingWorkflowExecution).toHaveBeenCalledWith({
       pendingExecutionId: child.id,
       userId: child.userId,
+      wake: false,
     })
     expect(mocks.runsCancel).toHaveBeenCalledWith('run-EXECUTING')
-    expect(mocks.markPendingExecutionOwnerCompleted).toHaveBeenCalledWith(parent)
+    expect(mocks.markPendingExecutionOwnerCompleted).toHaveBeenCalledWith(parent, { wake: false })
     expect(mocks.completePendingExecution).not.toHaveBeenCalled()
   })
 })

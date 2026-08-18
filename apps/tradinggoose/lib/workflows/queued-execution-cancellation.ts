@@ -113,6 +113,7 @@ async function recordQueuedWorkflowCancellation(params: {
 export async function cancelPendingWorkflowExecution(params: {
   pendingExecutionId: string
   userId: string
+  wake?: boolean
 }): Promise<PendingExecutionCancellationResult> {
   const [row] = await db
     .select({
@@ -199,7 +200,10 @@ export async function cancelPendingWorkflowExecution(params: {
     }
 
     if ((await listChildPendingWorkflowExecutions(claimed.id)).length === 0) {
-      await completePendingExecution({ pendingExecutionId: claimed.id })
+      await completePendingExecution({
+        pendingExecutionId: claimed.id,
+        wake: params.wake,
+      })
     }
     return { status: 'cancelling' }
   }

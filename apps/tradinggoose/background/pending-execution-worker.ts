@@ -20,16 +20,9 @@ import { markDocumentProcessingJobFailed } from './knowledge-processing'
 import { executePendingExecutionJob } from './pending-execution-job'
 
 const logger = createLogger('PendingExecutionWorker')
-const WORKER_FAILURE_ERROR = 'Workflow execution stopped before it could finish'
+export const PENDING_EXECUTION_WORKER_FAILURE_ERROR =
+  'Workflow execution stopped before it could finish'
 const DESCENDANT_CANCELLATION_CONCURRENCY = 5
-const ACTIVE_RUN_STATUSES = new Set([
-  'PENDING_VERSION',
-  'QUEUED',
-  'DEQUEUED',
-  'EXECUTING',
-  'WAITING',
-  'DELAYED',
-])
 
 type PendingExecutionTaskPayload = {
   pendingExecutionId: string
@@ -91,7 +84,7 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
   }
 }
 
-export async function executePendingExecution(payload: PendingExecutionTaskPayload) {
+async function executePendingExecution(payload: PendingExecutionTaskPayload) {
   const row = await getProcessingPendingExecution(payload.pendingExecutionId)
   if (!row) {
     return { success: true, skipped: 'not_processing' as const }
@@ -107,7 +100,7 @@ export async function executePendingExecution(payload: PendingExecutionTaskPaylo
       workflowId: row.workflowId,
       error,
     })
-    const message = error instanceof Error ? error.message : WORKER_FAILURE_ERROR
+    const message = error instanceof Error ? error.message : PENDING_EXECUTION_WORKER_FAILURE_ERROR
     await finalizePendingExecutionFailure(row, message, 1)
     throw error
   }
@@ -184,19 +177,23 @@ async function cancelTriggerRun(row: PendingExecutionClaim) {
     limit: 1,
   })
   const run = page.data[0]
-  if (run && ACTIVE_RUN_STATUSES.has(run.status)) {
+  if (run && !run.isCompleted && !run.isCancelled) {
     await runs.cancel(run.id)
   }
 }
 
-async function cancelPendingExecutionDescendants(parentExecutionId: string) {
+async function cancelPendingExecutionDescendants(
+  parentExecutionId: string,
+  options: { wake?: boolean } = {}
+) {
   const children = await listChildPendingWorkflowExecutions(parentExecutionId)
 
   await mapWithConcurrency(children, DESCENDANT_CANCELLATION_CONCURRENCY, async (child) => {
-    await cancelPendingExecutionDescendants(child.id)
+    await cancelPendingExecutionDescendants(child.id, options)
     await cancelPendingWorkflowExecution({
       pendingExecutionId: child.id,
       userId: child.userId,
+      wake: options.wake,
     })
     await cancelTriggerRun(child)
   })
@@ -207,7 +204,8 @@ async function cancelPendingExecutionDescendants(parentExecutionId: string) {
 export async function finalizePendingExecutionFailure(
   row: PendingExecutionClaim,
   message: string,
-  durationMs: number
+  durationMs: number,
+  options: { wake?: boolean } = {}
 ) {
   if (row.executionType === 'document') {
     await markDocumentProcessingJobFailed(row.payload, message)
@@ -215,12 +213,15 @@ export async function finalizePendingExecutionFailure(
 
   await terminalizeWorkflowExecution(row, durationMs, message)
 
-  const hasDescendants = await cancelPendingExecutionDescendants(row.id)
+  const hasDescendants = await cancelPendingExecutionDescendants(row.id, options)
   if (hasDescendants) {
-    await markPendingExecutionOwnerCompleted(row)
+    await markPendingExecutionOwnerCompleted(row, options)
     return false
   }
 
-  await completePendingExecution({ pendingExecutionId: row.id })
+  await completePendingExecution({
+    pendingExecutionId: row.id,
+    wake: options.wake,
+  })
   return true
 }

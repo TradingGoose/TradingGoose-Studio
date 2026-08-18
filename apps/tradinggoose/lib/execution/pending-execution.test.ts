@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   transactionMock,
   triggerMock,
+  runsListMock,
   idempotencyCreateMock,
   executePendingExecutionJobMock,
   deleteWhereMock,
@@ -20,10 +21,12 @@ const {
   deleteReturningMock,
   loggingStartMock,
   loggingCompleteWithErrorMock,
+  finalizePendingExecutionFailureMock,
   sqlMock,
 } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   triggerMock: vi.fn(),
+  runsListMock: vi.fn(),
   idempotencyCreateMock: vi.fn(),
   executePendingExecutionJobMock: vi.fn(),
   deleteWhereMock: vi.fn(),
@@ -38,6 +41,7 @@ const {
   deleteReturningMock: vi.fn(),
   loggingStartMock: vi.fn(),
   loggingCompleteWithErrorMock: vi.fn(),
+  finalizePendingExecutionFailureMock: vi.fn(),
   sqlMock: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
     strings: [...strings],
     values,
@@ -62,7 +66,7 @@ const txInsertChain = {
 const selectChain = {
   from: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
-  orderBy: vi.fn().mockResolvedValue([]),
+  orderBy: vi.fn(),
   limit: selectLimitMock,
 }
 
@@ -117,6 +121,9 @@ vi.mock('@trigger.dev/sdk', () => ({
   tasks: {
     trigger: triggerMock,
   },
+  runs: {
+    list: runsListMock,
+  },
   timeout: {
     None: 2_147_483_647,
   },
@@ -150,6 +157,11 @@ vi.mock('@/lib/trigger/settings', () => ({
 
 vi.mock('@/background/pending-execution-job', () => ({
   executePendingExecutionJob: executePendingExecutionJobMock,
+}))
+
+vi.mock('@/background/pending-execution-worker', () => ({
+  finalizePendingExecutionFailure: finalizePendingExecutionFailureMock,
+  PENDING_EXECUTION_WORKER_FAILURE_ERROR: 'Workflow execution stopped before it could finish',
 }))
 
 vi.mock('@/lib/logs/execution/logging-session', () => ({
@@ -202,6 +214,23 @@ const createPendingRow = (
   ...overrides,
 })
 
+const createTriggerRun = (
+  status: string,
+  overrides: Partial<{
+    id: string
+    durationMs: number
+    isCompleted: boolean
+    isCancelled: boolean
+  }> = {}
+) => ({
+  id: `run-${status.toLowerCase()}`,
+  status,
+  durationMs: 1_000,
+  isCompleted: false,
+  isCancelled: false,
+  ...overrides,
+})
+
 function configureTransactionMock() {
   transactionMock.mockImplementation(async (callback) =>
     callback({
@@ -228,6 +257,9 @@ beforeEach(() => {
   txSelectLimitMock.mockReset().mockResolvedValue([])
   txSelectRowsMock.mockReset().mockResolvedValue([])
   selectLimitMock.mockReset().mockResolvedValue([])
+  selectChain.orderBy.mockReset().mockResolvedValue([])
+  runsListMock.mockReset().mockResolvedValue({ data: [] })
+  finalizePendingExecutionFailureMock.mockReset().mockResolvedValue(true)
 })
 
 describe('dispatchNextPendingExecution', () => {
@@ -238,12 +270,16 @@ describe('dispatchNextPendingExecution', () => {
     resolveServerExecutionBillingTierForScopeMock.mockResolvedValue(null)
     idempotencyCreateMock.mockResolvedValue('idempotency-key')
     triggerMock.mockResolvedValue(undefined)
+    runsListMock.mockResolvedValue({ data: [] })
+    finalizePendingExecutionFailureMock.mockResolvedValue(true)
     executePendingExecutionJobMock.mockResolvedValue({ success: true })
     txSelectLimitMock.mockResolvedValue([])
     txExecuteMock.mockResolvedValue(undefined)
     updateReturningMock.mockResolvedValue([])
     updateChain.set.mockReturnThis()
     updateChain.where.mockReturnThis()
+    deleteWhereMock.mockReturnValue(deleteChain)
+    deleteReturningMock.mockResolvedValue([])
     configureTransactionMock()
   })
 
@@ -351,10 +387,15 @@ describe('dispatchNextPendingExecution', () => {
       displayName: 'Starter',
       workflowExecutionTimeLimitSeconds: 45,
     })
-    txSelectLimitMock.mockResolvedValueOnce([row])
-    txSelectRowsMock.mockResolvedValueOnce([
-      { id: 'processing-1', source: 'workflow_api', payload: {} },
-    ])
+    const processing = createPendingRow({ id: 'processing-1', status: 'processing' })
+    txSelectLimitMock.mockResolvedValueOnce([row]).mockResolvedValueOnce([row])
+    txSelectRowsMock
+      .mockResolvedValueOnce([{ id: processing.id, source: processing.source, payload: {} }])
+      .mockResolvedValueOnce([{ id: processing.id, source: processing.source, payload: {} }])
+    selectChain.orderBy.mockResolvedValueOnce([processing])
+    runsListMock.mockResolvedValueOnce({
+      data: [createTriggerRun('WAITING', { id: 'run-processing-1' })],
+    })
 
     await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
       status: 'capacity_blocked',
@@ -365,6 +406,232 @@ describe('dispatchNextPendingExecution', () => {
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
     expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
+    expect(runsListMock).toHaveBeenCalledOnce()
+    expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
+    expect(deleteReturningMock).not.toHaveBeenCalled()
+    expect(txExecuteMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('releases terminal capacity and retries the blocked claim once', async () => {
+    const pending = createPendingRow()
+    const grandparent = createPendingRow({ id: 'grandparent-1', status: 'processing' })
+    const parent = createPendingRow({
+      id: 'parent-1',
+      status: 'processing',
+      source: 'workflow_block',
+      payload: { metadata: { parentExecutionId: grandparent.id } },
+    })
+    const borrowedChild = createPendingRow({
+      id: 'child-1',
+      status: 'processing',
+      source: 'workflow_block',
+      payload: { metadata: { parentExecutionId: parent.id } },
+    })
+    const processing = createPendingRow({
+      id: 'processing-1',
+      status: 'processing',
+      processingStartedAt: new Date('2026-08-18T12:00:00.000Z'),
+    })
+    resolveServerExecutionBillingTierForScopeMock.mockResolvedValue({
+      concurrencyLimit: 1,
+      displayName: 'Starter',
+      workflowExecutionTimeLimitSeconds: 45,
+    })
+    txSelectLimitMock.mockResolvedValueOnce([pending]).mockResolvedValueOnce([pending])
+    txSelectRowsMock
+      .mockResolvedValueOnce([
+        { id: grandparent.id, source: grandparent.source, payload: grandparent.payload },
+        { id: parent.id, source: parent.source, payload: parent.payload },
+        { id: borrowedChild.id, source: borrowedChild.source, payload: borrowedChild.payload },
+        { id: processing.id, source: processing.source, payload: {} },
+      ])
+      .mockResolvedValueOnce([])
+    selectLimitMock.mockResolvedValueOnce([grandparent])
+    selectChain.orderBy.mockResolvedValueOnce([grandparent, parent, borrowedChild, processing])
+    runsListMock
+      .mockResolvedValueOnce({
+        data: [createTriggerRun('WAITING', { id: 'run-grandparent-1' })],
+      })
+      .mockResolvedValueOnce({
+        data: [createTriggerRun('WAITING', { id: 'run-parent-1' })],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          createTriggerRun('TIMED_OUT', {
+            id: 'run-child-1',
+            durationMs: 10_000,
+            isCompleted: true,
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          createTriggerRun('TIMED_OUT', {
+            id: 'run-processing-1',
+            durationMs: 45_000,
+            isCompleted: true,
+          }),
+        ],
+      })
+    updateReturningMock.mockResolvedValueOnce([
+      { ...pending, status: 'processing', processingStartedAt: new Date() },
+    ])
+
+    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+      status: 'dispatched',
+      pendingExecutionId: pending.id,
+    })
+
+    expect(finalizePendingExecutionFailureMock).toHaveBeenNthCalledWith(
+      1,
+      borrowedChild,
+      'Workflow execution time limit exceeded',
+      10_000,
+      { wake: false }
+    )
+    expect(finalizePendingExecutionFailureMock).toHaveBeenNthCalledWith(
+      2,
+      processing,
+      'Workflow execution time limit exceeded',
+      45_000,
+      { wake: false }
+    )
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.id', grandparent.id)
+    expect(selectChain.where).toHaveBeenCalledWith({
+      args: [
+        { field: 'pendingExecution.billingScopeId', value: 'scope-1' },
+        { field: 'pendingExecution.status', value: 'processing' },
+      ],
+    })
+    expect(triggerMock).toHaveBeenCalledWith(
+      'pending-execution',
+      { pendingExecutionId: pending.id },
+      expect.anything()
+    )
+  })
+
+  it('retries a processing row whose Trigger admission is missing', async () => {
+    const pending = createPendingRow()
+    const processing = createPendingRow({ id: 'processing-1', status: 'processing' })
+    resolveServerExecutionBillingTierForScopeMock.mockResolvedValue({
+      concurrencyLimit: 1,
+      displayName: 'Starter',
+      workflowExecutionTimeLimitSeconds: 45,
+    })
+    txSelectLimitMock.mockResolvedValueOnce([pending]).mockResolvedValueOnce([pending])
+    txSelectRowsMock
+      .mockResolvedValueOnce([{ id: processing.id, source: processing.source, payload: {} }])
+      .mockResolvedValueOnce([{ id: processing.id, source: processing.source, payload: {} }])
+    selectChain.orderBy.mockResolvedValueOnce([processing])
+
+    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+      status: 'capacity_blocked',
+      pendingExecutionId: pending.id,
+    })
+
+    expect(triggerMock).toHaveBeenCalledOnce()
+    expect(triggerMock).toHaveBeenCalledWith(
+      'pending-execution',
+      { pendingExecutionId: processing.id },
+      expect.objectContaining({ maxDuration: 45 })
+    )
+    expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
+  })
+
+  it('retains a completed parent while its child still owns borrowed capacity', async () => {
+    const pending = createPendingRow()
+    const processing = createPendingRow({ id: 'processing-1', status: 'processing' })
+    const child = createPendingRow({
+      id: 'child-1',
+      status: 'processing',
+      source: 'workflow_block',
+      payload: { metadata: { parentExecutionId: processing.id } },
+    })
+    resolveServerExecutionBillingTierForScopeMock.mockResolvedValue({
+      concurrencyLimit: 1,
+      displayName: 'Starter',
+      workflowExecutionTimeLimitSeconds: 45,
+    })
+    txSelectLimitMock.mockResolvedValueOnce([pending]).mockResolvedValueOnce([pending])
+    txSelectRowsMock
+      .mockResolvedValueOnce([{ id: processing.id, source: processing.source, payload: {} }])
+      .mockResolvedValueOnce([{ id: processing.id, source: processing.source, payload: {} }])
+    const completedProcessing = {
+      ...processing,
+      payload: { ownerCompletedAt: '2026-08-18T12:00:00.000Z' },
+    }
+    selectLimitMock
+      .mockResolvedValueOnce([completedProcessing])
+      .mockResolvedValueOnce([completedProcessing])
+    selectChain.orderBy
+      .mockResolvedValueOnce([processing])
+      .mockResolvedValueOnce([child])
+      .mockResolvedValueOnce([child])
+    runsListMock.mockResolvedValueOnce({
+      data: [createTriggerRun('COMPLETED', { id: 'run-processing-1', isCompleted: true })],
+    })
+
+    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+      status: 'capacity_blocked',
+      pendingExecutionId: pending.id,
+    })
+
+    expect(updateChain.set).toHaveBeenCalledWith(
+      expect.objectContaining({ updatedAt: expect.any(Date) })
+    )
+    expect(deleteReturningMock).not.toHaveBeenCalled()
+    expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
+  })
+
+  it('retries the claim when the last child finishes while its parent is being marked', async () => {
+    const pending = createPendingRow()
+    const processing = createPendingRow({ id: 'processing-1', status: 'processing' })
+    const child = createPendingRow({
+      id: 'child-1',
+      status: 'processing',
+      source: 'workflow_block',
+      payload: { metadata: { parentExecutionId: processing.id } },
+    })
+    resolveServerExecutionBillingTierForScopeMock.mockResolvedValue({
+      concurrencyLimit: 1,
+      displayName: 'Starter',
+      workflowExecutionTimeLimitSeconds: 45,
+    })
+    txSelectLimitMock.mockResolvedValueOnce([pending]).mockResolvedValueOnce([pending])
+    txSelectRowsMock
+      .mockResolvedValueOnce([{ id: processing.id, source: processing.source, payload: {} }])
+      .mockResolvedValueOnce([])
+    selectLimitMock.mockResolvedValueOnce([
+      {
+        ...processing,
+        payload: { ownerCompletedAt: '2026-08-18T12:00:00.000Z' },
+      },
+    ])
+    selectChain.orderBy
+      .mockResolvedValueOnce([processing])
+      .mockResolvedValueOnce([child])
+      .mockResolvedValueOnce([])
+    runsListMock.mockResolvedValueOnce({
+      data: [createTriggerRun('COMPLETED', { id: 'run-processing-1', isCompleted: true })],
+    })
+    deleteReturningMock.mockResolvedValueOnce([
+      { billingScopeId: processing.billingScopeId, parentExecutionId: null },
+    ])
+    updateReturningMock.mockResolvedValueOnce([
+      { ...pending, status: 'processing', processingStartedAt: new Date() },
+    ])
+
+    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+      status: 'dispatched',
+      pendingExecutionId: pending.id,
+    })
+
+    expect(deleteReturningMock).toHaveBeenCalledOnce()
+    expect(triggerMock).toHaveBeenCalledWith(
+      'pending-execution',
+      { pendingExecutionId: pending.id },
+      expect.anything()
+    )
   })
 })
 
@@ -455,7 +722,6 @@ describe('enqueuePendingExecution', () => {
 
     expect(result).toEqual({
       pendingExecutionId: 'pending-local-1',
-      billingScopeId: 'user-1',
       inserted: true,
     })
     expect(triggerMock).not.toHaveBeenCalled()
@@ -543,7 +809,6 @@ describe('enqueuePendingExecution', () => {
 
     expect(result).toEqual({
       pendingExecutionId: 'pending-org-1',
-      billingScopeId: 'organization-1',
       inserted: true,
     })
     expect(txInsertValuesMock).toHaveBeenCalledWith(
@@ -574,7 +839,6 @@ describe('enqueuePendingExecution', () => {
 
     expect(result).toEqual({
       pendingExecutionId: 'pending-local-1',
-      billingScopeId: 'user-1',
       inserted: false,
     })
     expect(triggerMock).not.toHaveBeenCalled()
@@ -636,7 +900,6 @@ describe('enqueuePendingExecution', () => {
 
     expect(result).toEqual({
       pendingExecutionId: 'execution-1',
-      billingScopeId: 'user-1',
       inserted: false,
     })
     expect(txInsertValuesMock).not.toHaveBeenCalled()
@@ -670,7 +933,6 @@ describe('enqueuePendingExecution', () => {
 
     expect(result).toEqual({
       pendingExecutionId: 'pending-schedule-1',
-      billingScopeId: 'user-1',
       inserted: false,
     })
     expect(txInsertValuesMock).not.toHaveBeenCalled()
@@ -965,7 +1227,14 @@ describe('completePendingExecution', () => {
     expect(triggerMock).not.toHaveBeenCalled()
   })
 
-  it('releases a completed parent after its last child is removed', async () => {
+  it('can settle reconciliation without recursively waking the billing scope', async () => {
+    await completePendingExecution({ pendingExecutionId: 'pending-1', wake: false })
+
+    expect(getTriggerExecutionStateMock).not.toHaveBeenCalled()
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('releases completed ancestors after the last nested child is removed', async () => {
     deleteReturningMock
       .mockResolvedValueOnce([
         {
@@ -976,21 +1245,37 @@ describe('completePendingExecution', () => {
       .mockResolvedValueOnce([
         {
           billingScopeId: 'scope-1',
+          parentExecutionId: 'grandparent-1',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          billingScopeId: 'scope-1',
           parentExecutionId: null,
         },
       ])
-    selectLimitMock.mockResolvedValueOnce([
-      createPendingRow({
-        id: 'parent-1',
-        status: 'processing',
-        payload: { ownerCompletedAt: '2026-01-01T00:00:00.000Z' },
-      }),
-    ])
+    selectLimitMock
+      .mockResolvedValueOnce([
+        createPendingRow({
+          id: 'parent-1',
+          status: 'processing',
+          payload: { ownerCompletedAt: '2026-01-01T00:00:00.000Z' },
+        }),
+      ])
+      .mockResolvedValueOnce([
+        createPendingRow({
+          id: 'grandparent-1',
+          status: 'processing',
+          payload: { ownerCompletedAt: '2026-01-01T00:00:00.000Z' },
+        }),
+      ])
 
-    await completePendingExecution({ pendingExecutionId: 'child-1' })
+    await completePendingExecution({ pendingExecutionId: 'child-1', wake: false })
 
-    expect(deleteReturningMock).toHaveBeenCalledTimes(2)
+    expect(deleteReturningMock).toHaveBeenCalledTimes(3)
     expect(eqMock).toHaveBeenCalledWith('pendingExecution.id', 'parent-1')
+    expect(eqMock).toHaveBeenCalledWith('pendingExecution.id', 'grandparent-1')
+    expect(getTriggerExecutionStateMock).not.toHaveBeenCalled()
   })
 })
 
@@ -1086,6 +1371,7 @@ describe('cancelPendingWorkflowExecution', () => {
       cancelPendingWorkflowExecution({
         pendingExecutionId: 'pending-1',
         userId: 'user-1',
+        wake: false,
       })
     ).resolves.toEqual({ status: 'cancelling' })
     expect(loggingStartMock).toHaveBeenCalled()
@@ -1095,6 +1381,7 @@ describe('cancelPendingWorkflowExecution', () => {
       billable: false,
     })
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
+    expect(getTriggerExecutionStateMock).not.toHaveBeenCalled()
     expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
   })
