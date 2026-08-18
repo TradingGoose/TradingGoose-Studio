@@ -596,18 +596,26 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                   <TooltipContent side='top'>{copilotCopy.input.stopGeneration}</TooltipContent>
                 </Tooltip>
               ) : (
-                <Button
-                  onClick={() => void handleSubmit()}
-                  disabled={!canSubmit}
-                  size='icon'
-                  className='h-6 w-6 rounded-sm bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
-                >
-                  {isLoading ? (
-                    <Loader2 className='h-3 w-3 animate-spin' />
-                  ) : (
-                    <Send className='h-3 w-3' />
-                  )}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        onClick={() => void handleSubmit()}
+                        disabled={!canSubmit}
+                        size='icon'
+                        className='h-6 w-6 rounded-sm bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
+                        aria-label={copilotCopy.input.sendMessage}
+                      >
+                        {isLoading ? (
+                          <Loader2 className='h-3 w-3 animate-spin' />
+                        ) : (
+                          <Send className='h-3 w-3' />
+                        )}
+                      </Button>
+                    }
+                  />
+                  <TooltipContent side='top'>{copilotCopy.input.sendMessage}</TooltipContent>
+                </Tooltip>
               )}
             </div>
           </div>

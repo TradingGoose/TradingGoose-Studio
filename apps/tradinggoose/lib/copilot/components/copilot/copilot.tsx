@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
 import type {
@@ -37,6 +38,7 @@ interface CopilotProps {
 }
 
 export function Copilot({ workspaceId, panelWidth, currentContext = null }: CopilotProps) {
+  const copilotCopy = useCopilotMessages()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isInitialized, setIsInitialized] = useState(false)
@@ -389,7 +391,9 @@ export function Copilot({ workspaceId, panelWidth, currentContext = null }: Copi
           <div className='flex h-full w-full items-center justify-center'>
             <div className='flex flex-col items-center gap-3'>
               <LoadingAgent size='md' />
-              <p className='text-muted-foreground text-sm'>Loading chat history...</p>
+              <p className='text-muted-foreground text-sm'>
+                {copilotCopy.history.loadingChatHistory}
+              </p>
             </div>
           </div>
         ) : (
@@ -451,7 +455,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext = null }: Copi
                     className='flex h-7 w-7 items-center gap-1 rounded-lg border border-border bg-background shadow-lg transition-all hover:bg-muted'
                   >
                     <ArrowDown className='h-3.5 w-3.5 font-bold text-gray-700 dark:text-gray-300' />
-                    <span className='sr-only'>Scroll to bottom</span>
+                    <span className='sr-only'>{copilotCopy.message.scrollToBottom}</span>
                   </Button>
                 </div>
               )}

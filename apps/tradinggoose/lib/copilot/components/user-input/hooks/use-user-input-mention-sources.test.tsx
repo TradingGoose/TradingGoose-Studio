@@ -332,6 +332,25 @@ it('retries a failed workspace entity on explicit submenu demand', async () => {
   ])
 })
 
+it('surfaces and retries a failed chat source load', async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce({ ok: false, status: 500 })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ chats: [{ reviewSessionId: 'chat-1', title: 'Chat 1' }] }),
+    })
+  vi.stubGlobal('fetch', fetchMock)
+
+  await renderHarness('workspace-1')
+  await act(async () => current.ensureSubmenuLoaded('chats'))
+  expect(current.mentionFailed.chats).toBe(true)
+
+  await act(async () => current.ensureSubmenuLoaded('chats'))
+  expect(current.mentionFailed.chats).toBe(false)
+  expect(current.mentionSources.pastChats).toEqual([{ reviewSessionId: 'chat-1', title: 'Chat 1' }])
+})
+
 it('discards a deferred block catalog load when the locale changes', async () => {
   const catalogGate = deferred()
   m.blockCatalogGate = catalogGate.promise

@@ -1,47 +1,39 @@
 import { memo, useState } from 'react'
 import { FileText, Image } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatFileSize } from '@/i18n/formatters'
 import type { MessageFileAttachment } from '@/stores/copilot/types'
 
 interface FileAttachmentDisplayProps {
   fileAttachments: MessageFileAttachment[]
 }
 
+const getFileIcon = (mediaType: string) => {
+  if (mediaType.startsWith('image/')) {
+    return <Image className='h-5 w-5 text-muted-foreground' />
+  }
+  if (mediaType.includes('pdf')) {
+    return <FileText className='h-5 w-5 text-red-500' />
+  }
+  if (mediaType.includes('text') || mediaType.includes('json') || mediaType.includes('xml')) {
+    return <FileText className='h-5 w-5 text-blue-500' />
+  }
+  return <FileText className='h-5 w-5 text-muted-foreground' />
+}
+
+const getFileUrl = (file: MessageFileAttachment) =>
+  `/api/files/serve/${encodeURIComponent(file.key)}?context=copilot`
+
+const isImageFile = (mediaType: string) => mediaType.startsWith('image/')
+
 export const FileAttachmentDisplay = memo(({ fileAttachments }: FileAttachmentDisplayProps) => {
+  const locale = useLocale()
   const [failedImageIds, setFailedImageIds] = useState<Set<string>>(() => new Set())
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return `${Math.round((bytes / k ** i) * 10) / 10} ${sizes[i]}`
-  }
-
-  const getFileIcon = (mediaType: string) => {
-    if (mediaType.startsWith('image/')) {
-      return <Image className='h-5 w-5 text-muted-foreground' />
-    }
-    if (mediaType.includes('pdf')) {
-      return <FileText className='h-5 w-5 text-red-500' />
-    }
-    if (mediaType.includes('text') || mediaType.includes('json') || mediaType.includes('xml')) {
-      return <FileText className='h-5 w-5 text-blue-500' />
-    }
-    return <FileText className='h-5 w-5 text-muted-foreground' />
-  }
-
-  const getFileUrl = (file: MessageFileAttachment) => {
-    return `/api/files/serve/${encodeURIComponent(file.key)}?context=copilot`
-  }
 
   const handleFileClick = (file: MessageFileAttachment) => {
     const serveUrl = getFileUrl(file)
     window.open(serveUrl, '_blank')
-  }
-
-  const isImageFile = (mediaType: string) => {
-    return mediaType.startsWith('image/')
   }
 
   return (
@@ -80,7 +72,7 @@ export const FileAttachmentDisplay = memo(({ fileAttachments }: FileAttachmentDi
               </button>
             }
           />
-          <TooltipContent side='top'>{`${file.filename} (${formatFileSize(file.size)})`}</TooltipContent>
+          <TooltipContent side='top'>{`${file.filename} (${formatFileSize(locale, file.size)})`}</TooltipContent>
         </Tooltip>
       ))}
     </>

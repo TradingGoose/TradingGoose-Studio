@@ -41,6 +41,7 @@ type WorkspaceEntityMentionLoadState = Partial<
 >
 
 type WorkspaceMentionScope = { key: string }
+type MentionListState<T> = T[] | 'failed' | null
 
 const EMPTY_PAST_CHATS: PastChatItem[] = []
 const EMPTY_LOGS: LogItem[] = []
@@ -58,31 +59,36 @@ export function useUserInputMentionSources({
   const workspaceScopeKey = JSON.stringify([workspaceId, normalizedOwnerUserId])
   const activeWorkspaceScopeRef = useRef<WorkspaceMentionScope | null>(null)
   const [committedWorkspaceScopeKey, setCommittedWorkspaceScopeKey] = useState(workspaceScopeKey)
-  const [loadedPastChats, setLoadedPastChats] = useState<PastChatItem[] | null>(null)
+  const [loadedPastChats, setLoadedPastChats] = useState<MentionListState<PastChatItem>>(null)
   const [pastChatsLoading, setPastChatsLoading] = useState(false)
   const [workspaceEntityState, setWorkspaceEntityState] = useState<WorkspaceEntityMentionLoadState>(
     {}
   )
   const blockCatalogLocaleRef = useRef(locale)
   const [committedBlockCatalogLocale, setCommittedBlockCatalogLocale] = useState(locale)
-  const [loadedBlocksList, setLoadedBlocksList] = useState<BlockItem[] | null>(null)
+  const [loadedBlocksList, setLoadedBlocksList] = useState<MentionListState<BlockItem>>(null)
   const [blockCatalogLoading, setBlockCatalogLoading] = useState(false)
   const blockCatalogLoadGenerationRef = useRef(0)
-  const [loadedLogsList, setLoadedLogsList] = useState<LogItem[] | null>(null)
+  const [loadedLogsList, setLoadedLogsList] = useState<MentionListState<LogItem>>(null)
   const [logsLoading, setLogsLoading] = useState(false)
   const workspaceScopeIsCurrent = committedWorkspaceScopeKey === workspaceScopeKey
   const pastChats = workspaceScopeIsCurrent
-    ? (loadedPastChats ?? EMPTY_PAST_CHATS)
+    ? Array.isArray(loadedPastChats)
+      ? loadedPastChats
+      : EMPTY_PAST_CHATS
     : EMPTY_PAST_CHATS
   const isLoadingPastChats = workspaceScopeIsCurrent && pastChatsLoading
   const scopedWorkspaceEntityState = workspaceScopeIsCurrent
     ? workspaceEntityState
     : EMPTY_WORKSPACE_ENTITY_STATE
-  const logsList = workspaceScopeIsCurrent ? (loadedLogsList ?? EMPTY_LOGS) : EMPTY_LOGS
+  const logsList =
+    workspaceScopeIsCurrent && Array.isArray(loadedLogsList) ? loadedLogsList : EMPTY_LOGS
   const isLoadingLogs = workspaceScopeIsCurrent && logsLoading
   const blockCatalogLocaleIsCurrent = committedBlockCatalogLocale === locale
   const blocksList = blockCatalogLocaleIsCurrent
-    ? (loadedBlocksList ?? EMPTY_BLOCK_CATALOG)
+    ? Array.isArray(loadedBlocksList)
+      ? loadedBlocksList
+      : EMPTY_BLOCK_CATALOG
     : EMPTY_BLOCK_CATALOG
   const isLoadingBlocks = blockCatalogLocaleIsCurrent && blockCatalogLoading
   const { members: dashboardLayoutMembers, isLoading: isLoadingDashboardLayouts } = useEntityList(
@@ -125,7 +131,7 @@ export function useUserInputMentionSources({
       !targetScope ||
       targetScope.key !== workspaceScopeKey ||
       isLoadingPastChats ||
-      loadedPastChats !== null
+      Array.isArray(loadedPastChats)
     ) {
       return
     }
@@ -157,7 +163,10 @@ export function useUserInputMentionSources({
       })
       if (!workspaceScopeIsActive(targetScope)) return
       setLoadedPastChats(mapped)
-    } catch {
+    } catch (error) {
+      if (!workspaceScopeIsActive(targetScope)) return
+      logger.error('Failed to load chat mention sources', error)
+      setLoadedPastChats('failed')
     } finally {
       if (workspaceScopeIsActive(targetScope)) setPastChatsLoading(false)
     }
@@ -190,7 +199,7 @@ export function useUserInputMentionSources({
   )
 
   const ensureBlocksLoaded = useCallback(async () => {
-    if (isLoadingBlocks || loadedBlocksList !== null) {
+    if (isLoadingBlocks || Array.isArray(loadedBlocksList)) {
       return
     }
 
@@ -217,7 +226,14 @@ export function useUserInputMentionSources({
       )
         return
       setLoadedBlocksList(mapped)
-    } catch {
+    } catch (error) {
+      if (
+        targetLocale !== blockCatalogLocaleRef.current ||
+        generation !== blockCatalogLoadGenerationRef.current
+      )
+        return
+      logger.error('Failed to load block mention sources', error)
+      setLoadedBlocksList('failed')
     } finally {
       if (
         targetLocale === blockCatalogLocaleRef.current &&
@@ -239,7 +255,7 @@ export function useUserInputMentionSources({
       !targetScope ||
       targetScope.key !== workspaceScopeKey ||
       isLoadingLogs ||
-      loadedLogsList !== null
+      Array.isArray(loadedLogsList)
     ) {
       return
     }
@@ -273,7 +289,10 @@ export function useUserInputMentionSources({
       })
       if (!workspaceScopeIsActive(targetScope)) return
       setLoadedLogsList(mapped)
-    } catch {
+    } catch (error) {
+      if (!workspaceScopeIsActive(targetScope)) return
+      logger.error('Failed to load log mention sources', error)
+      setLoadedLogsList('failed')
     } finally {
       if (workspaceScopeIsActive(targetScope)) setLogsLoading(false)
     }
@@ -319,7 +338,11 @@ export function useUserInputMentionSources({
 
   const workspaceEntities = {} as Record<LazyWorkspaceEntityMentionKind, WorkspaceEntityItem[]>
   const workspaceEntityLoading = {} as Record<LazyWorkspaceEntityMentionKind, boolean>
-  const mentionFailed: Partial<Record<MentionSubmenu, boolean>> = {}
+  const mentionFailed: Partial<Record<MentionSubmenu, boolean>> = {
+    chats: workspaceScopeIsCurrent && loadedPastChats === 'failed',
+    blocks: blockCatalogLocaleIsCurrent && loadedBlocksList === 'failed',
+    logs: workspaceScopeIsCurrent && loadedLogsList === 'failed',
+  }
   for (const entityKind of LAZY_WORKSPACE_ENTITY_MENTION_OPTIONS) {
     const state = scopedWorkspaceEntityState[entityKind]
     workspaceEntities[entityKind] = Array.isArray(state) ? state : []

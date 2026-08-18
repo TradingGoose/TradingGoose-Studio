@@ -1,24 +1,15 @@
 'use client'
 
 import { FileText, Image as ImageIcon, Loader2, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
+import { formatFileSize } from '@/i18n/formatters'
 import type { AttachedFile } from '../types'
 
 interface AttachedFilesGridProps {
   attachedFiles: AttachedFile[]
   onFileClick: (file: AttachedFile) => void
   onRemoveFile: (fileId: string) => void
-}
-
-const formatFileSize = (bytes: number) => {
-  if (bytes === 0) {
-    return '0 Bytes'
-  }
-
-  const kilobyte = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const sizeIndex = Math.floor(Math.log(bytes) / Math.log(kilobyte))
-  return `${Math.round((bytes / kilobyte ** sizeIndex) * 100) / 100} ${sizes[sizeIndex]}`
 }
 
 const isImageFile = (type: string) => type.startsWith('image/')
@@ -44,6 +35,8 @@ export function AttachedFilesGrid({
   onFileClick,
   onRemoveFile,
 }: AttachedFilesGridProps) {
+  const locale = useLocale()
+
   if (attachedFiles.length === 0) {
     return null
   }
@@ -89,7 +82,7 @@ export function AttachedFilesGrid({
                 </button>
               }
             />
-            <TooltipContent side='top'>{`${file.name} (${formatFileSize(file.size)})`}</TooltipContent>
+            <TooltipContent side='top'>{`${file.name} (${formatFileSize(locale, file.size)})`}</TooltipContent>
           </Tooltip>
 
           {!file.uploading && (

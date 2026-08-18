@@ -21289,13 +21289,16 @@
           "dropFilesHere": "Drop files here...",
           "insertMention": "Insert @",
           "attachFile": "Attach file",
+          "sendMessage": "Send message",
           "stopGeneration": "Stop generation"
         },
         "message": {
           "editPlaceholder": "Edit your message...",
           "stopGeneration": "Stop generation",
           "sources": "Sources:",
-          "copy": "Copy"
+          "copy": "Copy",
+          "copied": "Copied",
+          "scrollToBottom": "Scroll to bottom"
         },
         "review": {
           "sideLabel": "{side, select, current {Current} proposed {Proposed} other {Current}}",
@@ -21321,6 +21324,7 @@
           "updated": "Updated {value}",
           "justNow": "Just now",
           "loading": "Loading…",
+          "loadingChatHistory": "Loading chat history...",
           "noChatsYet": "No chats yet",
           "openChatHistory": "Open chat history",
           "deleteChatAria": "Delete chat",

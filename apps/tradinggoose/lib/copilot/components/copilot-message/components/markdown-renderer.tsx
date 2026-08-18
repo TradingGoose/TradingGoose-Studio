@@ -5,7 +5,10 @@ import { Check, Copy } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { createLogger } from '@/lib/logs/console/logger'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
+
+const logger = createLogger('CopilotMarkdownRenderer')
 
 const getTextContent = (element: React.ReactNode): string => {
   if (typeof element === 'string') {
@@ -263,8 +266,12 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
           try {
             await navigator.clipboard.writeText(textToCopy)
             setCopiedCodeBlocks((prev) => ({ ...prev, [codeBlockKey]: true }))
-          } catch {}
+          } catch (error) {
+            logger.error('Failed to copy code block', error)
+          }
         }
+
+        const copyLabel = showCopySuccess ? copilotCopy.message.copied : copilotCopy.message.copy
 
         return (
           <div className='my-6 w-0 min-w-full rounded-md bg-gray-900 text-sm dark:bg-black'>
@@ -277,7 +284,7 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
                       type='button'
                       onClick={handleCopy}
                       className='text-muted-foreground transition-colors hover:text-gray-300'
-                      aria-label={copilotCopy.message.copy}
+                      aria-label={copyLabel}
                     >
                       {showCopySuccess ? (
                         <Check className='h-3 w-3' strokeWidth={2} />
@@ -287,7 +294,7 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
                     </button>
                   }
                 />
-                <TooltipContent side='top'>{copilotCopy.message.copy}</TooltipContent>
+                <TooltipContent side='top'>{copyLabel}</TooltipContent>
               </Tooltip>
             </div>
             <div className='overflow-x-auto'>
@@ -408,7 +415,7 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
         />
       ),
     }),
-    [copiedCodeBlocks, copilotCopy.message.copy]
+    [copiedCodeBlocks, copilotCopy.message.copied, copilotCopy.message.copy]
   )
 
   return (

@@ -21289,13 +21289,16 @@
           "dropFilesHere": "Suelta archivos aquí...",
           "insertMention": "Insertar @",
           "attachFile": "Adjuntar archivo",
+          "sendMessage": "Enviar mensaje",
           "stopGeneration": "Detener generación"
         },
         "message": {
           "editPlaceholder": "Edita tu mensaje...",
           "stopGeneration": "Detener generación",
           "sources": "Fuentes:",
-          "copy": "Copiar"
+          "copy": "Copiar",
+          "copied": "Copiado",
+          "scrollToBottom": "Ir al final"
         },
         "review": {
           "sideLabel": "{side, select, current {Actual} proposed {Propuesto} other {Actual}}",
@@ -21321,6 +21324,7 @@
           "updated": "Actualizado {value}",
           "justNow": "Justo ahora",
           "loading": "Cargando…",
+          "loadingChatHistory": "Cargando historial del chat...",
           "noChatsYet": "Aún no hay chats",
           "openChatHistory": "Abrir historial de chats",
           "deleteChatAria": "Eliminar chat",
@@ -21340,7 +21344,7 @@
         },
         "mentions": {
           "dashboardLayouts": "Diseños del panel",
-          "loadFailed": "No se pudo cargar esta lista. Intentar de nuevo",
+          "loadFailed": "No se pudo cargar esta lista. Inténtalo de nuevo.",
           "matches": "Coincidencias",
           "noMatches": "No hay coincidencias",
           "noDashboardLayoutsFound": "No se encontraron diseños del panel.",

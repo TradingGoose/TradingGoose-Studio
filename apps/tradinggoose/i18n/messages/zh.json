@@ -21276,13 +21276,16 @@
           "dropFilesHere": "将文件拖放到此处...",
           "insertMention": "插入 @",
           "attachFile": "附加文件",
+          "sendMessage": "发送消息",
           "stopGeneration": "停止生成"
         },
         "message": {
           "editPlaceholder": "编辑你的消息...",
           "stopGeneration": "停止生成",
           "sources": "来源：",
-          "copy": "复制"
+          "copy": "复制",
+          "copied": "已复制",
+          "scrollToBottom": "滚动到底部"
         },
         "review": {
           "sideLabel": "{side, select, current {当前} proposed {拟议} other {当前}}",
@@ -21308,6 +21311,7 @@
           "updated": "更新于 {value}",
           "justNow": "刚刚",
           "loading": "加载中…",
+          "loadingChatHistory": "正在加载聊天记录...",
           "noChatsYet": "还没有聊天",
           "openChatHistory": "打开聊天历史",
           "deleteChatAria": "删除聊天",
