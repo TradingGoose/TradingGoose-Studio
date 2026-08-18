@@ -832,8 +832,6 @@ export async function POST(req: NextRequest) {
         .orderBy(asc(copilotReviewItems.sequence))
 
       conversationHistory = existingMessages.map(mapReviewItemToApi)
-    } else if (!model || typeof model !== 'string') {
-      return createBadRequestResponse('model is required when creating a new review session')
     }
 
     let agentContexts: Array<{ type: string; tag?: string; content: string }> = []

@@ -3,7 +3,7 @@
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
+import { extractExplicitCopilotContexts } from '@/lib/copilot/chat-contexts'
 import {
   EDIT_REPLAY_BLOCKED_MESSAGE,
   hasAcceptedLiveMutationAfterMessage,
@@ -42,13 +42,20 @@ const buildMessageEditDraft = (message: CopilotMessageType): CopilotDraft => ({
 const haveSameMessageContexts = (
   left: CopilotMessageType['contexts'],
   right: CopilotMessageType['contexts']
-): boolean => left === right || JSON.stringify(left ?? []) === JSON.stringify(right ?? [])
+): boolean => {
+  if (left === right) return true
+  const leftContexts = left ?? []
+  const rightContexts = right ?? []
+  return (
+    leftContexts.length === rightContexts.length &&
+    leftContexts.every((context, index) => context === rightContexts[index])
+  )
+}
 
 const getMentionableContextLabels = (contexts: ChatContext[]) => {
   return Array.from(
     new Set(
-      contexts
-        .filter((context) => !isHiddenCopilotContext(context))
+      extractExplicitCopilotContexts(contexts)
         .map((context) => context?.label)
         .filter(Boolean) as string[]
     )
@@ -183,9 +190,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const shouldShowActivityIndicator =
       isAssistant && isLastMessage && isTurnInProgress && !isMessageTyping
     const userMessageText = message.content || ''
-    const userMessageContexts = (message.contexts ?? []).filter(
-      (context) => !isHiddenCopilotContext(context)
-    )
+    const userMessageContexts = extractExplicitCopilotContexts(message.contexts)
 
     const isReplayBlockedForEdit = useMemo(
       () => hasAcceptedLiveMutationAfterMessage(messages, message.id),

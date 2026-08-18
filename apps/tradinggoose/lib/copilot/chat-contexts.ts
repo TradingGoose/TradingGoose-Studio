@@ -6,7 +6,7 @@ export const isHiddenCopilotContext = (
   context: Pick<ChatContext, 'kind'> | null | undefined
 ): boolean => Boolean(context?.kind.startsWith('current_'))
 
-const extractExplicitCopilotContexts = (
+export const extractExplicitCopilotContexts = (
   contexts: ChatContext[] | null | undefined
 ): ChatContext[] =>
   Array.isArray(contexts) ? contexts.filter((context) => !isHiddenCopilotContext(context)) : []
