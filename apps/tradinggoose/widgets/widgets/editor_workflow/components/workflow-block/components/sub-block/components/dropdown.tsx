@@ -4,6 +4,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
@@ -556,7 +557,6 @@ export function Dropdown({
         align='start'
         className='w-[var(--anchor-width)] p-0'
         finalFocus={enableSearch ? false : undefined}
-        portal={false}
       >
         {enableSearch && (
           <div className='border-border border-b p-2'>
@@ -585,7 +585,7 @@ export function Dropdown({
             groupedOptions.groupOrder.map((group) => {
               const groupOptions = groupedOptions.grouped[group] || []
               return (
-                <div key={group}>
+                <DropdownMenuGroup key={group}>
                   {groupedOptions.groupOrder.length > 1 && (
                     <DropdownMenuLabel className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
                       {group}
@@ -614,7 +614,7 @@ export function Dropdown({
                       </DropdownMenuItem>
                     )
                   })}
-                </div>
+                </DropdownMenuGroup>
               )
             })
           )}

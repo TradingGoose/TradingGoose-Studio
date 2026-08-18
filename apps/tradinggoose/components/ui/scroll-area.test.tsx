@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogContent,
   AlertDialogTitle,
   AlertDialogTrigger,
@@ -134,7 +135,7 @@ it('keeps focusable disabled buttons focusable but visibly non-interactive', asy
   }
 })
 
-it('preserves cancellable backdrop dismissal and focus restoration', async () => {
+it('requires an alert response and preserves cancellable close actions and focus restoration', async () => {
   let cancelClose = true
   const onOpenChange = vi.fn<NonNullable<ComponentProps<typeof AlertDialog>['onOpenChange']>>(
     (open, eventDetails) => {
@@ -150,6 +151,7 @@ it('preserves cancellable backdrop dismissal and focus restoration', async () =>
           <button id='inside-alert' type='button'>
             Inside
           </button>
+          <AlertDialogAction id='confirm-alert'>Confirm</AlertDialogAction>
         </AlertDialogContent>
       </AlertDialog>
     )
@@ -167,11 +169,15 @@ it('preserves cancellable backdrop dismissal and focus restoration', async () =>
   await act(async () => document.getElementById('inside-alert')?.click())
   expect(onOpenChange).not.toHaveBeenCalled()
   await act(async () => backdrop.click())
+  expect(onOpenChange).not.toHaveBeenCalled()
+  expect(document.querySelector('[role="alertdialog"]')).not.toBeNull()
+  await act(async () => document.getElementById('confirm-alert')?.click())
   expect(onOpenChange.mock.calls[0]?.[0]).toBe(false)
   expect(backdrop.isConnected).toBe(true)
+  expect(onOpenChange.mock.calls[0]?.[1].reason).toBe('close-press')
   cancelClose = false
   onOpenChange.mockClear()
-  await act(async () => backdrop.click())
+  await act(async () => document.getElementById('confirm-alert')?.click())
   await act(
     () =>
       new Promise<void>((resolve) => {
@@ -179,6 +185,6 @@ it('preserves cancellable backdrop dismissal and focus restoration', async () =>
       })
   )
   expect(onOpenChange.mock.calls[0]?.[0]).toBe(false)
-  expect(onOpenChange.mock.calls[0]?.[1].reason).toBe('outside-press')
+  expect(onOpenChange.mock.calls[0]?.[1].reason).toBe('close-press')
   expect(document.activeElement).toBe(trigger)
 })
