@@ -3,16 +3,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { useHorizontalWheelScrollRef } from '@/components/widget-header-control'
+import { Copilot } from '@/lib/copilot/components/copilot/copilot'
 import {
   CopilotHeader,
   CopilotHeaderActions,
 } from '@/lib/copilot/components/copilot/copilot-header'
-import { CopilotApp } from '@/lib/copilot/components/copilot-app'
+import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { useGlobalCopilotCurrentContext } from '@/global-navbar/copilot-context'
 
 const DEFAULT_PANEL_WIDTH = 1200
 
-export function GlobalCopilotPanel({ workspaceId }: { workspaceId: string }) {
+export function GlobalCopilotPanel({
+  workspaceId,
+  ownerUserId,
+}: {
+  workspaceId: string
+  ownerUserId: string
+}) {
   const currentContext = useGlobalCopilotCurrentContext()
   const headerScrollRef = useHorizontalWheelScrollRef<HTMLDivElement>()
   const panelRef = useRef<HTMLDivElement>(null)
@@ -52,13 +59,15 @@ export function GlobalCopilotPanel({ workspaceId }: { workspaceId: string }) {
           </div>
         </header>
         <div ref={panelRef} className='flex min-h-0 flex-1 overflow-hidden p-2'>
-          <div className='flex h-full min-h-0 w-full min-w-0'>
-            <CopilotApp
-              workspaceId={workspaceId}
-              panelWidth={panelWidth}
-              currentContext={currentContext}
-            />
-          </div>
+          <Providers workspaceId={workspaceId} userId={ownerUserId}>
+            <div className='flex h-full min-h-0 w-full min-w-0'>
+              <Copilot
+                workspaceId={workspaceId}
+                panelWidth={panelWidth}
+                currentContext={currentContext}
+              />
+            </div>
+          </Providers>
         </div>
       </Card>
     </div>

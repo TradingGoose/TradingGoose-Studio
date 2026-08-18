@@ -5,7 +5,6 @@ import { ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
@@ -16,7 +15,10 @@ import type {
   CopilotSendRuntimeContext,
   MessageFileAttachment,
 } from '@/stores/copilot/types'
-import { CopilotMessage, CopilotWelcome, TodoList, UserInput } from '..'
+import { CopilotMessage } from '../copilot-message/copilot-message'
+import { TodoList } from '../todo-list/todo-list'
+import { UserInput } from '../user-input/user-input'
+import { CopilotWelcome } from '../welcome/welcome'
 
 const logger = createLogger('Copilot')
 const COPILOT_MESSAGE_VIEWPORT_CLASSNAME = '[&>div]:!block [&>div]:!min-w-0 [&>div]:!w-full'
@@ -34,18 +36,15 @@ export function shouldMarkUserScrolledDuringStream(params: {
 interface CopilotProps {
   workspaceId: string
   panelWidth: number
-  currentContext?: ChatContext | null
+  currentContext: ChatContext | null
 }
 
-export function Copilot({ workspaceId, panelWidth, currentContext = null }: CopilotProps) {
+export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProps) {
   const copilotCopy = useCopilotMessages()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isInitialized, setIsInitialized] = useState(false)
-  const [todosCollapsed, setTodosCollapsed] = useState(false)
-  const lastScopeKeyRef = useRef<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
-  const [isEditingMessage, setIsEditingMessage] = useState(false)
 
   // Scroll state
   const [isNearBottom, setIsNearBottom] = useState(true)
@@ -64,22 +63,17 @@ export function Copilot({ workspaceId, panelWidth, currentContext = null }: Copi
   )
   const {
     messages,
-    chats,
-    isLoadingChats,
     isSendingMessage,
     isAwaitingContinuation,
     isAborting,
     accessLevel,
     draft,
     planTodos,
-    showPlanTodos,
     sendMessage,
     abortMessage,
     setAccessLevel,
     setDraft,
     loadChats,
-    selectedModel,
-    setSelectedModel,
     currentChat,
     toolCallsById,
     fetchContextUsage,
@@ -92,25 +86,11 @@ export function Copilot({ workspaceId, panelWidth, currentContext = null }: Copi
     hasActiveToolCalls
 
   useEffect(() => {
-    if (!selectedModel) {
-      setSelectedModel(DEFAULT_COPILOT_RUNTIME_MODEL)
-    }
-  }, [selectedModel, setSelectedModel])
-
-  useEffect(() => {
     let cancelled = false
 
     const initialize = async () => {
-      const scopeKey = `workspace:${workspaceId ?? 'pending'}`
-
-      if (scopeKey === lastScopeKeyRef.current && isInitialized) {
-        return
-      }
-
-      lastScopeKeyRef.current = scopeKey
       setIsInitialized(false)
-
-      await loadChats({ workspaceId: workspaceId ?? null })
+      await loadChats({ workspaceId })
       if (!cancelled) {
         setIsInitialized(true)
       }
@@ -126,7 +106,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext = null }: Copi
     return () => {
       cancelled = true
     }
-  }, [isInitialized, loadChats, workspaceId])
+  }, [loadChats, workspaceId])
 
   // Fetch context usage when component is initialized and has a current chat
   useEffect(() => {
@@ -323,37 +303,6 @@ export function Copilot({ workspaceId, panelWidth, currentContext = null }: Copi
     }
   }, [isInitialized, messages.length, scrollToBottom])
 
-  // Track previous sending state to detect when stream completes
-  const wasTurnInProgressRef = useRef(false)
-
-  // Auto-collapse todos when stream completes.
-  useEffect(() => {
-    if (wasTurnInProgressRef.current && !isTurnInProgress && showPlanTodos) {
-      setTodosCollapsed(true)
-    }
-    wasTurnInProgressRef.current = isTurnInProgress
-  }, [isTurnInProgress, showPlanTodos])
-
-  // Reset collapsed state when todos first appear
-  useEffect(() => {
-    if (showPlanTodos && planTodos.length > 0) {
-      // Check if this is the first time todos are showing
-      // (only expand if currently sending a message, meaning new todos are being created)
-      if (isTurnInProgress) {
-        setTodosCollapsed(false)
-      }
-    }
-  }, [showPlanTodos, planTodos.length, isTurnInProgress])
-
-  // Handle abort action
-  const handleAbort = useCallback(() => {
-    abortMessage()
-    // Collapse todos when aborting
-    if (showPlanTodos) {
-      setTodosCollapsed(true)
-    }
-  }, [abortMessage, showPlanTodos])
-
   // Handle message submission
   const handleSubmit = useCallback(
     async (query: string, fileAttachments?: MessageFileAttachment[], contexts?: ChatContext[]) => {
@@ -379,111 +328,108 @@ export function Copilot({ workspaceId, panelWidth, currentContext = null }: Copi
 
   const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
     setEditingMessageId(isEditing ? messageId : null)
-    setIsEditingMessage(isEditing)
     logger.info('Edit mode changed', { messageId, isEditing, willDimMessages: isEditing })
   }, [])
 
   return (
-    <>
-      <div className='flex h-full flex-col overflow-hidden'>
-        {/* Show loading state until fully initialized */}
-        {!isInitialized ? (
-          <div className='flex h-full w-full items-center justify-center'>
-            <div className='flex flex-col items-center gap-3'>
-              <LoadingAgent size='md' />
-              <p className='text-muted-foreground text-sm'>
-                {copilotCopy.history.loadingChatHistory}
-              </p>
-            </div>
+    <div className='flex h-full flex-col overflow-hidden'>
+      {/* Show loading state until fully initialized */}
+      {!isInitialized ? (
+        <div className='flex h-full w-full items-center justify-center'>
+          <div className='flex flex-col items-center gap-3'>
+            <LoadingAgent size='md' />
+            <p className='text-muted-foreground text-sm'>
+              {copilotCopy.history.loadingChatHistory}
+            </p>
           </div>
-        ) : (
-          <>
-            {/* Messages area */}
-            <div className='relative flex-1 overflow-hidden'>
-              <ScrollArea
-                ref={scrollAreaRef}
-                className='h-full'
-                viewportClassName={COPILOT_MESSAGE_VIEWPORT_CLASSNAME}
-                hideScrollbar={true}
+        </div>
+      ) : (
+        <>
+          {/* Messages area */}
+          <div className='relative flex-1 overflow-hidden'>
+            <ScrollArea
+              ref={scrollAreaRef}
+              className='h-full'
+              viewportClassName={COPILOT_MESSAGE_VIEWPORT_CLASSNAME}
+              hideScrollbar={true}
+            >
+              <div
+                ref={messagesContainerRef}
+                className='w-full min-w-0 max-w-full space-y-2 overflow-hidden'
               >
-                <div
-                  ref={messagesContainerRef}
-                  className='w-full min-w-0 max-w-full space-y-2 overflow-hidden'
+                {messages.length === 0 && !isTurnInProgress && !editingMessageId ? (
+                  <div className='flex h-full items-center justify-center p-4'>
+                    <CopilotWelcome onQuestionClick={handleSubmit} accessLevel={accessLevel} />
+                  </div>
+                ) : (
+                  messages.map((message, index) => {
+                    // Determine if this message should be dimmed
+                    let isDimmed = false
+
+                    // Dim messages after the one being edited
+                    if (editingMessageId) {
+                      const editingIndex = messages.findIndex((m) => m.id === editingMessageId)
+                      isDimmed = editingIndex !== -1 && index > editingIndex
+                    }
+
+                    return (
+                      <CopilotMessage
+                        key={message.id}
+                        message={message}
+                        runtimeContext={sendRuntimeContext}
+                        isStreaming={
+                          isTurnInProgress && message.id === messages[messages.length - 1]?.id
+                        }
+                        panelWidth={panelWidth}
+                        isDimmed={isDimmed}
+                        onEditModeChange={(isEditing) =>
+                          handleEditModeChange(message.id, isEditing)
+                        }
+                      />
+                    )
+                  })
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Scroll to bottom button */}
+            {showScrollButton && (
+              <div className='-translate-x-1/2 absolute bottom-4 left-1/2 z-10'>
+                <Button
+                  onClick={() => scrollToBottom()}
+                  size='sm'
+                  variant='default'
+                  className='flex h-7 w-7 items-center gap-1 rounded-lg border border-border bg-background shadow-lg transition-all hover:bg-muted'
                 >
-                  {messages.length === 0 && !isTurnInProgress && !isEditingMessage ? (
-                    <div className='flex h-full items-center justify-center p-4'>
-                      <CopilotWelcome onQuestionClick={handleSubmit} accessLevel={accessLevel} />
-                    </div>
-                  ) : (
-                    messages.map((message, index) => {
-                      // Determine if this message should be dimmed
-                      let isDimmed = false
-
-                      // Dim messages after the one being edited
-                      if (editingMessageId) {
-                        const editingIndex = messages.findIndex((m) => m.id === editingMessageId)
-                        isDimmed = editingIndex !== -1 && index > editingIndex
-                      }
-
-                      return (
-                        <CopilotMessage
-                          key={message.id}
-                          message={message}
-                          runtimeContext={sendRuntimeContext}
-                          isStreaming={
-                            isTurnInProgress && message.id === messages[messages.length - 1]?.id
-                          }
-                          panelWidth={panelWidth}
-                          isDimmed={isDimmed}
-                          onEditModeChange={(isEditing) =>
-                            handleEditModeChange(message.id, isEditing)
-                          }
-                        />
-                      )
-                    })
-                  )}
-                </div>
-              </ScrollArea>
-
-              {/* Scroll to bottom button */}
-              {showScrollButton && (
-                <div className='-translate-x-1/2 absolute bottom-4 left-1/2 z-10'>
-                  <Button
-                    onClick={() => scrollToBottom()}
-                    size='sm'
-                    variant='default'
-                    className='flex h-7 w-7 items-center gap-1 rounded-lg border border-border bg-background shadow-lg transition-all hover:bg-muted'
-                  >
-                    <ArrowDown className='h-3.5 w-3.5 font-bold text-gray-700 dark:text-gray-300' />
-                    <span className='sr-only'>{copilotCopy.message.scrollToBottom}</span>
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Todo list from plan tool */}
-            {isTurnInProgress && showPlanTodos && (
-              <TodoList todos={planTodos} collapsed={todosCollapsed} />
+                  <ArrowDown className='h-3.5 w-3.5 font-bold text-gray-700 dark:text-gray-300' />
+                  <span className='sr-only'>{copilotCopy.message.scrollToBottom}</span>
+                </Button>
+              </div>
             )}
+          </div>
 
-            {/* Input area with integrated access selector */}
-            <div className='pt-2'>
-              <UserInput
-                workspaceId={workspaceId}
-                onSubmit={handleSubmit}
-                onAbort={handleAbort}
-                isLoading={isTurnInProgress}
-                isAborting={isAborting}
-                accessLevel={accessLevel}
-                onAccessLevelChange={setAccessLevel}
-                draft={draft}
-                onDraftChange={setDraft}
-                panelWidth={panelWidth}
-              />
-            </div>
-          </>
-        )}
-      </div>
-    </>
+          {/* Todo list from plan tool */}
+          {isTurnInProgress && planTodos.some((todo) => !todo.completed) && (
+            <TodoList todos={planTodos} />
+          )}
+
+          {/* Input area with integrated access selector */}
+          <div className='pt-2'>
+            <UserInput
+              workspaceId={workspaceId}
+              onSubmit={handleSubmit}
+              onAbort={abortMessage}
+              isLoading={isTurnInProgress}
+              isAborting={isAborting}
+              accessLevel={accessLevel}
+              onAccessLevelChange={setAccessLevel}
+              draft={draft}
+              onDraftChange={setDraft}
+              panelWidth={panelWidth}
+            />
+          </div>
+        </>
+      )}
+    </div>
   )
 }

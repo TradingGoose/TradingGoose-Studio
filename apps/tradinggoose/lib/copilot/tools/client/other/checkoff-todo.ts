@@ -41,9 +41,7 @@ export class CheckoffTodoClientTool extends BaseClientTool {
       try {
         const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
         const store = getCopilotStoreForToolCall(this.toolCallId).getState()
-        if (store.updatePlanTodoStatus) {
-          store.updatePlanTodoStatus(todoItemId, 'completed')
-        }
+        store.updatePlanTodoStatus(todoItemId, 'completed')
       } catch (e) {
         logger.warn('Failed to update todo status in store', { message: (e as any)?.message })
       }

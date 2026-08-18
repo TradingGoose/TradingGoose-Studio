@@ -39,12 +39,11 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       isLoading = false,
       isAborting = false,
       placeholder,
-      className,
-      accessLevel = 'limited',
+      accessLevel,
       onAccessLevelChange,
       draft,
       onDraftChange,
-      panelWidth = 308,
+      panelWidth,
       hideContextUsage = false,
       clearOnSubmit = true,
     },
@@ -343,12 +342,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       closeMentionMenu()
     }
 
-    const handleAbort = () => {
-      if (onAbort && isLoading) {
-        onAbort()
-      }
-    }
-
     const handleTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       const { value, selectionStart, selectionEnd } = event.currentTarget
       const start = selectionStart ?? value.length
@@ -377,14 +370,6 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
       }
     }
 
-    const handleFileSelect = () => {
-      if (isLoading) {
-        return
-      }
-
-      fileInputRef.current?.click()
-    }
-
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = event.target.files
       if (!files || files.length === 0) {
@@ -407,10 +392,10 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     }
 
     const canSubmit = message.trim().length > 0 && !isLoading
-    const showAbortButton = isLoading && onAbort
+    const abortAction = isLoading ? onAbort : undefined
 
     return (
-      <div ref={containerRef} className={cn('relative flex-none', className)}>
+      <div ref={containerRef} className='relative flex-none'>
         <div
           className={cn(
             'relative rounded-md border border-input bg-muted/40 p-2 shadow-xs transition-all duration-200 ',
@@ -562,7 +547,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                     <Button
                       variant='ghost'
                       size='icon'
-                      onClick={handleFileSelect}
+                      onClick={() => fileInputRef.current?.click()}
                       disabled={isLoading}
                       className='h-6 w-6 text-muted-foreground hover:text-foreground'
                       aria-label={copilotCopy.input.attachFile}
@@ -574,12 +559,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                 <TooltipContent side='top'>{copilotCopy.input.attachFile}</TooltipContent>
               </Tooltip>
 
-              {showAbortButton ? (
+              {abortAction ? (
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
-                        onClick={handleAbort}
+                        onClick={abortAction}
                         disabled={isAborting}
                         size='icon'
                         className='h-6 w-6 rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600'
@@ -606,11 +591,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                         className='h-6 w-6 rounded-sm bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
                         aria-label={copilotCopy.input.sendMessage}
                       >
-                        {isLoading ? (
-                          <Loader2 className='h-3 w-3 animate-spin' />
-                        ) : (
-                          <Send className='h-3 w-3' />
-                        )}
+                        <Send className='h-3 w-3' />
                       </Button>
                     }
                   />

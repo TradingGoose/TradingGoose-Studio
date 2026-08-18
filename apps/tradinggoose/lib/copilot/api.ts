@@ -15,7 +15,6 @@ export interface SendMessageRequest {
   workspaceId?: string
   model?: CopilotRuntimeModel
   provider?: ProviderId
-  prefetch?: boolean
   fileAttachments?: MessageFileAttachment[]
   abortSignal?: AbortSignal
   contexts?: ChatContext[]

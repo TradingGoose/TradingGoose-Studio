@@ -21,16 +21,11 @@ import type {
   MessageFileAttachment,
 } from '@/stores/copilot/types'
 import { UserInput, type UserInputRef } from '../user-input/user-input'
-import {
-  buildAssistantMessageSegments,
-  FileAttachmentDisplay,
-  OptionsSelector,
-  parseSpecialTags,
-  SmoothStreamingText,
-  StreamingIndicator,
-  ThinkingGroup,
-} from './components'
-import { shouldRenderAssistantOptions } from './message-visibility'
+import { buildAssistantMessageSegments } from './components/assistant-message-segments'
+import { FileAttachmentDisplay } from './components/file-display'
+import { OptionsSelector, parseSpecialTags } from './components/options-selector'
+import { SmoothStreamingText, StreamingIndicator } from './components/smooth-streaming'
+import { ThinkingGroup } from './components/thinking-group'
 
 const logger = createLogger('CopilotMessage')
 
@@ -123,21 +118,14 @@ const renderUserMessageTextWithMentions = (text: string, contexts: ChatContext[]
 interface CopilotMessageProps {
   message: CopilotMessageType
   runtimeContext: CopilotSendRuntimeContext
-  isStreaming?: boolean
-  panelWidth?: number
-  isDimmed?: boolean
-  onEditModeChange?: (isEditing: boolean) => void
+  isStreaming: boolean
+  panelWidth: number
+  isDimmed: boolean
+  onEditModeChange: (isEditing: boolean) => void
 }
 
 const CopilotMessage: FC<CopilotMessageProps> = memo(
-  ({
-    message,
-    runtimeContext,
-    isStreaming,
-    panelWidth = 308,
-    isDimmed = false,
-    onEditModeChange,
-  }) => {
+  ({ message, runtimeContext, isStreaming, panelWidth, isDimmed, onEditModeChange }) => {
     const copilotCopy = useCopilotMessages()
     const isUser = message.role === 'user'
     const isAssistant = message.role === 'assistant'
@@ -189,7 +177,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const shouldHidePostTurnControls = isTurnInProgress || isMessageTyping
     const shouldShowActivityIndicator =
       isAssistant && isLastMessage && isTurnInProgress && !isMessageTyping
-    const userMessageText = message.content || ''
+    const userMessageText = message.content
     const userMessageContexts = extractExplicitCopilotContexts(message.contexts)
 
     const isReplayBlockedForEdit = useMemo(
@@ -201,7 +189,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       if (isReplayBlockedForEdit) {
         setIsEditMode(false)
         setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
-        onEditModeChange?.(false)
+        onEditModeChange(false)
         return
       }
 
@@ -209,7 +197,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       setIsExpanded(false)
       setEditDraft(buildMessageEditDraft(message))
       setEditBlockedReason(null)
-      onEditModeChange?.(true)
+      onEditModeChange(true)
       // Focus the input and position cursor at the end after render
       setTimeout(() => {
         userInputRef.current?.focus()
@@ -219,7 +207,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const handleCancelEdit = () => {
       setIsEditMode(false)
       setEditDraft(buildMessageEditDraft(message))
-      onEditModeChange?.(false)
+      onEditModeChange(false)
     }
 
     const handleMessageClick = () => {
@@ -327,7 +315,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         setIsEditMode(false)
         setEditBlockedReason(null)
         // Clear editing state in parent immediately to prevent dimming of new messages
-        onEditModeChange?.(false)
+        onEditModeChange(false)
 
         // Show the updated message immediately to prevent disappearing
         copilotStoreApi.setState({ messages: [...truncatedMessages, updatedMessage] })
@@ -421,21 +409,21 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       }
     }, [message.content, isUser])
 
-    // Parse special tags from message content (options, plan)
+    // Parse selectable options from message content.
     // Parse during streaming to show options as they stream in
     const parsedTags = useMemo(() => {
       if (isUser) return null
 
       if (message.content) {
         const parsed = parseSpecialTags(message.content)
-        if (parsed.options || parsed.plan) return parsed
+        if (parsed.options) return parsed
       }
 
       if (isStreaming && message.contentBlocks && message.contentBlocks.length > 0) {
         for (const block of message.contentBlocks) {
           if (block.type === 'text' && block.content) {
             const parsed = parseSpecialTags(block.content)
-            if (parsed.options || parsed.plan) return parsed
+            if (parsed.options) return parsed
           }
         }
       }
@@ -511,8 +499,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       return visibleAssistantSegments.map((segment, index) => {
         if (segment.type === 'text') {
           const block = segment.block
-          const isLastTextBlock =
-            index === visibleAssistantSegments.length - 1 && segment.type === 'text'
+          const isLastTextBlock = index === visibleAssistantSegments.length - 1
           // Clean content for this text block and strip special tags
           const parsed = parseSpecialTags(block.content)
           const cleanBlockContent = parsed.cleanContent.replace(/\n{3,}/g, '\n\n')
@@ -700,24 +687,12 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             {/* Options selector after the full assistant message has finished rendering */}
             {(() => {
               const options = parsedTags?.options
-              const shouldRenderOptions = shouldRenderAssistantOptions({
-                role: message.role,
-                isLastMessage,
-                hasOptions: Boolean(options && Object.keys(options).length > 0),
-              })
               const isOptionsReady =
                 !shouldHidePostTurnControls && parsedTags?.optionsComplete === true
 
-              if (!shouldRenderOptions || !options || !isOptionsReady) return null
+              if (!isLastMessage || !options || !isOptionsReady) return null
 
-              return (
-                <OptionsSelector
-                  options={options}
-                  onSelect={handleOptionSelect}
-                  enableKeyboardNav={true}
-                  streaming={false}
-                />
-              )
+              return <OptionsSelector options={options} onSelect={handleOptionSelect} />
             })()}
           </div>
         </div>

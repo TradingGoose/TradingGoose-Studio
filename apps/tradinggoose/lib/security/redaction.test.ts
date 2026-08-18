@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { COPILOT_CONTEXT_PROJECTION_LIMITS } from '@/lib/copilot/context-limits'
-import { deepRedactSecrets, isSensitiveDataKey, projectBoundedRedactedJson } from './redaction'
+import { deepRedactSecrets, projectBoundedRedactedJson } from './redaction'
 
 describe('security redaction', () => {
   it('redacts camel-case token keys while preserving token metrics', () => {
@@ -28,7 +28,6 @@ describe('security redaction', () => {
     expect(deepRedactSecrets({ tokenCount: 'secret-disguised-as-a-metric' })).toEqual({
       tokenCount: '[redacted]',
     })
-    expect(isSensitiveDataKey('bearerToken')).toBe(true)
   })
 
   it('redacts headers and inline values while preserving safe text', () => {

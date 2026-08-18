@@ -3,12 +3,11 @@
 import {
   buildCopilotContextIdentityKey,
   buildCopilotContextMentionRanges,
-  isCopilotMentionBoundary,
 } from '@/lib/copilot/chat-contexts'
 import type { MonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import type { ChatContext } from '@/stores/copilot/types'
 import {
-  COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS,
+  COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS,
   isCopilotWorkspaceEntityMentionOption,
 } from '../../workspace-entities'
 import { MENTION_OPTIONS } from './constants'
@@ -40,8 +39,6 @@ const normalize = (value: string) =>
 
 const includesNormalized = (value: string, query: string) =>
   normalize(value).includes(normalize(query))
-
-export const isMentionBoundary = isCopilotMentionBoundary
 
 const readMentionContextIdentityKey = (context: ChatContext): string | null => {
   try {
@@ -174,10 +171,10 @@ export function buildAggregatedMentionItems(
   }
 
   return [
-    ...COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.flatMap((config) =>
-      filterWorkspaceEntities(sources.workspaceEntities[config.entityKind], query, mentionCopy).map(
+    ...COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS.flatMap((entityKind) =>
+      filterWorkspaceEntities(sources.workspaceEntities[entityKind], query, mentionCopy).map(
         (value) => ({
-          type: config.entityKind,
+          type: entityKind,
           id: value.id,
           value,
         })

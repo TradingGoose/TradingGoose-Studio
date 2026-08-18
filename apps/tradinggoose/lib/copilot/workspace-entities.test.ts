@@ -1,36 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildCopilotWorkspaceEntityContext,
-  COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS,
-  getCopilotWorkspaceEntityKindFromContext,
   readCopilotWorkspaceEntityContext,
 } from './workspace-entities'
 
 describe('workspace-entities', () => {
-  it('keeps dashboard layouts and knowledge bases mentionable', () => {
-    expect(COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => config.entityKind)).toContain(
-      'dashboard_layout'
-    )
-    expect(COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => config.entityKind)).toContain(
-      'knowledge_base'
-    )
-  })
-
-  it('builds current workflow context from centralized metadata', () => {
-    expect(
-      buildCopilotWorkspaceEntityContext({
-        entityKind: 'workflow',
-        entityId: 'workflow-1',
-        label: 'Current Workflow',
-        current: true,
-      })
-    ).toEqual({
-      kind: 'current_workflow',
-      workflowId: 'workflow-1',
-      label: 'Current Workflow',
-    })
-  })
-
   it('builds explicit workspace entity contexts with workspace ids', () => {
     expect(
       buildCopilotWorkspaceEntityContext({
@@ -38,10 +12,9 @@ describe('workspace-entities', () => {
         entityId: 'knowledge-1',
         workspaceId: 'workspace-1',
         label: 'Research',
-        current: true,
       })
     ).toEqual({
-      kind: 'current_knowledge_base',
+      kind: 'knowledge_base',
       knowledgeBaseId: 'knowledge-1',
       workspaceId: 'workspace-1',
       label: 'Research',
@@ -60,76 +33,19 @@ describe('workspace-entities', () => {
       workspaceId: 'workspace-1',
       label: 'Primary Workflow',
     })
-
-    expect(
-      buildCopilotWorkspaceEntityContext({
-        entityKind: 'skill',
-        entityId: 'skill-1',
-        workspaceId: 'workspace-1',
-        label: 'Risk Filter',
-      })
-    ).toEqual({
-      kind: 'skill',
-      skillId: 'skill-1',
-      workspaceId: 'workspace-1',
-      label: 'Risk Filter',
-    })
-
-    expect(
-      buildCopilotWorkspaceEntityContext({
-        entityKind: 'watchlist',
-        entityId: 'watchlist-1',
-        workspaceId: 'workspace-1',
-        label: 'Growth',
-      })
-    ).toEqual({
-      kind: 'watchlist',
-      watchlistId: 'watchlist-1',
-      workspaceId: 'workspace-1',
-      label: 'Growth',
-    })
-  })
-
-  it('normalizes current and explicit contexts back to the same base entity kind', () => {
-    expect(
-      getCopilotWorkspaceEntityKindFromContext({
-        kind: 'current_indicator',
-      } as any)
-    ).toBe('indicator')
-
-    expect(
-      getCopilotWorkspaceEntityKindFromContext({
-        kind: 'custom_tool',
-      } as any)
-    ).toBe('custom_tool')
   })
 
   it('reads shared workspace entity context details consistently', () => {
     expect(
       readCopilotWorkspaceEntityContext({
-        kind: 'workflow',
-        workflowId: 'workflow-1',
+        kind: 'current_knowledge_base',
+        knowledgeBaseId: 'knowledge-1',
         workspaceId: 'workspace-1',
-        label: 'Primary Workflow',
+        label: 'Current Knowledge Base',
       })
     ).toEqual({
-      entityKind: 'workflow',
-      entityId: 'workflow-1',
-      workspaceId: 'workspace-1',
-      ownerUserId: null,
-      current: false,
-    })
-
-    expect(
-      readCopilotWorkspaceEntityContext({
-        kind: 'current_watchlist',
-        watchlistId: 'watchlist-1',
-        workspaceId: 'workspace-1',
-        label: 'Current Watchlist',
-      })
-    ).toEqual({
-      entityKind: 'watchlist',
-      entityId: 'watchlist-1',
+      entityKind: 'knowledge_base',
+      entityId: 'knowledge-1',
       workspaceId: 'workspace-1',
       ownerUserId: null,
       current: true,

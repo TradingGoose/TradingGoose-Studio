@@ -3,7 +3,6 @@ import {
   copilotReviewItems,
   copilotReviewSessions,
   permissions,
-  workflow,
   workflowExecutionLogs,
   workspace,
 } from '@tradinggoose/db/schema'
@@ -14,7 +13,6 @@ import {
   COPILOT_CONTEXT_PROJECTION_LIMITS,
   MAX_COPILOT_CONTEXT_BYTES_PER_ITEM,
   MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
-  MAX_COPILOT_CONTEXTS_PER_TURN,
 } from '@/lib/copilot/context-limits'
 import { projectExecutionLogContext } from '@/lib/copilot/execution-log-context'
 import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
@@ -69,14 +67,8 @@ export async function processContextsServer(
   throwIfContextProcessingAborted(options.signal)
   if (!Array.isArray(contexts) || contexts.length === 0) return []
 
-  if (contexts.length > MAX_COPILOT_CONTEXTS_PER_TURN) {
-    logger.warn('Ignoring Copilot contexts above the per-turn limit', {
-      requested: contexts.length,
-      limit: MAX_COPILOT_CONTEXTS_PER_TURN,
-    })
-  }
   const uniqueContextsByKey = new Map<string, ChatContext>()
-  for (const context of contexts.slice(0, MAX_COPILOT_CONTEXTS_PER_TURN)) {
+  for (const context of contexts) {
     try {
       const key = buildCopilotContextIdentityKey(context)
       const existing = uniqueContextsByKey.get(key)
@@ -459,10 +451,8 @@ async function processLogContext(
         executionData: workflowExecutionLogs.executionData,
         cost: workflowExecutionLogs.cost,
         workflowSummary: workflowExecutionLogs.workflowSummary,
-        entityName: workflow.name,
       })
       .from(workflowExecutionLogs)
-      .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .innerJoin(workspace, workspaceAccess.workspaceJoin)
       .leftJoin(permissions, workspaceAccess.permissionJoin)
       .where(
@@ -476,7 +466,7 @@ async function processLogContext(
 
     const log = rows?.[0] as any
     if (!log) return null
-    const { content } = projectExecutionLogContext(log, 'explicit')
+    const content = JSON.stringify(projectExecutionLogContext(log, 'explicit'))
     return { type: 'logs', tag, content }
   } catch (error) {
     logger.error('Error processing log context', { logId, error })

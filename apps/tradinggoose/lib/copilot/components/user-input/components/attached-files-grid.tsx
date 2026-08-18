@@ -1,33 +1,16 @@
 'use client'
 
-import { FileText, Image as ImageIcon, Loader2, X } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { formatFileSize } from '@/i18n/formatters'
+import { FileTypeIcon, isImageMediaType } from '../../file-type-icon'
 import type { AttachedFile } from '../types'
 
 interface AttachedFilesGridProps {
   attachedFiles: AttachedFile[]
   onFileClick: (file: AttachedFile) => void
   onRemoveFile: (fileId: string) => void
-}
-
-const isImageFile = (type: string) => type.startsWith('image/')
-
-const getFileIcon = (mediaType: string) => {
-  if (mediaType.startsWith('image/')) {
-    return <ImageIcon className='h-5 w-5 text-muted-foreground' />
-  }
-
-  if (mediaType.includes('pdf')) {
-    return <FileText className='h-5 w-5 text-red-500' />
-  }
-
-  if (mediaType.includes('text') || mediaType.includes('json') || mediaType.includes('xml')) {
-    return <FileText className='h-5 w-5 text-blue-500' />
-  }
-
-  return <FileText className='h-5 w-5 text-muted-foreground' />
 }
 
 export function AttachedFilesGrid({
@@ -54,21 +37,17 @@ export function AttachedFilesGrid({
                   aria-label={`Open ${file.name}`}
                   onClick={() => onFileClick(file)}
                 >
-                  {isImageFile(file.type) && file.previewUrl ? (
+                  {isImageMediaType(file.type) && file.previewUrl ? (
                     <img
                       src={file.previewUrl}
                       alt={file.name}
                       className='h-full w-full object-cover'
                     />
-                  ) : isImageFile(file.type) && file.key ? (
-                    <img
-                      src={file.previewUrl || file.path}
-                      alt={file.name}
-                      className='h-full w-full object-cover'
-                    />
+                  ) : isImageMediaType(file.type) && file.key ? (
+                    <img src={file.path} alt={file.name} className='h-full w-full object-cover' />
                   ) : (
                     <span className='flex h-full w-full items-center justify-center bg-background/50'>
-                      {getFileIcon(file.type)}
+                      <FileTypeIcon mediaType={file.type} />
                     </span>
                   )}
 

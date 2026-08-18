@@ -39,7 +39,7 @@ describe('CopilotWelcome i18n', () => {
     await act(async () => {
       root.render(
         <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
-          <CopilotWelcome accessLevel={accessLevel} />
+          <CopilotWelcome accessLevel={accessLevel} onQuestionClick={() => undefined} />
         </NextIntlClientProvider>
       )
     })

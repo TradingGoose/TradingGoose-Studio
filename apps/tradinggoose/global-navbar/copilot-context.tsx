@@ -11,20 +11,19 @@ import {
   useRef,
   useState,
 } from 'react'
-import { buildCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import type { ChatContext } from '@/stores/copilot/types'
 
-type PublishedValue<T> = { owner: symbol; value: T | null }
+type PublishedContext = { owner: symbol; value: ChatContext | null }
 
 type GlobalCopilotContextValue = {
   currentContext: ChatContext | null
-  setPublishedContext: Dispatch<SetStateAction<PublishedValue<ChatContext> | null>>
+  setPublishedContext: Dispatch<SetStateAction<PublishedContext | null>>
 }
 
 const GlobalCopilotContext = createContext<GlobalCopilotContextValue | null>(null)
 
 export function GlobalCopilotContextProvider({ children }: { children: ReactNode }) {
-  const [publishedContext, setPublishedContext] = useState<PublishedValue<ChatContext> | null>(null)
+  const [publishedContext, setPublishedContext] = useState<PublishedContext | null>(null)
   const value = useMemo(
     () => ({
       currentContext: publishedContext?.value ?? null,
@@ -36,34 +35,23 @@ export function GlobalCopilotContextProvider({ children }: { children: ReactNode
   return <GlobalCopilotContext.Provider value={value}>{children}</GlobalCopilotContext.Provider>
 }
 
-function useGlobalCopilotContextValue() {
+export function useGlobalCopilotCurrentContext() {
   const value = useContext(GlobalCopilotContext)
   if (!value) {
     throw new Error('Global Copilot context requires GlobalCopilotContextProvider')
   }
-  return value
+  return value.currentContext
 }
 
-export function useGlobalCopilotCurrentContext() {
-  return useGlobalCopilotContextValue().currentContext
-}
-
-function useGlobalCopilotPublisher<T>(
-  value: T | null,
-  setPublished: Dispatch<SetStateAction<PublishedValue<T> | null>> | undefined
-) {
+export function GlobalCopilotContextPublisher({ context }: { context: ChatContext | null }) {
+  const setPublished = useContext(GlobalCopilotContext)?.setPublishedContext
   const owner = useRef(Symbol('global-copilot-publisher')).current
 
   useLayoutEffect(() => {
     if (!setPublished) return
-    setPublished({ owner, value })
+    setPublished({ owner, value: context })
     return () => setPublished((current) => (current?.owner === owner ? null : current))
-  }, [owner, setPublished, value])
-}
-
-export function GlobalCopilotContextPublisher({ context }: { context: ChatContext | null }) {
-  const setPublishedContext = useContext(GlobalCopilotContext)?.setPublishedContext
-  useGlobalCopilotPublisher(context, setPublishedContext)
+  }, [context, owner, setPublished])
 
   return null
 }
@@ -75,15 +63,13 @@ export function GlobalCopilotKnowledgeContextPublisher({
   knowledgeBaseId: string
   workspaceId: string
 }) {
-  const context = useMemo(
-    () =>
-      buildCopilotWorkspaceEntityContext({
-        entityKind: 'knowledge_base',
-        entityId: knowledgeBaseId,
-        workspaceId,
-        label: 'Current knowledge base',
-        current: true,
-      }),
+  const context = useMemo<ChatContext>(
+    () => ({
+      kind: 'current_knowledge_base',
+      knowledgeBaseId,
+      workspaceId,
+      label: 'Current knowledge base',
+    }),
     [knowledgeBaseId, workspaceId]
   )
 
@@ -101,17 +87,16 @@ export function GlobalCopilotDashboardContextPublisher({
   ownerUserId: string
   workspaceId: string
 }) {
-  const context = useMemo(
+  const context = useMemo<ChatContext | null>(
     () =>
       layoutId
-        ? buildCopilotWorkspaceEntityContext({
-            entityKind: 'dashboard_layout',
-            entityId: layoutId,
+        ? {
+            kind: 'current_dashboard_layout',
+            dashboardLayoutId: layoutId,
             workspaceId,
             ownerUserId,
             label: layoutName?.trim() || layoutId,
-            current: true,
-          })
+          }
         : null,
     [layoutId, layoutName, ownerUserId, workspaceId]
   )

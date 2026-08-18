@@ -19,7 +19,7 @@ import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 interface AccessLevelSelectorProps {
   accessLevel: CopilotAccessLevel
   isNearTop: boolean
-  onAccessLevelChange?: (accessLevel: CopilotAccessLevel) => void
+  onAccessLevelChange: (accessLevel: CopilotAccessLevel) => void
 }
 
 const getAccessLevelIcon = (accessLevel: CopilotAccessLevel) => {
@@ -45,7 +45,6 @@ export function AccessLevelSelector({
           <Button
             variant='outline'
             size='sm'
-            disabled={!onAccessLevelChange}
             className='flex h-6 items-center gap-1.5 rounded-sm border bg-background px-2 py-1 font-medium text-xs hover:bg-muted/30 focus-visible:ring-0 focus-visible:ring-offset-0'
           />
         }
@@ -60,7 +59,7 @@ export function AccessLevelSelector({
               <TooltipTrigger
                 render={
                   <DropdownMenuItem
-                    onClick={() => onAccessLevelChange?.('limited')}
+                    onClick={() => onAccessLevelChange('limited')}
                     className={cn(
                       'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
                       accessLevel === 'limited' && 'bg-muted/40'
@@ -89,7 +88,7 @@ export function AccessLevelSelector({
               <TooltipTrigger
                 render={
                   <DropdownMenuItem
-                    onClick={() => onAccessLevelChange?.('full')}
+                    onClick={() => onAccessLevelChange('full')}
                     className={cn(
                       'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
                       accessLevel === 'full' && 'bg-muted/40'

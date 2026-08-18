@@ -7,61 +7,22 @@ import {
   ENTITY_KIND_SKILL,
   ENTITY_KIND_WATCHLIST,
   ENTITY_KIND_WORKFLOW,
-  type ReviewEntityKind,
 } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
 import type { ChatContext } from '@/stores/copilot/types'
 
-type CopilotWorkspaceEntityConfig = {
-  entityKind: ReviewEntityKind
-  idField:
-    | 'workflowId'
-    | 'skillId'
-    | 'indicatorId'
-    | 'knowledgeBaseId'
-    | 'customToolId'
-    | 'mcpServerId'
-    | 'watchlistId'
-    | 'dashboardLayoutId'
-}
+export const COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS = [
+  ENTITY_KIND_WORKFLOW,
+  ENTITY_KIND_SKILL,
+  ENTITY_KIND_CUSTOM_TOOL,
+  ENTITY_KIND_INDICATOR,
+  ENTITY_KIND_MCP_SERVER,
+  ENTITY_KIND_WATCHLIST,
+  ENTITY_KIND_DASHBOARD_LAYOUT,
+  ENTITY_KIND_KNOWLEDGE_BASE,
+] as const
 
-export const COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS = [
-  {
-    entityKind: ENTITY_KIND_WORKFLOW,
-    idField: 'workflowId',
-  },
-  {
-    entityKind: ENTITY_KIND_SKILL,
-    idField: 'skillId',
-  },
-  {
-    entityKind: ENTITY_KIND_CUSTOM_TOOL,
-    idField: 'customToolId',
-  },
-  {
-    entityKind: ENTITY_KIND_INDICATOR,
-    idField: 'indicatorId',
-  },
-  {
-    entityKind: ENTITY_KIND_MCP_SERVER,
-    idField: 'mcpServerId',
-  },
-  {
-    entityKind: ENTITY_KIND_WATCHLIST,
-    idField: 'watchlistId',
-  },
-  {
-    entityKind: ENTITY_KIND_DASHBOARD_LAYOUT,
-    idField: 'dashboardLayoutId',
-  },
-  {
-    entityKind: ENTITY_KIND_KNOWLEDGE_BASE,
-    idField: 'knowledgeBaseId',
-  },
-] as const satisfies readonly CopilotWorkspaceEntityConfig[]
-
-export type CopilotWorkspaceEntityKind =
-  (typeof COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS)[number]['entityKind']
+export type CopilotWorkspaceEntityKind = (typeof COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS)[number]
 type CopilotWorkspaceEntityContextDetails = {
   entityKind: CopilotWorkspaceEntityKind
   entityId: string | null
@@ -70,52 +31,27 @@ type CopilotWorkspaceEntityContextDetails = {
   current: boolean
 }
 
-const COPILOT_WORKSPACE_ENTITY_KIND_SET = new Set<string>(
-  COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => config.entityKind)
-)
-
-const COPILOT_WORKSPACE_ENTITY_CONFIG_BY_KIND = new Map<
-  CopilotWorkspaceEntityKind,
-  (typeof COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS)[number]
->(COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map((config) => [config.entityKind, config]))
-
-export const COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS =
-  COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS.map(
-    (config) => config.entityKind
-  ) as CopilotWorkspaceEntityKind[]
-
-export function getCopilotWorkspaceEntityConfig(
-  entityKind: CopilotWorkspaceEntityKind
-): (typeof COPILOT_WORKSPACE_ENTITY_MENTION_CONFIGS)[number] {
-  const config = COPILOT_WORKSPACE_ENTITY_CONFIG_BY_KIND.get(entityKind)
-
-  if (!config) {
-    throw new Error(`Unknown copilot workspace entity kind: ${entityKind}`)
-  }
-
-  return config
-}
-
 export function isCopilotWorkspaceEntityMentionOption(
   value: string
 ): value is CopilotWorkspaceEntityKind {
-  return COPILOT_WORKSPACE_ENTITY_KIND_SET.has(value)
+  return COPILOT_WORKSPACE_ENTITY_MENTION_OPTIONS.some((entityKind) => entityKind === value)
 }
 
-export function getCopilotWorkspaceEntityKindFromContext(
+function getCopilotWorkspaceEntityKindFromContext(
   context: Pick<ChatContext, 'kind'> | null | undefined
 ): CopilotWorkspaceEntityKind | null {
   if (!context) {
     return null
   }
 
-  const rawKind = context.kind.startsWith('current_')
-    ? context.kind.slice('current_'.length)
-    : context.kind
+  const rawKind =
+    context.kind === 'current_knowledge_base'
+      ? ENTITY_KIND_KNOWLEDGE_BASE
+      : context.kind === 'current_dashboard_layout'
+        ? ENTITY_KIND_DASHBOARD_LAYOUT
+        : context.kind
 
-  return COPILOT_WORKSPACE_ENTITY_KIND_SET.has(rawKind)
-    ? (rawKind as CopilotWorkspaceEntityKind)
-    : null
+  return isCopilotWorkspaceEntityMentionOption(rawKind) ? rawKind : null
 }
 
 export function readCopilotWorkspaceEntityContext(
@@ -138,28 +74,22 @@ export function readCopilotWorkspaceEntityContext(
   }
 }
 
-export function getCopilotWorkspaceEntityIdFromContext(context: ChatContext): string | null {
+function getCopilotWorkspaceEntityIdFromContext(context: ChatContext): string | null {
   switch (context.kind) {
     case 'workflow':
-    case 'current_workflow':
       return normalizeOptionalString(context.workflowId) ?? null
     case 'skill':
-    case 'current_skill':
       return normalizeOptionalString(context.skillId) ?? null
     case 'indicator':
-    case 'current_indicator':
       return normalizeOptionalString(context.indicatorId) ?? null
     case 'knowledge_base':
     case 'current_knowledge_base':
       return normalizeOptionalString(context.knowledgeBaseId) ?? null
     case 'custom_tool':
-    case 'current_custom_tool':
       return normalizeOptionalString(context.customToolId) ?? null
     case 'mcp_server':
-    case 'current_mcp_server':
       return normalizeOptionalString(context.mcpServerId) ?? null
     case 'watchlist':
-    case 'current_watchlist':
       return normalizeOptionalString(context.watchlistId) ?? null
     case 'dashboard_layout':
     case 'current_dashboard_layout':
@@ -174,7 +104,6 @@ type BuildCopilotWorkspaceEntityContextOptions<K extends CopilotWorkspaceEntityK
   entityId: string
   ownerUserId?: string | null
   label: string
-  current?: boolean
 } & (K extends typeof ENTITY_KIND_KNOWLEDGE_BASE
   ? { workspaceId: string }
   : { workspaceId?: string | null })
@@ -185,9 +114,7 @@ export function buildCopilotWorkspaceEntityContext<K extends CopilotWorkspaceEnt
   workspaceId,
   ownerUserId,
   label,
-  current = false,
 }: BuildCopilotWorkspaceEntityContextOptions<K>): ChatContext {
-  const config = getCopilotWorkspaceEntityConfig(entityKind)
   const resolvedLabel = label.trim()
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
   const normalizedOwnerUserId = normalizeOptionalString(ownerUserId)
@@ -203,53 +130,53 @@ export function buildCopilotWorkspaceEntityContext<K extends CopilotWorkspaceEnt
     label: resolvedLabel,
   }
 
-  switch (config.idField) {
-    case 'workflowId':
+  switch (entityKind) {
+    case ENTITY_KIND_WORKFLOW:
       return {
-        kind: current ? 'current_workflow' : 'workflow',
+        kind: 'workflow',
         ...baseContext,
         workflowId: entityId,
       }
-    case 'skillId':
+    case ENTITY_KIND_SKILL:
       return {
-        kind: current ? 'current_skill' : 'skill',
+        kind: 'skill',
         ...baseContext,
         skillId: entityId,
       }
-    case 'indicatorId':
+    case ENTITY_KIND_INDICATOR:
       return {
-        kind: current ? 'current_indicator' : 'indicator',
+        kind: 'indicator',
         ...baseContext,
         indicatorId: entityId,
       }
-    case 'knowledgeBaseId':
+    case ENTITY_KIND_KNOWLEDGE_BASE:
       return {
-        kind: current ? 'current_knowledge_base' : 'knowledge_base',
+        kind: 'knowledge_base',
         knowledgeBaseId: entityId,
         workspaceId: normalizedWorkspaceId!,
         label: resolvedLabel,
       }
-    case 'customToolId':
+    case ENTITY_KIND_CUSTOM_TOOL:
       return {
-        kind: current ? 'current_custom_tool' : 'custom_tool',
+        kind: 'custom_tool',
         ...baseContext,
         customToolId: entityId,
       }
-    case 'mcpServerId':
+    case ENTITY_KIND_MCP_SERVER:
       return {
-        kind: current ? 'current_mcp_server' : 'mcp_server',
+        kind: 'mcp_server',
         ...baseContext,
         mcpServerId: entityId,
       }
-    case 'watchlistId':
+    case ENTITY_KIND_WATCHLIST:
       return {
-        kind: current ? 'current_watchlist' : 'watchlist',
+        kind: 'watchlist',
         ...baseContext,
         watchlistId: entityId,
       }
-    case 'dashboardLayoutId':
+    case ENTITY_KIND_DASHBOARD_LAYOUT:
       return {
-        kind: current ? 'current_dashboard_layout' : 'dashboard_layout',
+        kind: 'dashboard_layout',
         ...baseContext,
         dashboardLayoutId: entityId,
       }

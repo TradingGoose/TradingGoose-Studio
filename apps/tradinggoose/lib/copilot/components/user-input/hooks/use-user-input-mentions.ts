@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, type RefObject, useEffect, useRef, useState } from 'react'
 import { useLocale } from 'next-intl'
+import { isCopilotMentionBoundary } from '@/lib/copilot/chat-contexts'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import type { ChatContext, CopilotDraftUpdate } from '@/stores/copilot/types'
 import {
@@ -20,7 +21,6 @@ import {
   buildMentionRanges,
   filterMentionItems,
   filterMentionOptions,
-  isMentionBoundary,
   retainMentionContextsInText,
   upsertMentionContextByTextOrder,
 } from '../mention-utils'
@@ -120,7 +120,7 @@ export function useUserInputMentions({
     })
   }
 
-  const getCaretPos = () => getSelection()?.start ?? message.length
+  const getCaretPos = () => getSelection().start
 
   const scrollActiveItemIntoView = (index: number) => {
     const container = menuListRef.current
@@ -176,7 +176,7 @@ export function useUserInputMentions({
       return null
     }
 
-    if (atIndex > 0 && !isMentionBoundary(before.charAt(atIndex - 1))) {
+    if (atIndex > 0 && !isCopilotMentionBoundary(before.charAt(atIndex - 1))) {
       return null
     }
 
@@ -384,30 +384,25 @@ export function useUserInputMentions({
     closeMentionMenu()
   }
 
-  const handleSubmenuItemSelect = (submenu: MentionSubmenu, item: MentionItem) => {
-    if (submenu === 'chats') {
+  const insertMentionItem = (type: MentionSubmenu, item: MentionItem) => {
+    if (type === 'chats') {
       insertPastChatMention(item as any)
-    } else if (isCopilotWorkspaceEntityMentionOption(submenu)) {
+    } else if (isCopilotWorkspaceEntityMentionOption(type)) {
       insertWorkspaceEntityMention(item as WorkspaceEntityItem)
-    } else if (submenu === 'blocks') {
+    } else if (type === 'blocks') {
       insertBlockMention(item as any)
-    } else if (submenu === 'logs') {
+    } else if (type === 'logs') {
       insertLogMention(item as any)
     }
+  }
 
+  const handleSubmenuItemSelect = (submenu: MentionSubmenu, item: MentionItem) => {
+    insertMentionItem(submenu, item)
     setSubmenuQueryStart(null)
   }
 
   const handleAggregatedItemSelect = (item: AggregatedMentionItem) => {
-    if (item.type === 'chats') {
-      insertPastChatMention(item.value as any)
-    } else if (isCopilotWorkspaceEntityMentionOption(item.type)) {
-      insertWorkspaceEntityMention(item.value as WorkspaceEntityItem)
-    } else if (item.type === 'blocks') {
-      insertBlockMention(item.value as any)
-    } else if (item.type === 'logs') {
-      insertLogMention(item.value as any)
-    }
+    insertMentionItem(item.type, item.value)
   }
 
   const openMentionSubmenu = (submenu: MentionSubmenu) => {
@@ -482,15 +477,15 @@ export function useUserInputMentions({
 
   const handleSelectAdjust = () => {
     const selection = getSelection()
-    const pos = selection?.start ?? 0
+    const pos = selection.start
     const range =
-      selection && selection.start !== selection.end
+      selection.start !== selection.end
         ? findRangeOverlappingSelection(selection.start, selection.end)
         : findRangeContaining(pos)
 
     if (range) {
       const snapPos =
-        selection && selection.start !== selection.end
+        selection.start !== selection.end
           ? range.end
           : pos - range.start < range.end - pos
             ? range.start
@@ -509,7 +504,7 @@ export function useUserInputMentions({
     if (!textareaRef.current) return
 
     focusEditor()
-    const pos = getSelection()?.start ?? message.length
+    const pos = getSelection().start
     const needsSpaceBefore = pos > 0 && !/\s/.test(message.charAt(pos - 1))
     insertAtCursor(needsSpaceBefore ? ' @' : '@')
     setShowMentionMenu(true)
@@ -520,14 +515,10 @@ export function useUserInputMentions({
     requestAnimationFrame(() => scrollActiveItemIntoView(0))
   }
 
-  const insertTextAtSelection = (text: string) => {
-    insertAtCursor(text)
-  }
-
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     const selection = getSelection()
-    const selectionStart = selection?.start ?? 0
-    const selectionEnd = selection?.end ?? selectionStart
+    const selectionStart = selection.start
+    const selectionEnd = selection.end
     const selectionLength = Math.abs(selectionEnd - selectionStart)
 
     if (event.key === 'Escape' && showMentionMenu) {
@@ -825,7 +816,7 @@ export function useUserInputMentions({
     closeMentionMenu,
     handleAggregatedItemSelect,
     handleInputChange,
-    insertTextAtSelection,
+    insertTextAtSelection: insertAtCursor,
     handleKeyDown,
     handleMainMentionOptionSelect,
     handleOpenMentionMenuWithAt,

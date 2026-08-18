@@ -47,45 +47,42 @@ describe('buildTurnProvenanceFromContexts', () => {
     })
   })
 
-  it('uses current watchlist contexts as implicit entity provenance without overriding workspace scope', () => {
+  it('uses current knowledge context without overriding workspace scope', () => {
     expect(
       buildTurnProvenanceFromContexts(
         [
-          buildCopilotWorkspaceEntityContext({
-            entityKind: 'watchlist',
-            entityId: 'workspace-current',
+          {
+            kind: 'current_knowledge_base',
+            knowledgeBaseId: 'knowledge-current',
             workspaceId: 'workspace-current',
-            label: 'Current Watchlist',
-            current: true,
-          }),
+            label: 'Current Knowledge Base',
+          },
         ],
         'workspace-live'
       )
     ).toEqual({
-      contextEntityKind: 'watchlist',
-      contextEntityId: 'workspace-current',
+      contextEntityKind: 'knowledge_base',
+      contextEntityId: 'knowledge-current',
       workspaceId: 'workspace-live',
     })
   })
 
-  it('keeps current watchlist provenance while dashboard tools use the dashboard scope', () => {
+  it('keeps an attached entity scope while dashboard tools use the current dashboard scope', () => {
     const provenance = buildTurnProvenanceFromContexts(
       [
         buildCopilotWorkspaceEntityContext({
           entityKind: 'watchlist',
           entityId: 'watchlist-current',
           workspaceId: 'workspace-1',
-          label: 'Current Watchlist',
-          current: true,
+          label: 'Attached Watchlist',
         }),
-        buildCopilotWorkspaceEntityContext({
-          entityKind: 'dashboard_layout',
-          entityId: 'layout-current',
+        {
+          kind: 'current_dashboard_layout',
+          dashboardLayoutId: 'layout-current',
           workspaceId: 'workspace-1',
           ownerUserId: 'user-1',
           label: 'Current Dashboard',
-          current: true,
-        }),
+        },
       ],
       'workspace-1'
     )

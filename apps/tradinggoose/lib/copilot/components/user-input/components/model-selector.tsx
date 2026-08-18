@@ -1,7 +1,7 @@
 'use client'
 
 import { Brain, BrainCircuit, Zap } from 'lucide-react'
-import { shallow } from 'zustand/shallow'
+import { useShallow } from 'zustand/react/shallow'
 import {
   Button,
   DropdownMenu,
@@ -12,70 +12,44 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui'
-import {
-  COPILOT_RUNTIME_MODEL_OPTIONS,
-  type CopilotRuntimeModel,
-  DEFAULT_COPILOT_RUNTIME_MODEL,
-} from '@/lib/copilot/runtime-models'
+import { COPILOT_RUNTIME_MODELS, type CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
+import { deriveCopilotProviderFromModel } from '@/lib/copilot/runtime-provider'
 import { cn } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 import { useCopilotStore } from '@/stores/copilot/store'
-import {
-  ANTHROPIC_MODELS,
-  BRAIN_CIRCUIT_MODELS,
-  BRAIN_MODELS,
-  FAST_MODELS,
-  OPENAI_MODELS,
-} from '../constants'
 
 interface ModelSelectorProps {
   isNearTop: boolean
   panelWidth: number
 }
 
-const MODEL_PROVIDER_GROUPS = [
-  { provider: 'anthropic', models: ANTHROPIC_MODELS },
-  { provider: 'openai', models: OPENAI_MODELS },
-] as const
+const MODEL_PROVIDER_GROUPS = (['anthropic', 'openai'] as const).map((provider) => ({
+  provider,
+  models: COPILOT_RUNTIME_MODELS.filter(
+    (model) => deriveCopilotProviderFromModel(model) === provider
+  ),
+}))
 
-const DEFAULT_MODEL_LABEL =
-  COPILOT_RUNTIME_MODEL_OPTIONS.find((option) => option.value === DEFAULT_COPILOT_RUNTIME_MODEL)
-    ?.label ?? DEFAULT_COPILOT_RUNTIME_MODEL
+const MODEL_ICONS = {
+  'gpt-5.4': Brain,
+  'gpt-5.4-mini': Zap,
+  'claude-opus-4.6': BrainCircuit,
+  'claude-sonnet-4.6': Brain,
+} satisfies Record<CopilotRuntimeModel, typeof Brain>
 
 const getModelOptionIcon = (modelValue: CopilotRuntimeModel) => {
-  if (BRAIN_CIRCUIT_MODELS.includes(modelValue)) {
-    return <BrainCircuit className='h-3 w-3 text-muted-foreground' />
-  }
-
-  if (BRAIN_MODELS.includes(modelValue)) {
-    return <Brain className='h-3 w-3 text-muted-foreground' />
-  }
-
-  if (FAST_MODELS.includes(modelValue)) {
-    return <Zap className='h-3 w-3 text-muted-foreground' />
-  }
-
-  return <div className='h-3 w-3' />
+  const Icon = MODEL_ICONS[modelValue]
+  return <Icon className='h-3 w-3 text-muted-foreground' />
 }
 
 export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
   const modelCopy = useCopilotMessages().model
-  const { agentPrefetch, selectedModel, setAgentPrefetch, setSelectedModel } = useCopilotStore(
-    (state) => ({
-      agentPrefetch: state.agentPrefetch,
+  const { selectedModel, setSelectedModel } = useCopilotStore(
+    useShallow((state) => ({
       selectedModel: state.selectedModel,
-      setAgentPrefetch: state.setAgentPrefetch,
       setSelectedModel: state.setSelectedModel,
-    }),
-    shallow
+    }))
   )
-
-  const model = COPILOT_RUNTIME_MODEL_OPTIONS.find((option) => option.value === selectedModel)
-  const collapsedModelLabel = model?.label ?? DEFAULT_MODEL_LABEL
-  const handleModelSelect = (modelValue: CopilotRuntimeModel) => {
-    void setSelectedModel(modelValue)
-    if (FAST_MODELS.includes(modelValue) && agentPrefetch) setAgentPrefetch(false)
-  }
 
   return (
     <DropdownMenu>
@@ -95,10 +69,7 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
               >
                 {getModelOptionIcon(selectedModel)}
                 <span className={cn(panelWidth < 360 ? 'max-w-[72px] truncate' : '')}>
-                  {collapsedModelLabel}
-                  {agentPrefetch && !FAST_MODELS.includes(selectedModel) && (
-                    <span className='ml-1 font-semibold'>{modelCopy.lite}</span>
-                  )}
+                  {selectedModel}
                 </span>
               </DropdownMenuTrigger>
             </span>
@@ -120,19 +91,17 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
                       {modelCopy.providers[provider]}
                     </div>
                     <div className='space-y-0.5'>
-                      {COPILOT_RUNTIME_MODEL_OPTIONS.filter((option) =>
-                        models.includes(option.value)
-                      ).map((option) => (
+                      {models.map((model) => (
                         <DropdownMenuItem
-                          key={option.value}
-                          onClick={() => handleModelSelect(option.value)}
+                          key={model}
+                          onClick={() => void setSelectedModel(model)}
                           className={cn(
                             'flex h-7 items-center gap-1.5 px-2 py-1 text-left text-xs',
-                            selectedModel === option.value ? 'bg-muted/50' : ''
+                            selectedModel === model ? 'bg-muted/50' : ''
                           )}
                         >
-                          {getModelOptionIcon(option.value)}
-                          <span>{option.label}</span>
+                          {getModelOptionIcon(model)}
+                          <span>{model}</span>
                         </DropdownMenuItem>
                       ))}
                     </div>

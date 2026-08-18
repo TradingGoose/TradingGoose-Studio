@@ -466,8 +466,8 @@ describe('Copilot Chat POST Generic Sessions', () => {
   it('accepts live entity contexts and forwards processed supporting context to copilot', async () => {
     mockProcessContextsServer.mockResolvedValue([
       {
-        type: 'current_indicator',
-        content: '{"entityId":"indicator-1"}',
+        type: 'current_monitor',
+        content: '{"entityId":"monitor-1"}',
       },
     ])
     mockProxyCopilotRequest.mockResolvedValue({
@@ -478,15 +478,15 @@ describe('Copilot Chat POST Generic Sessions', () => {
     })
 
     const request = createMockRequest('POST', {
-      message: 'Update the current indicator',
+      message: 'Inspect the current monitor',
       reviewSessionId: 'review-session-1',
       stream: false,
       contexts: [
         {
-          kind: 'current_indicator',
-          indicatorId: 'indicator-1',
+          kind: 'current_monitor',
+          monitorId: 'monitor-1',
           workspaceId: 'workspace-1',
-          label: 'Current Indicator',
+          label: 'Current Monitor',
         },
       ],
     })
@@ -500,14 +500,14 @@ describe('Copilot Chat POST Generic Sessions', () => {
     expect(mockProcessContextsServer).toHaveBeenCalledWith(
       [
         {
-          kind: 'current_indicator',
-          indicatorId: 'indicator-1',
+          kind: 'current_monitor',
+          monitorId: 'monitor-1',
           workspaceId: 'workspace-1',
-          label: 'Current Indicator',
+          label: 'Current Monitor',
         },
       ],
       'collaborator-user',
-      'Update the current indicator',
+      'Inspect the current monitor',
       'workspace-1',
       { signal: contextSignal }
     )
@@ -515,7 +515,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
       expect.objectContaining({
         endpoint: '/api/copilot',
         body: expect.objectContaining({
-          message: 'Update the current indicator',
+          message: 'Inspect the current monitor',
           userId: 'collaborator-user',
           model: 'claude-sonnet-4.6',
           chatId: 'review-session-1',
@@ -524,8 +524,8 @@ describe('Copilot Chat POST Generic Sessions', () => {
           }),
           context: [
             {
-              type: 'current_indicator',
-              content: '{"entityId":"indicator-1"}',
+              type: 'current_monitor',
+              content: '{"entityId":"monitor-1"}',
             },
           ],
         }),

@@ -345,7 +345,6 @@ const createEmptyCopilotDraft = (): CopilotDraft => ({ text: '', contexts: [] })
 const initialState = {
   accessLevel: 'limited' as const,
   selectedModel: DEFAULT_COPILOT_RUNTIME_MODEL,
-  agentPrefetch: false,
   currentChat: null as CopilotChat | null,
   chats: [] as CopilotChat[],
   messages: [] as CopilotMessage[],
@@ -354,16 +353,9 @@ const initialState = {
   isAwaitingContinuation: false,
   isAborting: false,
   abortController: null as AbortController | null,
-  draft: createEmptyCopilotDraft(),
   planTodos: [] as Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>,
-  showPlanTodos: false,
   toolCallsById: {} as Record<string, CopilotToolCall>,
   contextUsage: null,
-}
-
-function buildPlanTodoStateFromMessages(messages: CopilotMessage[]) {
-  const planTodos = buildPlanTodosFromMessages(messages)
-  return { planTodos, showPlanTodos: planTodos.some((todo) => !todo.completed) }
 }
 
 const sseHandlers = createSSEHandlers({
@@ -417,7 +409,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
           currentChat: chat,
           messages: normalizedMessages,
           toolCallsById: optimisticToolCallsById,
-          ...buildPlanTodoStateFromMessages(normalizedMessages),
+          planTodos: buildPlanTodosFromMessages(normalizedMessages),
           contextUsage: null,
           isSendingMessage: isChatTurnInProgress(chat),
           isAwaitingContinuation: isChatTurnInProgress(chat),
@@ -472,7 +464,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
                 ),
                 contextUsage: null,
                 toolCallsById,
-                ...buildPlanTodoStateFromMessages(normalizedMessages),
+                planTodos: buildPlanTodosFromMessages(normalizedMessages),
                 isSendingMessage: isChatTurnInProgress(latestChat),
                 isAwaitingContinuation: isChatTurnInProgress(latestChat),
                 abortController: null,
@@ -525,7 +517,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
           isAwaitingContinuation: false,
           abortController: null,
           planTodos: [],
-          showPlanTodos: false,
           contextUsage: null,
         }))
       },
@@ -570,7 +561,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
                   abortController: null,
                   draft: createEmptyCopilotDraft(),
                   planTodos: [],
-                  showPlanTodos: false,
                   contextUsage: null,
                 }
               : {}),
@@ -648,7 +638,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
                     currentChat: updatedCurrentChat,
                     messages: normalizedMessages,
                     toolCallsById,
-                    ...buildPlanTodoStateFromMessages(normalizedMessages),
+                    planTodos: buildPlanTodosFromMessages(normalizedMessages),
                     isSendingMessage: isChatTurnInProgress(updatedCurrentChat),
                     isAwaitingContinuation: isChatTurnInProgress(updatedCurrentChat),
                     abortController: null,
@@ -683,7 +673,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
                     currentChat: availableChat,
                     messages: normalizedMessages,
                     toolCallsById,
-                    ...buildPlanTodoStateFromMessages(normalizedMessages),
+                    planTodos: buildPlanTodosFromMessages(normalizedMessages),
                     isSendingMessage: isChatTurnInProgress(availableChat),
                     isAwaitingContinuation: isChatTurnInProgress(availableChat),
                     abortController: null,
@@ -694,7 +684,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
                     messages: [],
                     toolCallsById: {},
                     planTodos: [],
-                    showPlanTodos: false,
                     isSendingMessage: false,
                     isAwaitingContinuation: false,
                     abortController: null,
@@ -707,7 +696,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
                 messages: [],
                 toolCallsById: {},
                 planTodos: [],
-                showPlanTodos: false,
                 isSendingMessage: false,
                 isAwaitingContinuation: false,
                 abortController: null,
@@ -758,7 +746,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
           isAwaitingContinuation: false,
           abortController,
           planTodos: [],
-          showPlanTodos: false,
         })
 
         const userMessage = createUserMessage(message, fileAttachments, contextsToSend, messageId)
@@ -804,7 +791,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
             workspaceId: workspaceId ?? undefined,
             model: requestModel,
             provider: requestProvider,
-            prefetch: get().agentPrefetch,
             fileAttachments,
             contexts: contextsToSend,
             abortSignal: abortController.signal,
@@ -1114,7 +1100,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
           currentChat: newChat,
           chats: [newChat, ...(get().chats || [])],
           planTodos: [],
-          showPlanTodos: false,
         })
 
         schedulePersistCurrentChatState(get, newReviewSessionId, ACTIVE_TURN_STATUS)
@@ -1140,8 +1125,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
         })),
 
       // Todo list (UI only)
-      setPlanTodos: (todos) =>
-        set({ planTodos: todos, showPlanTodos: todos.some((todo) => !todo.completed) }),
+      setPlanTodos: (planTodos) => set({ planTodos }),
       updatePlanTodoStatus: (id, status) => {
         set((state) => {
           const planTodos =
@@ -1153,10 +1137,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
               ? { ...t, completed: status === 'completed', executing: status === 'executing' }
               : t
           )
-          return {
-            planTodos: updated,
-            showPlanTodos: updated.some((todo) => !todo.completed),
-          }
+          return { planTodos: updated }
         })
       },
       setSelectedModel: async (model) => {
@@ -1165,7 +1146,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
         // Fetch context usage after model switch
         await get().fetchContextUsage()
       },
-      setAgentPrefetch: (prefetch) => set({ agentPrefetch: prefetch }),
 
       // Fetch context usage from copilot API
       fetchContextUsage: async () => {
@@ -1650,15 +1630,12 @@ export function useCopilotStore<T = CopilotStore>(
   return useStoreWithEqualityFn(store, resolvedSelector, equalityFn)
 }
 
-export function useCopilotStoreApi(channelId?: string) {
-  const storeFromContext = useContext(CopilotStoreContext)
-  if (!channelId && storeFromContext) {
-    return storeFromContext
+export function useCopilotStoreApi() {
+  const store = useContext(CopilotStoreContext)
+  if (!store) {
+    throw new Error('useCopilotStoreApi requires CopilotStoreProvider')
   }
-  if (channelId) {
-    return getCopilotStore(channelId)
-  }
-  throw new Error('useCopilotStoreApi requires CopilotStoreProvider or channelId')
+  return store
 }
 
 function applyToolStateUpdate(

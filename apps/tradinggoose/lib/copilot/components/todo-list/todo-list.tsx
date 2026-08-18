@@ -1,51 +1,24 @@
 'use client'
 
-import { memo, useEffect, useState } from 'react'
+import { memo, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, ListTodo, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 
-export interface TodoItem {
-  id: string
-  content: string
-  completed?: boolean
-  executing?: boolean
-}
-
 interface TodoListProps {
-  todos: TodoItem[]
-  collapsed?: boolean
-  className?: string
+  todos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
 }
 
-export const TodoList = memo(function TodoList({
-  todos,
-  collapsed = false,
-  className,
-}: TodoListProps) {
+export const TodoList = memo(function TodoList({ todos }: TodoListProps) {
   const copilotCopy = useCopilotMessages()
-  const [isCollapsed, setIsCollapsed] = useState(collapsed)
-
-  // Sync collapsed prop with internal state
-  useEffect(() => {
-    setIsCollapsed(collapsed)
-  }, [collapsed])
-
-  if (!todos || todos.length === 0) {
-    return null
-  }
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   const completedCount = todos.filter((todo) => todo.completed).length
   const totalCount = todos.length
-  const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
+  const progress = (completedCount / totalCount) * 100
 
   return (
-    <div
-      className={cn(
-        'rounded-md border-neutral-200 border dark:border-neutral-700 dark:bg-neutral-900',
-        className
-      )}
-    >
+    <div className='rounded-md border border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900'>
       {/* Header */}
       <div className='flex items-center justify-between rounded-md border-neutral-100 border-b px-3 py-2 dark:border-neutral-800'>
         <div className='flex items-center gap-1'>

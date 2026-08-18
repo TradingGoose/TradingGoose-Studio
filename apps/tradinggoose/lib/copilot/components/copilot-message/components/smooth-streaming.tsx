@@ -25,8 +25,8 @@ StreamingIndicator.displayName = 'StreamingIndicator'
 
 interface SmoothStreamingTextProps {
   content: string
-  typingKey?: string
-  onTypingStateChange?: (typingKey: string, isTyping: boolean) => void
+  typingKey: string
+  onTypingStateChange: (typingKey: string, isTyping: boolean) => void
 }
 
 const REVEAL_CHARS_PER_SECOND = 60
@@ -50,9 +50,8 @@ export const SmoothStreamingText = memo(
           cancelAnimationFrame(frameRef.current)
           frameRef.current = null
         }
-        const latestTypingKey = typingKeyRef.current
-        if (latestTypingKey && isTypingRef.current) {
-          onTypingStateChangeRef.current?.(latestTypingKey, false)
+        if (isTypingRef.current) {
+          onTypingStateChangeRef.current(typingKeyRef.current, false)
         }
       }
     }, [onTypingStateChangeRef, typingKeyRef])
@@ -63,10 +62,7 @@ export const SmoothStreamingText = memo(
       const setTypingState = (isTyping: boolean) => {
         if (isTypingRef.current === isTyping) return
         isTypingRef.current = isTyping
-        const latestTypingKey = typingKeyRef.current
-        if (latestTypingKey) {
-          onTypingStateChangeRef.current?.(latestTypingKey, isTyping)
-        }
+        onTypingStateChangeRef.current(typingKeyRef.current, isTyping)
       }
 
       const stopAnimation = () => {

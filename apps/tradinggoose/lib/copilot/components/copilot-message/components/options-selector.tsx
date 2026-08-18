@@ -4,11 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * Plan step can be either a string or an object with title and plan
- */
-type PlanStep = string | { title: string; plan?: string }
-
-/**
  * Option can be either a string or an object with title and description
  */
 type OptionItem = string | { title: string; description?: string }
@@ -22,8 +17,6 @@ function decodePartialJsonString(value: string): string {
 }
 
 export interface ParsedTags {
-  plan?: Record<string, PlanStep>
-  planComplete?: boolean
   options?: Record<string, OptionItem>
   optionsComplete?: boolean
   cleanContent: string
@@ -58,64 +51,9 @@ function parsePartialOptionsJson(jsonStr: string): Record<string, OptionItem> | 
   return Object.keys(result).length > 0 ? result : null
 }
 
-/**
- * Try to parse partial JSON for streaming plan steps.
- * Attempts to extract complete key-value pairs from incomplete JSON.
- */
-function parsePartialPlanJson(jsonStr: string): Record<string, PlanStep> | null {
-  // Try parsing as-is first (might be complete)
-  try {
-    return JSON.parse(jsonStr)
-  } catch {
-    // Continue to partial parsing
-  }
-
-  const result: Record<string, PlanStep> = {}
-  // Match complete string values: "key": "value"
-  const stringPattern = /"(\d+)":\s*"((?:[^"\\]|\\.)*)"/g
-  let match
-  while ((match = stringPattern.exec(jsonStr)) !== null) {
-    result[match[1]] = decodePartialJsonString(match[2])
-  }
-
-  // Match complete object values: "key": {"title": "value"}
-  const objectPattern = /"(\d+)":\s*\{[^{}]*"title":\s*"((?:[^"\\]|\\.)*)"/g
-  while ((match = objectPattern.exec(jsonStr)) !== null) {
-    result[match[1]] = { title: decodePartialJsonString(match[2]) }
-  }
-
-  return Object.keys(result).length > 0 ? result : null
-}
-
-/**
- * Parse <plan> and <options> tags from content
- */
+/** Parse <options> tags from content. */
 export function parseSpecialTags(content: string): ParsedTags {
   const result: ParsedTags = { cleanContent: content }
-
-  // Parse <plan> tag - check for complete tag first
-  const planMatch = content.match(/<plan>([\s\S]*?)<\/plan>/i)
-  if (planMatch) {
-    try {
-      result.plan = JSON.parse(planMatch[1])
-      result.planComplete = true
-      result.cleanContent = result.cleanContent.replace(planMatch[0], '').trim()
-    } catch {
-      // Invalid JSON, ignore
-    }
-  } else {
-    // Check for streaming/incomplete plan tag
-    const streamingPlanMatch = content.match(/<plan>([\s\S]*)$/i)
-    if (streamingPlanMatch) {
-      const partialPlan = parsePartialPlanJson(streamingPlanMatch[1])
-      if (partialPlan) {
-        result.plan = partialPlan
-        result.planComplete = false
-      }
-      // Strip the incomplete tag from clean content
-      result.cleanContent = result.cleanContent.replace(streamingPlanMatch[0], '').trim()
-    }
-  }
 
   // Parse <options> tag - check for complete tag first
   const optionsMatch = content.match(/<options>([\s\S]*?)<\/options>/i)
@@ -141,8 +79,7 @@ export function parseSpecialTags(content: string): ParsedTags {
     }
   }
 
-  // Strip partial opening tags like "<opt" or "<pla" at the very end of content
-  result.cleanContent = result.cleanContent.replace(/<[a-z]*$/i, '').trim()
+  result.cleanContent = result.cleanContent.replace(/<opt(?:i(?:o(?:n(?:s)?)?)?)?$/i, '').trim()
 
   return result
 }
@@ -155,19 +92,10 @@ export function parseSpecialTags(content: string): ParsedTags {
 export function OptionsSelector({
   options,
   onSelect,
-  disabled = false,
-  enableKeyboardNav = false,
-  streaming = false,
 }: {
   options: Record<string, OptionItem>
   onSelect: (optionKey: string, optionText: string) => void
-  disabled?: boolean
-  /** Only enable keyboard navigation for the active options (last message) */
-  enableKeyboardNav?: boolean
-  /** When true, looks enabled but interaction is disabled (for streaming state) */
-  streaming?: boolean
 }) {
-  const isInteractionDisabled = disabled || streaming
   const sortedOptions = useMemo(() => {
     return Object.entries(options)
       .sort(([a], [b]) => {
@@ -190,7 +118,7 @@ export function OptionsSelector({
 
   // Handle keyboard navigation - only for the active options selector
   useEffect(() => {
-    if (isInteractionDisabled || !enableKeyboardNav || isLocked) return
+    if (isLocked) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only handle if the container or document body is focused (not when typing in input)
@@ -232,7 +160,7 @@ export function OptionsSelector({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isInteractionDisabled, enableKeyboardNav, isLocked, sortedOptions, hoveredIndex, onSelect])
+  }, [isLocked, sortedOptions, hoveredIndex, onSelect])
 
   if (sortedOptions.length === 0) return null
 
@@ -247,24 +175,22 @@ export function OptionsSelector({
           <button
             type='button'
             key={option.key}
-            disabled={isInteractionDisabled || isLocked}
+            disabled={isLocked}
             aria-pressed={isChosen}
             onClick={() => {
-              if (!isInteractionDisabled && !isLocked) {
+              if (!isLocked) {
                 setChosenKey(option.key)
                 onSelect(option.key, option.title)
               }
             }}
             onMouseEnter={() => {
-              if (!isLocked && !streaming) setHoveredIndex(index)
+              if (!isLocked) setHoveredIndex(index)
             }}
             className={cn(
               'group flex w-full cursor-pointer items-center gap-2 rounded-md p-1 text-left transition-colors',
               'hover:bg-muted/60',
-              disabled && !isChosen && 'cursor-not-allowed opacity-50',
-              streaming && 'pointer-events-none',
               isLocked && 'cursor-default',
-              isHovered && !streaming && 'bg-muted/60'
+              isHovered && 'bg-muted/60'
             )}
           >
             <span

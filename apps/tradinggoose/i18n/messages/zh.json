@@ -21353,7 +21353,6 @@
         "model": {
           "choose": "选择模型",
           "label": "模型",
-          "lite": "Lite",
           "providers": {
             "anthropic": "Anthropic",
             "openai": "OpenAI"

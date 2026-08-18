@@ -81,7 +81,7 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
     const formattedEntries: Record<string, unknown>[] = []
     let resultBytes = 2
     for (const log of targetLogs) {
-      const entry = projectExecutionLogContext(log, exactLog ? 'explicit' : 'implicit').value
+      const entry = projectExecutionLogContext(log, exactLog ? 'explicit' : 'implicit')
       const entryBytes = Buffer.byteLength(JSON.stringify(entry), 'utf8')
       const separatorBytes = formattedEntries.length > 0 ? 1 : 0
       if (resultBytes + separatorBytes + entryBytes > MAX_COPILOT_CONTEXT_BYTES_PER_TURN) break

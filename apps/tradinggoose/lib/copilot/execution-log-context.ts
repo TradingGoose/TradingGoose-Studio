@@ -18,12 +18,6 @@ type ExecutionLogRecord = {
   executionData?: unknown
   cost?: unknown
   workflowSummary?: unknown
-  entityName?: unknown
-}
-
-type ExecutionLogContextProjection = {
-  content: string
-  value: Record<string, unknown>
 }
 
 const EXECUTION_TRACE_SUMMARY_LIMIT = 24
@@ -107,7 +101,7 @@ function buildExecutionLogMetadata(log: ExecutionLogRecord): Record<string, unkn
       typeof log.totalDurationMs === 'number' && Number.isFinite(log.totalDurationMs)
         ? log.totalDurationMs
         : null,
-    entityName: readString(log.entityName) ?? readString(workflowSummary?.name) ?? '',
+    entityName: readString(workflowSummary?.name) ?? '',
   }
 }
 
@@ -152,13 +146,13 @@ function buildExecutionLogPayload(
 export function projectExecutionLogContext(
   log: ExecutionLogRecord,
   mode: ExecutionLogContextMode
-): ExecutionLogContextProjection {
+): Record<string, unknown> {
   const primary = stringifyBoundedRedactedJson(
     buildExecutionLogPayload(log, mode),
     COPILOT_CONTEXT_PROJECTION_LIMITS
   )
   if (Buffer.byteLength(primary, 'utf8') <= MAX_COPILOT_CONTEXT_BYTES_PER_ITEM) {
-    return { content: primary, value: JSON.parse(primary) as Record<string, unknown> }
+    return JSON.parse(primary) as Record<string, unknown>
   }
 
   const fallback = stringifyBoundedRedactedJson(
@@ -173,5 +167,5 @@ export function projectExecutionLogContext(
     Buffer.byteLength(fallback, 'utf8') <= MAX_COPILOT_CONTEXT_BYTES_PER_ITEM
       ? fallback
       : '{"contextTruncated":true,"executionDetailsOmitted":true}'
-  return { content, value: JSON.parse(content) as Record<string, unknown> }
+  return JSON.parse(content) as Record<string, unknown>
 }

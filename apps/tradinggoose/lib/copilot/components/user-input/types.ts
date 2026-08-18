@@ -27,12 +27,11 @@ export interface UserInputProps {
   isLoading?: boolean
   isAborting?: boolean
   placeholder?: string
-  className?: string
-  accessLevel?: CopilotAccessLevel
-  onAccessLevelChange?: (accessLevel: CopilotAccessLevel) => void
+  accessLevel: CopilotAccessLevel
+  onAccessLevelChange: (accessLevel: CopilotAccessLevel) => void
   draft: CopilotDraft
   onDraftChange: Dispatch<SetStateAction<CopilotDraft>>
-  panelWidth?: number
+  panelWidth: number
   hideContextUsage?: boolean
   clearOnSubmit?: boolean
 }

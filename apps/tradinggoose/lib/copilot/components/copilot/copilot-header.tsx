@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { ChevronDown, Clock3, Plus, Trash2 } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import {
@@ -62,7 +62,7 @@ const formatRelativeTime = (
 }
 
 const groupChats = (chats: CopilotChat[]) => {
-  if (!chats || chats.length === 0) return [] as Array<[ChatGroupKey, CopilotChat[]]>
+  if (chats.length === 0) return [] as Array<[ChatGroupKey, CopilotChat[]]>
   const sorted = [...chats].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   )
@@ -193,8 +193,6 @@ function ChatHistoryGroup({
   locale,
   historyCopy,
 }: ChatHistoryGroupProps) {
-  if (chats.length === 0) return null
-
   return (
     <div className='space-y-1.5'>
       <p className='font-normal text-muted-foreground text-xs'>{label}</p>
@@ -225,13 +223,7 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
   const [deleteChatId, setDeleteChatId] = useState<string | null>(null)
 
   const { currentChat, chats, isLoadingChats, isSendingMessage } = useCopilotStore()
-  const scopedChats = useMemo(
-    () => (chats || []).filter((chat) => (chat.workspaceId ?? null) === workspaceId),
-    [chats, workspaceId]
-  )
-  const scopedCurrentChat =
-    currentChat && (currentChat.workspaceId ?? null) === workspaceId ? currentChat : null
-  const grouped = groupChats(scopedChats)
+  const grouped = groupChats(chats)
   const groupLabels: Record<ChatGroupKey, string> = {
     today: historyCopy.groups.today,
     yesterday: historyCopy.groups.yesterday,
@@ -241,23 +233,15 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
   }
 
   const handleSelectChat = async (chat: CopilotChat) => {
-    if (scopedCurrentChat?.reviewSessionId === chat.reviewSessionId) return
+    if (currentChat?.reviewSessionId === chat.reviewSessionId) return
     try {
       await store.getState().selectChat(chat)
     } catch {}
   }
 
-  const handleDeleteChat = async (chatId: string) => {
-    setDeleteChatId(chatId)
-  }
-
-  const handleRefresh = async () => {
-    await store.getState().loadChats({ workspaceId })
-  }
-
-  const title = scopedCurrentChat?.title || historyCopy.newChat
+  const title = currentChat?.title || historyCopy.newChat
   const deleteChat = deleteChatId
-    ? scopedChats.find((chat) => chat.reviewSessionId === deleteChatId)
+    ? chats.find((chat) => chat.reviewSessionId === deleteChatId)
     : null
   const dropdownMenuBody = (() => {
     if (isLoadingChats) {
@@ -276,7 +260,7 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
             label={groupLabels[groupKey]}
             chats={chatsInGroup}
             onSelect={handleSelectChat}
-            onDelete={handleDeleteChat}
+            onDelete={setDeleteChatId}
             isSendingMessage={isSendingMessage}
             hoveredChatId={hoveredChatId}
             onHoverChat={setHoveredChatId}
@@ -292,7 +276,7 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
     <div className='flex w-full min-w-0 items-center gap-2'>
       <DropdownMenu
         onOpenChange={(open) => {
-          if (open) void handleRefresh()
+          if (open) void store.getState().loadChats({ workspaceId })
         }}
       >
         <Tooltip>
@@ -381,9 +365,6 @@ export function CopilotHeaderActions({ workspaceId }: { workspaceId: string }) {
   const historyCopy = useCopilotMessages().history
   const isSendingMessage = useCopilotStore((state) => state.isSendingMessage)
 
-  const handleNewChat = async () => {
-    await store.getState().createNewChat(workspaceId)
-  }
   const tooltip = isSendingMessage ? historyCopy.sending : historyCopy.newChat
 
   return (
@@ -394,7 +375,7 @@ export function CopilotHeaderActions({ workspaceId }: { workspaceId: string }) {
             <button
               type='button'
               className={widgetHeaderIconButtonClassName()}
-              onClick={handleNewChat}
+              onClick={() => void store.getState().createNewChat(workspaceId)}
               disabled={isSendingMessage}
               aria-label={historyCopy.startNewChat}
             >

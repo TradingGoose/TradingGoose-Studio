@@ -74,7 +74,7 @@ export function GlobalCopilotLayout({
         >
           {shouldMountCopilot ? (
             <CopilotStoreProvider channelId={channelId}>
-              <GlobalCopilotPanel workspaceId={workspaceId} />
+              <GlobalCopilotPanel workspaceId={workspaceId} ownerUserId={ownerUserId} />
             </CopilotStoreProvider>
           ) : null}
         </ResizablePanel>

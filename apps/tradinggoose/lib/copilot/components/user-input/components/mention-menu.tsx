@@ -79,16 +79,12 @@ interface MentionMenuProps {
 }
 
 const formatTimestamp = (iso: string) => {
-  try {
-    const date = new Date(iso)
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    return `${month}-${day} ${hours}:${minutes}`
-  } catch {
-    return iso
-  }
+  const date = new Date(iso)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${month}-${day} ${hours}:${minutes}`
 }
 
 const renderBlockIcon = (item: BlockItem) => {
@@ -178,8 +174,6 @@ const renderMainOptionIcon = (option: MentionOption) => {
   if (option === 'logs') {
     return <SquareChevronRight className='h-3.5 w-3.5 text-muted-foreground' />
   }
-
-  return <div className='h-3.5 w-3.5' />
 }
 
 const renderMentionItemContent = (
@@ -232,8 +226,6 @@ const renderMentionItemContent = (
       </>
     )
   }
-
-  return null
 }
 
 const preserveEditorSelection = (event: MouseEvent<HTMLElement>) => {

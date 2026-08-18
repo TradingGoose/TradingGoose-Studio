@@ -1,31 +1,16 @@
 import { memo, useState } from 'react'
-import { FileText, Image } from 'lucide-react'
 import { useLocale } from 'next-intl'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatFileSize } from '@/i18n/formatters'
 import type { MessageFileAttachment } from '@/stores/copilot/types'
+import { FileTypeIcon, isImageMediaType } from '../../file-type-icon'
 
 interface FileAttachmentDisplayProps {
   fileAttachments: MessageFileAttachment[]
 }
 
-const getFileIcon = (mediaType: string) => {
-  if (mediaType.startsWith('image/')) {
-    return <Image className='h-5 w-5 text-muted-foreground' />
-  }
-  if (mediaType.includes('pdf')) {
-    return <FileText className='h-5 w-5 text-red-500' />
-  }
-  if (mediaType.includes('text') || mediaType.includes('json') || mediaType.includes('xml')) {
-    return <FileText className='h-5 w-5 text-blue-500' />
-  }
-  return <FileText className='h-5 w-5 text-muted-foreground' />
-}
-
 const getFileUrl = (file: MessageFileAttachment) =>
   `/api/files/serve/${encodeURIComponent(file.key)}?context=copilot`
-
-const isImageFile = (mediaType: string) => mediaType.startsWith('image/')
 
 export const FileAttachmentDisplay = memo(({ fileAttachments }: FileAttachmentDisplayProps) => {
   const locale = useLocale()
@@ -48,7 +33,7 @@ export const FileAttachmentDisplay = memo(({ fileAttachments }: FileAttachmentDi
                 onClick={() => handleFileClick(file)}
                 aria-label={file.filename}
               >
-                {isImageFile(file.media_type) && !failedImageIds.has(file.id) ? (
+                {isImageMediaType(file.media_type) && !failedImageIds.has(file.id) ? (
                   <img
                     src={getFileUrl(file)}
                     alt={file.filename}
@@ -64,7 +49,7 @@ export const FileAttachmentDisplay = memo(({ fileAttachments }: FileAttachmentDi
                   />
                 ) : (
                   <span className='flex h-full w-full items-center justify-center bg-background/50'>
-                    {getFileIcon(file.media_type)}
+                    <FileTypeIcon mediaType={file.media_type} />
                   </span>
                 )}
 

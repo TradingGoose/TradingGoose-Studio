@@ -7,6 +7,7 @@ import { GlobalCopilotPanel } from '@/global-navbar/global-copilot-panel'
 
 const mocks = vi.hoisted(() => ({
   copilotProps: null as Record<string, unknown> | null,
+  providerProps: null as Record<string, unknown> | null,
   currentContext: {
     kind: 'current_monitor',
     monitorId: 'monitor-1',
@@ -23,10 +24,17 @@ vi.mock('@/components/ui/card', () => ({
   Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
-vi.mock('@/lib/copilot/components/copilot-app', () => ({
-  CopilotApp: (props: Record<string, unknown>) => {
+vi.mock('@/lib/copilot/components/copilot/copilot', () => ({
+  Copilot: (props: Record<string, unknown>) => {
     mocks.copilotProps = props
-    return <div data-testid='copilot-app' />
+    return <div data-testid='copilot' />
+  },
+}))
+
+vi.mock('@/app/workspace/[workspaceId]/providers/providers', () => ({
+  default: (props: Record<string, unknown> & { children: React.ReactNode }) => {
+    mocks.providerProps = props
+    return props.children
   },
 }))
 
@@ -44,6 +52,7 @@ describe('GlobalCopilotPanel', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     mocks.copilotProps = null
+    mocks.providerProps = null
   })
 
   afterEach(() => {
@@ -52,7 +61,9 @@ describe('GlobalCopilotPanel', () => {
   })
 
   it('passes only the page-published object context and keeps the header horizontally scrollable', async () => {
-    await act(async () => root.render(<GlobalCopilotPanel workspaceId='ws-1' />))
+    await act(async () =>
+      root.render(<GlobalCopilotPanel workspaceId='ws-1' ownerUserId='user-1' />)
+    )
 
     const headerScroller = container.querySelector('header > div')
     if (!(headerScroller instanceof HTMLDivElement)) throw new Error('Expected header scroller')
@@ -72,5 +83,8 @@ describe('GlobalCopilotPanel', () => {
     )
     expect(mocks.copilotProps).not.toHaveProperty('effectiveParams')
     expect(mocks.copilotProps).not.toHaveProperty('layoutId')
+    expect(mocks.providerProps).toEqual(
+      expect.objectContaining({ workspaceId: 'ws-1', userId: 'user-1' })
+    )
   })
 })

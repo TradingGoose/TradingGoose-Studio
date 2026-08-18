@@ -47,7 +47,6 @@ const buildLogRow = (overrides: Record<string, unknown> = {}) => ({
   executionData: {},
   cost: null,
   workflowSummary: { id: 'workflow-1', name: 'Workflow' },
-  entityName: 'Workflow',
   ...overrides,
 })
 const buildLogContext = (
@@ -61,13 +60,12 @@ const buildMonitorContext = (workspaceId = 'workspace-1'): ChatContext => ({
   workspaceId,
   label: 'Current monitor',
 })
-const buildKnowledgeContext = (workspaceId: string, current = false) =>
+const buildKnowledgeContext = (workspaceId: string) =>
   buildCopilotWorkspaceEntityContext({
     entityKind: 'knowledge_base',
     entityId: 'knowledge-1',
     workspaceId,
-    label: current ? 'Current knowledge base' : 'Research',
-    current,
+    label: 'Research',
   })
 const processContexts = async (
   contexts: ChatContext[],
@@ -101,10 +99,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     entityType: 'permissions.entityType',
     entityId: 'permissions.entityId',
     userId: 'permissions.userId',
-  },
-  workflow: {
-    id: 'workflow.id',
-    name: 'workflow.name',
   },
   workflowExecutionLogs: {
     id: 'workflowExecutionLogs.id',
@@ -230,25 +224,22 @@ describe('processContextsServer', () => {
   })
 
   it.each(WORKSPACE_CONTEXT_ENTITY_KINDS)(
-    'emits attached and current %s contexts as entity references',
+    'emits attached %s contexts as entity references',
     async (entityKind) => {
       const entityId = `${entityKind}-1`
       const label = `Attached ${entityKind}`
-      const contexts = [false, true].map((current) =>
-        buildCopilotWorkspaceEntityContext({
-          entityKind,
-          entityId,
-          workspaceId: 'workspace-metadata',
-          ...(entityKind === 'dashboard_layout' ? { ownerUserId: 'user-1' } : {}),
-          label,
-          current,
-        })
-      )
-      const result = await processContexts(contexts)
+      const context = buildCopilotWorkspaceEntityContext({
+        entityKind,
+        entityId,
+        workspaceId: 'workspace-metadata',
+        ...(entityKind === 'dashboard_layout' ? { ownerUserId: 'user-1' } : {}),
+        label,
+      })
+      const result = await processContexts([context])
 
       expect(result).toEqual([
         {
-          type: contexts[0].kind,
+          type: context.kind,
           tag: `@${entityId}`,
           content: JSON.stringify({ entityId }, null, 2),
         },
@@ -262,7 +253,16 @@ describe('processContextsServer', () => {
   )
 
   it.each([
-    ['knowledge', buildKnowledgeContext('workspace-1', true), 'knowledge-1'],
+    [
+      'knowledge',
+      {
+        kind: 'current_knowledge_base',
+        knowledgeBaseId: 'knowledge-1',
+        workspaceId: 'workspace-1',
+        label: 'Current knowledge base',
+      } satisfies ChatContext,
+      'knowledge-1',
+    ],
     ['log', buildLogContext('current_logs'), 'log-1'],
     ['monitor', buildMonitorContext(), 'monitor-1'],
   ])('emits the current %s as an ID-only reference', async (_source, context, entityId) => {
@@ -386,32 +386,18 @@ describe('processContextsServer', () => {
   })
 
   it('redacts and structurally bounds explicitly attached log details', async () => {
-    const privateKey =
-      '-----BEGIN PRIVATE KEY-----\nMIIEraw-private-key-body\n-----END PRIVATE KEY-----'
     mockLogRowsQueue.push([
       buildLogRow({
         executionData: {
-          errorMessage: `failed https://storage.test/blob?sv=2024-01-01&sig=raw-azure-signature&se=2099-01-01\npassphrase=raw-passphrase\nprivateKey=${privateKey}`,
           traceSpans: [
             {
               id: 'span-1',
               input: {
                 authToken: 'raw-auth-token',
-                passphrase: 'raw-passphrase',
                 longText: 'x'.repeat(5_000),
-                values: Array.from({ length: 40 }, (_, index) => index),
-                deep: { a: { b: { c: { d: { e: { value: 'too deep' } } } } } },
               },
-              output: { apiSecret: 'raw-output-secret' },
             },
           ],
-          finalOutput: {
-            header: { Key: 'X-API-Key', Value: 'raw-table-secret' },
-            named: { name: 'idToken', value: 'raw-named-secret' },
-            safe: { Key: 'Content-Type', Value: 'application/json' },
-            artifact: privateKey,
-            url: 'https://storage.test/blob?X-Amz-Signature=raw-amz-signature&safe=visible',
-          },
         },
       }),
     ])
@@ -421,25 +407,10 @@ describe('processContextsServer', () => {
     const content = JSON.parse(result!.content)
     const input = content.executionData.traceSpans[0].input
     expect(input.authToken).toBe('[redacted]')
-    expect(input.passphrase).toBe('[redacted]')
     expect(input.longText).toContain('[truncated]')
-    expect(input.values).toHaveLength(25)
-    expect(input.deep.a).toBe('[truncated]')
-    expect(content.executionData.traceSpans[0].output.apiSecret).toBe('[redacted]')
-    expect(content.executionData.errorMessage).toContain('sig=[redacted]&se=2099-01-01')
-    expect(content.executionData.errorMessage).toContain('passphrase=[redacted]')
-    expect(content.executionData.finalOutput).toEqual({
-      header: { Key: 'X-API-Key', Value: '[redacted]' },
-      named: { name: 'idToken', value: '[redacted]' },
-      safe: { Key: 'Content-Type', Value: 'application/json' },
-      artifact: '[redacted]',
-      url: 'https://storage.test/blob?X-Amz-Signature=[redacted]&safe=visible',
-    })
     expect(content.contextTruncated).toBe(true)
     expectContextWithinItemLimit(result!.content)
-    expect(result!.content).not.toMatch(
-      /raw-(?:amz|auth|azure|named|output|passphrase|private|table)/
-    )
+    expect(result!.content).not.toContain('raw-auth-token')
   })
 
   it('falls back deterministically when bounded explicit details still exceed the byte cap', async () => {

@@ -67,7 +67,21 @@ vi.mock('@/stores/copilot/store-state', () => ({
   hasUiActiveToolCalls: () => false,
 }))
 
-vi.mock('..', async () => {
+vi.mock('../copilot-message/copilot-message', () => ({
+  CopilotMessage: ({ message, runtimeContext: _runtimeContext }: any) => (
+    <div data-testid={`message-${message.id}`}>{message.id}</div>
+  ),
+}))
+
+vi.mock('../todo-list/todo-list', () => ({
+  TodoList: () => <div data-testid='todo-list'>todos</div>,
+}))
+
+vi.mock('../welcome/welcome', () => ({
+  CopilotWelcome: () => <div data-testid='copilot-welcome'>welcome</div>,
+}))
+
+vi.mock('../user-input/user-input', async () => {
   const React = await import('react')
 
   const UserInput = React.forwardRef((props: any, _ref: any) => {
@@ -77,11 +91,6 @@ vi.mock('..', async () => {
   UserInput.displayName = 'UserInput'
 
   return {
-    CopilotMessage: ({ message, runtimeContext: _runtimeContext }: any) => (
-      <div data-testid={`message-${message.id}`}>{message.id}</div>
-    ),
-    CopilotWelcome: () => <div data-testid='copilot-welcome'>welcome</div>,
-    TodoList: () => <div data-testid='todo-list'>todos</div>,
     UserInput,
   }
 })
@@ -133,7 +142,7 @@ describe('Copilot auto-scroll', () => {
 
   const renderCopilot = async () => {
     await act(async () => {
-      root.render(<Copilot workspaceId='ws-1' panelWidth={360} />)
+      root.render(<Copilot workspaceId='ws-1' panelWidth={360} currentContext={null} />)
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -168,7 +177,6 @@ describe('Copilot auto-scroll', () => {
       accessLevel: 'full',
       draft: { text: '', contexts: [] },
       planTodos: [],
-      showPlanTodos: false,
       sendMessage: vi.fn(),
       abortMessage: vi.fn(),
       setAccessLevel: vi.fn(),
@@ -243,7 +251,6 @@ describe('Copilot auto-scroll', () => {
       isSendingMessage: false,
       currentChat: { ...mockStoreState.currentChat, latestTurnStatus: 'completed' },
       planTodos: [{ id: 'old-todo', content: 'Previous turn', completed: false }],
-      showPlanTodos: true,
     }
 
     await renderCopilot()

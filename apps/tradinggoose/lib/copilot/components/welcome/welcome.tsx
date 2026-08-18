@@ -5,16 +5,12 @@ import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
 
 interface CopilotWelcomeProps {
-  onQuestionClick?: (question: string) => void
-  accessLevel?: CopilotAccessLevel
+  onQuestionClick: (question: string) => void
+  accessLevel: CopilotAccessLevel
 }
 
-export function CopilotWelcome({ onQuestionClick, accessLevel = 'limited' }: CopilotWelcomeProps) {
+export function CopilotWelcome({ onQuestionClick, accessLevel }: CopilotWelcomeProps) {
   const copilotCopy = useCopilotMessages()
-
-  const handleQuestionClick = (question: string) => {
-    onQuestionClick?.(question)
-  }
 
   const subtitle =
     accessLevel === 'full' ? copilotCopy.welcome.subtitleFull : copilotCopy.welcome.subtitleLimited
@@ -70,7 +66,7 @@ export function CopilotWelcome({ onQuestionClick, accessLevel = 'limited' }: Cop
             <button
               key={idx}
               type='button'
-              onClick={() => handleQuestionClick(question)}
+              onClick={() => onQuestionClick(question)}
               className='w-full rounded-md border bg-background/60 p-3 text-left transition-colors hover:bg-card focus:outline-none focus:ring-2 focus:ring-[var(--primary-hover)]/30'
             >
               <div className='flex items-start gap-2'>

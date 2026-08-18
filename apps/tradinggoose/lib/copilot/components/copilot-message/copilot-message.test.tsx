@@ -108,10 +108,16 @@ vi.mock('../user-input/user-input', () => ({
   ),
 }))
 
-vi.mock('./components', () => ({
+vi.mock('./components/assistant-message-segments', () => ({
   buildAssistantMessageSegments: (contentBlocks: any[] = []) =>
     contentBlocks.map((block, index) => ({ type: 'text', key: `text-${index}`, block })),
+}))
+
+vi.mock('./components/file-display', () => ({
   FileAttachmentDisplay: () => <div data-testid='file-attachments' />,
+}))
+
+vi.mock('./components/options-selector', () => ({
   OptionsSelector: ({ onSelect }: { onSelect: (key: string, text: string) => void }) => (
     <button
       type='button'
@@ -129,8 +135,14 @@ vi.mock('./components', () => ({
           optionsComplete: true,
         }
       : { cleanContent: content },
+}))
+
+vi.mock('./components/smooth-streaming', () => ({
   SmoothStreamingText: ({ content }: { content: string }) => <div>{content}</div>,
   StreamingIndicator: () => <div data-testid='streaming-indicator' />,
+}))
+
+vi.mock('./components/thinking-group', () => ({
   ThinkingGroup: () => <div data-testid='thinking-group' />,
 }))
 
@@ -145,7 +157,16 @@ describe('CopilotMessage', () => {
     context: CopilotSendRuntimeContext = runtimeContext
   ) => {
     await act(async () =>
-      root.render(<CopilotMessage message={message} runtimeContext={context} />)
+      root.render(
+        <CopilotMessage
+          message={message}
+          runtimeContext={context}
+          isStreaming={false}
+          panelWidth={308}
+          isDimmed={false}
+          onEditModeChange={vi.fn()}
+        />
+      )
     )
   }
 

@@ -11,7 +11,7 @@ export const extractExplicitCopilotContexts = (
 ): ChatContext[] =>
   Array.isArray(contexts) ? contexts.filter((context) => !isHiddenCopilotContext(context)) : []
 
-export type CopilotContextMentionRange = {
+type CopilotContextMentionRange = {
   start: number
   end: number
   label: string

@@ -77,7 +77,7 @@ function isTokenMetricValue(value: unknown): boolean {
   return entryCount > 0
 }
 
-export function isSensitiveDataKey(key: string, value?: unknown): boolean {
+function isSensitiveDataKey(key: string, value?: unknown): boolean {
   const normalized = key.replace(/[^a-z0-9]/giu, '').toLowerCase()
   if (!SECRET_KEY_PATTERN.test(normalized)) return false
   return !SAFE_TOKEN_METRIC_KEYS.has(normalized) || !isTokenMetricValue(value)
@@ -126,7 +126,7 @@ export function deepRedactSecrets(value: unknown): unknown {
   return redactSecrets(value, new WeakSet())
 }
 
-export type RedactedJsonLimits = {
+type RedactedJsonLimits = {
   maxArrayItems: number
   maxDepth: number
   maxNodes: number

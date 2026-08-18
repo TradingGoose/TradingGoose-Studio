@@ -21366,7 +21366,6 @@
         "model": {
           "choose": "Elegir modelo",
           "label": "Modelo",
-          "lite": "Lite",
           "providers": {
             "anthropic": "Anthropic",
             "openai": "OpenAI"
