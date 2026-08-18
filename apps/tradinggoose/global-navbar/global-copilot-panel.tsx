@@ -46,6 +46,7 @@ export function GlobalCopilotPanel({
           <div
             ref={headerScrollRef}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+            aria-label='Widget header'
           >
             <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 font-medium text-accent-foreground text-sm'>
               <div className='h-8 flex-grow basis-0' />
