@@ -7,6 +7,7 @@ import { encodeSSE } from '@/lib/utils'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { buildCopilotWorkspaceChannelId } from '@/stores/copilot/channel-id'
 import { getCopilotStore } from '@/stores/copilot/store'
+import { resetStreamingQueue, updateStreamingMessage } from '@/stores/copilot/streaming'
 import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { resetCopilotWorkspaceSelectionState } from '@/stores/copilot/workspace-selection'
 
@@ -407,6 +408,33 @@ describe('copilot streaming regressions', () => {
     vi.restoreAllMocks()
     ensureRequestAnimationFrame()
     resetCopilotWorkspaceSelectionState()
+  })
+
+  it('isolates batched streaming updates and resets between workspace stores', () => {
+    const frames: Array<FrameRequestCallback | undefined> = []
+    ;(globalThis as any).requestAnimationFrame = (callback: FrameRequestCallback) =>
+      frames.push(callback) - 1
+    ;(globalThis as any).cancelAnimationFrame = (frameId: number) => (frames[frameId] = undefined)
+    const queue = (set: (update: any) => unknown, messageId: string) =>
+      updateStreamingMessage(set, { messageId, contentBlocks: [] } as any)
+    const flushFrames = () => frames.splice(0).forEach((callback) => callback?.(0))
+    const setA = vi.fn()
+    const setB = vi.fn()
+
+    queue(setB, 'assistant-b')
+    queue(setA, 'assistant-a')
+    flushFrames()
+    expect(setA).toHaveBeenCalledOnce()
+    expect(setB).toHaveBeenCalledOnce()
+
+    setA.mockClear()
+    setB.mockClear()
+    queue(setA, 'assistant-a')
+    queue(setB, 'assistant-b')
+    resetStreamingQueue(setB)
+    flushFrames()
+    expect(setA).toHaveBeenCalledOnce()
+    expect(setB).not.toHaveBeenCalled()
   })
 
   it('preserves thinking, text, tool, and continuation text ordering within one streamed assistant message', async () => {

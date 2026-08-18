@@ -1018,7 +1018,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
 
           for await (const data of parseSSEStream(reader, decoder, logger)) {
             if (abortSignal?.aborted) {
-              resetStreamingQueue()
+              resetStreamingQueue(set)
               return
             }
 
@@ -1028,13 +1028,13 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
           }
 
           if (abortSignal?.aborted) {
-            resetStreamingQueue()
+            resetStreamingQueue(set)
             return
           }
 
           if (sseHandlers.stream_end) sseHandlers.stream_end({}, context, get, set)
 
-          resetStreamingQueue()
+          resetStreamingQueue(set)
           const finalContent = getStreamingAssistantContent(context)
           set((state) => ({
             messages: state.messages.map((msg) =>
@@ -1130,7 +1130,7 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
         for (const toolCallId of Object.keys(toolCallsById)) {
           unregisterClientTool(toolCallId)
         }
-        resetStreamingQueue()
+        resetStreamingQueue(set)
         set({ ...initialState, accessLevel, draft: createEmptyCopilotDraft() })
       },
 
