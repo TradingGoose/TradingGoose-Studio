@@ -73,10 +73,11 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
         desc(sql`CASE WHEN ${workflowExecutionLogs.id} = ${entityId} THEN 1 ELSE 0 END`),
         desc(workflowExecutionLogs.startedAt)
       )
-      .limit(limit)
+      .limit(limit + 1)
 
     const exactLog = executionLogs.find((log) => log.id === entityId)
-    const targetLogs = exactLog ? [exactLog] : executionLogs
+    const hasMoreLogs = !exactLog && executionLogs.length > limit
+    const targetLogs = exactLog ? [exactLog] : executionLogs.slice(0, limit)
     const formattedEntries: Record<string, unknown>[] = []
     let resultBytes = 2
     for (const log of targetLogs) {
@@ -88,10 +89,11 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
       formattedEntries.push(entry)
     }
 
+    const truncated = hasMoreLogs || formattedEntries.length < targetLogs.length
     logger.info('Workflow logs result prepared', {
       entryCount: formattedEntries.length,
       resultSizeKB: Math.round(resultBytes / 1024),
-      resultTruncated: formattedEntries.length < targetLogs.length,
+      resultTruncated: truncated,
     })
 
     return {
@@ -99,7 +101,7 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
       totalEntries: formattedEntries.length,
       entityId,
       retrievedAt: new Date().toISOString(),
-      truncated: formattedEntries.length < targetLogs.length,
+      truncated,
     }
   },
 }

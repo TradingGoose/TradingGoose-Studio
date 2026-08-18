@@ -2,7 +2,7 @@ import {
   COPILOT_CONTEXT_PROJECTION_LIMITS,
   MAX_COPILOT_CONTEXT_BYTES_PER_ITEM,
 } from '@/lib/copilot/context-limits'
-import { projectBoundedRedactedJson, type RedactedJsonLimits } from '@/lib/security/redaction'
+import { stringifyBoundedRedactedJson } from '@/lib/security/redaction'
 
 type ExecutionLogContextMode = 'implicit' | 'explicit'
 
@@ -149,27 +149,19 @@ function buildExecutionLogPayload(
   }
 }
 
-function stringifyExecutionLogPayload(
-  payload: Record<string, unknown>,
-  limits: RedactedJsonLimits = COPILOT_CONTEXT_PROJECTION_LIMITS
-): string {
-  const projected = projectBoundedRedactedJson(payload, limits)
-  const value = projected.truncated
-    ? { ...(projected.value as Record<string, unknown>), contextTruncated: true }
-    : projected.value
-  return JSON.stringify(value)
-}
-
 export function projectExecutionLogContext(
   log: ExecutionLogRecord,
   mode: ExecutionLogContextMode
 ): ExecutionLogContextProjection {
-  const primary = stringifyExecutionLogPayload(buildExecutionLogPayload(log, mode))
+  const primary = stringifyBoundedRedactedJson(
+    buildExecutionLogPayload(log, mode),
+    COPILOT_CONTEXT_PROJECTION_LIMITS
+  )
   if (Buffer.byteLength(primary, 'utf8') <= MAX_COPILOT_CONTEXT_BYTES_PER_ITEM) {
     return { content: primary, value: JSON.parse(primary) as Record<string, unknown> }
   }
 
-  const fallback = stringifyExecutionLogPayload(
+  const fallback = stringifyBoundedRedactedJson(
     {
       ...buildExecutionLogMetadata(log),
       executionDetailsOmitted: true,

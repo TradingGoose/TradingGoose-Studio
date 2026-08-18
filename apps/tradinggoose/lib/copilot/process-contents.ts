@@ -11,6 +11,8 @@ import { and, asc, eq } from 'drizzle-orm'
 import * as Y from 'yjs'
 import { buildCopilotContextIdentityKey, isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import {
+  COPILOT_CONTEXT_PROJECTION_LIMITS,
+  MAX_COPILOT_CONTEXT_BYTES_PER_ITEM,
   MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
   MAX_COPILOT_CONTEXTS_PER_TURN,
 } from '@/lib/copilot/context-limits'
@@ -21,6 +23,7 @@ import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
 import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
+import { stringifyBoundedRedactedJson } from '@/lib/security/redaction'
 import { escapeRegExp } from '@/lib/utils'
 import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
@@ -46,6 +49,13 @@ function throwIfContextProcessingAborted(signal?: AbortSignal): void {
   const abortError = new Error('Aborted')
   abortError.name = 'AbortError'
   throw abortError
+}
+
+function stringifyBoundedContext(value: unknown, fallback: Record<string, unknown>): string {
+  const content = stringifyBoundedRedactedJson(value, COPILOT_CONTEXT_PROJECTION_LIMITS)
+  return Buffer.byteLength(content, 'utf8') <= MAX_COPILOT_CONTEXT_BYTES_PER_ITEM
+    ? content
+    : JSON.stringify({ ...fallback, contextTruncated: true })
 }
 
 // Server-side variant (recommended for use in API routes)
@@ -124,7 +134,9 @@ export async function processContextsServer(
           return {
             type: entityContext.current ? 'current_knowledge_base' : 'knowledge_base',
             tag: `@${entityContext.entityId}`,
-            content: JSON.stringify(knowledgeBase, null, 2),
+            content: stringifyBoundedContext(knowledgeBase, {
+              entityId: entityContext.entityId,
+            }),
           }
         }
         return {

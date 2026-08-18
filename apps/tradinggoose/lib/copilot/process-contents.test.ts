@@ -279,6 +279,22 @@ describe('processContextsServer', () => {
     expect(mockDbSelect).not.toHaveBeenCalled()
   })
 
+  it('bounds and redacts explicitly attached knowledge-base content', async () => {
+    mockReadKnowledgeBaseExecute.mockResolvedValue({
+      entityId: 'knowledge-1',
+      entityDocument: { description: 'x'.repeat(50_000), apiKey: 'raw-secret' },
+    })
+
+    const [result] = await processWorkspaceContext(buildKnowledgeContext('workspace-1'))
+    const content = JSON.parse(result!.content)
+
+    expect(mockReadKnowledgeBaseExecute).toHaveBeenCalledOnce()
+    expect(content.contextTruncated).toBe(true)
+    expect(content.entityDocument.apiKey).toBe('[redacted]')
+    expectContextWithinItemLimit(result!.content)
+    expect(result!.content).not.toContain('raw-secret')
+  })
+
   it.each<[string, ChatContext, string | undefined]>([
     ['knowledge from another workspace', buildKnowledgeContext('workspace-2'), 'workspace-1'],
     ['log from another workspace', buildLogContext('logs', 'workspace-2', 'Run'), 'workspace-1'],

@@ -128,14 +128,17 @@ const processSafeStorage = (obj: any): any => {
 }
 
 const applyConsolePatch = (entry: ConsoleEntry, patch: ConsoleEntryPatch): ConsoleEntry => {
-  const { content, ...entryPatch } = patch
+  const { content, output, ...entryPatch } = patch
   const definedPatch = Object.fromEntries(
     Object.entries(entryPatch).filter(([, value]) => value !== undefined)
   ) as Partial<ConsoleEntry>
+  if (output !== undefined) {
+    definedPatch.output = deepRedactSecrets(output) as NormalizedBlockOutput
+  }
   const updatedEntry = { ...entry, ...definedPatch }
 
   if (content !== undefined) {
-    updatedEntry.output = updateBlockOutput(entry.output, content)
+    updatedEntry.output = updateBlockOutput(entry.output, deepRedactSecrets(content) as string)
   }
 
   return updatedEntry

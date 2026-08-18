@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MAX_COPILOT_CONTEXT_BYTES_PER_ITEM } from '@/lib/copilot/context-limits'
 
 const mocks = vi.hoisted(() => {
   const chain: Record<string, any> = {}
@@ -205,6 +206,12 @@ describe('readWorkflowLogsServerTool', () => {
         },
       ],
     }
+    mocks.rows.push(
+      ...Array.from({ length: 10 }, (_, index) => ({
+        ...mocks.rows[0],
+        id: `log-${index + 2}`,
+      }))
+    )
 
     const { readWorkflowLogsServerTool } = await import('./read-workflow-logs')
     const result = await readWorkflowLogsServerTool.execute(
@@ -212,9 +219,13 @@ describe('readWorkflowLogsServerTool', () => {
       { userId: 'user-1' }
     )
 
-    expect(mocks.chain.limit).toHaveBeenCalledWith(10)
+    expect(mocks.chain.limit).toHaveBeenCalledWith(11)
+    expect(result.entries).toHaveLength(10)
+    expect(result.truncated).toBe(true)
     expect(result.entries[0].executionData).not.toHaveProperty('traceSpans')
-    expect(Buffer.byteLength(JSON.stringify(result.entries[0]), 'utf8')).toBeLessThanOrEqual(16_384)
+    expect(Buffer.byteLength(JSON.stringify(result.entries[0]), 'utf8')).toBeLessThanOrEqual(
+      MAX_COPILOT_CONTEXT_BYTES_PER_ITEM
+    )
     expect(JSON.stringify(result)).not.toContain('raw-api-secret')
     expect(JSON.stringify(result)).not.toContain('x'.repeat(100))
   })

@@ -124,6 +124,17 @@ describe('security redaction', () => {
     })
   })
 
+  it('preserves redacted errors and marks circular references', () => {
+    const circular: Record<string, unknown> = { safe: true }
+    circular.self = circular
+
+    expect(deepRedactSecrets(new Error('request failed: token=raw-token'))).toEqual({
+      name: 'Error',
+      message: 'request failed: token=[redacted]',
+    })
+    expect(deepRedactSecrets(circular)).toEqual({ safe: true, self: '[Circular]' })
+  })
+
   it('applies string byte and object entry limits', () => {
     const result = projectBoundedRedactedJson('🪿'.repeat(100), {
       maxArrayItems: 4,

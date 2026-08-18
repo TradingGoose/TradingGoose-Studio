@@ -1,4 +1,5 @@
 const REDACTED_VALUE = '[redacted]'
+const CIRCULAR_VALUE = '[Circular]'
 const TRUNCATED_VALUE = '[truncated]'
 
 const SAFE_TOKEN_METRIC_KEYS = new Set([
@@ -95,17 +96,34 @@ function isSensitiveDataEntry(
   })
 }
 
-export function deepRedactSecrets(value: unknown): unknown {
+function redactSecrets(value: unknown, ancestors: WeakSet<object>): unknown {
   if (typeof value === 'string') return redactSensitiveText(value)
-  if (Array.isArray(value)) return value.map(deepRedactSecrets)
   if (!value || typeof value !== 'object') return value
+  if (value instanceof Error) {
+    return { name: value.name, message: redactSensitiveText(value.message) }
+  }
+  if (value instanceof Date) return value.toISOString()
+  const isArray = Array.isArray(value)
+  if (ancestors.has(value)) return CIRCULAR_VALUE
+
+  ancestors.add(value)
   const record = value as Record<string, unknown>
-  return Object.fromEntries(
-    Object.entries(record).map(([key, entry]) => [
-      key,
-      isSensitiveDataEntry(record, key, entry) ? REDACTED_VALUE : deepRedactSecrets(entry),
-    ])
-  )
+  const result = isArray
+    ? value.map((entry) => redactSecrets(entry, ancestors))
+    : Object.fromEntries(
+        Object.entries(record).map(([key, entry]) => [
+          key,
+          isSensitiveDataEntry(record, key, entry)
+            ? REDACTED_VALUE
+            : redactSecrets(entry, ancestors),
+        ])
+      )
+  ancestors.delete(value)
+  return result
+}
+
+export function deepRedactSecrets(value: unknown): unknown {
+  return redactSecrets(value, new WeakSet())
 }
 
 export type RedactedJsonLimits = {
@@ -171,4 +189,16 @@ export function projectBoundedRedactedJson(
   }
 
   return { value: visit(value, 0), truncated: state.truncated }
+}
+
+export function stringifyBoundedRedactedJson(value: unknown, limits: RedactedJsonLimits): string {
+  const projected = projectBoundedRedactedJson(value, limits)
+  const output =
+    projected.truncated &&
+    projected.value &&
+    typeof projected.value === 'object' &&
+    !Array.isArray(projected.value)
+      ? { ...(projected.value as Record<string, unknown>), contextTruncated: true }
+      : projected.value
+  return JSON.stringify(output) ?? 'null'
 }

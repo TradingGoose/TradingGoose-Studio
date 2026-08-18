@@ -277,7 +277,7 @@ describe('Console Store', () => {
         type: 'block:completed',
         data: {
           blockId: 'agent-1',
-          output: { content: 'iteration 2 done' },
+          output: { content: 'iteration 2 done', apiKey: 'raw-output-key' },
           success: true,
           endedAt: '2026-04-01T00:00:03.000Z',
           durationMs: 50,
@@ -295,6 +295,7 @@ describe('Console Store', () => {
       expect(first?.output?.content).toBeUndefined()
       expect(second?.isRunning).toBe(false)
       expect(second?.output?.content).toBe('iteration 2 done')
+      expect(second?.output).toEqual({ content: 'iteration 2 done', apiKey: '[redacted]' })
     })
 
     it('does not guess when a completion event has ambiguous identity', () => {
