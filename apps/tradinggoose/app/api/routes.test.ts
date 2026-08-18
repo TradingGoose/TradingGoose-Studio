@@ -18,7 +18,6 @@ import {
   getWebhookSnapshotRevision,
   isMicrosoftTeamsChatCallbackPath,
   processAirtableWebhookCleanup,
-  sweepAirtableWebhookCleanup,
   toPublicAirtableWebhook,
   WebhookRevisionConflictError,
 } from '@/lib/webhooks/webhook-helpers'
@@ -134,8 +133,6 @@ vi.mock('@tradinggoose/db', () => {
         userId: 'user-1',
         workspaceId: 'workspace-1',
       },
-      userId: 'user-1',
-      workspaceId: 'workspace-1',
     }))
   const database: Row = {
     select: vi.fn(() => ({
@@ -282,9 +279,6 @@ vi.mock('@/lib/workflows/execution-runner', () => ({
   loadWorkflowExecutionBlueprint: loadBlueprintMock,
   runPreparedWorkflowExecution: runWorkflowMock,
 }))
-vi.mock('@trigger.dev/sdk', () => ({
-  schedules: { task: vi.fn((definition) => definition) },
-}))
 vi.mock('@/lib/yjs/use-workflow-doc', () => ({
   useSubBlockValue: (_blockId: string, subBlockId: string) =>
     subBlockId === 'webhookId' ? 'webhook-1' : null,
@@ -309,7 +303,6 @@ vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () =
 }))
 const config = { baseId: 'base-1', tableId: 'table-1', credentialId: 'credential-1' }
 const oldConfig = { ...config, credentialId: 'old', externalId: 'existing-remote' }
-const previous = { blockId: 'old', provider: 'airtable', providerConfig: oldConfig, isActive: true }
 const cleanupScope = { userId: 'user-1' }
 const provisioningLifecycle = (previous: Row | null) => ({
   phase: 'provisioning',
@@ -328,19 +321,6 @@ const provisioning = (prior: Row | null = null): Row => ({
   isActive: false,
   updatedAt: new Date(0),
 })
-const remote = (id = 'remote') => ({
-  id,
-  notificationUrl: 'https://studio.example.test/api/webhooks/trigger/block-1',
-  specification: {
-    options: { filters: { dataTypes: ['tableData'], recordChangeScope: 'table-1' } },
-  },
-})
-const notificationlessRemote = (id = 'notificationless') => ({
-  ...remote(id),
-  notificationUrl: null,
-})
-const webhookConfig = () => state.webhooks[0].providerConfig
-const emptyObservations = () => webhookConfig().airtableLifecycle.emptyObservations
 const cleanupFixture = (lifecycle: (target: Row) => Row) => {
   const target = { ...config, externalId: 'remote' }
   return {
@@ -351,14 +331,6 @@ const cleanupFixture = (lifecycle: (target: Row) => Row) => {
       airtableLifecycle: lifecycle(target),
     },
   }
-}
-const sweep = async (webhooks: unknown[], deleteStatus?: number) => {
-  state.databaseNow += 60_000
-  state.webhooks[0].updatedAt = new Date(0)
-  if (!deleteStatus || !webhookConfig().airtablePendingCleanup)
-    fetchMock.mockResolvedValueOnce(Response.json({ webhooks }))
-  if (deleteStatus) fetchMock.mockResolvedValueOnce(new Response(null, { status: deleteStatus }))
-  await sweepAirtableWebhookCleanup('sweep')
 }
 describe('Airtable provisioning reconciliation', () => {
   beforeEach(() => {
@@ -385,53 +357,6 @@ describe('Airtable provisioning reconciliation', () => {
       provider: 'airtable',
       providerConfig: config,
     })
-  })
-  it('cleans a late remote and recovers only after two later empty observations', async () => {
-    state.webhooks = [provisioning()]
-    await sweep([])
-    expect(emptyObservations()).toBe(1)
-    await sweep([notificationlessRemote(), remote()], 503)
-    expect(webhookConfig().airtablePendingCleanup).toHaveLength(1)
-    await sweep([], 204)
-    expect(emptyObservations()).toBe(0)
-    expect(webhookConfig()).not.toHaveProperty('airtablePendingCleanup')
-    await sweep([notificationlessRemote()])
-    await sweep([notificationlessRemote('notificationless-2')])
-    expect(state.webhooks).toEqual([])
-  })
-  it('does not count provider, auth, transport, or malformed list results', async () => {
-    state.webhooks = [provisioning()]
-    const failures = [
-      () => fetchMock.mockResolvedValueOnce(Response.json({})),
-      () => fetchMock.mockResolvedValueOnce(Response.json({ webhooks: [{}] })),
-      () => fetchMock.mockResolvedValueOnce(Response.json({ webhooks: [remote(' ')] })),
-      () => fetchMock.mockResolvedValueOnce(new Response('{')),
-      () => fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 })),
-      () => fetchMock.mockRejectedValueOnce(new Error('offline')),
-      () => tokenMock.mockResolvedValueOnce(null),
-    ]
-    for (const fail of failures) {
-      state.webhooks[0].updatedAt = new Date(0)
-      fail()
-      await sweepAirtableWebhookCleanup('unknown')
-      expect(emptyObservations()).toBe(0)
-    }
-  })
-  it('performs no deletion when concurrent adoption wins the database fence', async () => {
-    state.webhooks = [provisioning()]
-    fetchMock.mockImplementationOnce(async () => {
-      state.webhooks[0] = {
-        ...state.webhooks[0],
-        providerConfig: { ...config, externalId: 'remote' },
-        isActive: true,
-        updatedAt: new Date(1),
-      }
-      return Response.json({ webhooks: [remote()] })
-    })
-    await sweepAirtableWebhookCleanup('adopted')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(state.webhooks[0].isActive).toBe(true)
-    expect(webhookConfig().externalId).toBe('remote')
   })
   it('leases cleanup so concurrent workers issue one remote delete', async () => {
     state.webhooks = [cleanupFixture(() => ({ phase: 'deleting' }))]
@@ -466,31 +391,6 @@ describe('Airtable provisioning reconciliation', () => {
     )
     expect(result.cleaned).toBe(true)
     expect(state.webhooks).toEqual([])
-  })
-  it('requires a later eligible sweep to confirm an empty observation', async () => {
-    vi.spyOn(Date, 'now').mockReturnValue(9_000_000)
-    state.webhooks = [provisioning()]
-    state.webhooks[0].providerConfig.airtableLifecycle.expiresAt = state.databaseNow + 60_000
-    fetchMock.mockImplementation(async () => Response.json({ webhooks: [] }))
-    await sweepAirtableWebhookCleanup('first')
-    expect(fetchMock).not.toHaveBeenCalled()
-    state.databaseNow += 60_000
-    await sweepAirtableWebhookCleanup('confirmed')
-    expect(webhookConfig().airtableLifecycle.expiresAt).toBe(state.databaseNow + 60_000)
-    await sweepAirtableWebhookCleanup('too-soon')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    state.databaseNow += 60_000
-    await sweepAirtableWebhookCleanup('second')
-    expect(state.webhooks).toEqual([])
-  })
-  it('uses base plus external ID across credential rotation and restores previous state', async () => {
-    state.webhooks = [provisioning(previous)]
-    await sweep([notificationlessRemote(), remote('existing-remote')])
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(emptyObservations()).toBe(1)
-    expect(webhookConfig()).not.toHaveProperty('airtablePendingCleanup')
-    await sweep([notificationlessRemote('notificationless-2')])
-    expect(state.webhooks[0]).toMatchObject({ isActive: true, providerConfig: oldConfig })
   })
   it('resumes an Airtable deletion after its credential becomes usable again', async () => {
     state.webhooks = [
