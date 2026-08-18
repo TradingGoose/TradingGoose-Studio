@@ -179,9 +179,7 @@ export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): Su
   } = options
 
   const blocks: SubBlockConfig[] = []
-  const triggerCondition = includeDropdown
-    ? { field: 'selectedTriggerId', value: triggerId }
-    : undefined
+  const triggerCondition = { field: 'selectedTriggerId', value: triggerId }
 
   if (includeDropdown) {
     blocks.push({

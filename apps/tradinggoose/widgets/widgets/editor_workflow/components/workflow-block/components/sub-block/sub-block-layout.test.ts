@@ -1,5 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.unmock('@/blocks/registry')
+
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { getAllBlocks } from '@/blocks'
+import type { BlockConfig } from '@/blocks/types'
+
+const multiTriggerBlocks = getAllBlocks().filter(
+  (blockConfig) => (blockConfig.triggers?.available?.length ?? 0) > 1
+)
+const webflowBlock = multiTriggerBlocks.find((blockConfig) => blockConfig.type === 'webflow')!
 
 describe('buildSubBlockRows', () => {
   const triggerSubBlocks = [
@@ -49,6 +59,21 @@ describe('buildSubBlockRows', () => {
     return buildSubBlockRows({
       ...baseArgs,
       triggerSubBlockOwner,
+    })
+      .flat()
+      .map((subBlock) => subBlock.id)
+  }
+
+  function getVisibleTriggerIds(blockConfig: BlockConfig, selectedTriggerId: string) {
+    return buildSubBlockRows({
+      subBlocks: blockConfig.subBlocks,
+      stateToUse: { selectedTriggerId: { value: selectedTriggerId } },
+      isAdvancedMode: false,
+      isTriggerMode: true,
+      isPureTriggerBlock: blockConfig.category === 'triggers',
+      availableTriggerIds: blockConfig.triggers?.available,
+      hideFromPreview: false,
+      triggerSubBlockOwner: 'all',
     })
       .flat()
       .map((subBlock) => subBlock.id)
@@ -145,5 +170,41 @@ describe('buildSubBlockRows', () => {
     })
 
     expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['files'])
+  })
+
+  it.each(multiTriggerBlocks)(
+    'renders one field instance per selected $type trigger',
+    (blockConfig) => {
+      for (const triggerId of blockConfig.triggers?.available ?? []) {
+        const visibleIds = getVisibleTriggerIds(blockConfig, triggerId)
+
+        expect(visibleIds, `${blockConfig.type}:${triggerId}`).toEqual([...new Set(visibleIds)])
+      }
+    }
+  )
+
+  it.each(multiTriggerBlocks)(
+    'lists every available $type trigger in its selector',
+    (blockConfig) => {
+      const selector = blockConfig.subBlocks.find(
+        (subBlock) => subBlock.id === 'selectedTriggerId' && !subBlock.hidden
+      )
+      const options =
+        typeof selector?.options === 'function' ? selector.options() : (selector?.options ?? [])
+
+      expect(new Set(options.map((option) => option.id))).toEqual(
+        new Set(blockConfig.triggers?.available)
+      )
+    }
+  )
+
+  it('keeps Webflow fields scoped to the selected trigger variant', () => {
+    const collectionFields = getVisibleTriggerIds(webflowBlock, 'webflow_collection_item_created')
+    const formFields = getVisibleTriggerIds(webflowBlock, 'webflow_form_submission')
+
+    expect(collectionFields).toContain('collectionId')
+    expect(collectionFields).not.toContain('formId')
+    expect(formFields).toContain('formId')
+    expect(formFields).not.toContain('collectionId')
   })
 })
