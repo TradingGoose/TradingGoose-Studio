@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { idempotencyKeys, tasks, timeout } from '@trigger.dev/sdk'
-import { and, asc, eq, gt, lte, sql } from 'drizzle-orm'
+import { and, asc, eq, lte, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import {
   resolveServerExecutionBillingContext,
@@ -528,60 +528,6 @@ function asPendingExecutionClaim(row: typeof pendingExecution.$inferSelect): Pen
     ...row,
     payload: isPendingExecutionPayload(row.payload) ? row.payload : {},
   } as PendingExecutionClaim
-}
-
-export async function listProcessingPendingExecutions(params: { afterId?: string; limit: number }) {
-  return db.transaction(async (tx) => {
-    await lockPendingExecutionMode(tx)
-    if ((await getTriggerExecutionState(tx)).mode !== 'trigger') return null
-
-    const rows = await tx
-      .select()
-      .from(pendingExecution)
-      .where(
-        and(
-          eq(pendingExecution.status, 'processing'),
-          params.afterId ? gt(pendingExecution.id, params.afterId) : undefined
-        )
-      )
-      .orderBy(asc(pendingExecution.id))
-      .limit(params.limit)
-
-    return rows.map(asPendingExecutionClaim)
-  })
-}
-
-async function listPendingExecutionBillingScopesWithStore(
-  params: {
-    afterBillingScopeId?: string
-    limit: number
-  },
-  store: Pick<typeof db, 'selectDistinct'>
-) {
-  return store
-    .selectDistinct({ billingScopeId: pendingExecution.billingScopeId })
-    .from(pendingExecution)
-    .where(
-      and(
-        eq(pendingExecution.status, 'pending'),
-        params.afterBillingScopeId
-          ? gt(pendingExecution.billingScopeId, params.afterBillingScopeId)
-          : undefined
-      )
-    )
-    .orderBy(asc(pendingExecution.billingScopeId))
-    .limit(params.limit)
-}
-
-export async function listPendingExecutionBillingScopes(params: {
-  afterBillingScopeId?: string
-  limit: number
-}) {
-  return db.transaction(async (tx) => {
-    await lockPendingExecutionMode(tx)
-    if ((await getTriggerExecutionState(tx)).mode !== 'trigger') return null
-    return listPendingExecutionBillingScopesWithStore(params, tx)
-  })
 }
 
 export async function listChildPendingWorkflowExecutions(parentExecutionId: string) {

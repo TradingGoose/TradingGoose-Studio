@@ -16,7 +16,6 @@ const {
   eqMock,
   selectLimitMock,
   txExecuteMock,
-  txSelectDistinctLimitMock,
   updateReturningMock,
   deleteReturningMock,
   loggingStartMock,
@@ -35,7 +34,6 @@ const {
   eqMock: vi.fn((field, value) => ({ field, value })),
   selectLimitMock: vi.fn(),
   txExecuteMock: vi.fn(),
-  txSelectDistinctLimitMock: vi.fn(),
   updateReturningMock: vi.fn(),
   deleteReturningMock: vi.fn(),
   loggingStartMock: vi.fn(),
@@ -54,13 +52,6 @@ const txSelectChain = {
   orderBy: vi.fn().mockReturnThis(),
   limit: txSelectLimitMock,
   execute: txSelectRowsMock,
-}
-
-const txSelectDistinctChain = {
-  from: vi.fn().mockReturnThis(),
-  where: vi.fn().mockReturnThis(),
-  orderBy: vi.fn().mockReturnThis(),
-  limit: txSelectDistinctLimitMock,
 }
 
 const txInsertValuesMock = vi.fn()
@@ -90,7 +81,6 @@ vi.mock('@tradinggoose/db', () => ({
   db: {
     transaction: transactionMock,
     select: vi.fn(() => selectChain),
-    selectDistinct: vi.fn(() => txSelectDistinctChain),
     update: vi.fn(() => updateChain),
     delete: vi.fn(() => deleteChain),
   },
@@ -217,7 +207,6 @@ function configureTransactionMock() {
     callback({
       execute: txExecuteMock,
       select: vi.fn(() => txSelectChain),
-      selectDistinct: vi.fn(() => txSelectDistinctChain),
       insert: vi.fn(() => txInsertChain),
       update: vi.fn(() => updateChain),
     })
@@ -757,7 +746,6 @@ describe('claimNextPendingExecution', () => {
       callback({
         execute: txExecuteMock,
         select: vi.fn(() => txSelectChain),
-        selectDistinct: vi.fn(() => txSelectDistinctChain),
         update: vi.fn(() => updateChain),
       })
     )
