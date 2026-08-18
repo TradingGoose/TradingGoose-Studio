@@ -398,7 +398,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
                 <Button
                   onClick={() => scrollToBottom()}
                   size='sm'
-                  variant='default'
+                  variant='outline'
                   className='flex h-7 w-7 items-center gap-1 rounded-lg border border-border bg-background shadow-lg transition-all hover:bg-muted'
                 >
                   <ArrowDown className='h-3.5 w-3.5 font-bold text-gray-700 dark:text-gray-300' />

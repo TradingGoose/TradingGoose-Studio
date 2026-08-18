@@ -353,6 +353,9 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('persists a collaborator reply on an existing generic copilot session', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValueOnce(
+      buildExistingReviewSession({ conversationId: 'conversation-1' })
+    )
     const request = createMockRequest('POST', {
       message: 'Please update the summary',
       reviewSessionId: 'review-session-1',
@@ -385,6 +388,8 @@ describe('Copilot Chat POST Generic Sessions', () => {
             model: 'gpt-5.4',
             apiKey: 'test-copilot-key',
           },
+          conversationId: 'conversation-1',
+          context: [],
           chatId: 'review-session-1',
           toolManifest: expect.objectContaining({
             version: 'v1',

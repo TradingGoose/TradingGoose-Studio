@@ -295,7 +295,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 if (typeof payload?.error === 'string' && payload.error.trim().length > 0) {
                   errorMessage = payload.error
                 }
-              } catch {}
+              } catch { }
 
               if (response.status === 409) {
                 handleCancelEdit()
@@ -652,7 +652,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     if (isAssistant) {
       return (
         <div
-          className={`w-full max-w-full overflow-hidden py-0.5 pl-[2px] transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
+          className={`w-full max-w-full overflow-hidden pb-2 pl-[2px] transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
           role={message.isError ? 'alert' : undefined}
           aria-atomic={message.isError ? 'true' : undefined}
         >

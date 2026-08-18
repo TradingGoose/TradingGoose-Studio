@@ -899,7 +899,7 @@ export async function POST(req: NextRequest) {
       ...(providerConfig ? { provider: providerConfig } : {}),
       ...(effectiveConversationId ? { conversationId: effectiveConversationId } : {}),
       ...(session?.user?.name && { userName: session.user.name }),
-      ...(agentContexts.length > 0 && { context: agentContexts }),
+      context: agentContexts,
       ...(actualReviewSessionId ? { chatId: actualReviewSessionId } : {}),
       toolManifest: await getCopilotRuntimeToolManifest(),
       ...(processedFileContents.length > 0 && { fileAttachments: processedFileContents }),
