@@ -391,6 +391,7 @@ export const useConsoleStore = create<ConsoleStore>()(
             }
 
             if (existingEntry) {
+              if (!existingEntry.isRunning) return
               set((state) => ({
                 entries: updateEntryById(state.entries, existingEntry.id, patch),
               }))
@@ -436,7 +437,7 @@ export const useConsoleStore = create<ConsoleStore>()(
             const existingEntry = findExecutionEntry(get().entries, event, data, {
               allowRunningFallback: true,
             })
-            if (!existingEntry) return
+            if (!existingEntry?.isRunning) return
 
             const key = executionBlockKey(event.executionId, blockId, existingEntry)
             const content = `${streamBuffers.get(key) ?? ''}${chunk}`
@@ -496,6 +497,12 @@ export const useConsoleStore = create<ConsoleStore>()(
 
         cancelRunningEntries: (workflowId: string) => {
           const endedAt = new Date().toISOString()
+          const executionIds = new Set<string>()
+          for (const entry of get().entries) {
+            if (entry.workflowId === workflowId && entry.isRunning && entry.executionId) {
+              executionIds.add(entry.executionId)
+            }
+          }
           set((state) => ({
             entries: state.entries.map((entry) => {
               if (entry.workflowId !== workflowId || !entry.isRunning) return entry
@@ -509,6 +516,7 @@ export const useConsoleStore = create<ConsoleStore>()(
               }
             }),
           }))
+          for (const executionId of executionIds) clearExecutionStreamBuffers(executionId)
         },
       }),
       {
