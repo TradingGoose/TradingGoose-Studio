@@ -6,6 +6,7 @@ import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import { toError } from '@/providers/ai/error'
 import {
   checkForForcedToolUsage,
+  resolveFireworksWireModel,
   supportsNativeStructuredOutputs,
 } from '@/providers/ai/fireworks/utils'
 import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
@@ -82,7 +83,7 @@ export const fireworksProvider: ProviderConfig = {
       baseURL: 'https://api.fireworks.ai/inference/v1',
     })
 
-    const apiModel = request.model.replace(/^fireworks\//, '')
+    const apiModel = resolveFireworksWireModel(request.model.replace(/^fireworks\//, ''))
 
     logger.info('Preparing Fireworks request', {
       model: apiModel,

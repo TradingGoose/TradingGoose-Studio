@@ -1,6 +1,7 @@
 import { ConnectIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
+import { getProviderDefaultModel } from '@/providers/ai/models'
 import type { ProviderId } from '@/providers/ai/types'
 import {
   getAllModelProviders,
@@ -10,6 +11,8 @@ import {
 } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
+
+const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 const getCurrentOllamaModels = () => {
   return useProvidersStore.getState().providers.ollama.models
@@ -64,8 +67,8 @@ Key Instructions:
 
 Available Target Blocks:
 ${targetBlocks
-      .map(
-        (block) => `
+  .map(
+    (block) => `
 ID: ${block.id}
 Type: ${block.type}
 Title: ${block.title}
@@ -74,8 +77,8 @@ System Prompt: ${JSON.stringify(block.subBlocks?.systemPrompt || '')}
 Configuration: ${JSON.stringify(block.subBlocks, null, 2)}
 ${block.currentState ? `Current State: ${JSON.stringify(block.currentState, null, 2)}` : ''}
 ---`
-      )
-      .join('\n')}
+  )
+  .join('\n')}
 
 Routing Instructions:
 1. Analyze the input request carefully against each block's:
@@ -158,15 +161,15 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
       // Hide API key for hosted models and Ollama models
       condition: isHosted
         ? () => ({
-          field: 'model',
-          value: getHostedModels(),
-          not: true, // Show for all models EXCEPT those listed
-        })
+            field: 'model',
+            value: getHostedModels(),
+            not: true, // Show for all models EXCEPT those listed
+          })
         : () => ({
-          field: 'model',
-          value: getCurrentOllamaModels(),
-          not: true, // Show for all models EXCEPT Ollama models
-        }),
+            field: 'model',
+            value: getCurrentOllamaModels(),
+            not: true, // Show for all models EXCEPT Ollama models
+          }),
     },
     {
       id: 'azureEndpoint',
@@ -225,7 +228,7 @@ export const RouterBlock: BlockConfig<RouterResponse> = {
     ],
     config: {
       tool: (params: Record<string, any>) => {
-        const model = params.model || 'gpt-4o'
+        const model = params.model || DEFAULT_MODEL
         if (!model) {
           throw new Error('No model selected')
         }

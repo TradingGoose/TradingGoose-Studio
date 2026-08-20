@@ -18,6 +18,7 @@ import {
 import { executeTool } from '@/tools'
 
 const logger = createLogger('OpenAIProvider')
+const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 /**
  * OpenAI provider configuration
@@ -28,13 +29,13 @@ export const openaiProvider: ProviderConfig = {
   description: "OpenAI's GPT models",
   version: '1.0.0',
   models: getProviderModels('openai'),
-  defaultModel: getProviderDefaultModel('openai'),
+  defaultModel: DEFAULT_MODEL,
 
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
     logger.info('Preparing OpenAI request', {
-      model: request.model || 'gpt-4o',
+      model: request.model || DEFAULT_MODEL,
       hasSystemPrompt: !!request.systemPrompt,
       hasMessages: !!request.messages?.length,
       hasTools: !!request.tools?.length,
@@ -84,7 +85,7 @@ export const openaiProvider: ProviderConfig = {
 
     // Build the request payload
     const payload: any = {
-      model: request.model || 'gpt-4o',
+      model: request.model || DEFAULT_MODEL,
       messages: allMessages,
     }
 
@@ -134,7 +135,7 @@ export const openaiProvider: ProviderConfig = {
                   : toolChoice.type === 'any'
                     ? `force:${toolChoice.any?.name || 'unknown'}`
                     : 'unknown',
-          model: request.model || 'gpt-4o',
+          model: request.model || DEFAULT_MODEL,
         })
       }
     }

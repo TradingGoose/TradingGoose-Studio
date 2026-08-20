@@ -2,6 +2,7 @@ import { ChartBarIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockConfig, ParamType } from '@/blocks/types'
+import { getProviderDefaultModel } from '@/providers/ai/models'
 import type { ProviderId } from '@/providers/ai/types'
 import {
   getAllModelProviders,
@@ -13,6 +14,7 @@ import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
 const logger = createLogger('EvaluatorBlock')
+const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 const getCurrentOllamaModels = () => {
   return useProvidersStore.getState().providers.ollama.models
@@ -210,15 +212,15 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
       required: true,
       condition: isHosted
         ? {
-          field: 'model',
-          value: getHostedModels(),
-          not: true, // Show for all models EXCEPT those listed
-        }
+            field: 'model',
+            value: getHostedModels(),
+            not: true, // Show for all models EXCEPT those listed
+          }
         : () => ({
-          field: 'model',
-          value: getCurrentOllamaModels(),
-          not: true, // Show for all models EXCEPT Ollama models
-        }),
+            field: 'model',
+            value: getCurrentOllamaModels(),
+            not: true, // Show for all models EXCEPT Ollama models
+          }),
     },
     {
       id: 'azureEndpoint',
@@ -313,7 +315,7 @@ export const EvaluatorBlock: BlockConfig<EvaluatorResponse> = {
     ],
     config: {
       tool: (params: Record<string, any>) => {
-        const model = params.model || 'gpt-4o'
+        const model = params.model || DEFAULT_MODEL
         if (!model) {
           throw new Error('No model selected')
         }

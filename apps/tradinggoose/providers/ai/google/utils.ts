@@ -344,6 +344,25 @@ export function mapToThinkingLevel(level: string): ThinkingLevel {
   }
 }
 
+const GEMINI_25_THINKING_BUDGETS: Record<string, Record<string, number>> = {
+  'gemini-2.5-pro': { low: 2048, medium: 8192, high: 32768 },
+  'gemini-2.5-flash': { low: 2048, medium: 8192, high: 24576 },
+  'gemini-2.5-flash-lite': { low: 1024, medium: 8192, high: 24576 },
+}
+
+export function mapToThinkingBudget(model: string, level: string): number {
+  const normalizedModel = model.toLowerCase().replace(/^vertex\//, '')
+  const budgets = GEMINI_25_THINKING_BUDGETS[normalizedModel]
+  if (!budgets) return -1
+  return budgets[level.toLowerCase()] ?? budgets.high
+}
+
+const GEMINI_25_MODELS_SUPPORTING_DISABLE = new Set(['gemini-2.5-flash', 'gemini-2.5-flash-lite'])
+
+export function supportsDisablingGemini25Thinking(model: string): boolean {
+  return GEMINI_25_MODELS_SUPPORTING_DISABLE.has(model.toLowerCase().replace(/^vertex\//, ''))
+}
+
 /**
  * Result of checking forced tool usage
  */

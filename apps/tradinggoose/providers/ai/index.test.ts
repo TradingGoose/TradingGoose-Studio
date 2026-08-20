@@ -10,8 +10,8 @@ vi.mock('@/providers/ai/openai', () => ({
     name: 'OpenAI',
     description: 'test',
     version: 'test',
-    models: ['gpt-4o'],
-    defaultModel: 'gpt-4o',
+    models: ['gpt-4.1'],
+    defaultModel: 'gpt-4.1',
     executeRequest: mockOpenAIExecuteRequest,
   },
 }))
@@ -146,7 +146,7 @@ describe('executeProviderRequest', () => {
   it('calculates model usage cost for token-bearing responses', async () => {
     mockOpenAIExecuteRequest.mockResolvedValue({
       content: 'ok',
-      model: 'gpt-4o',
+      model: 'gpt-4.1',
       tokens: {
         prompt: 1200,
         completion: 300,
@@ -155,7 +155,7 @@ describe('executeProviderRequest', () => {
     })
 
     const response = await executeProviderRequest('openai', {
-      model: 'gpt-4o',
+      model: 'gpt-4.1',
       systemPrompt: '',
       apiKey: 'test-key',
     })
@@ -165,12 +165,12 @@ describe('executeProviderRequest', () => {
 
     expect(response).toMatchObject({
       cost: {
-        input: 0.003,
-        output: 0.003,
-        total: 0.006,
+        input: 0.0024,
+        output: 0.0024,
+        total: 0.0048,
         pricing: {
-          input: 2.5,
-          output: 10,
+          input: 2,
+          output: 8,
         },
       },
     })

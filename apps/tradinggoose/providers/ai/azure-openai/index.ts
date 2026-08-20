@@ -17,6 +17,7 @@ import {
 import { executeTool } from '@/tools'
 
 const logger = createLogger('AzureOpenAIProvider')
+const DEFAULT_MODEL = getProviderDefaultModel('azure-openai')
 
 /**
  * Helper function to convert an Azure OpenAI stream to a standard ReadableStream
@@ -67,13 +68,13 @@ export const azureOpenAIProvider: ProviderConfig = {
   description: 'Microsoft Azure OpenAI Service models',
   version: '1.0.0',
   models: getProviderModels('azure-openai'),
-  defaultModel: getProviderDefaultModel('azure-openai'),
+  defaultModel: DEFAULT_MODEL,
 
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
     logger.info('Preparing Azure OpenAI request', {
-      model: request.model || 'azure/gpt-4o',
+      model: request.model || DEFAULT_MODEL,
       hasSystemPrompt: !!request.systemPrompt,
       hasMessages: !!request.messages?.length,
       hasTools: !!request.tools?.length,
@@ -137,7 +138,7 @@ export const azureOpenAIProvider: ProviderConfig = {
       : undefined
 
     // Build the request payload - use deployment name instead of model name
-    const deploymentName = (request.model || 'azure/gpt-4o').replace('azure/', '')
+    const deploymentName = (request.model || DEFAULT_MODEL).replace('azure/', '')
     const payload: any = {
       model: deploymentName, // Azure OpenAI uses deployment name
       messages: allMessages,

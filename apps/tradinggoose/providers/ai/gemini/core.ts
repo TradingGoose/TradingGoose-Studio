@@ -12,9 +12,9 @@ import {
   type ToolConfig,
 } from '@google/genai'
 import { createLogger } from '@/lib/logs/console/logger'
-import { toError } from '@/providers/ai/error'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import {
   checkForForcedToolUsage,
   cleanSchemaForGemini,
@@ -24,7 +24,9 @@ import {
   ensureStructResponse,
   extractAllFunctionCallParts,
   extractTextContent,
+  mapToThinkingBudget,
   mapToThinkingLevel,
+  supportsDisablingGemini25Thinking,
 } from '@/providers/ai/google/utils'
 import type { FunctionCallResponse, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 import {
@@ -940,13 +942,23 @@ export async function executeGeminiRequest(
       )
     }
 
-    // Configure thinking only when the user explicitly selects a thinking level
+    // Gemini 3 uses named thinking levels; Gemini 2.5 requires numeric token budgets.
     if (request.thinkingLevel && request.thinkingLevel !== 'none') {
       const thinkingConfig: ThinkingConfig = {
         includeThoughts: false,
-        thinkingLevel: mapToThinkingLevel(request.thinkingLevel),
+      }
+      if (isGemini3Model(model)) {
+        thinkingConfig.thinkingLevel = mapToThinkingLevel(request.thinkingLevel)
+      } else {
+        thinkingConfig.thinkingBudget = mapToThinkingBudget(model, request.thinkingLevel)
       }
       geminiConfig.thinkingConfig = thinkingConfig
+    } else if (
+      request.thinkingLevel === 'none' &&
+      !isGemini3Model(model) &&
+      supportsDisablingGemini25Thinking(model)
+    ) {
+      geminiConfig.thinkingConfig = { includeThoughts: false, thinkingBudget: 0 }
     }
 
     // Prepare tools

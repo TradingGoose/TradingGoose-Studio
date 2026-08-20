@@ -1,5 +1,22 @@
 import { checkForForcedToolUsageOpenAI } from '@/providers/ai/utils'
 
+const FIREWORKS_WIRE_NAMES: Record<string, string> = {
+  'glm-5.2': 'accounts/fireworks/models/glm-5p2',
+  'kimi-k3': 'accounts/fireworks/models/kimi-k3',
+}
+
+const FIREWORKS_CATALOG_NAMES = Object.fromEntries(
+  Object.entries(FIREWORKS_WIRE_NAMES).map(([catalogName, wireName]) => [wireName, catalogName])
+)
+
+export function resolveFireworksWireModel(model: string): string {
+  return FIREWORKS_WIRE_NAMES[model] ?? model
+}
+
+export function normalizeFireworksCatalogModel(model: string): string {
+  return FIREWORKS_CATALOG_NAMES[model] ?? model
+}
+
 /**
  * Checks if a model supports native structured outputs (json_schema).
  * Fireworks AI supports structured outputs across their inference API.
