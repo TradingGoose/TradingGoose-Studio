@@ -2,13 +2,8 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
-import {
-  calculateCopilotReservationUsdFromEstimate,
-  recordCopilotCompletionUsage,
-} from '@/lib/copilot/completion-usage-billing'
+import { recordCopilotCompletionUsage } from '@/lib/copilot/completion-usage-billing'
 import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
-import { COPILOT_RUNTIME_PROVIDER_IDS } from '@/lib/copilot/runtime-provider'
-import { buildCopilotRuntimeProviderConfig } from '@/lib/copilot/runtime-provider.server'
 import {
   commitCopilotUsageReservation,
   releaseCopilotUsageReservation,
@@ -27,16 +22,9 @@ const ContextUsageRequestSchema = z.object({
   model: z.enum(COPILOT_RUNTIME_MODELS),
   workflowId: z.string().optional(),
   workspaceId: z.string().optional(),
-  provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
 })
 
-const UsageEstimateSchema = z.object({
-  model: z.string().min(1, 'model is required'),
-  estimatedPromptTokens: z.number().int().nonnegative(),
-  reservedCompletionTokens: z.number().int().nonnegative(),
-})
-
-const ReserveUsageUsdRequestSchema = z.object({
+const ReserveUsageRequestSchema = z.object({
   action: z.literal('reserve'),
   userId: z.string().min(1, 'userId is required'),
   workflowId: z.string().min(1).optional(),
@@ -44,28 +32,13 @@ const ReserveUsageUsdRequestSchema = z.object({
   reason: z.string().min(1).optional(),
 })
 
-const ReserveUsageEstimatedRequestSchema = z
-  .object({
-    action: z.literal('reserve'),
-    userId: z.string().min(1, 'userId is required'),
-    workflowId: z.string().min(1).optional(),
-    reason: z.string().min(1).optional(),
-  })
-  .merge(UsageEstimateSchema)
-
-const ReserveUsageRequestSchema = z.union([
-  ReserveUsageUsdRequestSchema,
-  ReserveUsageEstimatedRequestSchema,
-])
-
 const CompletionCommitRequestSchema = z.object({
   action: z.literal('commit'),
   kind: z.literal('completion'),
   userId: z.string().min(1, 'userId is required'),
   model: z.string().min(1, 'model is required'),
   usage: z.unknown(),
-  remoteModel: z.string().optional(),
-  completionId: z.string().min(1).optional(),
+  completionId: z.string().min(1, 'completionId is required'),
   workflowId: z.string().min(1).optional(),
   reservationId: z.string().min(1).optional(),
 })
@@ -80,14 +53,9 @@ async function fetchContextUsageFromCopilot(params: {
   model: z.infer<typeof ContextUsageRequestSchema>['model']
   workflowId?: string
   workspaceId?: string
-  provider?: z.infer<typeof ContextUsageRequestSchema>['provider']
   userId: string
 }) {
-  const { conversationId, model, workflowId, workspaceId, provider, userId } = params
-  const { providerConfig } = await buildCopilotRuntimeProviderConfig({
-    model,
-    provider,
-  })
+  const { conversationId, model, workflowId, workspaceId, userId } = params
 
   const requestPayload = {
     conversationId,
@@ -95,7 +63,6 @@ async function fetchContextUsageFromCopilot(params: {
     userId,
     ...(workflowId ? { workflowId } : {}),
     ...(workspaceId ? { workspaceId } : {}),
-    provider: providerConfig,
   }
 
   logger.info('[Usage API] Calling copilot for context usage', {
@@ -112,7 +79,7 @@ async function fetchContextUsageFromCopilot(params: {
 async function handleContextUsage(
   payload: z.infer<typeof ContextUsageRequestSchema>
 ): Promise<NextResponse> {
-  const { conversationId, model, workflowId, workspaceId, provider } = payload
+  const { conversationId, model, workflowId, workspaceId } = payload
   const session = await getSession()
   const userId = session?.user?.id
 
@@ -126,7 +93,6 @@ async function handleContextUsage(
     model,
     workflowId,
     workspaceId,
-    provider,
     userId,
   })
 
@@ -174,21 +140,10 @@ async function handleReserveUsage(
     return NextResponse.json(buildBillingDisabledReservation({ userId: payload.userId }))
   }
 
-  const requestedUsd =
-    'requestedUsd' in payload
-      ? payload.requestedUsd
-      : await calculateCopilotReservationUsdFromEstimate({
-          userId: payload.userId,
-          workflowId: payload.workflowId,
-          model: payload.model,
-          estimatedPromptTokens: payload.estimatedPromptTokens,
-          reservedCompletionTokens: payload.reservedCompletionTokens,
-        })
-
   const result = await reserveCopilotUsage({
     userId: payload.userId,
     workflowId: payload.workflowId,
-    requestedUsd,
+    requestedUsd: payload.requestedUsd,
     reason: payload.reason,
   })
 
@@ -215,9 +170,13 @@ async function handleCompletionCommit(
         userId: payload.userId,
         workflowId: payload.workflowId,
         usage: payload.usage,
-        billingModel: payload.model,
+        model: payload.model,
         billingKeyId: payload.completionId,
       })
+
+      if (!billing.billed && !billing.duplicate) {
+        return NextResponse.json({ success: false, billing }, { status: 500 })
+      }
 
       return NextResponse.json({
         success: true,
