@@ -22,6 +22,17 @@ describe('Console Store', () => {
     }
   })
 
+  const startBlock = (blockId: string, executionId = 'exec-1', workflowId = 'workflow-1') => {
+    const timestamp = '2026-04-01T00:00:00.000Z'
+    useConsoleStore.getState().ingestWorkflowExecutionEvent({
+      workflowId,
+      executionId,
+      timestamp,
+      type: 'block:started',
+      data: { blockId, startedAt: timestamp },
+    })
+  }
+
   describe('addConsole', () => {
     it('should add a new console entry with required fields', () => {
       const store = useConsoleStore.getState()
@@ -343,6 +354,38 @@ describe('Console Store', () => {
       expect(entries.filter((entry) => entry.isRunning)).toHaveLength(2)
       expect(completed).toBeUndefined()
     })
+
+    it('applies a timeout only to its running execution', () => {
+      startBlock('timed-out')
+      startBlock('other-execution', 'exec-2')
+      startBlock('other-workflow', 'exec-1', 'workflow-2')
+
+      useConsoleStore.getState().ingestWorkflowExecutionEvent({
+        workflowId: 'workflow-1',
+        executionId: 'exec-1',
+        timestamp: '2026-04-01T00:00:02.000Z',
+        type: 'execution:error',
+        data: {
+          error: 'Workflow execution time limit exceeded',
+          result: {
+            success: false,
+            output: {},
+            error: 'Workflow execution time limit exceeded',
+          },
+        },
+      })
+
+      const entries = useConsoleStore.getState().entries
+      expect(entries.find((entry) => entry.blockId === 'timed-out')).toMatchObject({
+        success: false,
+        error: 'Workflow execution time limit exceeded',
+        durationMs: 2000,
+        isRunning: false,
+        isCanceled: false,
+      })
+      expect(entries.find((entry) => entry.blockId === 'other-execution')?.isRunning).toBe(true)
+      expect(entries.find((entry) => entry.blockId === 'other-workflow')?.isRunning).toBe(true)
+    })
   })
 
   describe('clearConsole', () => {
@@ -446,47 +489,71 @@ describe('Console Store', () => {
   })
 
   describe('cancelRunningEntries', () => {
-    beforeEach(() => {
+    it('keeps cancellation terminal and clears its stream buffer', () => {
       const store = useConsoleStore.getState()
-
-      store.addConsole({
+      startBlock('block-1')
+      startBlock('block-2', 'exec-2', 'workflow-2')
+      const base = {
         workflowId: 'workflow-1',
+        executionId: 'exec-1',
+        timestamp: '2026-04-01T00:00:01.000Z',
+      }
+
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'stream:chunk',
+        data: { blockId: 'block-1', chunk: 'before-cancel' },
+      })
+      store.cancelRunningEntries(base.workflowId)
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'stream:chunk',
+        data: { blockId: 'block-1', chunk: 'late' },
+      })
+
+      const replacement = store.addConsole({
+        workflowId: base.workflowId,
+        executionId: base.executionId,
         blockId: 'block-1',
-        blockName: 'Block 1',
-        blockType: 'agent',
         success: true,
         output: {},
-        startedAt: '2023-01-01T00:00:00.000Z',
-        endedAt: '2023-01-01T00:00:01.000Z',
+        startedAt: '2026-04-01T00:00:02.000Z',
         isRunning: true,
       })
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'stream:chunk',
+        data: { blockId: 'block-1', chunk: 'fresh' },
+      })
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'block:completed',
+        data: {
+          blockId: 'block-1',
+          startedAt: '2026-04-01T00:00:00.000Z',
+          endedAt: base.timestamp,
+        },
+      })
 
-      store.addConsole({
-        workflowId: 'workflow-2',
-        blockId: 'block-2',
-        blockName: 'Block 2',
-        blockType: 'api',
+      const entries = useConsoleStore.getState().entries
+      const canceled = entries.find(
+        (entry) => entry.workflowId === base.workflowId && !entry.isRunning
+      )
+
+      expect(canceled).toMatchObject({
+        success: false,
+        isRunning: false,
+        isCanceled: true,
+        output: { content: 'before-cancel' },
+      })
+      expect(entries.find((entry) => entry.id === replacement.id)).toMatchObject({
+        isRunning: true,
+        output: { content: 'fresh' },
+      })
+      expect(entries.find((entry) => entry.workflowId === 'workflow-2')).toMatchObject({
         success: true,
-        output: {},
-        startedAt: '2023-01-01T00:00:00.000Z',
-        endedAt: '2023-01-01T00:00:01.000Z',
         isRunning: true,
       })
-    })
-
-    it('should mark running entries as canceled for a workflow', () => {
-      const store = useConsoleStore.getState()
-
-      store.cancelRunningEntries('workflow-1')
-
-      const state = useConsoleStore.getState()
-      const workflow1Entry = state.entries.find((entry) => entry.workflowId === 'workflow-1')
-      const workflow2Entry = state.entries.find((entry) => entry.workflowId === 'workflow-2')
-
-      expect(workflow1Entry?.isRunning).toBe(false)
-      expect(workflow1Entry?.isCanceled).toBe(true)
-      expect(workflow2Entry?.isRunning).toBe(true)
-      expect(workflow2Entry?.isCanceled).toBeUndefined()
     })
   })
 })

@@ -393,7 +393,41 @@ export async function readWorkflowExecutionEventState(params: {
     }
   }
 
-  const [row] = await db
+  const [events, [logRow]] = await Promise.all([
+    readEvents(params.afterEventId ?? 0),
+    db
+      .select({
+        level: workflowExecutionLogs.level,
+        startedAt: workflowExecutionLogs.startedAt,
+        endedAt: workflowExecutionLogs.endedAt,
+        totalDurationMs: workflowExecutionLogs.totalDurationMs,
+        executionData: workflowExecutionLogs.executionData,
+      })
+      .from(workflowExecutionLogs)
+      .where(
+        and(
+          eq(workflowExecutionLogs.executionId, params.pendingExecutionId),
+          eq(workflowExecutionLogs.workflowId, params.workflowId)
+        )
+      )
+      .limit(1),
+  ])
+  const terminalEvent = findTerminalEvent(events)
+  if (terminalEvent) {
+    return {
+      ...createWorkflowExecutionStateFromTerminalEvent(terminalEvent),
+      events: params.afterEventId === undefined ? [] : events,
+    }
+  }
+
+  if (logRow) {
+    return {
+      ...createWorkflowExecutionResultFromLog(logRow),
+      events: params.afterEventId === undefined ? [] : events,
+    }
+  }
+
+  const [pendingRow] = await db
     .select({
       status: pendingExecution.status,
     })
@@ -407,55 +441,21 @@ export async function readWorkflowExecutionEventState(params: {
     )
     .limit(1)
 
-  if (row) {
+  if (pendingRow) {
     return {
-      status: row.status,
+      status: pendingRow.status,
       result: null,
       failureReason: null,
-      events: params.afterEventId === undefined ? [] : await readEvents(params.afterEventId),
-    }
-  }
-
-  const events = await readEvents(params.afterEventId ?? 0)
-  const terminalEvent = findTerminalEvent(events)
-  if (terminalEvent) {
-    return {
-      ...createWorkflowExecutionStateFromTerminalEvent(terminalEvent),
       events: params.afterEventId === undefined ? [] : events,
     }
   }
 
-  const [logRow] = await db
-    .select({
-      level: workflowExecutionLogs.level,
-      startedAt: workflowExecutionLogs.startedAt,
-      endedAt: workflowExecutionLogs.endedAt,
-      totalDurationMs: workflowExecutionLogs.totalDurationMs,
-      executionData: workflowExecutionLogs.executionData,
-    })
-    .from(workflowExecutionLogs)
-    .where(
-      and(
-        eq(workflowExecutionLogs.executionId, params.pendingExecutionId),
-        eq(workflowExecutionLogs.workflowId, params.workflowId)
-      )
-    )
-    .limit(1)
-
-  if (!logRow) {
-    return events.length > 0
-      ? {
-          status: 'processing' as const,
-          result: null,
-          failureReason: null,
-          events: params.afterEventId === undefined ? [] : events,
-        }
-      : null
-  }
-
-  const state = createWorkflowExecutionResultFromLog(logRow)
-  return {
-    ...state,
-    events: params.afterEventId === undefined ? [] : events,
-  }
+  return events.length > 0
+    ? {
+        status: 'processing' as const,
+        result: null,
+        failureReason: null,
+        events: params.afterEventId === undefined ? [] : events,
+      }
+    : null
 }

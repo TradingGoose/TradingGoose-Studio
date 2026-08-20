@@ -160,6 +160,9 @@ const clearExecutionStreamBuffers = (executionId: string | undefined) => {
   }
 }
 
+const calculateDurationMs = (startedAt: string | undefined, endedAt: string) =>
+  startedAt ? Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)) : 0
+
 const findExecutionEntry = (
   entries: ConsoleEntry[],
   event: Pick<WorkflowExecutionEvent, 'workflowId' | 'executionId'>,
@@ -388,6 +391,7 @@ export const useConsoleStore = create<ConsoleStore>()(
             }
 
             if (existingEntry) {
+              if (!existingEntry.isRunning) return
               set((state) => ({
                 entries: updateEntryById(state.entries, existingEntry.id, patch),
               }))
@@ -433,7 +437,7 @@ export const useConsoleStore = create<ConsoleStore>()(
             const existingEntry = findExecutionEntry(get().entries, event, data, {
               allowRunningFallback: true,
             })
-            if (!existingEntry) return
+            if (!existingEntry?.isRunning) return
 
             const key = executionBlockKey(event.executionId, blockId, existingEntry)
             const content = `${streamBuffers.get(key) ?? ''}${chunk}`
@@ -466,30 +470,53 @@ export const useConsoleStore = create<ConsoleStore>()(
           }
 
           if (isTerminalWorkflowExecutionEvent(event)) {
+            set((state) => ({
+              entries: state.entries.map((entry) => {
+                if (
+                  entry.workflowId !== event.workflowId ||
+                  entry.executionId !== event.executionId ||
+                  !entry.isRunning
+                ) {
+                  return entry
+                }
+
+                return {
+                  ...entry,
+                  ...(event.type === 'execution:error' ? { error: event.data.error } : {}),
+                  success: event.type === 'execution:completed',
+                  endedAt: event.timestamp,
+                  durationMs: calculateDurationMs(entry.startedAt, event.timestamp),
+                  isRunning: false,
+                  isCanceled: event.type === 'execution:cancelled',
+                }
+              }),
+            }))
             clearExecutionStreamBuffers(event.executionId)
           }
         },
 
         cancelRunningEntries: (workflowId: string) => {
-          set((state) => {
-            const now = new Date().toISOString()
-            const updatedEntries = state.entries.map((entry) => {
-              if (entry.workflowId === workflowId && entry.isRunning) {
-                const startedAtMs = entry.startedAt ? new Date(entry.startedAt).getTime() : null
-                const durationMs =
-                  startedAtMs != null ? Math.max(0, Date.now() - startedAtMs) : entry.durationMs
-                return {
-                  ...entry,
-                  isRunning: false,
-                  isCanceled: true,
-                  endedAt: entry.endedAt || now,
-                  durationMs,
-                }
+          const endedAt = new Date().toISOString()
+          const executionIds = new Set<string>()
+          for (const entry of get().entries) {
+            if (entry.workflowId === workflowId && entry.isRunning && entry.executionId) {
+              executionIds.add(entry.executionId)
+            }
+          }
+          set((state) => ({
+            entries: state.entries.map((entry) => {
+              if (entry.workflowId !== workflowId || !entry.isRunning) return entry
+              return {
+                ...entry,
+                success: false,
+                isRunning: false,
+                isCanceled: true,
+                endedAt,
+                durationMs: calculateDurationMs(entry.startedAt, endedAt),
               }
-              return entry
-            })
-            return { ...state, entries: updatedEntries }
-          })
+            }),
+          }))
+          for (const executionId of executionIds) clearExecutionStreamBuffers(executionId)
         },
       }),
       {
