@@ -145,16 +145,17 @@ const applyConsolePatch = (entry: ConsoleEntry, patch: ConsoleEntryPatch): Conso
 }
 
 const executionBlockKey = (
+  workflowId: string,
   executionId: string | undefined,
   blockId: string,
   data?: Pick<WorkflowExecutionBlockData, 'iterationCurrent' | 'iterationType'>
 ) =>
-  `${executionId ?? 'execution'}:${blockId}:${data?.iterationType ?? ''}:${data?.iterationCurrent ?? ''}`
+  `${workflowId}:${executionId ?? 'execution'}:${blockId}:${data?.iterationType ?? ''}:${data?.iterationCurrent ?? ''}`
 
 const streamBuffers = new Map<string, string>()
 
-const clearExecutionStreamBuffers = (executionId: string | undefined) => {
-  const prefix = `${executionId ?? 'execution'}:`
+const clearExecutionStreamBuffers = (workflowId: string, executionId: string | undefined) => {
+  const prefix = `${workflowId}:${executionId ?? 'execution'}:`
   for (const key of streamBuffers.keys()) {
     if (key.startsWith(prefix)) streamBuffers.delete(key)
   }
@@ -247,7 +248,7 @@ export const useConsoleStore = create<ConsoleStore>()(
             return {
               entries: state.entries.filter((entry) => {
                 if (entry.workflowId !== workflowId) return true
-                clearExecutionStreamBuffers(entry.executionId)
+                clearExecutionStreamBuffers(entry.workflowId, entry.executionId)
                 return false
               }),
             }
@@ -347,13 +348,15 @@ export const useConsoleStore = create<ConsoleStore>()(
 
         ingestWorkflowExecutionEvent: (event: WorkflowExecutionEvent) => {
           const deleteStreamBuffer = (data: WorkflowExecutionBlockData) => {
-            streamBuffers.delete(executionBlockKey(event.executionId, data.blockId, data))
+            streamBuffers.delete(
+              executionBlockKey(event.workflowId, event.executionId, data.blockId, data)
+            )
             const existingEntry = findExecutionEntry(get().entries, event, data, {
               allowRunningFallback: true,
             })
             if (existingEntry) {
               streamBuffers.delete(
-                executionBlockKey(event.executionId, data.blockId, existingEntry)
+                executionBlockKey(event.workflowId, event.executionId, data.blockId, existingEntry)
               )
             }
           }
@@ -417,7 +420,7 @@ export const useConsoleStore = create<ConsoleStore>()(
 
           if (event.type === 'block:started') {
             streamBuffers.delete(
-              executionBlockKey(event.executionId, event.data.blockId, event.data)
+              executionBlockKey(event.workflowId, event.executionId, event.data.blockId, event.data)
             )
             writeBlock(event.data, { success: true, isRunning: true, isCanceled: false })
             return
@@ -435,7 +438,12 @@ export const useConsoleStore = create<ConsoleStore>()(
             })
             if (!existingEntry) return
 
-            const key = executionBlockKey(event.executionId, blockId, existingEntry)
+            const key = executionBlockKey(
+              event.workflowId,
+              event.executionId,
+              blockId,
+              existingEntry
+            )
             const content = `${streamBuffers.get(key) ?? ''}${chunk}`
             streamBuffers.set(key, content)
             set((state) => ({
@@ -466,7 +474,49 @@ export const useConsoleStore = create<ConsoleStore>()(
           }
 
           if (isTerminalWorkflowExecutionEvent(event)) {
-            clearExecutionStreamBuffers(event.executionId)
+            set((state) => ({
+              entries: state.entries.map((entry) => {
+                if (
+                  entry.workflowId !== event.workflowId ||
+                  entry.executionId !== event.executionId ||
+                  !entry.isRunning
+                ) {
+                  return entry
+                }
+
+                const endedAt = entry.endedAt || event.timestamp
+                const startedAtMs = entry.startedAt ? Date.parse(entry.startedAt) : Number.NaN
+                const endedAtMs = Date.parse(endedAt)
+                const durationMs =
+                  Number.isFinite(entry.durationMs) && entry.durationMs! > 0
+                    ? entry.durationMs
+                    : Number.isFinite(startedAtMs) && Number.isFinite(endedAtMs)
+                      ? Math.max(0, endedAtMs - startedAtMs)
+                      : Number.isFinite(entry.durationMs) && entry.durationMs! >= 0
+                        ? entry.durationMs
+                        : 0
+                if (event.type === 'execution:error') {
+                  return {
+                    ...entry,
+                    success: false,
+                    error: entry.error || event.data.error,
+                    endedAt,
+                    durationMs,
+                    isRunning: false,
+                    isCanceled: false,
+                  }
+                }
+
+                return {
+                  ...entry,
+                  endedAt,
+                  durationMs,
+                  isRunning: false,
+                  isCanceled: event.type === 'execution:cancelled',
+                }
+              }),
+            }))
+            clearExecutionStreamBuffers(event.workflowId, event.executionId)
           }
         },
 
