@@ -174,16 +174,8 @@ describe('Copilot Chat Review Session GET', () => {
       requestCopilotTitle: vi.fn(),
     }))
 
-    vi.doMock('@/lib/copilot/config', () => ({
-      getCopilotModel: vi.fn(),
-    }))
-
     vi.doMock('@/lib/copilot/completion-usage-billing', () => ({
       mirrorLocalCopilotCompletionUsageReports: vi.fn().mockResolvedValue(undefined),
-    }))
-
-    vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
-      buildCopilotRuntimeProviderConfig: vi.fn(),
     }))
 
     vi.doMock('@/lib/copilot/review-sessions/thread-history', () => ({

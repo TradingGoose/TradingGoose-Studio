@@ -21369,11 +21369,7 @@
         },
         "model": {
           "choose": "选择模型",
-          "label": "模型",
-          "providers": {
-            "anthropic": "Anthropic",
-            "openai": "OpenAI"
-          }
+          "label": "模型"
         }
       }
     },

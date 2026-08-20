@@ -21382,11 +21382,7 @@
         },
         "model": {
           "choose": "Choose model",
-          "label": "Model",
-          "providers": {
-            "anthropic": "Anthropic",
-            "openai": "OpenAI"
-          }
+          "label": "Model"
         }
       }
     },

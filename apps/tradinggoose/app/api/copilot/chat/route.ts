@@ -36,9 +36,11 @@ import {
   type ReviewMessageInput,
   type ReviewTurnStatus,
 } from '@/lib/copilot/review-sessions/thread-history'
-import { COPILOT_RUNTIME_MODELS, DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
-import { COPILOT_RUNTIME_PROVIDER_IDS } from '@/lib/copilot/runtime-provider'
-import { buildCopilotRuntimeProviderConfig } from '@/lib/copilot/runtime-provider.server'
+import {
+  COPILOT_RUNTIME_MODELS,
+  type CopilotRuntimeModel,
+  DEFAULT_COPILOT_RUNTIME_MODEL,
+} from '@/lib/copilot/runtime-models'
 import {
   COPILOT_RUNTIME_CONFIG_PLACEHOLDER,
   COPILOT_SESSION_KIND,
@@ -48,7 +50,6 @@ import { CopilotFiles } from '@/lib/uploads'
 import { createFileContent } from '@/lib/uploads/utils/file-utils'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
-import type { ProviderId } from '@/providers/ai/types'
 import type { ChatContext } from '@/stores/copilot/types'
 
 const logger = createLogger('CopilotChatAPI')
@@ -269,8 +270,7 @@ function generateAndPersistTitle(params: {
   reviewSessionId: string
   message: string
   userId: string
-  model: string
-  provider?: ProviderId
+  model: CopilotRuntimeModel
   requestId: string
   onTitle?: (title: string) => void
 }): void {
@@ -278,7 +278,6 @@ function generateAndPersistTitle(params: {
     message: params.message,
     userId: params.userId,
     model: params.model,
-    provider: params.provider,
   })
     .then(async (title) => {
       if (title) {
@@ -722,7 +721,6 @@ const ChatMessageSchema = z.object({
   model: z.enum(COPILOT_RUNTIME_MODELS).optional().default(DEFAULT_COPILOT_RUNTIME_MODEL),
   stream: z.boolean().optional().default(true),
   fileAttachments: z.array(FileAttachmentSchema).optional(),
-  provider: z.enum(COPILOT_RUNTIME_PROVIDER_IDS).optional(),
   conversationId: z.string().optional(),
   workspaceId: z.string().optional(),
   contexts: z.array(ChatContextSchema).max(MAX_COPILOT_CONTEXTS_PER_TURN).optional(),
@@ -761,7 +759,6 @@ export async function POST(req: NextRequest) {
       model,
       stream,
       fileAttachments,
-      provider,
       conversationId,
       workspaceId: incomingWorkspaceId,
       contexts,
@@ -879,11 +876,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { provider: runtimeProvider, providerConfig } = await buildCopilotRuntimeProviderConfig({
-      model,
-      provider,
-    })
-
     const effectiveConversationId =
       (currentSession?.conversationId as string | undefined) || conversationId
 
@@ -896,7 +888,6 @@ export async function POST(req: NextRequest) {
       streamToolCalls: true,
       model: model,
       messageId: userMessageIdToUse,
-      ...(providerConfig ? { provider: providerConfig } : {}),
       ...(effectiveConversationId ? { conversationId: effectiveConversationId } : {}),
       ...(session?.user?.name && { userName: session.user.name }),
       context: agentContexts,
@@ -1084,7 +1075,6 @@ export async function POST(req: NextRequest) {
                             message: modelMessage,
                             userId: authenticatedUserId,
                             model,
-                            provider: runtimeProvider,
                             requestId: tracker.requestId,
                             onTitle: (title) => {
                               controller.enqueue(
@@ -1341,7 +1331,6 @@ export async function POST(req: NextRequest) {
       hasContent: !!responseData.content,
       contentLength: responseData.content?.length || 0,
       model: responseData.model,
-      provider: responseData.provider,
       toolCallsCount: responseData.toolCalls?.length || 0,
       hasTokens: !!responseData.tokens,
     })
@@ -1398,8 +1387,7 @@ export async function POST(req: NextRequest) {
           reviewSessionId: actualReviewSessionId,
           message: modelMessage,
           userId: authenticatedUserId,
-          model: providerConfig?.model ?? model,
-          provider: providerConfig?.provider,
+          model,
           requestId: tracker.requestId,
         })
       }

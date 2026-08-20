@@ -182,7 +182,7 @@ describe('Copilot auto-scroll', () => {
       setAccessLevel: vi.fn(),
       setDraft: vi.fn(),
       loadChats: vi.fn(async () => {}),
-      selectedModel: 'gpt-5.4-mini',
+      selectedModel: 'openai/gpt-5.6-sol',
       setSelectedModel: vi.fn(),
       currentChat: {
         reviewSessionId: 'chat-1',

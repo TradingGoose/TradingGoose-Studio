@@ -113,7 +113,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     entityId: null,
     draftSessionId: null,
     title,
-    model: 'claude-sonnet-4.6',
+    model: 'anthropic/claude-fable-5',
     conversationId: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -228,12 +228,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
       ),
     }))
 
-    vi.doMock('@/lib/copilot/config', () => ({
-      getCopilotModel: vi.fn(() => ({
-        model: 'claude-sonnet-4.6',
-      })),
-    }))
-
     vi.doMock('@/lib/copilot/completion-usage-billing', () => ({
       mirrorLocalCopilotCompletionUsageReports: mockMirrorLocalCopilotCompletionUsageReports,
     }))
@@ -277,19 +271,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
         'indicator',
         'knowledge_base',
       ],
-    }))
-
-    vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
-      buildCopilotRuntimeProviderConfig: vi.fn(
-        async ({ model, provider }: { model: string; provider?: string }) => ({
-          provider: provider ?? 'openai',
-          providerConfig: {
-            provider: provider ?? 'openai',
-            model,
-            apiKey: 'test-copilot-key',
-          },
-        })
-      ),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -359,7 +340,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Please update the summary',
       reviewSessionId: 'review-session-1',
-      model: 'gpt-5.4',
+      model: 'openai/gpt-5.6-terra',
       stream: false,
     })
 
@@ -382,12 +363,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         body: expect.objectContaining({
           message: 'Please update the summary',
           userId: 'collaborator-user',
-          model: 'gpt-5.4',
-          provider: {
-            provider: 'openai',
-            model: 'gpt-5.4',
-            apiKey: 'test-copilot-key',
-          },
+          model: 'openai/gpt-5.6-terra',
           conversationId: 'conversation-1',
           context: [],
           chatId: 'review-session-1',
@@ -432,7 +408,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Use the tool output only',
       reviewSessionId: 'review-session-1',
-      model: 'gpt-5.4',
+      model: 'openai/gpt-5.6-terra',
       stream: false,
     })
 
@@ -522,7 +498,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         body: expect.objectContaining({
           message: 'Inspect the current monitor',
           userId: 'collaborator-user',
-          model: 'claude-sonnet-4.6',
+          model: 'anthropic/claude-fable-5',
           chatId: 'review-session-1',
           toolManifest: expect.objectContaining({
             version: 'v1',
@@ -579,7 +555,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
       method: 'POST',
       body: JSON.stringify({
         message: 'Read the current monitor',
-        model: 'claude-sonnet-4.6',
+        model: 'anthropic/claude-fable-5',
         stream: false,
         workspaceId: 'workspace-1',
         contexts: [
@@ -610,7 +586,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
   it('rejects context arrays above the per-turn limit before creating a chat', async () => {
     const request = createMockRequest('POST', {
       message: 'Read these contexts',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: false,
       workspaceId: 'workspace-1',
       contexts: Array.from({ length: 17 }, (_, index) => ({
@@ -696,7 +672,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Summarize the tool result',
       reviewSessionId: 'review-session-1',
-      model: 'gpt-5.4',
+      model: 'openai/gpt-5.6-terra',
       stream: false,
     })
 
@@ -888,7 +864,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         entityId: null,
         draftSessionId: null,
         title: null,
-        model: 'claude-sonnet-4.6',
+        model: 'anthropic/claude-fable-5',
         conversationId: null,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -898,7 +874,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Start a fresh generic copilot chat',
       workspaceId: 'workspace-1',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: false,
     })
 
@@ -924,7 +900,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         body: expect.objectContaining({
           message: 'Start a fresh generic copilot chat',
           userId: 'collaborator-user',
-          model: 'claude-sonnet-4.6',
+          model: 'anthropic/claude-fable-5',
           chatId: 'review-session-channel-1',
           toolManifest: expect.objectContaining({
             version: 'v1',
@@ -945,7 +921,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         entityId: null,
         draftSessionId: null,
         title: null,
-        model: 'claude-sonnet-4.6',
+        model: 'anthropic/claude-fable-5',
         conversationId: null,
         createdAt: new Date('2026-01-02T00:00:00.000Z'),
         updatedAt: new Date('2026-01-02T00:00:00.000Z'),
@@ -955,7 +931,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Create another chat in the same workspace',
       workspaceId: 'workspace-1',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: false,
     })
 
@@ -1024,7 +1000,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Persist the final text, not the draft',
       reviewSessionId: 'review-session-finalized-stream',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
@@ -1110,7 +1086,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Persist the reasoning blocks too',
       reviewSessionId: 'review-session-reasoning-stream',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
@@ -1158,7 +1134,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Handle the stream failure',
       reviewSessionId: 'review-session-error-stream',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
@@ -1208,7 +1184,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Get the current workflow',
       reviewSessionId: 'review-session-stringified-tool-args',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
@@ -1247,7 +1223,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         entityId: null,
         draftSessionId: null,
         title: null,
-        model: 'claude-sonnet-4.6',
+        model: 'anthropic/claude-fable-5',
         conversationId: null,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -1261,7 +1237,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Keep my user message even if the assistant is empty',
       workspaceId: 'workspace-1',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
@@ -1291,7 +1267,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Do not wipe existing history on an empty reply',
       reviewSessionId: 'review-session-existing-scope',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
