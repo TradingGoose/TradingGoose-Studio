@@ -154,6 +154,13 @@ const executionBlockKey = (
 
 const streamBuffers = new Map<string, string>()
 
+const clearWorkflowStreamBuffers = (workflowId: string) => {
+  const prefix = `${workflowId}:`
+  for (const key of streamBuffers.keys()) {
+    if (key.startsWith(prefix)) streamBuffers.delete(key)
+  }
+}
+
 const clearExecutionStreamBuffers = (workflowId: string, executionId: string | undefined) => {
   const prefix = `${workflowId}:${executionId ?? 'execution'}:`
   for (const key of streamBuffers.keys()) {
@@ -233,24 +240,38 @@ export const useConsoleStore = create<ConsoleStore>()(
             timestamp: new Date().toISOString(),
           }
 
-          set((state) => ({ entries: [newEntry, ...state.entries].slice(0, MAX_ENTRIES) }))
+          set((state) => {
+            const entries = [newEntry, ...state.entries]
+            for (const evictedEntry of entries.slice(MAX_ENTRIES)) {
+              streamBuffers.delete(
+                executionBlockKey(
+                  evictedEntry.workflowId,
+                  evictedEntry.executionId,
+                  evictedEntry.blockId,
+                  evictedEntry
+                )
+              )
+            }
+            return { entries: entries.slice(0, MAX_ENTRIES) }
+          })
 
           return newEntry
         },
 
         clearConsole: (workflowId: string | null) => {
+          if (workflowId) {
+            clearWorkflowStreamBuffers(workflowId)
+          } else {
+            streamBuffers.clear()
+          }
+
           set((state) => {
             if (!workflowId) {
-              streamBuffers.clear()
               return { entries: [] }
             }
 
             return {
-              entries: state.entries.filter((entry) => {
-                if (entry.workflowId !== workflowId) return true
-                clearExecutionStreamBuffers(entry.workflowId, entry.executionId)
-                return false
-              }),
+              entries: state.entries.filter((entry) => entry.workflowId !== workflowId),
             }
           })
         },

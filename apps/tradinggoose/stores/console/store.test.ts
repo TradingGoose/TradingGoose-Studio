@@ -106,6 +106,68 @@ describe('Console Store', () => {
       expect(second.id).toBe(first.id)
       expect(state.entries).toHaveLength(1)
     })
+
+    it('clears the stream buffer for an entry evicted by the capacity limit', () => {
+      const store = useConsoleStore.getState()
+      const base = {
+        executionId: 'evicted-execution',
+        workflowId: 'evicted-workflow',
+        timestamp: '2026-04-01T00:00:00.000Z',
+      }
+
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'block:started',
+        data: {
+          blockId: 'evicted-block',
+          blockName: 'Evicted Block',
+          blockType: 'agent',
+          startedAt: base.timestamp,
+        },
+      })
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'stream:chunk',
+        data: { blockId: 'evicted-block', chunk: 'stale' },
+      })
+
+      for (let index = 0; index < 500; index += 1) {
+        store.addConsole({
+          workflowId: 'capacity-workflow',
+          blockId: `capacity-block-${index}`,
+          blockName: 'Capacity Block',
+          blockType: 'agent',
+          success: true,
+        })
+      }
+
+      expect(useConsoleStore.getState().entries).toHaveLength(500)
+      expect(
+        useConsoleStore.getState().entries.some((entry) => entry.workflowId === base.workflowId)
+      ).toBe(false)
+
+      store.addConsole({
+        workflowId: base.workflowId,
+        executionId: base.executionId,
+        blockId: 'evicted-block',
+        blockName: 'Replacement Block',
+        blockType: 'agent',
+        success: true,
+        startedAt: '2026-04-01T00:00:01.000Z',
+        isRunning: true,
+      })
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        timestamp: '2026-04-01T00:00:01.100Z',
+        type: 'stream:chunk',
+        data: { blockId: 'evicted-block', chunk: 'fresh' },
+      })
+
+      const replacement = useConsoleStore
+        .getState()
+        .entries.find((entry) => entry.workflowId === base.workflowId)
+      expect(replacement?.output?.content).toBe('fresh')
+    })
   })
 
   describe('ingestWorkflowExecutionEvent', () => {
@@ -814,6 +876,57 @@ describe('Console Store', () => {
 
       expect(entries).toHaveLength(1)
       expect(entries[0]?.output?.content).toBe('after-clear')
+    })
+
+    it('clears workflow stream buffers when no matching entry remains', () => {
+      const store = useConsoleStore.getState()
+      const base = {
+        executionId: 'entryless-stream-clear',
+        workflowId: 'workflow-1',
+        timestamp: '2026-04-01T00:00:00.000Z',
+      }
+
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'block:started',
+        data: {
+          blockId: 'entryless-block',
+          blockName: 'Entryless Block',
+          blockType: 'agent',
+          startedAt: base.timestamp,
+        },
+      })
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'stream:chunk',
+        data: { blockId: 'entryless-block', chunk: 'stale' },
+      })
+      useConsoleStore.setState((state) => ({
+        entries: state.entries.filter((entry) => entry.workflowId !== base.workflowId),
+      }))
+
+      store.clearConsole(base.workflowId)
+      store.addConsole({
+        workflowId: base.workflowId,
+        executionId: base.executionId,
+        blockId: 'entryless-block',
+        blockName: 'Replacement Block',
+        blockType: 'agent',
+        success: true,
+        startedAt: '2026-04-01T00:00:01.000Z',
+        isRunning: true,
+      })
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        timestamp: '2026-04-01T00:00:01.100Z',
+        type: 'stream:chunk',
+        data: { blockId: 'entryless-block', chunk: 'fresh' },
+      })
+
+      const replacement = useConsoleStore
+        .getState()
+        .entries.find((entry) => entry.blockId === 'entryless-block')
+      expect(replacement?.output?.content).toBe('fresh')
     })
   })
 
