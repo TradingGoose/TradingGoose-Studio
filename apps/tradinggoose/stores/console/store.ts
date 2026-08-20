@@ -509,6 +509,7 @@ export const useConsoleStore = create<ConsoleStore>()(
 
                 return {
                   ...entry,
+                  success: event.type === 'execution:cancelled' ? false : entry.success,
                   endedAt,
                   durationMs,
                   isRunning: false,
@@ -530,6 +531,7 @@ export const useConsoleStore = create<ConsoleStore>()(
                   startedAtMs != null ? Math.max(0, Date.now() - startedAtMs) : entry.durationMs
                 return {
                   ...entry,
+                  success: false,
                   isRunning: false,
                   isCanceled: true,
                   endedAt: entry.endedAt || now,

@@ -583,6 +583,7 @@ describe('Console Store', () => {
       const entries = useConsoleStore.getState().entries
       expect(entries.find((entry) => entry.blockId === 'invalid')).toEqual(
         expect.objectContaining({
+          success: false,
           isRunning: false,
           isCanceled: true,
           endedAt: terminalEvent.timestamp,
@@ -591,6 +592,7 @@ describe('Console Store', () => {
       )
       expect(entries.find((entry) => entry.blockId === 'missing')).toEqual(
         expect.objectContaining({
+          success: false,
           isRunning: false,
           isCanceled: true,
           endedAt: terminalEvent.timestamp,
@@ -855,8 +857,10 @@ describe('Console Store', () => {
 
       expect(workflow1Entry?.isRunning).toBe(false)
       expect(workflow1Entry?.isCanceled).toBe(true)
+      expect(workflow1Entry?.success).toBe(false)
       expect(workflow2Entry?.isRunning).toBe(true)
       expect(workflow2Entry?.isCanceled).toBeUndefined()
+      expect(workflow2Entry?.success).toBe(true)
     })
   })
 })
