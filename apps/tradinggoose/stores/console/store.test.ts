@@ -106,71 +106,20 @@ describe('Console Store', () => {
       expect(second.id).toBe(first.id)
       expect(state.entries).toHaveLength(1)
     })
-
-    it('clears the stream buffer for an entry evicted by the capacity limit', () => {
-      const store = useConsoleStore.getState()
-      const base = {
-        executionId: 'evicted-execution',
-        workflowId: 'evicted-workflow',
-        timestamp: '2026-04-01T00:00:00.000Z',
-      }
-
-      store.ingestWorkflowExecutionEvent({
-        ...base,
-        type: 'block:started',
-        data: {
-          blockId: 'evicted-block',
-          blockName: 'Evicted Block',
-          blockType: 'agent',
-          startedAt: base.timestamp,
-        },
-      })
-      store.ingestWorkflowExecutionEvent({
-        ...base,
-        type: 'stream:chunk',
-        data: { blockId: 'evicted-block', chunk: 'stale' },
-      })
-
-      for (let index = 0; index < 500; index += 1) {
-        store.addConsole({
-          workflowId: 'capacity-workflow',
-          blockId: `capacity-block-${index}`,
-          blockName: 'Capacity Block',
-          blockType: 'agent',
-          success: true,
-        })
-      }
-
-      expect(useConsoleStore.getState().entries).toHaveLength(500)
-      expect(
-        useConsoleStore.getState().entries.some((entry) => entry.workflowId === base.workflowId)
-      ).toBe(false)
-
-      store.addConsole({
-        workflowId: base.workflowId,
-        executionId: base.executionId,
-        blockId: 'evicted-block',
-        blockName: 'Replacement Block',
-        blockType: 'agent',
-        success: true,
-        startedAt: '2026-04-01T00:00:01.000Z',
-        isRunning: true,
-      })
-      store.ingestWorkflowExecutionEvent({
-        ...base,
-        timestamp: '2026-04-01T00:00:01.100Z',
-        type: 'stream:chunk',
-        data: { blockId: 'evicted-block', chunk: 'fresh' },
-      })
-
-      const replacement = useConsoleStore
-        .getState()
-        .entries.find((entry) => entry.workflowId === base.workflowId)
-      expect(replacement?.output?.content).toBe('fresh')
-    })
   })
 
   describe('ingestWorkflowExecutionEvent', () => {
+    const startBlock = (blockId: string, executionId = 'exec-1', workflowId = 'workflow-1') => {
+      const timestamp = '2026-04-01T00:00:00.000Z'
+      useConsoleStore.getState().ingestWorkflowExecutionEvent({
+        workflowId,
+        executionId,
+        timestamp,
+        type: 'block:started',
+        data: { blockId, startedAt: timestamp },
+      })
+    }
+
     it('streams workflow execution chunks and keeps repeated block runs separate', () => {
       const store = useConsoleStore.getState()
       const base = {
@@ -406,376 +355,86 @@ describe('Console Store', () => {
       expect(completed).toBeUndefined()
     })
 
-    it('finalizes every running entry for a completed execution without touching other entries', () => {
+    it('finalizes every running entry for only the completed execution', () => {
       const store = useConsoleStore.getState()
-      const startedAt = '2026-04-01T00:00:00.000Z'
+      startBlock('matching-1')
+      startBlock('matching-2')
+      startBlock('other-execution', 'exec-2')
+      startBlock('other-workflow', 'exec-1', 'workflow-2')
 
-      for (const [workflowId, executionId, blockId, iterationCurrent] of [
-        ['workflow-1', 'exec-1', 'matching-1', 1],
-        ['workflow-1', 'exec-1', 'matching-2', 2],
-        ['workflow-1', 'exec-2', 'other-execution', 1],
-        ['workflow-2', 'exec-1', 'other-workflow', 1],
-      ] as const) {
-        store.ingestWorkflowExecutionEvent({
-          workflowId,
-          executionId,
-          timestamp: startedAt,
-          type: 'block:started',
-          data: { blockId, startedAt, iterationType: 'parallel', iterationCurrent },
-        })
+      store.ingestWorkflowExecutionEvent({
+        workflowId: 'workflow-1',
+        executionId: 'exec-1',
+        timestamp: '2026-04-01T00:00:02.000Z',
+        type: 'execution:completed',
+        data: { result: { success: true, output: {} } },
+      })
+
+      const entries = useConsoleStore.getState().entries
+      const matchingEntries = entries.filter((entry) => entry.blockId.startsWith('matching-'))
+
+      expect(matchingEntries).toHaveLength(2)
+      for (const entry of matchingEntries) {
+        expect(entry).toEqual(
+          expect.objectContaining({
+            success: true,
+            endedAt: '2026-04-01T00:00:02.000Z',
+            durationMs: 2000,
+            isRunning: false,
+            isCanceled: false,
+          })
+        )
       }
+      expect(entries.find((entry) => entry.blockId === 'other-execution')?.isRunning).toBe(true)
+      expect(entries.find((entry) => entry.blockId === 'other-workflow')?.isRunning).toBe(true)
+    })
 
-      store.addConsole({
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        blockId: 'matching-with-duration',
-        success: true,
-        startedAt,
-        durationMs: 750,
-        isRunning: true,
+    it.each([
+      {
+        event: {
+          workflowId: 'workflow-1',
+          executionId: 'error-execution',
+          timestamp: '2026-04-01T00:00:02.000Z',
+          type: 'execution:error' as const,
+          data: {
+            error: 'Workflow execution time limit exceeded',
+            result: {
+              success: false,
+              output: {},
+              error: 'Workflow execution time limit exceeded',
+            },
+          },
+        },
         isCanceled: false,
-      })
-      const alreadyCompleted = store.addConsole({
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        blockId: 'already-completed',
-        success: true,
-        startedAt,
-        endedAt: '2026-04-01T00:00:01.000Z',
-        durationMs: 1000,
-        isRunning: false,
-        isCanceled: false,
-      })
-      const alreadyFailed = store.addConsole({
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        blockId: 'already-failed',
-        success: false,
-        error: 'Specific block error',
-        startedAt,
-        endedAt: '2026-04-01T00:00:01.500Z',
-        durationMs: 1500,
-        isRunning: false,
-        isCanceled: false,
-      })
-      const alreadyCanceled = store.addConsole({
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        blockId: 'already-canceled',
-        success: false,
-        startedAt,
-        endedAt: '2026-04-01T00:00:02.000Z',
-        durationMs: 2000,
-        isRunning: false,
+        expectedError: 'Workflow execution time limit exceeded',
+      },
+      {
+        event: {
+          workflowId: 'workflow-1',
+          executionId: 'cancelled-execution',
+          timestamp: '2026-04-01T00:00:02.000Z',
+          type: 'execution:cancelled' as const,
+          data: {
+            result: { success: false, output: {}, error: 'Workflow execution was cancelled' },
+          },
+        },
         isCanceled: true,
-      })
+        expectedError: undefined,
+      },
+    ])('marks unresolved entries failed on $event.type', ({ event, isCanceled, expectedError }) => {
+      startBlock(event.type, event.executionId)
+      useConsoleStore.getState().ingestWorkflowExecutionEvent(event)
 
-      const terminalEvent = {
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        timestamp: '2026-04-01T00:00:03.000Z',
-        type: 'execution:completed' as const,
-        data: { result: { success: true, output: {} } },
-      }
-      store.ingestWorkflowExecutionEvent(terminalEvent)
-
-      const firstState = useConsoleStore.getState().entries
-      const matching = firstState.filter(
-        (entry) =>
-          entry.workflowId === 'workflow-1' &&
-          entry.executionId === 'exec-1' &&
-          entry.blockId.startsWith('matching')
-      )
-      expect(matching).toHaveLength(3)
-      expect(matching).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            blockId: 'matching-1',
-            isRunning: false,
-            isCanceled: false,
-            endedAt: terminalEvent.timestamp,
-            durationMs: 3000,
-          }),
-          expect.objectContaining({
-            blockId: 'matching-2',
-            isRunning: false,
-            isCanceled: false,
-            endedAt: terminalEvent.timestamp,
-            durationMs: 3000,
-          }),
-          expect.objectContaining({
-            blockId: 'matching-with-duration',
-            isRunning: false,
-            isCanceled: false,
-            endedAt: terminalEvent.timestamp,
-            durationMs: 750,
-          }),
-        ])
-      )
-      expect(firstState.find((entry) => entry.blockId === 'other-execution')?.isRunning).toBe(true)
-      expect(firstState.find((entry) => entry.blockId === 'other-workflow')?.isRunning).toBe(true)
-      expect(firstState.find((entry) => entry.id === alreadyCompleted.id)).toBe(alreadyCompleted)
-      expect(firstState.find((entry) => entry.id === alreadyFailed.id)).toBe(alreadyFailed)
-      expect(firstState.find((entry) => entry.id === alreadyCanceled.id)).toBe(alreadyCanceled)
-
-      const snapshot = structuredClone(firstState)
-      store.ingestWorkflowExecutionEvent(terminalEvent)
-      expect(useConsoleStore.getState().entries).toEqual(snapshot)
-    })
-
-    it('marks running entries failed and preserves a more specific block error', () => {
-      const store = useConsoleStore.getState()
-      const base = {
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        timestamp: '2026-04-01T00:00:00.000Z',
-      }
-
-      store.ingestWorkflowExecutionEvent({
-        ...base,
-        type: 'block:started',
-        data: { blockId: 'specific', startedAt: base.timestamp, error: 'Block failed precisely' },
-      })
-      store.ingestWorkflowExecutionEvent({
-        ...base,
-        type: 'block:started',
-        data: { blockId: 'fallback', startedAt: base.timestamp },
-      })
-      store.ingestWorkflowExecutionEvent({
-        ...base,
-        timestamp: '2026-04-01T00:00:02.000Z',
-        type: 'execution:error',
-        data: {
-          error: 'Workflow execution failed',
-          result: { success: false, output: {}, error: 'Workflow execution failed' },
-        },
-      })
-
-      const entries = useConsoleStore.getState().entries
-      expect(entries.find((entry) => entry.blockId === 'specific')).toEqual(
+      const entry = useConsoleStore.getState().entries[0]
+      expect(entry).toEqual(
         expect.objectContaining({
           success: false,
-          error: 'Block failed precisely',
-          isRunning: false,
-          isCanceled: false,
-          endedAt: '2026-04-01T00:00:02.000Z',
           durationMs: 2000,
-        })
-      )
-      expect(entries.find((entry) => entry.blockId === 'fallback')).toEqual(
-        expect.objectContaining({
-          success: false,
-          error: 'Workflow execution failed',
           isRunning: false,
-          isCanceled: false,
-          endedAt: '2026-04-01T00:00:02.000Z',
-          durationMs: 2000,
+          isCanceled,
         })
       )
-    })
-
-    it('derives missing duration from a preserved terminal timestamp', () => {
-      const store = useConsoleStore.getState()
-      const entry = store.addConsole({
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        blockId: 'partially-terminal',
-        success: true,
-        startedAt: '2026-04-01T00:00:00.000Z',
-        endedAt: '2026-04-01T00:00:01.000Z',
-        durationMs: 0,
-        isRunning: true,
-        isCanceled: false,
-      })
-      const terminalEvent = {
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        timestamp: '2026-04-01T00:00:03.000Z',
-        type: 'execution:completed' as const,
-        data: { result: { success: true, output: {} } },
-      }
-
-      store.ingestWorkflowExecutionEvent(terminalEvent)
-
-      expect(
-        useConsoleStore.getState().entries.find((candidate) => candidate.id === entry.id)
-      ).toEqual(
-        expect.objectContaining({
-          endedAt: '2026-04-01T00:00:01.000Z',
-          durationMs: 1000,
-          isRunning: false,
-          isCanceled: false,
-        })
-      )
-      const snapshot = structuredClone(useConsoleStore.getState().entries)
-      store.ingestWorkflowExecutionEvent(terminalEvent)
-      expect(useConsoleStore.getState().entries).toEqual(snapshot)
-    })
-
-    it('marks a running entry canceled and handles invalid or missing start timing safely', () => {
-      const store = useConsoleStore.getState()
-      store.ingestWorkflowExecutionEvent({
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        timestamp: 'invalid-start',
-        type: 'block:started',
-        data: { blockId: 'invalid', startedAt: 'invalid-start' },
-      })
-      store.addConsole({
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        blockId: 'missing',
-        success: true,
-        durationMs: 125,
-        isRunning: true,
-        isCanceled: false,
-      })
-
-      const terminalEvent = {
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        timestamp: '2026-04-01T00:00:02.000Z',
-        type: 'execution:cancelled' as const,
-        data: {
-          result: { success: false, output: {}, error: 'Workflow execution was cancelled' },
-        },
-      }
-      store.ingestWorkflowExecutionEvent(terminalEvent)
-
-      const entries = useConsoleStore.getState().entries
-      expect(entries.find((entry) => entry.blockId === 'invalid')).toEqual(
-        expect.objectContaining({
-          success: false,
-          isRunning: false,
-          isCanceled: true,
-          endedAt: terminalEvent.timestamp,
-          durationMs: 0,
-        })
-      )
-      expect(entries.find((entry) => entry.blockId === 'missing')).toEqual(
-        expect.objectContaining({
-          success: false,
-          isRunning: false,
-          isCanceled: true,
-          endedAt: terminalEvent.timestamp,
-          durationMs: 125,
-        })
-      )
-      expect(entries.every((entry) => Number.isFinite(entry.durationMs))).toBe(true)
-    })
-
-    it('clears a terminal execution buffer with no running match and preserves other buffers', () => {
-      const store = useConsoleStore.getState()
-      const executionId = 'shared-execution-id'
-
-      for (const workflowId of ['workflow-1', 'workflow-2']) {
-        store.ingestWorkflowExecutionEvent({
-          workflowId,
-          executionId,
-          timestamp: '2026-04-01T00:00:00.000Z',
-          type: 'block:started',
-          data: { blockId: 'agent-1', startedAt: '2026-04-01T00:00:00.000Z' },
-        })
-        store.ingestWorkflowExecutionEvent({
-          workflowId,
-          executionId,
-          timestamp: '2026-04-01T00:00:01.000Z',
-          type: 'stream:chunk',
-          data: { blockId: 'agent-1', chunk: `${workflowId}-before` },
-        })
-      }
-
-      store.cancelRunningEntries('workflow-1')
-      const beforeTerminal = structuredClone(useConsoleStore.getState().entries)
-      store.ingestWorkflowExecutionEvent({
-        workflowId: 'workflow-1',
-        executionId,
-        timestamp: '2026-04-01T00:00:02.000Z',
-        type: 'execution:completed',
-        data: { result: { success: true, output: {} } },
-      })
-      expect(useConsoleStore.getState().entries).toEqual(beforeTerminal)
-
-      store.addConsole({
-        workflowId: 'workflow-1',
-        executionId,
-        blockId: 'agent-1',
-        success: true,
-        startedAt: '2026-04-01T00:00:03.000Z',
-        durationMs: 0,
-        isRunning: true,
-        isCanceled: false,
-      })
-      store.ingestWorkflowExecutionEvent({
-        workflowId: 'workflow-1',
-        executionId,
-        timestamp: '2026-04-01T00:00:04.000Z',
-        type: 'stream:chunk',
-        data: { blockId: 'agent-1', chunk: 'fresh-target' },
-      })
-      store.ingestWorkflowExecutionEvent({
-        workflowId: 'workflow-2',
-        executionId,
-        timestamp: '2026-04-01T00:00:04.000Z',
-        type: 'stream:chunk',
-        data: { blockId: 'agent-1', chunk: '-after' },
-      })
-
-      const entries = useConsoleStore.getState().entries
-      expect(
-        entries.find(
-          (entry) => entry.workflowId === 'workflow-1' && entry.startedAt?.endsWith('03.000Z')
-        )?.output?.content
-      ).toBe('fresh-target')
-      expect(entries.find((entry) => entry.workflowId === 'workflow-2')?.output?.content).toBe(
-        'workflow-2-before-after'
-      )
-    })
-
-    it('reconciles and clears only the matching workflow stream buffer', () => {
-      const store = useConsoleStore.getState()
-      const executionId = 'shared-execution-id'
-
-      for (const workflowId of ['workflow-1', 'workflow-2']) {
-        store.ingestWorkflowExecutionEvent({
-          workflowId,
-          executionId,
-          timestamp: '2026-04-01T00:00:00.000Z',
-          type: 'block:started',
-          data: { blockId: 'agent-1' },
-        })
-        store.ingestWorkflowExecutionEvent({
-          workflowId,
-          executionId,
-          timestamp: '2026-04-01T00:00:01.000Z',
-          type: 'stream:chunk',
-          data: { blockId: 'agent-1', chunk: workflowId },
-        })
-      }
-
-      store.ingestWorkflowExecutionEvent({
-        workflowId: 'workflow-1',
-        executionId,
-        timestamp: '2026-04-01T00:00:02.000Z',
-        type: 'execution:completed',
-        data: { result: { success: true, output: {} } },
-      })
-      store.ingestWorkflowExecutionEvent({
-        workflowId: 'workflow-2',
-        executionId,
-        timestamp: '2026-04-01T00:00:03.000Z',
-        type: 'stream:chunk',
-        data: { blockId: 'agent-1', chunk: '-continued' },
-      })
-
-      const entries = useConsoleStore.getState().entries
-      expect(entries.find((entry) => entry.workflowId === 'workflow-1')?.isRunning).toBe(false)
-      expect(entries.find((entry) => entry.workflowId === 'workflow-2')).toEqual(
-        expect.objectContaining({
-          isRunning: true,
-          output: { content: 'workflow-2-continued' },
-        })
-      )
+      expect(entry?.error).toBe(expectedError)
     })
   })
 
@@ -877,57 +536,6 @@ describe('Console Store', () => {
       expect(entries).toHaveLength(1)
       expect(entries[0]?.output?.content).toBe('after-clear')
     })
-
-    it('clears workflow stream buffers when no matching entry remains', () => {
-      const store = useConsoleStore.getState()
-      const base = {
-        executionId: 'entryless-stream-clear',
-        workflowId: 'workflow-1',
-        timestamp: '2026-04-01T00:00:00.000Z',
-      }
-
-      store.ingestWorkflowExecutionEvent({
-        ...base,
-        type: 'block:started',
-        data: {
-          blockId: 'entryless-block',
-          blockName: 'Entryless Block',
-          blockType: 'agent',
-          startedAt: base.timestamp,
-        },
-      })
-      store.ingestWorkflowExecutionEvent({
-        ...base,
-        type: 'stream:chunk',
-        data: { blockId: 'entryless-block', chunk: 'stale' },
-      })
-      useConsoleStore.setState((state) => ({
-        entries: state.entries.filter((entry) => entry.workflowId !== base.workflowId),
-      }))
-
-      store.clearConsole(base.workflowId)
-      store.addConsole({
-        workflowId: base.workflowId,
-        executionId: base.executionId,
-        blockId: 'entryless-block',
-        blockName: 'Replacement Block',
-        blockType: 'agent',
-        success: true,
-        startedAt: '2026-04-01T00:00:01.000Z',
-        isRunning: true,
-      })
-      store.ingestWorkflowExecutionEvent({
-        ...base,
-        timestamp: '2026-04-01T00:00:01.100Z',
-        type: 'stream:chunk',
-        data: { blockId: 'entryless-block', chunk: 'fresh' },
-      })
-
-      const replacement = useConsoleStore
-        .getState()
-        .entries.find((entry) => entry.blockId === 'entryless-block')
-      expect(replacement?.output?.content).toBe('fresh')
-    })
   })
 
   describe('cancelRunningEntries', () => {
@@ -942,7 +550,6 @@ describe('Console Store', () => {
         success: true,
         output: {},
         startedAt: '2023-01-01T00:00:00.000Z',
-        endedAt: '2023-01-01T00:00:01.000Z',
         isRunning: true,
       })
 
@@ -954,7 +561,6 @@ describe('Console Store', () => {
         success: true,
         output: {},
         startedAt: '2023-01-01T00:00:00.000Z',
-        endedAt: '2023-01-01T00:00:01.000Z',
         isRunning: true,
       })
     })
