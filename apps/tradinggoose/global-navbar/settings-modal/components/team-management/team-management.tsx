@@ -268,7 +268,7 @@ export function TeamManagement() {
           usageScope: 'pooled',
         } satisfies BillingTierSummary),
     },
-    userRole: { isOrganizationOwner, isTeamAdmin: adminOrOwner },
+    userRole: { isOrganizationOwner },
     publicTiers: availableOrganizationTiers,
     enterprisePlaceholder: publicBillingCatalog?.enterprisePlaceholder ?? null,
   })
@@ -296,7 +296,7 @@ export function TeamManagement() {
     isLoadingPublicBillingCatalog || privateTierAccess.isLoading
   const canShowOrganizationPlans = Boolean(
     billingEnabled &&
-      adminOrOwner &&
+      isOrganizationOwner &&
       !organizationBillingPending &&
       !organizationBillingError &&
       !organizationPlanCatalogPending &&

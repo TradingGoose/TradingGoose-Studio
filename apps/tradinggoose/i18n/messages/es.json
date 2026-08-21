@@ -2018,7 +2018,7 @@
           "manage": "Abra el Portal de Facturación de Stripe para cancelar, restaurar o actualizar su suscripción.",
           "usageNotifications": "Envíeme un correo electrónico cuando el uso alcance el umbral de advertencia de facturación.",
           "customPlan": "Contacte a su equipo de cuenta para cambios de nivel de facturación y límites de uso.",
-          "teamMemberView": "Contacte al administrador de su equipo para aumentar los límites.",
+          "nonOwnerOrganizationView": "Contacte al propietario de la organización para gestionar la facturación.",
           "otherBillingOwner": "La facturación de este espacio de trabajo está gestionada por otro administrador.",
           "organizationBillingUnavailable": "No puede acceder a esta organización de facturación. Asigne la facturación a un administrador apto del espacio de trabajo."
         },

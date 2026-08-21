@@ -2018,7 +2018,7 @@
           "manage": "Open Stripe Billing Portal to cancel, restore, or update your subscription.",
           "usageNotifications": "Email me when usage reaches the billing warning threshold",
           "customPlan": "Contact your account team for billing tier and usage limit changes",
-          "teamMemberView": "Contact your team admin to increase limits",
+          "nonOwnerOrganizationView": "Contact the organization owner to manage billing.",
           "otherBillingOwner": "This workspace's billing is managed by another workspace administrator.",
           "organizationBillingUnavailable": "You cannot access this billing organization. Assign billing to an eligible workspace administrator below."
         },

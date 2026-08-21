@@ -342,7 +342,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     },
     userRole: {
       isOrganizationOwner,
-      isTeamAdmin,
     },
     publicTiers: availableTiers,
     enterprisePlaceholder: publicBillingCatalog?.enterprisePlaceholder ?? null,
@@ -398,20 +397,20 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
         : (billingStatus as 'ok' | 'warning' | 'exceeded' | 'blocked')
 
   const showBadge = isOrganizationPlan
-    ? surfaceState.canEditUsageLimit && !surfaceState.showTeamMemberView
+    ? surfaceState.canEditUsageLimit && !surfaceState.showNonOwnerOrganizationView
     : personalPaygUiState.showBadge
   const showPersonalUsageLimitControl =
     !isOrganizationPlan &&
     personalPaygUiState.showUsageLimitControl &&
-    (surfaceState.canEditUsageLimit || surfaceState.showTeamMemberView)
+    (surfaceState.canEditUsageLimit || surfaceState.showNonOwnerOrganizationView)
   const showUsageLimitControl = isOrganizationPlan
-    ? surfaceState.canEditUsageLimit || surfaceState.showTeamMemberView
+    ? surfaceState.canEditUsageLimit || surfaceState.showNonOwnerOrganizationView
     : showPersonalUsageLimitControl
   const showPersonalSubscriptionManagement = !isOrganizationPlan && hasStripeSubscription
   const showManageSubscriptionRow =
     (subscription.isPaid || showPersonalSubscriptionManagement) &&
     !surfaceState.isCustomOrganizationPlan &&
-    !surfaceState.showTeamMemberView &&
+    !surfaceState.showNonOwnerOrganizationView &&
     canManageSelectedPlan
   const badgeText =
     !isOrganizationPlan && personalPaygUiState.showBadge
@@ -642,45 +641,49 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           />
         </div>
 
-        {surfaceState.showTeamMemberView && (
+        {surfaceState.showNonOwnerOrganizationView && (
           <div className='text-center'>
-            <p className='text-muted-foreground text-xs'>{copy('descriptions.teamMemberView')}</p>
+            <p className='text-muted-foreground text-xs'>
+              {copy('descriptions.nonOwnerOrganizationView')}
+            </p>
           </div>
         )}
 
-        <div className='space-y-2 rounded-sm border p-3'>
-          <label htmlFor='private-tier-access-code' className='font-medium text-sm'>
-            {copy('privateAccess.label')}
-          </label>
-          <form className='flex gap-2' onSubmit={handlePrivateTierAccess}>
-            <Input
-              id='private-tier-access-code'
-              value={accessCode}
-              placeholder={copy('privateAccess.placeholder')}
-              autoComplete='off'
-              onChange={(event) => {
-                setAccessCode(event.target.value)
-                privateTierAccessMutation.reset()
-              }}
-            />
-            <Button
-              type='submit'
-              disabled={!accessCode.trim() || privateTierAccessMutation.isPending}
-            >
-              {copy('privateAccess.validate')}
-            </Button>
-          </form>
-          {privateAccessErrorCode ? (
-            <p role='alert' className='text-destructive text-xs'>
-              {copy(`privateAccess.errors.${privateAccessErrorCode}`)}
-            </p>
-          ) : null}
-          {privateTierAccessMutation.isSuccess ? (
-            <p role='status' className='text-muted-foreground text-xs'>
-              {copy('privateAccess.success')}
-            </p>
-          ) : null}
-        </div>
+        {canManageSelectedPlan && (
+          <div className='space-y-2 rounded-sm border p-3'>
+            <label htmlFor='private-tier-access-code' className='font-medium text-sm'>
+              {copy('privateAccess.label')}
+            </label>
+            <form className='flex gap-2' onSubmit={handlePrivateTierAccess}>
+              <Input
+                id='private-tier-access-code'
+                value={accessCode}
+                placeholder={copy('privateAccess.placeholder')}
+                autoComplete='off'
+                onChange={(event) => {
+                  setAccessCode(event.target.value)
+                  privateTierAccessMutation.reset()
+                }}
+              />
+              <Button
+                type='submit'
+                disabled={!accessCode.trim() || privateTierAccessMutation.isPending}
+              >
+                {copy('privateAccess.validate')}
+              </Button>
+            </form>
+            {privateAccessErrorCode ? (
+              <p role='alert' className='text-destructive text-xs'>
+                {copy(`privateAccess.errors.${privateAccessErrorCode}`)}
+              </p>
+            ) : null}
+            {privateTierAccessMutation.isSuccess ? (
+              <p role='status' className='text-muted-foreground text-xs'>
+                {copy('privateAccess.success')}
+              </p>
+            ) : null}
+          </div>
+        )}
 
         {hasVisiblePlanCards && (
           <div className='flex flex-col gap-2'>

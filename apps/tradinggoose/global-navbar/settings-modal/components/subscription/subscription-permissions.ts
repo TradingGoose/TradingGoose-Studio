@@ -13,7 +13,6 @@ export interface SubscriptionState {
 
 export interface UserRole {
   isOrganizationOwner: boolean
-  isTeamAdmin: boolean
 }
 
 export interface SubscriptionSurfaceState {
@@ -22,7 +21,7 @@ export interface SubscriptionSurfaceState {
   isCustomOrganizationPlan: boolean
   canManageOrganizationPlan: boolean
   canEditUsageLimit: boolean
-  showTeamMemberView: boolean
+  showNonOwnerOrganizationView: boolean
   visiblePlanTiers: PublicBillingTierDisplay[]
   showEnterprisePlaceholder: boolean
   enterprisePlaceholder: EnterprisePlaceholderDisplay | null
@@ -83,13 +82,15 @@ export function getSubscriptionSurfaceState({
   const isCurrentCustomOrganizationPlan =
     isCurrentOrganizationPlan && subscription.isPaid && !subscription.tier.hasStripeMonthlyPriceId
   const canEditUsageLimit = canTierEditUsageLimit(subscription.tier)
-  const isTeamMemberView = isCurrentOrganizationPlan && !userRole.isTeamAdmin
+  const isNonOwnerOrganizationPlan = isCurrentOrganizationPlan && !userRole.isOrganizationOwner
 
   let visiblePlanTiers: PublicBillingTierDisplay[] = []
 
-  if (isCurrentCustomOrganizationPlan) {
+  if (isNonOwnerOrganizationPlan) {
+    visiblePlanTiers = []
+  } else if (isCurrentCustomOrganizationPlan) {
     visiblePlanTiers = currentTier ? [currentTier] : []
-  } else if (!isTeamMemberView) {
+  } else {
     const alternativeTiers = getSubscriptionTierAlternatives(
       publicTiers,
       subscription.tier.ownerType,
@@ -100,7 +101,7 @@ export function getSubscriptionSurfaceState({
   }
 
   const showEnterprisePlaceholder = Boolean(
-    enterprisePlaceholder && !isCurrentCustomOrganizationPlan && !isTeamMemberView
+    enterprisePlaceholder && !isCurrentCustomOrganizationPlan && !isNonOwnerOrganizationPlan
   )
 
   return {
@@ -110,7 +111,7 @@ export function getSubscriptionSurfaceState({
     canManageOrganizationPlan: isCurrentOrganizationPlan && userRole.isOrganizationOwner,
     canEditUsageLimit:
       canEditUsageLimit && (!isCurrentOrganizationPlan || userRole.isOrganizationOwner),
-    showTeamMemberView: isTeamMemberView && !isCurrentCustomOrganizationPlan,
+    showNonOwnerOrganizationView: isNonOwnerOrganizationPlan,
     visiblePlanTiers,
     showEnterprisePlaceholder,
     enterprisePlaceholder,

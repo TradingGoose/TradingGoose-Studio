@@ -4,9 +4,8 @@ import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/subscription/types'
 import { getSubscriptionSurfaceState } from './subscription-permissions'
 
-const ownerRole = { isOrganizationOwner: true, isTeamAdmin: true }
-const adminRole = { isOrganizationOwner: false, isTeamAdmin: true }
-const memberRole = { isOrganizationOwner: false, isTeamAdmin: false }
+const ownerRole = { isOrganizationOwner: true }
+const nonOwnerRole = { isOrganizationOwner: false }
 
 function buildTier(overrides: Partial<PublicBillingTierDisplay>): PublicBillingTierDisplay {
   return {
@@ -77,7 +76,7 @@ describe('getSubscriptionSurfaceState', () => {
         isPaid: false,
         tier: toSummary(freeTier),
       },
-      userRole: adminRole,
+      userRole: nonOwnerRole,
       publicTiers,
       enterprisePlaceholder: null,
     })
@@ -97,7 +96,7 @@ describe('getSubscriptionSurfaceState', () => {
         isPaid: true,
         tier: toSummary(proTier),
       },
-      userRole: adminRole,
+      userRole: nonOwnerRole,
       publicTiers,
       enterprisePlaceholder: null,
     })
@@ -120,7 +119,7 @@ describe('getSubscriptionSurfaceState', () => {
         isPaid: true,
         tier: toSummary(proTier),
       },
-      userRole: adminRole,
+      userRole: nonOwnerRole,
       publicTiers: [freeTier, privateTier, proTier, teamTier],
       enterprisePlaceholder: null,
     })
@@ -142,7 +141,7 @@ describe('getSubscriptionSurfaceState', () => {
           isPublic: false,
         },
       },
-      userRole: adminRole,
+      userRole: nonOwnerRole,
       publicTiers: [freeTier, teamTier],
       enterprisePlaceholder: null,
     })
@@ -168,7 +167,7 @@ describe('getSubscriptionSurfaceState', () => {
         isPaid: true,
         tier: toSummary(proTier),
       },
-      userRole: adminRole,
+      userRole: nonOwnerRole,
       publicTiers: [freeTier, proTier, teamTier, organizationTier],
       enterprisePlaceholder: null,
     })
@@ -231,7 +230,7 @@ describe('getSubscriptionSurfaceState', () => {
           ownerType: 'user',
         },
       },
-      userRole: adminRole,
+      userRole: nonOwnerRole,
       publicTiers: [freeTier, proTier, privateTier],
       enterprisePlaceholder: null,
     })
@@ -244,7 +243,7 @@ describe('getSubscriptionSurfaceState', () => {
     ])
   })
 
-  it('keeps archived Stripe-backed alternatives visible but owner-gated', () => {
+  it('keeps an archived organization tier authoritative without offering alternatives', () => {
     const replacementOrganizationTier = buildTier({
       id: 'tier_organization_replacement',
       displayName: 'Replacement organization tier',
@@ -269,7 +268,7 @@ describe('getSubscriptionSurfaceState', () => {
           hasStripeMonthlyPriceId: true,
         },
       },
-      userRole: adminRole,
+      userRole: nonOwnerRole,
       publicTiers: [...publicTiers, replacementOrganizationTier],
       enterprisePlaceholder: null,
     })
@@ -277,13 +276,10 @@ describe('getSubscriptionSurfaceState', () => {
     expect(state.isCustomOrganizationPlan).toBe(false)
     expect(state.canManageOrganizationPlan).toBe(false)
     expect(state.currentTier?.id).toBe('tier_organization_archived')
-    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual([
-      'tier_organization_archived',
-      replacementOrganizationTier.id,
-    ])
+    expect(state.visiblePlanTiers).toEqual([])
   })
 
-  it('keeps organization team members out of the tier chooser', () => {
+  it('keeps organization non-owners out of the tier chooser', () => {
     const orgTier = buildTier({
       id: 'tier_org',
       displayName: 'Organization',
@@ -300,16 +296,16 @@ describe('getSubscriptionSurfaceState', () => {
         isPaid: true,
         tier: toSummary(orgTier),
       },
-      userRole: memberRole,
+      userRole: nonOwnerRole,
       publicTiers: [...publicTiers, orgTier],
       enterprisePlaceholder: null,
     })
 
-    expect(state.showTeamMemberView).toBe(true)
+    expect(state.showNonOwnerOrganizationView).toBe(true)
     expect(state.visiblePlanTiers).toEqual([])
   })
 
-  it('shows the authoritative custom organization tier without self-service alternatives', () => {
+  it('keeps the custom organization tier authoritative without offering it to a non-owner', () => {
     const state = getSubscriptionSurfaceState({
       subscription: {
         isFree: false,
@@ -325,7 +321,7 @@ describe('getSubscriptionSurfaceState', () => {
           displayOrder: 99,
         },
       },
-      userRole: adminRole,
+      userRole: nonOwnerRole,
       publicTiers,
       enterprisePlaceholder: {
         displayName: 'Enterprise',
@@ -337,11 +333,12 @@ describe('getSubscriptionSurfaceState', () => {
 
     expect(state.currentTier?.id).toBe('tier_enterprise_contract')
     expect(state.isCustomOrganizationPlan).toBe(true)
-    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual(['tier_enterprise_contract'])
+    expect(state.visiblePlanTiers).toEqual([])
+    expect(state.showNonOwnerOrganizationView).toBe(true)
     expect(state.showEnterprisePlaceholder).toBe(false)
   })
 
-  it('shows an archived custom organization contract without self-service actions', () => {
+  it('keeps an archived custom contract authoritative without offering it to a non-owner', () => {
     const state = getSubscriptionSurfaceState({
       subscription: {
         isFree: false,
@@ -357,7 +354,7 @@ describe('getSubscriptionSurfaceState', () => {
           hasStripeMonthlyPriceId: false,
         },
       },
-      userRole: adminRole,
+      userRole: nonOwnerRole,
       publicTiers,
       enterprisePlaceholder: {
         displayName: 'Enterprise',
@@ -369,7 +366,8 @@ describe('getSubscriptionSurfaceState', () => {
 
     expect(state.currentTier?.id).toBe('tier_archived_contract')
     expect(state.isCustomOrganizationPlan).toBe(true)
-    expect(state.visiblePlanTiers.map((tier) => tier.id)).toEqual(['tier_archived_contract'])
+    expect(state.visiblePlanTiers).toEqual([])
+    expect(state.showNonOwnerOrganizationView).toBe(true)
     expect(state.showEnterprisePlaceholder).toBe(false)
   })
 })

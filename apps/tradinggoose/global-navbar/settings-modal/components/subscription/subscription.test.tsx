@@ -287,6 +287,7 @@ describe('Subscription billing subject', () => {
     expect(mocks.organizationBillingId).toBe('org-billing')
     expect(container.textContent).toContain('Organization Pro')
     expect(container.textContent).not.toContain('Personal Pro')
+    expect(container.querySelector('#private-tier-access-code')).toBeNull()
   })
 
   it('uses personal billing when the workspace billing owner is the session user', () => {
@@ -294,6 +295,7 @@ describe('Subscription billing subject', () => {
 
     expect(container.textContent).toContain('Personal Pro')
     expect(container.textContent).not.toContain('Organization Pro')
+    expect(container.querySelector('#private-tier-access-code')).not.toBeNull()
   })
 
   it('does not render keep-previous billing data while the organization owner changes', () => {
@@ -366,6 +368,7 @@ describe('Subscription billing subject', () => {
     expect(container.textContent).toContain('Organization Public:Change to Organization Public')
     expect(container.textContent).toContain('Organization Private:Change to Organization Private')
     expect(container.textContent).not.toContain('Personal Public')
+    expect(container.querySelector('#private-tier-access-code')).not.toBeNull()
 
     const privatePlan = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Organization Private')
