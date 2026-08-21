@@ -433,6 +433,41 @@ describe('Airtable provisioning reconciliation', () => {
     expect(state.webhooks).toEqual([])
   })
 
+  it('lets deletion recover an expired Airtable provisioning lease', async () => {
+    const row: Row = {
+      ...provisioning(activeAirtable()),
+      workflowId: 'workflow-1',
+      blockId: 'block-1',
+    }
+    row.providerConfig.airtableLifecycle.expiresAt = state.databaseNow + 60_000
+    state.webhooks = [row]
+    const params = { params: Promise.resolve({ id: 'webhook-1' }) }
+
+    expect((await deleteWebhook({} as NextRequest, params)).status).toBe(409)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    state.databaseNow += 60_000
+    fetchMock
+      .mockResolvedValueOnce(
+        Response.json({
+          webhooks: [
+            {
+              id: 'existing-remote',
+              notificationUrl: 'https://studio.example.test/api/webhooks/trigger/block-1',
+            },
+            {
+              id: 'unknown-remote',
+              notificationUrl: 'https://studio.example.test/api/webhooks/trigger/block-1',
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    expect((await deleteWebhook({} as NextRequest, params)).status).toBe(200)
+    expect(state.webhooks).toEqual([])
+  })
+
   it('retains failed replacement cleanup and retries it without provisioning again', async () => {
     state.webhooks = [activeAirtable()]
     fetchMock
