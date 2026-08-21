@@ -1346,11 +1346,8 @@ async function commitAirtablePollPage(params: {
   nextCursor: number
   receivedPayloads?: unknown[]
   mightHaveMore?: boolean
-  stage?: AirtablePollStage | null
 }) {
   return db.transaction(async (tx) => {
-    let stage = params.stage
-
     const [row] = await tx
       .select({ payload: pendingExecution.payload })
       .from(pendingExecution)
@@ -1373,7 +1370,7 @@ async function commitAirtablePollPage(params: {
       params.externalId
     )
     const executionPayload = pendingState.executionPayload
-    stage = pendingState.stage
+    let stage = pendingState.stage
 
     stage ??= {
       externalId: params.externalId,
@@ -1596,7 +1593,6 @@ async function formatAirtableWebhookInput(
         nextCursor,
         receivedPayloads: responseBody.payloads,
         mightHaveMore: responseBody.mightHaveMore === true,
-        stage,
       })
       stage = committed.stage
       if (!committed.committed) break

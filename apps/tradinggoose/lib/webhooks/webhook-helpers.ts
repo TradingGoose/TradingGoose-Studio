@@ -349,7 +349,7 @@ async function deleteAirtableWebhookSubscription(
     return false
   }
 }
-export async function processAirtableWebhookCleanup(
+async function processOneAirtableWebhookCleanup(
   current: typeof webhookTable.$inferSelect,
   requestId: string,
   scope: AirtableCredentialScope
@@ -468,6 +468,24 @@ export async function processAirtableWebhookCleanup(
     .returning()
   return { cleaned: cleaned && Boolean(settled), webhook: settled ?? claimed }
 }
+
+export async function processAirtableWebhookCleanup(
+  current: typeof webhookTable.$inferSelect,
+  requestId: string,
+  scope: AirtableCredentialScope
+): ReturnType<typeof processOneAirtableWebhookCleanup> {
+  const result = await processOneAirtableWebhookCleanup(current, requestId, scope)
+  const providerConfig = result.webhook?.providerConfig
+  if (
+    !result.cleaned ||
+    !result.webhook ||
+    (!getPendingAirtableWebhookCleanup(providerConfig).length &&
+      getAirtableWebhookLifecycle(providerConfig)?.phase !== 'cleanup')
+  )
+    return result
+  return processAirtableWebhookCleanup(result.webhook, requestId, scope)
+}
+
 async function deleteTeamsRemote(externalId: string, accessToken: string) {
   try {
     const response = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${externalId}`, {

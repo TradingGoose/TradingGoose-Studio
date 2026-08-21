@@ -374,15 +374,17 @@ describe('Airtable provisioning reconciliation', () => {
       providerConfig: config,
     })
   })
-  it('leases cleanup so concurrent workers issue one remote delete', async () => {
-    state.webhooks = [cleanupFixture(() => ({ phase: 'deleting' }))]
+  it('serializes concurrent cleanup while draining every remote subscription', async () => {
+    const row = cleanupFixture(() => ({ phase: 'deleting' }))
+    row.providerConfig.airtablePendingCleanup.push({ ...config, externalId: 'remote-2' })
+    state.webhooks = [row]
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
     const snapshot = { ...state.webhooks[0] } as any
     const results = await Promise.all([
       processAirtableWebhookCleanup(snapshot, 'first', cleanupScope),
       processAirtableWebhookCleanup(snapshot, 'second', cleanupScope),
     ])
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(results.filter((result) => result.cleaned)).toHaveLength(1)
     expect(state.webhooks).toEqual([])
   })
