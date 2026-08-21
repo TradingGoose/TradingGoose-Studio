@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="onedrive"
-  color=""
+  color="#28A8EA"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="OneDrive"
     type="onedrive"
-    color=""
+    color="#28A8EA"
     hideHeader
     subBlocks={[
         {
@@ -94,8 +94,7 @@ Create a new folder in OneDrive
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `folderName` | string | Yes | Name of the folder to create |
-| `folderSelector` | string | No | Select the parent folder to create the folder in |
-| `manualFolderId` | string | No | Manually entered parent folder ID \(advanced mode\) |
+| `folderId` | string | No | Parent folder ID to create the folder in |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
@@ -115,7 +114,7 @@ Create a new folder in OneDrive
   <BlockConfigPreview
     name="OneDrive"
     type="onedrive"
-    color=""
+    color="#28A8EA"
     hideHeader
     subBlocks={[
         {
@@ -231,7 +230,7 @@ Create a new folder in OneDrive
   <BlockConfigPreview
     name="OneDrive"
     type="onedrive"
-    color=""
+    color="#28A8EA"
     hideHeader
     subBlocks={[
         {
@@ -321,8 +320,7 @@ Upload a file to OneDrive
 | `file` | file | No | The file to upload \(binary\) |
 | `content` | string | No | The text content to upload \(if no file is provided\) |
 | `mimeType` | string | No | The MIME type of the file to create \(e.g., text/plain for .txt, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet for .xlsx\) |
-| `folderSelector` | string | No | Select the folder to upload the file to |
-| `manualFolderId` | string | No | Manually entered folder ID \(advanced mode\) |
+| `folderId` | string | No | Folder ID to upload the file to |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
@@ -342,7 +340,7 @@ Upload a file to OneDrive
   <BlockConfigPreview
     name="OneDrive"
     type="onedrive"
-    color=""
+    color="#28A8EA"
     hideHeader
     subBlocks={[
         {
@@ -421,8 +419,7 @@ List files and folders in OneDrive
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `folderSelector` | string | No | Select the folder to list files from |
-| `manualFolderId` | string | No | The manually entered folder ID \(advanced mode\) |
+| `folderId` | string | No | The folder ID to list files from |
 | `query` | string | No | A query to filter the files |
 | `pageSize` | number | No | The number of files to return |
 

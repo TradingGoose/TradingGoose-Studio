@@ -1,6 +1,6 @@
 ---
 title: Calendly Trigger
-description: Trigger workflow when someone schedules a new event on Calendly
+description: Trigger workflow when someone cancels a scheduled event on Calendly
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
@@ -15,7 +15,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
   color=""
 />
 
-Trigger workflow when someone schedules a new event on Calendly
+Trigger workflow when someone cancels a scheduled event on Calendly
 
 <Callout type="info">
   This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
@@ -30,22 +30,16 @@ Trigger workflow when someone schedules a new event on Calendly
 
 ## Events
 
-### Calendly Invitee Created
+### Calendly Invitee Canceled
 
-Trigger workflow when someone schedules a new event on Calendly
+Trigger workflow when someone cancels a scheduled event on Calendly
 
 <ShowcaseCard>
   <BlockConfigPreview
-    name="Calendly Invitee Created"
-    type="calendly_invitee_created"
+    name="Calendly Invitee Canceled"
+    type="calendly_invitee_canceled"
     hideHeader
     subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
         {
             "id": "apiKey",
             "type": "short-input",
@@ -336,16 +330,199 @@ Trigger workflow when someone schedules a new event on Calendly
 
 ---
 
-### Calendly Invitee Canceled
+### Calendly Routing Form Submitted
 
-Trigger workflow when someone cancels a scheduled event on Calendly
+Trigger workflow when someone submits a Calendly routing form
 
 <ShowcaseCard>
   <BlockConfigPreview
-    name="Calendly Invitee Canceled"
-    type="calendly_invitee_canceled"
+    name="Calendly Routing Form Submitted"
+    type="calendly_routing_form_submitted"
     hideHeader
     subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Access Token",
+            "placeholder": "Enter your Calendly personal access token",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "Organization URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Organization URI for the webhook subscription. Get this from \"Get Current User\" operation.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Event type (routing_form_submission.created)"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Webhook event creation timestamp"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "URI of the Calendly user who created this webhook"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "payload",
+          "children": [
+              {
+                  "name": "uri",
+                  "type": "string",
+                  "description": "Routing form submission URI"
+              },
+              {
+                  "name": "routing_form",
+                  "type": "string",
+                  "description": "Routing form URI"
+              },
+              {
+                  "name": "submitter",
+                  "type": "object",
+                  "description": "Submitter details",
+                  "children": [
+                      {
+                          "name": "properties",
+                          "type": "object",
+                          "description": "properties",
+                          "children": [
+                              {
+                                  "name": "uri",
+                                  "type": "string",
+                                  "description": "Submitter URI"
+                              },
+                              {
+                                  "name": "email",
+                                  "type": "string",
+                                  "description": "Submitter email address"
+                              },
+                              {
+                                  "name": "name",
+                                  "type": "string",
+                                  "description": "Submitter full name"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "submitter_type",
+                  "type": "string",
+                  "description": "Type of submitter"
+              },
+              {
+                  "name": "questions_and_answers",
+                  "type": "array",
+                  "description": "Questions and answers from the booking form"
+              },
+              {
+                  "name": "tracking",
+                  "type": "object",
+                  "description": "tracking",
+                  "children": [
+                      {
+                          "name": "utm_campaign",
+                          "type": "string",
+                          "description": "UTM campaign parameter"
+                      },
+                      {
+                          "name": "utm_source",
+                          "type": "string",
+                          "description": "UTM source parameter"
+                      },
+                      {
+                          "name": "utm_medium",
+                          "type": "string",
+                          "description": "UTM medium parameter"
+                      },
+                      {
+                          "name": "utm_content",
+                          "type": "string",
+                          "description": "UTM content parameter"
+                      },
+                      {
+                          "name": "utm_term",
+                          "type": "string",
+                          "description": "UTM term parameter"
+                      },
+                      {
+                          "name": "salesforce_uuid",
+                          "type": "string",
+                          "description": "Salesforce UUID"
+                      }
+                  ]
+              },
+              {
+                  "name": "result",
+                  "type": "object",
+                  "description": "Routing result details",
+                  "children": [
+                      {
+                          "name": "properties",
+                          "type": "[object Object]",
+                          "description": "properties",
+                          "children": [
+                              {
+                                  "name": "value",
+                                  "type": "string",
+                                  "description": "Result value (event type URI, message, or URL)"
+                              }
+                          ]
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Submission creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Submission last update timestamp"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Calendly Invitee Created
+
+Trigger workflow when someone schedules a new event on Calendly
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Invitee Created"
+    type="calendly_invitee_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Type",
+            "required": true
+        },
         {
             "id": "apiKey",
             "type": "short-input",
@@ -690,183 +867,6 @@ Trigger workflow from any Calendly webhook event
           "name": "payload",
           "type": "object",
           "description": "Complete event payload (structure varies by event type)"
-      }
-  ]}
-/>
-
----
-
-### Calendly Routing Form Submitted
-
-Trigger workflow when someone submits a Calendly routing form
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Calendly Routing Form Submitted"
-    type="calendly_routing_form_submitted"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "apiKey",
-            "type": "short-input",
-            "title": "Personal Access Token",
-            "placeholder": "Enter your Calendly personal access token",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "organization",
-            "type": "short-input",
-            "title": "Organization URI",
-            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
-            "description": "Organization URI for the webhook subscription. Get this from \"Get Current User\" operation.",
-            "required": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "event",
-          "type": "string",
-          "description": "Event type (routing_form_submission.created)"
-      },
-      {
-          "name": "created_at",
-          "type": "string",
-          "description": "Webhook event creation timestamp"
-      },
-      {
-          "name": "created_by",
-          "type": "string",
-          "description": "URI of the Calendly user who created this webhook"
-      },
-      {
-          "name": "payload",
-          "type": "object",
-          "description": "payload",
-          "children": [
-              {
-                  "name": "uri",
-                  "type": "string",
-                  "description": "Routing form submission URI"
-              },
-              {
-                  "name": "routing_form",
-                  "type": "string",
-                  "description": "Routing form URI"
-              },
-              {
-                  "name": "submitter",
-                  "type": "object",
-                  "description": "Submitter details",
-                  "children": [
-                      {
-                          "name": "properties",
-                          "type": "object",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "uri",
-                                  "type": "string",
-                                  "description": "Submitter URI"
-                              },
-                              {
-                                  "name": "email",
-                                  "type": "string",
-                                  "description": "Submitter email address"
-                              },
-                              {
-                                  "name": "name",
-                                  "type": "string",
-                                  "description": "Submitter full name"
-                              }
-                          ]
-                      }
-                  ]
-              },
-              {
-                  "name": "submitter_type",
-                  "type": "string",
-                  "description": "Type of submitter"
-              },
-              {
-                  "name": "questions_and_answers",
-                  "type": "array",
-                  "description": "Questions and answers from the booking form"
-              },
-              {
-                  "name": "tracking",
-                  "type": "object",
-                  "description": "tracking",
-                  "children": [
-                      {
-                          "name": "utm_campaign",
-                          "type": "string",
-                          "description": "UTM campaign parameter"
-                      },
-                      {
-                          "name": "utm_source",
-                          "type": "string",
-                          "description": "UTM source parameter"
-                      },
-                      {
-                          "name": "utm_medium",
-                          "type": "string",
-                          "description": "UTM medium parameter"
-                      },
-                      {
-                          "name": "utm_content",
-                          "type": "string",
-                          "description": "UTM content parameter"
-                      },
-                      {
-                          "name": "utm_term",
-                          "type": "string",
-                          "description": "UTM term parameter"
-                      },
-                      {
-                          "name": "salesforce_uuid",
-                          "type": "string",
-                          "description": "Salesforce UUID"
-                      }
-                  ]
-              },
-              {
-                  "name": "result",
-                  "type": "object",
-                  "description": "Routing result details",
-                  "children": [
-                      {
-                          "name": "properties",
-                          "type": "[object Object]",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "value",
-                                  "type": "string",
-                                  "description": "Result value (event type URI, message, or URL)"
-                              }
-                          ]
-                      }
-                  ]
-              },
-              {
-                  "name": "created_at",
-                  "type": "string",
-                  "description": "Submission creation timestamp"
-              },
-              {
-                  "name": "updated_at",
-                  "type": "string",
-                  "description": "Submission last update timestamp"
-              }
-          ]
       }
   ]}
 />

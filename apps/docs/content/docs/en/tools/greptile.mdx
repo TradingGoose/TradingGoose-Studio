@@ -35,10 +35,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
                     "id": "greptile_query"
                 },
                 {
-                    "label": "Search",
-                    "id": "greptile_search"
-                },
-                {
                     "label": "Index Repository",
                     "id": "greptile_index_repo"
                 },
@@ -129,118 +125,6 @@ Query repositories in natural language and get answers with relevant code refere
 
 ---
 
-### Search
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Greptile"
-    type="greptile"
-    color="#44A775"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "operation",
-            "type": "dropdown",
-            "title": "Operation",
-            "options": [
-                {
-                    "label": "Query",
-                    "id": "greptile_query"
-                },
-                {
-                    "label": "Search",
-                    "id": "greptile_search"
-                },
-                {
-                    "label": "Index Repository",
-                    "id": "greptile_index_repo"
-                },
-                {
-                    "label": "Check Status",
-                    "id": "greptile_status"
-                }
-            ],
-            "defaultValue": "greptile_search"
-        },
-        {
-            "id": "apiKey",
-            "type": "short-input",
-            "title": "Greptile API Key",
-            "placeholder": "Enter your Greptile API key",
-            "password": true,
-            "required": true
-        },
-        {
-            "id": "githubToken",
-            "type": "short-input",
-            "title": "GitHub Token",
-            "placeholder": "Enter your GitHub Personal Access Token",
-            "password": true,
-            "required": true
-        },
-        {
-            "id": "query",
-            "type": "long-input",
-            "title": "Search Query",
-            "placeholder": "Search for code patterns, functions, or concepts...",
-            "required": true
-        },
-        {
-            "id": "repositories",
-            "type": "long-input",
-            "title": "Repositories",
-            "placeholder": "owner/repo, github:main:owner/repo (comma-separated)",
-            "required": true
-        },
-        {
-            "id": "sessionId",
-            "type": "short-input",
-            "title": "Session ID",
-            "placeholder": "Optional session ID for conversation continuity"
-        },
-        {
-            "id": "genius",
-            "type": "switch",
-            "title": "Genius Mode"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-<div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">Search (<code>greptile_search</code>)</div>
-
-Search repositories in natural language and get relevant code references without generating an answer. Useful for finding specific code locations.
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
-
-| Parameter | Type | Required | Description |
-| --------- | ---- | -------- | ----------- |
-| `query` | string | Yes | Natural language search query to find relevant code |
-| `repositories` | string | Yes | Comma-separated list of repositories. Format: "github:branch:owner/repo" or just "owner/repo" \(defaults to github:main\) |
-| `sessionId` | string | No | Session ID for conversation continuity |
-| `genius` | boolean | No | Enable genius mode for more thorough search \(slower but more accurate\) |
-| `apiKey` | string | Yes | Greptile API key |
-| `githubToken` | string | Yes | GitHub Personal Access Token with repo read access |
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
-
-| Parameter | Type | Description |
-| --------- | ---- | ----------- |
-| `repository` | string | Repository name \(owner/repo\) |
-| `remote` | string | Git remote \(github/gitlab\) |
-| `branch` | string | Branch name |
-| `filepath` | string | Path to the file |
-| `linestart` | number | Starting line number |
-| `lineend` | number | Ending line number |
-| `summary` | string | Summary of the code section |
-
-</div>
-
-
-
----
-
 ### Index Repository
 
 <ShowcaseCard>
@@ -258,10 +142,6 @@ Search repositories in natural language and get relevant code references without
                 {
                     "label": "Query",
                     "id": "greptile_query"
-                },
-                {
-                    "label": "Search",
-                    "id": "greptile_search"
                 },
                 {
                     "label": "Index Repository",
@@ -380,10 +260,6 @@ Submit a repository to be indexed by Greptile. Indexing must complete before the
                 {
                     "label": "Query",
                     "id": "greptile_query"
-                },
-                {
-                    "label": "Search",
-                    "id": "greptile_search"
                 },
                 {
                     "label": "Index Repository",
