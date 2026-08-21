@@ -5,8 +5,8 @@ import { NextResponse } from 'next/server'
 import { isPrivateTierAccessCodeConflict } from '@/lib/admin/billing/access-code'
 import { requireAdminBillingUserId } from '@/lib/admin/billing/authorization'
 import {
-  assertBillingTierStripeIdentifiers,
   isBillingTierStripeIdentifierError,
+  validateBillingTierStripeMutation,
 } from '@/lib/admin/billing/stripe-identifiers'
 import {
   adminBillingTierMutationSchema,
@@ -48,18 +48,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 })
     }
-
     const deniedResponse = await db.transaction(async (tx) => {
-      await assertBillingTierStripeIdentifiers(tx, {
-        ...parsed.data,
-        excludeTierId: id,
-      })
-
-      const [existingTier] = await tx
-        .select()
-        .from(systemBillingTier)
-        .where(eq(systemBillingTier.id, id))
-        .limit(1)
+      const existingTier = await validateBillingTierStripeMutation(tx, { id, ...parsed.data })
       if (!existingTier) {
         return NextResponse.json({ error: 'Billing tier not found' }, { status: 404 })
       }

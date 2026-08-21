@@ -30,9 +30,12 @@ function createStripe(configurations: unknown[]) {
   const update = vi.fn().mockResolvedValue({ id: 'bpc_default' })
   const create = vi.fn().mockResolvedValue({ id: 'bpc_management' })
   const createSession = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.test/session' })
-  const retrievePrice = vi
-    .fn()
-    .mockImplementation(async (id: string) => ({ id, product: 'prod_team' }))
+  const retrievePrice = vi.fn().mockImplementation(async (id: string) => ({
+    id,
+    active: true,
+    recurring: { interval: 'month' },
+    product: 'prod_team',
+  }))
 
   return {
     stripe: {
@@ -44,6 +47,7 @@ function createStripe(configurations: unknown[]) {
     } as unknown as Stripe,
     create,
     createSession,
+    retrievePrice,
     update,
   }
 }
@@ -91,6 +95,40 @@ describe('Stripe portal configurations', () => {
         },
       },
     })
+  })
+
+  it('rejects invalid or oversized active catalogs', async () => {
+    const { stripe, retrievePrice } = createStripe([])
+    const { buildPlanChangePortalCatalog } = await import('./stripe-portal')
+    const tier = {
+      stripeProductId: null,
+      stripeMonthlyPriceId: 'price',
+      stripeYearlyPriceId: null,
+    }
+    const price = {
+      id: 'price',
+      active: true,
+      recurring: { interval: 'month' },
+      product: 'prod_team',
+    }
+    retrievePrice.mockResolvedValueOnce({ ...price, recurring: null })
+    await expect(buildPlanChangePortalCatalog(stripe, [tier])).rejects.toThrow('active recurring')
+
+    retrievePrice.mockResolvedValueOnce({ ...price, product: 'prod_other' })
+    await expect(
+      buildPlanChangePortalCatalog(stripe, [{ ...tier, stripeProductId: 'prod_expected' }])
+    ).rejects.toThrow('does not belong')
+
+    retrievePrice.mockImplementation(async (id: string) => ({
+      ...price,
+      id,
+      product: `prod_${id}`,
+    }))
+    const tiers = Array.from({ length: 11 }, (_, index) => ({
+      ...tier,
+      stripeMonthlyPriceId: `price_${index}`,
+    }))
+    await expect(buildPlanChangePortalCatalog(stripe, tiers)).rejects.toThrow('at most 10')
   })
 
   it('creates a marked non-default configuration for generic management', async () => {

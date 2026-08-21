@@ -1,9 +1,14 @@
 import type Stripe from 'stripe'
-import { getActiveStripeBillingTiers } from '@/lib/billing/tiers'
+import { type BillingTierRecord, getActiveStripeBillingTiers } from '@/lib/billing/tiers'
 
 const MANAGEMENT_CONFIGURATION_METADATA_KEY = 'tradinggoose_purpose'
 const MANAGEMENT_CONFIGURATION_METADATA_VALUE = 'billing_management'
 const STRIPE_PORTAL_PRODUCT_LIMIT = 10
+
+type PlanChangeTier = Pick<
+  BillingTierRecord,
+  'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
+>
 
 async function listPortalConfigurations(stripe: Stripe) {
   const configurations = await stripe.billingPortal.configurations.list({
@@ -30,18 +35,27 @@ function normalizeCatalog(
     .sort((left, right) => left.product.localeCompare(right.product))
 }
 
-async function getPlanChangeCatalog(stripe: Stripe) {
-  const tiers = await getActiveStripeBillingTiers()
-  const priceIds = tiers.flatMap((tier) =>
-    [tier.stripeMonthlyPriceId, tier.stripeYearlyPriceId].filter((priceId): priceId is string =>
-      Boolean(priceId)
+export async function buildPlanChangePortalCatalog(stripe: Stripe, tiers: PlanChangeTier[]) {
+  const pricesByProduct = new Map<string, string[]>()
+  const prices = await Promise.all(
+    tiers.flatMap((tier) =>
+      [tier.stripeMonthlyPriceId, tier.stripeYearlyPriceId]
+        .filter((priceId): priceId is string => Boolean(priceId))
+        .map(async (priceId) => ({
+          tier,
+          price: await stripe.prices.retrieve(priceId),
+        }))
     )
   )
-  const prices = await Promise.all(priceIds.map((priceId) => stripe.prices.retrieve(priceId)))
-  const pricesByProduct = new Map<string, string[]>()
 
-  for (const price of prices) {
+  for (const { tier, price } of prices) {
+    if (!price.active || !price.recurring) {
+      throw new Error(`Stripe price ${price.id} must be an active recurring price`)
+    }
     const productId = typeof price.product === 'string' ? price.product : price.product.id
+    if (tier.stripeProductId && productId !== tier.stripeProductId) {
+      throw new Error(`Stripe price ${price.id} does not belong to ${tier.stripeProductId}`)
+    }
     const productPrices = pricesByProduct.get(productId) ?? []
     productPrices.push(price.id)
     pricesByProduct.set(productId, productPrices)
@@ -62,9 +76,10 @@ async function getPlanChangeCatalog(stripe: Stripe) {
 }
 
 export async function ensurePlanChangePortalConfiguration(stripe: Stripe) {
+  const tiers = await getActiveStripeBillingTiers()
   const [{ defaultConfiguration }, products] = await Promise.all([
     listPortalConfigurations(stripe),
-    getPlanChangeCatalog(stripe),
+    buildPlanChangePortalCatalog(stripe, tiers),
   ])
   const subscriptionUpdate = defaultConfiguration.features.subscription_update
   const currentProducts = normalizeCatalog(subscriptionUpdate.products)

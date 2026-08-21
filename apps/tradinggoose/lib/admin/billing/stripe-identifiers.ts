@@ -2,19 +2,23 @@ import type { db } from '@tradinggoose/db'
 import { systemBillingTier } from '@tradinggoose/db/schema'
 import { and, eq, inArray, ne, or, sql } from 'drizzle-orm'
 import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
+import { requireStripeClient } from '@/lib/billing/stripe-client'
+import { buildPlanChangePortalCatalog } from '@/lib/billing/stripe-portal'
 
 const BILLING_TIER_STRIPE_IDENTIFIER_LOCK = 4_126_093
 
 export class BillingTierStripeIdentifierError extends Error {}
 
-export async function assertBillingTierStripeIdentifiers(
+export async function validateBillingTierStripeMutation(
   tx: Pick<typeof db, 'execute' | 'select'>,
-  input: Pick<
-    AdminBillingTierMutationInput,
-    'stripeMonthlyPriceId' | 'stripeYearlyPriceId' | 'stripeProductId'
-  > & { excludeTierId?: string }
+  input: AdminBillingTierMutationInput & { id: string }
 ) {
   await tx.execute(sql`select pg_advisory_xact_lock(${BILLING_TIER_STRIPE_IDENTIFIER_LOCK})`)
+  const [existingTier] = await tx
+    .select()
+    .from(systemBillingTier)
+    .where(eq(systemBillingTier.id, input.id))
+    .limit(1)
 
   const priceIds = [input.stripeMonthlyPriceId, input.stripeYearlyPriceId].filter(
     (priceId): priceId is string => Boolean(priceId)
@@ -35,12 +39,7 @@ export async function assertBillingTierStripeIdentifiers(
     const conflicts = await tx
       .select({ id: systemBillingTier.id })
       .from(systemBillingTier)
-      .where(
-        and(
-          input.excludeTierId ? ne(systemBillingTier.id, input.excludeTierId) : undefined,
-          or(...identifierConditions)
-        )
-      )
+      .where(and(ne(systemBillingTier.id, input.id), or(...identifierConditions)))
       .limit(1)
 
     if (conflicts.length > 0) {
@@ -49,6 +48,16 @@ export async function assertBillingTierStripeIdentifiers(
       )
     }
   }
+
+  if (input.status === 'active' && existingTier?.status !== 'active') {
+    const activeTiers = await tx
+      .select()
+      .from(systemBillingTier)
+      .where(eq(systemBillingTier.status, 'active'))
+    await buildPlanChangePortalCatalog(requireStripeClient(), [...activeTiers, input])
+  }
+
+  return existingTier
 }
 
 export function isBillingTierStripeIdentifierError(

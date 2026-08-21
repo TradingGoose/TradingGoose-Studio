@@ -13,7 +13,7 @@ const {
   mockTierLimit,
   mockCountWhere,
   mockTransaction,
-  mockAssertBillingTierStripeIdentifiers,
+  mockValidateBillingTierStripeMutation,
   mockUpdate,
   mockUpdateSet,
   mockUpdateWhere,
@@ -32,7 +32,7 @@ const {
   mockTierLimit: vi.fn(),
   mockCountWhere: vi.fn(),
   mockTransaction: vi.fn(),
-  mockAssertBillingTierStripeIdentifiers: vi.fn(),
+  mockValidateBillingTierStripeMutation: vi.fn(),
   mockUpdate: vi.fn(),
   mockUpdateSet: vi.fn(),
   mockUpdateWhere: vi.fn(),
@@ -81,8 +81,8 @@ vi.mock('@/lib/admin/billing/authorization', () => ({
 }))
 
 vi.mock('@/lib/admin/billing/stripe-identifiers', () => ({
-  assertBillingTierStripeIdentifiers: mockAssertBillingTierStripeIdentifiers,
   isBillingTierStripeIdentifierError: () => false,
+  validateBillingTierStripeMutation: mockValidateBillingTierStripeMutation,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -161,8 +161,8 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
         stripeProductId: null,
       },
     ])
+    mockValidateBillingTierStripeMutation.mockImplementation(async () => (await mockTierLimit())[0])
     mockCountWhere.mockResolvedValue([{ count: 3 }])
-    mockAssertBillingTierStripeIdentifiers.mockResolvedValue(undefined)
     mockUpdateWhere.mockResolvedValue(undefined)
     mockUpdateSet.mockImplementation(() => ({ where: mockUpdateWhere }))
     mockUpdate.mockImplementation(() => ({ set: mockUpdateSet }))
@@ -257,7 +257,7 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
         error: `Cannot change ${field} after a tier has been activated. Duplicate the tier and archive the old tier instead.`,
       })
       expect(mockTransaction).toHaveBeenCalledOnce()
-      expect(mockAssertBillingTierStripeIdentifiers.mock.invocationCallOrder[0]).toBeLessThan(
+      expect(mockValidateBillingTierStripeMutation.mock.invocationCallOrder[0]).toBeLessThan(
         mockTierLimit.mock.invocationCallOrder[0]
       )
       expect(mockUpdate).not.toHaveBeenCalled()
