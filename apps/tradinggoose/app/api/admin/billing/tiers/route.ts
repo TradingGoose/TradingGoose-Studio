@@ -5,6 +5,7 @@ import { isPrivateTierAccessCodeConflict } from '@/lib/admin/billing/access-code
 import { requireAdminBillingUserId } from '@/lib/admin/billing/authorization'
 import {
   isBillingTierStripeIdentifierError,
+  validateBillingTierStripeCatalog,
   validateBillingTierStripeMutation,
 } from '@/lib/admin/billing/stripe-identifiers'
 import {
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
     }
 
     const tierId = `tier_${crypto.randomUUID()}`
+    await validateBillingTierStripeCatalog({ id: tierId, ...parsed.data })
     await db.transaction(async (tx) => {
       await validateBillingTierStripeMutation(tx, { id: tierId, ...parsed.data })
 

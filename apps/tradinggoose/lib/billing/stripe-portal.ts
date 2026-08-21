@@ -3,6 +3,7 @@ import { type BillingTierRecord, getActiveStripeBillingTiers } from '@/lib/billi
 
 const MANAGEMENT_CONFIGURATION_METADATA_KEY = 'tradinggoose_purpose'
 const MANAGEMENT_CONFIGURATION_METADATA_VALUE = 'billing_management'
+const MANAGEMENT_CONFIGURATION_IDEMPOTENCY_KEY = 'billing-portal:management-configuration'
 const STRIPE_PORTAL_PRODUCT_LIMIT = 10
 
 type PlanChangeTier = Pick<
@@ -11,17 +12,20 @@ type PlanChangeTier = Pick<
 >
 
 async function listPortalConfigurations(stripe: Stripe) {
-  const configurations = await stripe.billingPortal.configurations.list({
+  const configurations: Stripe.BillingPortal.Configuration[] = []
+  for await (const configuration of stripe.billingPortal.configurations.list({
     active: true,
     limit: 100,
-  })
-  const defaultConfiguration = configurations.data.find((configuration) => configuration.is_default)
+  })) {
+    configurations.push(configuration)
+  }
+  const defaultConfiguration = configurations.find((configuration) => configuration.is_default)
 
   if (!defaultConfiguration) {
     throw new Error('Stripe Billing Portal is not configured')
   }
 
-  return { configurations: configurations.data, defaultConfiguration }
+  return { configurations, defaultConfiguration }
 }
 
 function normalizeCatalog(
@@ -130,18 +134,21 @@ async function ensureManagementPortalConfiguration(stripe: Stripe) {
   )
 
   if (!managementConfiguration) {
-    const created = await stripe.billingPortal.configurations.create({
-      name: 'TradingGoose billing management',
-      business_profile: toBusinessProfile(defaultConfiguration),
-      features: {
-        ...defaultConfiguration.features,
-        subscription_update: { enabled: false },
+    const created = await stripe.billingPortal.configurations.create(
+      {
+        name: 'TradingGoose billing management',
+        business_profile: toBusinessProfile(defaultConfiguration),
+        features: {
+          ...defaultConfiguration.features,
+          subscription_update: { enabled: false },
+        },
+        login_page: { enabled: false },
+        metadata: {
+          [MANAGEMENT_CONFIGURATION_METADATA_KEY]: MANAGEMENT_CONFIGURATION_METADATA_VALUE,
+        },
       },
-      login_page: { enabled: false },
-      metadata: {
-        [MANAGEMENT_CONFIGURATION_METADATA_KEY]: MANAGEMENT_CONFIGURATION_METADATA_VALUE,
-      },
-    })
+      { idempotencyKey: MANAGEMENT_CONFIGURATION_IDEMPOTENCY_KEY }
+    )
     return created.id
   }
 

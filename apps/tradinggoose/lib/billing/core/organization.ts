@@ -338,18 +338,22 @@ export async function getOrganizationBillingData(
     if (!billingEnabled || !subscription) {
       const memberLedgers = await getOrganizationMemberBillingLedgers(organizationId)
       const memberLedgerByUserId = new Map(memberLedgers.map((ledger) => [ledger.userId, ledger]))
-      const members: MemberUsageData[] = memberRows.map((memberRecord) => ({
-        userId: memberRecord.userId,
-        userName: memberRecord.userName,
-        userEmail: memberRecord.userEmail,
-        currentUsage: memberLedgerByUserId.get(memberRecord.userId)?.currentPeriodCost ?? 0,
-        usageLimit: Number.MAX_SAFE_INTEGER,
-        percentUsed: 0,
-        isOverLimit: false,
-        role: memberRecord.role,
-        joinedAt: memberRecord.joinedAt,
-        lastActive: memberRecord.lastActive,
-      }))
+      const usageLimit = billingEnabled ? 0 : Number.MAX_SAFE_INTEGER
+      const members: MemberUsageData[] = memberRows.map((memberRecord) => {
+        const currentUsage = memberLedgerByUserId.get(memberRecord.userId)?.currentPeriodCost ?? 0
+        return {
+          userId: memberRecord.userId,
+          userName: memberRecord.userName,
+          userEmail: memberRecord.userEmail,
+          currentUsage,
+          usageLimit,
+          percentUsed: 0,
+          isOverLimit: currentUsage > usageLimit,
+          role: memberRecord.role,
+          joinedAt: memberRecord.joinedAt,
+          lastActive: memberRecord.lastActive,
+        }
+      })
       const totalCurrentUsage =
         memberLedgers.length > 0
           ? memberLedgers.reduce((total, ledger) => total + ledger.currentPeriodCost, 0)

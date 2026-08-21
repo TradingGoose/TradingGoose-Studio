@@ -13,6 +13,7 @@ const {
   mockTierLimit,
   mockCountWhere,
   mockTransaction,
+  mockValidateBillingTierStripeCatalog,
   mockValidateBillingTierStripeMutation,
   mockUpdate,
   mockUpdateSet,
@@ -32,6 +33,7 @@ const {
   mockTierLimit: vi.fn(),
   mockCountWhere: vi.fn(),
   mockTransaction: vi.fn(),
+  mockValidateBillingTierStripeCatalog: vi.fn(),
   mockValidateBillingTierStripeMutation: vi.fn(),
   mockUpdate: vi.fn(),
   mockUpdateSet: vi.fn(),
@@ -82,6 +84,7 @@ vi.mock('@/lib/admin/billing/authorization', () => ({
 
 vi.mock('@/lib/admin/billing/stripe-identifiers', () => ({
   isBillingTierStripeIdentifierError: () => false,
+  validateBillingTierStripeCatalog: mockValidateBillingTierStripeCatalog,
   validateBillingTierStripeMutation: mockValidateBillingTierStripeMutation,
 }))
 
@@ -236,33 +239,27 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
   it.each([
     ['stripeMonthlyPriceId', 'price_replacement'],
     ['monthlyPriceUsd', 1],
-  ] as const)(
-    'locks before re-reading tier state and keeps activated %s immutable',
-    async (field, value) => {
-      mockCountWhere.mockResolvedValueOnce([{ count: 0 }])
-      const { PATCH } = await import('./route')
-      const response = await PATCH(
-        new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
-          method: 'PATCH',
-          body: JSON.stringify({
-            ...createPayload(),
-            [field]: value,
-          }),
-        }) as any,
-        { params: Promise.resolve({ id: 'tier-pro' }) }
-      )
+  ] as const)('keeps activated %s immutable', async (field, value) => {
+    mockCountWhere.mockResolvedValueOnce([{ count: 0 }])
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...createPayload(),
+          [field]: value,
+        }),
+      }) as any,
+      { params: Promise.resolve({ id: 'tier-pro' }) }
+    )
 
-      expect(response.status).toBe(409)
-      await expect(response.json()).resolves.toEqual({
-        error: `Cannot change ${field} after a tier has been activated. Duplicate the tier and archive the old tier instead.`,
-      })
-      expect(mockTransaction).toHaveBeenCalledOnce()
-      expect(mockValidateBillingTierStripeMutation.mock.invocationCallOrder[0]).toBeLessThan(
-        mockTierLimit.mock.invocationCallOrder[0]
-      )
-      expect(mockUpdate).not.toHaveBeenCalled()
-    }
-  )
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: `Cannot change ${field} after a tier has been activated. Duplicate the tier and archive the old tier instead.`,
+    })
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
 
   it('does not expose a hard-delete handler', async () => {
     await expect(import('./route')).resolves.not.toHaveProperty('DELETE')

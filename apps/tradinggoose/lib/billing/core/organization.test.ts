@@ -393,8 +393,10 @@ describe('getOrganizationBillingData', () => {
       )
       .mockImplementationOnce(() => createSelectQueryMock([{ id: 'org_123' }]))
       .mockImplementationOnce(() => createSelectQueryMock([createOrganizationLedgerRow()]))
-      .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
-      .mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+      .mockImplementationOnce(() => createSelectQueryMock([{ userId: 'user_1' }], 'where'))
+      .mockImplementationOnce(() =>
+        createSelectQueryMock([createOrganizationMemberLedgerRow('user_1', 1)], 'where')
+      )
 
     const { getOrganizationBillingData } = await import('./organization')
     const result = await getOrganizationBillingData('org_123')
@@ -404,5 +406,6 @@ describe('getOrganizationBillingData', () => {
       subscriptionStatus: null,
       totalUsageLimit: 0,
     })
+    expect(result?.members).toEqual([expect.objectContaining({ usageLimit: 0, isOverLimit: true })])
   })
 })

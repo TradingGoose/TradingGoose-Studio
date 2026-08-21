@@ -1,5 +1,3 @@
-import { db } from '@tradinggoose/db'
-import { sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
@@ -10,7 +8,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('BillingPortal')
-const BILLING_PORTAL_CUSTOMER_LOCK_NAMESPACE = 4_126_092
 
 export async function POST() {
   const session = await getSession()
@@ -28,16 +25,9 @@ export async function POST() {
 
     const stripe = requireStripeClient()
 
-    const personalStripeCustomer = await db.transaction(async (tx) => {
-      await tx.execute(
-        sql`select pg_advisory_xact_lock(${BILLING_PORTAL_CUSTOMER_LOCK_NAMESPACE}, hashtext(${session.user.id}))`
-      )
-
-      return ensureStripeUserCustomer(stripe, {
-        dbClient: tx,
-        logger,
-        userId: session.user.id,
-      })
+    const personalStripeCustomer = await ensureStripeUserCustomer(stripe, {
+      logger,
+      userId: session.user.id,
     })
 
     if (!personalStripeCustomer) {

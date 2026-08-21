@@ -12,28 +12,6 @@ const mockStripeBillingPortalSessionsCreate = vi.fn()
 const mockStripeBillingPortalConfigurationsList = vi.fn()
 const mockStripeBillingPortalConfigurationsUpdate = vi.fn()
 const mockStripeBillingPortalConfigurationsCreate = vi.fn()
-const mockSql = vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
-  strings,
-  values,
-}))
-const mockExecute = vi.fn()
-
-const mockTx = {
-  execute: mockExecute,
-}
-
-const mockDb = {
-  transaction: vi.fn(async (callback: (tx: typeof mockTx) => Promise<unknown>) => callback(mockTx)),
-}
-
-vi.mock('@tradinggoose/db', () => ({
-  db: mockDb,
-}))
-
-vi.mock('drizzle-orm', () => ({
-  sql: mockSql,
-}))
-
 vi.mock('@/lib/auth', () => ({
   getSession: mockGetSession,
 }))
@@ -108,9 +86,9 @@ describe('/api/billing/portal route', () => {
       url: 'https://billing.stripe.test/session',
     })
     mockStripeBillingPortalConfigurationsCreate.mockResolvedValue({ id: 'bpc_management' })
-    mockStripeBillingPortalConfigurationsList.mockResolvedValue({
-      data: [
-        {
+    mockStripeBillingPortalConfigurationsList.mockReturnValue({
+      async *[Symbol.asyncIterator]() {
+        yield {
           id: 'bpc_default',
           is_default: true,
           business_profile: {
@@ -131,8 +109,8 @@ describe('/api/billing/portal route', () => {
             },
             subscription_update: { enabled: false },
           },
-        },
-      ],
+        }
+      },
     })
   })
 
@@ -142,9 +120,7 @@ describe('/api/billing/portal route', () => {
 
     expect(response.status).toBe(200)
     expect(payload.url).toBe('https://billing.stripe.test/session')
-    expect(mockExecute).toHaveBeenCalledOnce()
     expect(mockEnsureStripeUserCustomer).toHaveBeenCalledWith(expect.any(Object), {
-      dbClient: mockTx,
       logger: expect.any(Object),
       userId: 'user-1',
     })

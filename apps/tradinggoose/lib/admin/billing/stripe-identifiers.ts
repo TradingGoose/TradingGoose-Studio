@@ -4,10 +4,19 @@ import { and, eq, inArray, ne, or, sql } from 'drizzle-orm'
 import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { buildPlanChangePortalCatalog } from '@/lib/billing/stripe-portal'
+import { getActiveStripeBillingTiers, getBillingTierById } from '@/lib/billing/tiers'
 
 const BILLING_TIER_STRIPE_IDENTIFIER_LOCK = 4_126_093
 
 export class BillingTierStripeIdentifierError extends Error {}
+
+export async function validateBillingTierStripeCatalog(
+  input: AdminBillingTierMutationInput & { id: string }
+) {
+  if (input.status !== 'active' || (await getBillingTierById(input.id))?.status === 'active') return
+  const activeTiers = (await getActiveStripeBillingTiers()).filter((tier) => tier.id !== input.id)
+  await buildPlanChangePortalCatalog(requireStripeClient(), [...activeTiers, input])
+}
 
 export async function validateBillingTierStripeMutation(
   tx: Pick<typeof db, 'execute' | 'select'>,
@@ -47,14 +56,6 @@ export async function validateBillingTierStripeMutation(
         'Stripe product and price IDs must be unique across all billing tiers'
       )
     }
-  }
-
-  if (input.status === 'active' && existingTier?.status !== 'active') {
-    const activeTiers = await tx
-      .select()
-      .from(systemBillingTier)
-      .where(eq(systemBillingTier.status, 'active'))
-    await buildPlanChangePortalCatalog(requireStripeClient(), [...activeTiers, input])
   }
 
   return existingTier

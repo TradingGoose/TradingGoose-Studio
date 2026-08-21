@@ -6,6 +6,7 @@ import { isPrivateTierAccessCodeConflict } from '@/lib/admin/billing/access-code
 import { requireAdminBillingUserId } from '@/lib/admin/billing/authorization'
 import {
   isBillingTierStripeIdentifierError,
+  validateBillingTierStripeCatalog,
   validateBillingTierStripeMutation,
 } from '@/lib/admin/billing/stripe-identifiers'
 import {
@@ -48,6 +49,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 })
     }
+    await validateBillingTierStripeCatalog({ id, ...parsed.data })
     const deniedResponse = await db.transaction(async (tx) => {
       const existingTier = await validateBillingTierStripeMutation(tx, { id, ...parsed.data })
       if (!existingTier) {

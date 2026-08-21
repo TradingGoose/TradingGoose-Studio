@@ -26,7 +26,11 @@ const defaultFeatures = {
 }
 
 function createStripe(configurations: unknown[]) {
-  const list = vi.fn().mockResolvedValue({ data: configurations })
+  const list = vi.fn().mockReturnValue({
+    async *[Symbol.asyncIterator]() {
+      yield* configurations
+    },
+  })
   const update = vi.fn().mockResolvedValue({ id: 'bpc_default' })
   const create = vi.fn().mockResolvedValue({ id: 'bpc_management' })
   const createSession = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.test/session' })
@@ -133,6 +137,11 @@ describe('Stripe portal configurations', () => {
 
   it('creates a marked non-default configuration for generic management', async () => {
     const { stripe, create, createSession } = createStripe([
+      ...Array.from({ length: 100 }, (_, index) => ({
+        id: `bpc_${index}`,
+        is_default: false,
+        metadata: {},
+      })),
       {
         id: 'bpc_default',
         is_default: true,
@@ -152,7 +161,8 @@ describe('Stripe portal configurations', () => {
         }),
         login_page: { enabled: false },
         metadata: { tradinggoose_purpose: 'billing_management' },
-      })
+      }),
+      { idempotencyKey: 'billing-portal:management-configuration' }
     )
     expect(createSession).toHaveBeenCalledWith({
       customer: 'cus_123',
