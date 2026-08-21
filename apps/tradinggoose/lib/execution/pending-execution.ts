@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { idempotencyKeys, runs, tasks, timeout } from '@trigger.dev/sdk'
+import { ApiError, idempotencyKeys, runs, tasks, timeout } from '@trigger.dev/sdk'
 import { and, asc, eq, lte, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import {
@@ -156,26 +156,50 @@ export function getPendingExecutionTriggerKey(pendingExecutionId: string) {
 }
 
 async function triggerPendingExecution(row: PendingExecutionClaim) {
-  const triggerKey = getPendingExecutionTriggerKey(row.id)
-  const idempotencyKey = await idempotencyKeys.create(triggerKey, { scope: 'global' })
-  const maxDuration = isTierLimitedPendingExecution(row)
-    ? ((
-        await resolveServerExecutionBillingTierForScope({
-          scopeId: row.billingScopeId,
-          scopeType: row.billingScopeType,
-        })
-      )?.workflowExecutionTimeLimitSeconds ?? timeout.None)
-    : undefined
+  let admissionStarted = false
+  try {
+    const triggerKey = getPendingExecutionTriggerKey(row.id)
+    const idempotencyKey = await idempotencyKeys.create(triggerKey, { scope: 'global' })
+    const maxDuration = isTierLimitedPendingExecution(row)
+      ? ((
+          await resolveServerExecutionBillingTierForScope({
+            scopeId: row.billingScopeId,
+            scopeType: row.billingScopeType,
+          })
+        )?.workflowExecutionTimeLimitSeconds ?? timeout.None)
+      : undefined
 
-  await tasks.trigger(
-    PENDING_EXECUTION_TASK_ID,
-    { pendingExecutionId: row.id },
-    {
-      idempotencyKey,
-      tags: [triggerKey],
-      ...(maxDuration === undefined ? {} : { maxDuration }),
+    admissionStarted = true
+    await tasks.trigger(
+      PENDING_EXECUTION_TASK_ID,
+      { pendingExecutionId: row.id },
+      {
+        idempotencyKey,
+        tags: [triggerKey],
+        ...(maxDuration === undefined ? {} : { maxDuration }),
+      }
+    )
+  } catch (error) {
+    const admissionRejected =
+      error instanceof ApiError &&
+      (error.status === 400 ||
+        error.status === 401 ||
+        error.status === 403 ||
+        error.status === 404 ||
+        error.status === 422 ||
+        error.status === 429)
+    if (!admissionStarted || admissionRejected) {
+      await db
+        .update(pendingExecution)
+        .set({
+          status: 'pending',
+          processingStartedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))
     }
-  )
+    throw error
+  }
 }
 
 export async function dispatchNextPendingExecution(params: {
@@ -357,12 +381,7 @@ export async function enqueuePendingExecution(
   const { billingScopeId, inserted, triggerState } = queueResult
 
   if (!inserted) {
-    if (params.orderingKey) {
-      await wakePendingExecution({
-        billingScopeId,
-        requestId: params.requestId,
-      })
-    }
+    await wakePendingExecution({ billingScopeId, requestId: params.requestId })
     return {
       pendingExecutionId: params.pendingExecutionId,
       inserted,

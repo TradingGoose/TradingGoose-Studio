@@ -114,7 +114,8 @@ vi.mock('@tradinggoose/db/schema', () => ({
   },
 }))
 
-vi.mock('@trigger.dev/sdk', () => ({
+vi.mock('@trigger.dev/sdk', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@trigger.dev/sdk')>()),
   idempotencyKeys: {
     create: idempotencyCreateMock,
   },
@@ -174,6 +175,7 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
   }),
 }))
 
+import { ApiError } from '@trigger.dev/sdk'
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import {
   claimNextPendingExecution,
@@ -821,9 +823,10 @@ describe('enqueuePendingExecution', () => {
     expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
   })
 
-  it('returns duplicate pending ids without dispatching another worker', async () => {
+  it('wakes a duplicate pending execution through the normal scope drain', async () => {
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
     txSelectLimitMock.mockResolvedValueOnce([{ id: 'pending-local-1' }])
+    mockClaimableRow(createPendingRow({ id: 'pending-local-1', billingScopeId: 'user-1' }))
 
     const result = await enqueuePendingExecution({
       executionType: 'workflow',
@@ -841,44 +844,10 @@ describe('enqueuePendingExecution', () => {
       pendingExecutionId: 'pending-local-1',
       inserted: false,
     })
-    expect(triggerMock).not.toHaveBeenCalled()
-  })
-
-  it('dispatches the exact existing row when a duplicate ordered row is enqueued', async () => {
-    getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
-    txSelectLimitMock.mockResolvedValueOnce([{ id: 'pending-schedule-1' }])
-    mockClaimableRow(
-      createPendingRow({
-        id: 'pending-schedule-1',
-        executionType: 'schedule',
-        source: 'schedule',
-        billingScopeId: 'user-1',
-      })
-    )
-
-    const result = await enqueuePendingExecution({
-      executionType: 'schedule',
-      pendingExecutionId: 'pending-schedule-1',
-      workflowId: 'workflow-1',
-      workspaceId: 'workspace-1',
-      userId: 'user-1',
-      source: 'schedule',
-      orderingKey: 'schedule:schedule-1',
-      payload: {
-        executionId: 'pending-schedule-1',
-      },
-    })
-
-    expect(result.inserted).toBe(false)
-    const triggerKey = getPendingExecutionTriggerKey('pending-schedule-1')
     expect(triggerMock).toHaveBeenCalledWith(
       'pending-execution',
-      { pendingExecutionId: 'pending-schedule-1' },
-      {
-        idempotencyKey: 'idempotency-key',
-        tags: [triggerKey],
-        maxDuration: TIMEOUT_NONE,
-      }
+      { pendingExecutionId: 'pending-local-1' },
+      expect.anything()
     )
   })
 
@@ -948,9 +917,12 @@ describe('enqueuePendingExecution', () => {
     )
   })
 
-  it('keeps a new row queued when dispatching an older row fails', async () => {
+  it.each([
+    ['ambiguous', new Error('Trigger unavailable'), false],
+    ['rejected', new ApiError(400, undefined, 'Invalid task payload', undefined), true],
+  ])('keeps the new row queued after an %s dispatch failure', async (_, error, resetClaim) => {
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
-    triggerMock.mockRejectedValue(new Error('Trigger unavailable'))
+    triggerMock.mockRejectedValue(error)
     txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([])
     mockClaimableRow(createPendingRow({ id: 'pending-a', billingScopeId: 'user-1' }))
 
@@ -966,7 +938,7 @@ describe('enqueuePendingExecution', () => {
           executionId: 'pending-b',
         },
       })
-    ).rejects.toThrow('Trigger unavailable')
+    ).rejects.toThrow(error.message)
 
     expect(txInsertValuesMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'pending-b' }))
     expect(triggerMock).toHaveBeenCalledWith(
@@ -976,6 +948,21 @@ describe('enqueuePendingExecution', () => {
     )
     expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'processing' }))
     expect(deleteWhereMock).not.toHaveBeenCalled()
+    if (resetClaim) {
+      expect(updateChain.set).toHaveBeenCalledWith({
+        status: 'pending',
+        processingStartedAt: null,
+        updatedAt: expect.any(Date),
+      })
+      expect(andMock).toHaveBeenCalledWith(
+        { field: 'pendingExecution.id', value: 'pending-a' },
+        { field: 'pendingExecution.status', value: 'processing' }
+      )
+    } else {
+      expect(updateChain.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'pending' })
+      )
+    }
   })
 })
 
