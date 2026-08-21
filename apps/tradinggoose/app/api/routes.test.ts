@@ -307,7 +307,6 @@ const cleanupScope = { userId: 'user-1' }
 const provisioningLifecycle = (previous: Row | null) => ({
   phase: 'provisioning',
   previous,
-  emptyObservations: 0,
   expiresAt: 0,
 })
 const provisioning = (prior: Row | null = null): Row => ({
@@ -333,12 +332,29 @@ const cleanupFixture = (lifecycle: (target: Row) => Row) => {
   }
 }
 describe('Airtable provisioning reconciliation', () => {
+  const saveAirtable = () =>
+    postWebhook(
+      request({
+        workflowId: 'workflow-1',
+        blockId: 'block-1',
+        path: 'airtable-path',
+        provider: 'airtable',
+        providerConfig: config,
+      })
+    )
+  const activeAirtable = (): Row => ({
+    ...webhookRow(),
+    path: 'airtable-path',
+    provider: 'airtable',
+    providerConfig: oldConfig,
+  })
+
   beforeEach(() => {
     state.databaseNow = 60_000
     state.webhooks = []
     fetchMock.mockReset()
     tokenMock.mockReset()
-    tokenMock.mockImplementation(({ credentialId }: { credentialId: string }) => credentialId)
+    tokenMock.mockImplementation(async ({ credentialId }: { credentialId: string }) => credentialId)
     vi.stubGlobal('fetch', fetchMock)
   })
   afterEach(() => vi.unstubAllGlobals())
@@ -415,6 +431,54 @@ describe('Airtable provisioning reconciliation', () => {
       200
     )
     expect(state.webhooks).toEqual([])
+  })
+
+  it('retains failed replacement cleanup and retries it without provisioning again', async () => {
+    state.webhooks = [activeAirtable()]
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ id: 'new-remote' }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+
+    expect((await saveAirtable()).status).toBe(503)
+    expect(state.webhooks[0].providerConfig.airtablePendingCleanup).toEqual([
+      { baseId: 'base-1', credentialId: 'old', externalId: 'existing-remote' },
+    ])
+
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    expect((await saveAirtable()).status).toBe(200)
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toContain('/webhooks/existing-remote')
+    expect(state.webhooks[0].providerConfig).toEqual({ ...config, externalId: 'new-remote' })
+  })
+
+  it('recovers expired provisioning on the next save without a sweep', async () => {
+    state.webhooks = [activeAirtable()]
+    fetchMock.mockResolvedValueOnce(Response.json({ error: 'unavailable' }, { status: 503 }))
+    expect((await saveAirtable()).status).toBe(500)
+    expect(state.webhooks[0].providerConfig.airtableLifecycle.phase).toBe('provisioning')
+
+    state.databaseNow += 60_000
+    fetchMock
+      .mockResolvedValueOnce(
+        Response.json({
+          webhooks: [
+            {
+              id: 'existing-remote',
+              notificationUrl: 'https://studio.example.test/api/webhooks/trigger/airtable-path',
+            },
+            {
+              id: 'unknown-remote',
+              notificationUrl: 'https://studio.example.test/api/webhooks/trigger/airtable-path',
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(Response.json({ id: 'new-remote' }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    expect((await saveAirtable()).status).toBe(200)
+    expect(fetchMock.mock.calls[2]?.[0]).toContain('/webhooks/unknown-remote')
+    expect(state.webhooks[0].providerConfig).toEqual({ ...config, externalId: 'new-remote' })
   })
 })
 
