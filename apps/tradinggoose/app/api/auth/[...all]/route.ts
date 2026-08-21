@@ -19,8 +19,15 @@ export const dynamic = 'force-dynamic'
 
 const SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES = ['/api/auth/callback/', '/api/auth/oauth2/callback/']
 const SUBSCRIPTION_UPGRADE_PATH = '/api/auth/subscription/upgrade'
-const SUBSCRIPTION_CANCEL_PATH = '/api/auth/subscription/cancel'
-const SUBSCRIPTION_BILLING_PORTAL_PATH = '/api/auth/subscription/billing-portal'
+const DISABLED_AUTH_POST_PATHS = new Set([
+  '/api/auth/subscription/cancel',
+  '/api/auth/subscription/billing-portal',
+  '/api/auth/organization/invite-member',
+  '/api/auth/organization/update-member-role',
+  '/api/auth/organization/remove-member',
+  '/api/auth/organization/leave',
+  '/api/auth/organization/delete',
+])
 
 const isSystemOAuthCallbackPath = (pathname: string) =>
   SYSTEM_OAUTH_CALLBACK_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
@@ -193,10 +200,7 @@ export const handleAuthRequest = async (request: Request) => {
   const pathname = new URL(request.url).pathname
   let requestToHandle = request
 
-  if (
-    request.method === 'POST' &&
-    (pathname === SUBSCRIPTION_CANCEL_PATH || pathname === SUBSCRIPTION_BILLING_PORTAL_PATH)
-  ) {
+  if (request.method === 'POST' && DISABLED_AUTH_POST_PATHS.has(pathname)) {
     return Response.json({ error: 'Not found' }, { status: 404 })
   }
 

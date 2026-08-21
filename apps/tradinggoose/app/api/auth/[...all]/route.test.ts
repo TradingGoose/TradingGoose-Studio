@@ -502,20 +502,18 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
-  it('disables the unrestricted Better Auth billing portal endpoint', async () => {
+  it.each([
+    'subscription/billing-portal',
+    'subscription/cancel',
+    'organization/invite-member',
+    'organization/update-member-role',
+    'organization/remove-member',
+    'organization/leave',
+    'organization/delete',
+  ])('disables the Better Auth %s endpoint', async (path) => {
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/subscription/billing-portal', { method: 'POST' })
-    )
-
-    expect(response.status).toBe(404)
-    expect(mockAuthHandler).not.toHaveBeenCalled()
-  })
-
-  it('disables the Better Auth cancellation portal endpoint', async () => {
-    const { handleAuthRequest } = await import('./route')
-    const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/subscription/cancel', { method: 'POST' })
+      new Request(`http://localhost/api/auth/${path}`, { method: 'POST' })
     )
 
     expect(response.status).toBe(404)
