@@ -53,37 +53,12 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "defaultValue": "send"
         },
         {
-            "id": "authMethod",
-            "type": "dropdown",
-            "title": "Authentication Method",
-            "layout": "full",
-            "required": true,
-            "options": [
-                {
-                    "label": "TradingGoose Bot",
-                    "id": "oauth"
-                },
-                {
-                    "label": "Custom Bot",
-                    "id": "bot_token"
-                }
-            ]
-        },
-        {
             "id": "credential",
             "type": "oauth-input",
             "title": "Slack Account",
             "layout": "full",
             "placeholder": "Select Slack workspace",
             "provider": "slack"
-        },
-        {
-            "id": "botToken",
-            "type": "short-input",
-            "title": "Bot Token",
-            "layout": "full",
-            "placeholder": "Enter your Slack bot token (xoxb-...)",
-            "password": true
         },
         {
             "id": "channel",
@@ -135,9 +110,7 @@ Send messages to Slack channels or direct messages. Supports Slack mrkdwn format
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `authMethod` | string | No | Authentication method: oauth or bot_token |
 | `destinationType` | string | No | Destination type: channel or dm |
-| `botToken` | string | No | Bot token for Custom Bot |
 | `channel` | string | No | Target Slack channel \(e.g., #general\) |
 | `dmUserId` | string | No | Target Slack user for direct messages |
 | `text` | string | Yes | Message text to send \(supports Slack mrkdwn formatting\) |
@@ -189,37 +162,12 @@ Send messages to Slack channels or direct messages. Supports Slack mrkdwn format
             "defaultValue": "canvas"
         },
         {
-            "id": "authMethod",
-            "type": "dropdown",
-            "title": "Authentication Method",
-            "layout": "full",
-            "required": true,
-            "options": [
-                {
-                    "label": "TradingGoose Bot",
-                    "id": "oauth"
-                },
-                {
-                    "label": "Custom Bot",
-                    "id": "bot_token"
-                }
-            ]
-        },
-        {
             "id": "credential",
             "type": "oauth-input",
             "title": "Slack Account",
             "layout": "full",
             "placeholder": "Select Slack workspace",
             "provider": "slack"
-        },
-        {
-            "id": "botToken",
-            "type": "short-input",
-            "title": "Bot Token",
-            "layout": "full",
-            "placeholder": "Enter your Slack bot token (xoxb-...)",
-            "password": true
         },
         {
             "id": "channel",
@@ -265,8 +213,6 @@ Create and share Slack canvases in channels. Canvases are collaborative document
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `authMethod` | string | No | Authentication method: oauth or bot_token |
-| `botToken` | string | No | Bot token for Custom Bot |
 | `channel` | string | Yes | Target Slack channel \(e.g., #general\) |
 | `title` | string | Yes | Title of the canvas |
 | `content` | string | Yes | Canvas content in markdown format |
@@ -316,37 +262,12 @@ Create and share Slack canvases in channels. Canvases are collaborative document
             "defaultValue": "read"
         },
         {
-            "id": "authMethod",
-            "type": "dropdown",
-            "title": "Authentication Method",
-            "layout": "full",
-            "required": true,
-            "options": [
-                {
-                    "label": "TradingGoose Bot",
-                    "id": "oauth"
-                },
-                {
-                    "label": "Custom Bot",
-                    "id": "bot_token"
-                }
-            ]
-        },
-        {
             "id": "credential",
             "type": "oauth-input",
             "title": "Slack Account",
             "layout": "full",
             "placeholder": "Select Slack workspace",
             "provider": "slack"
-        },
-        {
-            "id": "botToken",
-            "type": "short-input",
-            "title": "Bot Token",
-            "layout": "full",
-            "placeholder": "Enter your Slack bot token (xoxb-...)",
-            "password": true
         },
         {
             "id": "channel",
@@ -390,8 +311,6 @@ Read the latest messages from Slack channels. Retrieve conversation history with
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `authMethod` | string | No | Authentication method: oauth or bot_token |
-| `botToken` | string | No | Bot token for Custom Bot |
 | `channel` | string | Yes | Slack channel to read messages from \(e.g., #general\) |
 | `limit` | number | No | Number of messages to retrieve \(default: 10, max: 100\) |
 | `oldest` | string | No | Start of time range \(timestamp\) |
@@ -415,7 +334,7 @@ Read the latest messages from Slack channels. Retrieve conversation history with
 
 ## Usage Instructions
 
-Integrate Slack into the workflow. Can send messages, create canvases, and read messages. Requires Bot Token instead of OAuth in advanced mode. Can be used in trigger mode to trigger a workflow when a message is sent to a channel.
+Integrate Slack into the workflow. Can send messages, create canvases, and read messages. Can be used in trigger mode to trigger a workflow when a message is sent to a channel.
 
 
 

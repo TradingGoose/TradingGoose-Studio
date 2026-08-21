@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="sharepoint"
-  color=""
+  color="#1A9BA1"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -109,8 +109,7 @@ Create a new page in a SharePoint site
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
-| `siteSelector` | string | No | Select the SharePoint site |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `pageName` | string | Yes | The name of the page to create |
 | `pageTitle` | string | No | The title of the page \(defaults to page name if not provided\) |
 | `pageContent` | string | No | The content of the page |
@@ -138,7 +137,7 @@ Create a new page in a SharePoint site
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -225,8 +224,7 @@ Read a specific page from a SharePoint site
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | string | No | Select the SharePoint site |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `pageId` | string | No | The ID of the page to read |
 | `pageName` | string | No | The name of the page to read \(alternative to pageId\) |
 | `maxPages` | number | No | Maximum number of pages to return when listing all pages \(default: 10, max: 50\) |
@@ -254,7 +252,7 @@ Read a specific page from a SharePoint site
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -327,7 +325,7 @@ List details of all SharePoint sites
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | string | No | Select the SharePoint site |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `groupId` | string | No | The group ID for accessing a group team site |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -355,7 +353,7 @@ List details of all SharePoint sites
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -456,8 +454,7 @@ Create a new list in a SharePoint site
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
-| `siteSelector` | string | No | Select the SharePoint site |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `listDisplayName` | string | Yes | Display name of the list to create |
 | `listDescription` | string | No | Description of the list |
 | `listTemplate` | string | No | List template name \(e.g., 'genericList'\) |
@@ -486,7 +483,7 @@ Create a new list in a SharePoint site
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -566,8 +563,7 @@ Get metadata (and optionally columns/items) for a SharePoint list
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | string | No | Select the SharePoint site |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `listId` | string | No | The ID of the list to retrieve |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -594,7 +590,7 @@ Get metadata (and optionally columns/items) for a SharePoint list
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -688,8 +684,7 @@ Update the properties (fields) on a SharePoint list item
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | string | No | Select the SharePoint site |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `listId` | string | No | The ID of the list containing the item |
 | `itemId` | string | Yes | The ID of the list item to update |
 | `listItemFields` | object | Yes | Field values to update on the list item |
@@ -712,7 +707,7 @@ Update the properties (fields) on a SharePoint list item
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -799,8 +794,7 @@ Add a new item to a SharePoint list
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | string | No | Select the SharePoint site |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `listId` | string | Yes | The ID of the list to add the item to |
 | `listItemFields` | object | Yes | Field values for the new list item |
 
@@ -822,7 +816,7 @@ Add a new item to a SharePoint list
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {

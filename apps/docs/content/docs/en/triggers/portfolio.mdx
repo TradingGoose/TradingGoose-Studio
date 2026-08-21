@@ -1,0 +1,65 @@
+---
+title: Portfolio Trigger
+description: Trigger workflow from portfolio monitor state changes
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+
+<BlockInfoCard
+  type="portfolio"
+  color=""
+/>
+
+Trigger workflow from portfolio monitor state changes
+
+<Callout type="info">
+  This is a **polling-based** trigger. TradingGoose automatically checks for new data on a regular interval.
+</Callout>
+
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "input",
+          "type": "string",
+          "description": "Primary workflow text input."
+      },
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Portfolio monitor event key."
+      },
+      {
+          "name": "portfolio",
+          "type": "object",
+          "description": "portfolio",
+          "children": [
+              {
+                  "name": "identity",
+                  "type": "object",
+                  "description": "Trading portfolio identity."
+              },
+              {
+                  "name": "detail",
+                  "type": "object",
+                  "description": "Portfolio detail snapshot."
+              }
+          ]
+      },
+      {
+          "name": "condition",
+          "type": "json",
+          "description": "Matched portfolio fire condition."
+      }
+  ]}
+/>
+
+
