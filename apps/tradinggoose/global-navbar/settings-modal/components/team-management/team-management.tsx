@@ -647,8 +647,12 @@ export function TeamManagement() {
               </p>
             </div>
 
+            <label htmlFor='organization-private-tier-access-code' className='font-medium text-sm'>
+              {privateAccessCopy('label')}
+            </label>
             <form className='flex gap-2' onSubmit={handlePrivateTierAccess}>
               <Input
+                id='organization-private-tier-access-code'
                 className='min-w-0 flex-1'
                 value={accessCode}
                 placeholder={privateAccessCopy('placeholder')}
