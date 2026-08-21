@@ -64,9 +64,9 @@ export async function POST(request: Request) {
     }
 
     const tierId = `tier_${crypto.randomUUID()}`
-    await validateBillingTierStripeCatalog({ id: tierId, ...parsed.data })
+    const catalogRevision = await validateBillingTierStripeCatalog({ id: tierId, ...parsed.data })
     await db.transaction(async (tx) => {
-      await validateBillingTierStripeMutation(tx, { id: tierId, ...parsed.data })
+      await validateBillingTierStripeMutation(tx, { id: tierId, ...parsed.data }, catalogRevision)
 
       if (parsed.data.isDefault) {
         await tx.update(systemBillingTier).set({ isDefault: false })

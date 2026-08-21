@@ -49,9 +49,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 })
     }
-    await validateBillingTierStripeCatalog({ id, ...parsed.data })
+    const catalogRevision = await validateBillingTierStripeCatalog({ id, ...parsed.data })
     const deniedResponse = await db.transaction(async (tx) => {
-      const existingTier = await validateBillingTierStripeMutation(tx, { id, ...parsed.data })
+      const existingTier = await validateBillingTierStripeMutation(
+        tx,
+        { id, ...parsed.data },
+        catalogRevision
+      )
       if (!existingTier) {
         return NextResponse.json({ error: 'Billing tier not found' }, { status: 404 })
       }

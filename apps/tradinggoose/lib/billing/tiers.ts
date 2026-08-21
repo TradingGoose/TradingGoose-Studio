@@ -412,10 +412,10 @@ export async function getPublicBillingTiers(): Promise<BillingTierRecord[]> {
     .orderBy(asc(systemBillingTier.displayOrder))
 }
 
-export async function getActiveStripeBillingTiers(): Promise<
-  BillingTierRecord[]
-> {
-  return db
+export async function getActiveStripeBillingTiers(
+  store: Pick<typeof db, 'select'> = db,
+): Promise<BillingTierRecord[]> {
+  return store
     .select()
     .from(systemBillingTier)
     .where(
