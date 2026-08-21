@@ -100,10 +100,7 @@ describe('pending execution job', () => {
     ).rejects.toThrow(error.message)
   })
 
-  it.each([
-    ['local execution', false, null],
-    ['Trigger execution', true, 'webhook-job-1'],
-  ] as const)('declares pending-row ownership for %s', async (_name, triggerRuntime, ownerId) => {
+  it('declares pending-row ownership for webhook execution', async () => {
     const payload = {
       webhookId: 'webhook-1',
       workflowId: 'workflow-1',
@@ -114,12 +111,12 @@ describe('pending execution job', () => {
 
     await executePendingExecutionJob(
       { id: 'webhook-job-1', executionType: 'webhook', payload },
-      { triggerRuntime }
+      { triggerRuntime: false }
     )
 
     expect(mocks.executeWebhookJob).toHaveBeenCalledWith(
       { ...payload, executionId: 'webhook-job-1' },
-      { pendingExecutionId: ownerId }
+      'webhook-job-1'
     )
   })
 })

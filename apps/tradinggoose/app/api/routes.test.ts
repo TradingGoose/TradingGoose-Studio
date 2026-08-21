@@ -559,14 +559,14 @@ describe('Airtable payload durability', () => {
       executionId,
       executionId
     )
-  const execute = (overrides: Row = {}, pendingExecutionId: string | null = 'execution-a') =>
+  const execute = (overrides: Row = {}, pendingExecutionId = 'execution-a') =>
     executeWebhookJob(
       {
         ...pending('execution-a').payload,
         executionId: 'execution-a',
         ...overrides,
       } as any,
-      { pendingExecutionId }
+      pendingExecutionId
     )
   const queueTenPages = (payloads: unknown[] = [{ id: 'change' }]) => {
     state.pendingExecutions = [pending('execution-a')]
@@ -593,38 +593,6 @@ describe('Airtable payload durability', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
-  })
-
-  it('acknowledges the Airtable cursor after direct local execution returns', async () => {
-    state.pendingExecutions = []
-    fetchMock.mockResolvedValue(page([{ id: 'P1' }], 1, false))
-    let finishExecution!: (value: Row) => void
-    runWorkflowMock.mockReturnValue(
-      new Promise((resolve) => {
-        finishExecution = resolve
-      })
-    )
-
-    const execution = execute({}, null)
-    await vi.waitFor(() => expect(runWorkflowMock).toHaveBeenCalledOnce())
-
-    expect(state.webhooks[0].providerConfig.externalWebhookCursor).toBeUndefined()
-    finishExecution({ result: { success: true, output: {} } })
-    await expect(execution).resolves.toMatchObject({ success: true })
-    expect(runWorkflowMock.mock.calls[0][0].workflowInput.payloads).toEqual([{ id: 'P1' }])
-    expect(state.webhooks[0].providerConfig.externalWebhookCursor).toBe(1)
-    expect(state.pendingExecutions).toEqual([])
-  })
-
-  it('does not acknowledge the Airtable cursor when direct local execution throws', async () => {
-    state.pendingExecutions = []
-    fetchMock.mockResolvedValue(page([{ id: 'P1' }], 1, false))
-    runWorkflowMock.mockRejectedValue(new Error('workflow crashed'))
-
-    await expect(execute({}, null)).rejects.toThrow('workflow crashed')
-
-    expect(state.webhooks[0].providerConfig.externalWebhookCursor).toBeUndefined()
-    expect(state.pendingExecutions).toEqual([])
   })
 
   it('rejects a declared Trigger execution without its processing row', async () => {

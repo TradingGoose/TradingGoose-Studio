@@ -121,6 +121,19 @@ export function isPendingExecutionPayload(value: unknown): value is PendingExecu
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
+async function hasWorkflowExecutionLog(
+  store: Pick<typeof db, 'select'>,
+  params: PendingExecutionInsert
+) {
+  if (params.executionType !== 'workflow') return false
+  const [log] = await store
+    .select({ id: workflowExecutionLogs.id })
+    .from(workflowExecutionLogs)
+    .where(eq(workflowExecutionLogs.executionId, params.pendingExecutionId))
+    .limit(1)
+  return Boolean(log)
+}
+
 function getParentExecutionId(row: Pick<PendingExecutionRow, 'payload' | 'source'>) {
   if (row.source !== WORKFLOW_BLOCK_SOURCE || !isPendingExecutionPayload(row.payload)) return null
   const metadata = row.payload.metadata
@@ -261,8 +274,32 @@ export async function enqueuePendingExecution(
     if (triggerState.mode === 'unavailable') {
       throw new TriggerExecutionUnavailableError()
     }
+    const execution = {
+      id: params.pendingExecutionId,
+      executionType: params.executionType,
+      orderingKey: params.orderingKey ?? null,
+      source: params.source,
+      userId: params.userId,
+      workflowId: params.workflowId ?? null,
+      workspaceId: params.workspaceId ?? null,
+      payload: params.payload,
+    }
     if (triggerState.mode === 'local') {
-      return { mode: 'local' as const }
+      if (await hasWorkflowExecutionLog(tx, params)) {
+        return { mode: 'local' as const, inserted: false }
+      }
+      const [inserted] = await tx
+        .insert(pendingExecution)
+        .values({
+          ...execution,
+          billingScopeId: params.workspaceId ?? params.userId,
+          billingScopeType: 'local',
+          status: 'processing',
+          processingStartedAt: new Date(),
+        })
+        .onConflictDoNothing({ target: pendingExecution.id })
+        .returning({ id: pendingExecution.id })
+      return { mode: 'local' as const, inserted: Boolean(inserted) }
     }
 
     const billingContext = await resolveServerExecutionBillingContext({
@@ -309,16 +346,8 @@ export async function enqueuePendingExecution(
       return { mode: 'trigger' as const, billingScopeId, inserted: false, triggerState }
     }
 
-    if (params.executionType === 'workflow') {
-      const [existingLog] = await tx
-        .select({ id: workflowExecutionLogs.id })
-        .from(workflowExecutionLogs)
-        .where(eq(workflowExecutionLogs.executionId, params.pendingExecutionId))
-        .limit(1)
-
-      if (existingLog) {
-        return { mode: 'trigger' as const, billingScopeId, inserted: false, triggerState }
-      }
+    if (await hasWorkflowExecutionLog(tx, params)) {
+      return { mode: 'trigger' as const, billingScopeId, inserted: false, triggerState }
     }
 
     if (params.orderingKey) {
@@ -360,27 +389,27 @@ export async function enqueuePendingExecution(
     }
 
     await tx.insert(pendingExecution).values({
-      id: params.pendingExecutionId,
+      ...execution,
       billingScopeId,
       billingScopeType,
-      executionType: params.executionType,
-      orderingKey: params.orderingKey ?? null,
-      source: params.source,
-      userId: params.userId,
-      workflowId: params.workflowId ?? null,
-      workspaceId: params.workspaceId ?? null,
-      payload: params.payload,
     })
     return { mode: 'trigger' as const, billingScopeId, inserted: true, triggerState }
   })
 
   if (queueResult.mode === 'local') {
-    return executeLocalPendingExecution(params)
+    if (queueResult.inserted) startLocalPendingExecution(params)
+    return {
+      pendingExecutionId: params.pendingExecutionId,
+      inserted: queueResult.inserted,
+    }
   }
 
   const { billingScopeId, inserted, triggerState } = queueResult
 
   if (!inserted) {
+    const processing = await getProcessingPendingExecution(params.pendingExecutionId)
+    if (processing)
+      await reconcilePendingExecutionCapacity(processing.billingScopeId, processing.id)
     await wakePendingExecution({ billingScopeId, requestId: params.requestId })
     return {
       pendingExecutionId: params.pendingExecutionId,
@@ -399,23 +428,33 @@ export async function enqueuePendingExecution(
   }
 }
 
-async function executeLocalPendingExecution(
-  params: PendingExecutionInsert
-): Promise<PendingExecutionHandle> {
-  const { executePendingExecutionJob } = await import('@/background/pending-execution-job')
-  await executePendingExecutionJob(
-    {
-      id: params.pendingExecutionId,
-      executionType: params.executionType,
-      payload: params.payload,
-    },
-    { triggerRuntime: false }
-  )
-
-  return {
-    pendingExecutionId: params.pendingExecutionId,
-    inserted: true,
-  }
+function startLocalPendingExecution(params: PendingExecutionInsert) {
+  void import('@/background/pending-execution-job')
+    .then(({ executePendingExecutionJob }) =>
+      executePendingExecutionJob(
+        {
+          id: params.pendingExecutionId,
+          executionType: params.executionType,
+          payload: params.payload,
+        },
+        { triggerRuntime: false }
+      )
+    )
+    .catch((error) => {
+      logger.error('Local pending execution failed', {
+        pendingExecutionId: params.pendingExecutionId,
+        error,
+      })
+    })
+    .finally(() =>
+      db.delete(pendingExecution).where(eq(pendingExecution.id, params.pendingExecutionId))
+    )
+    .catch((error) => {
+      logger.error('Local pending execution marker cleanup failed', {
+        pendingExecutionId: params.pendingExecutionId,
+        error,
+      })
+    })
 }
 
 export async function claimNextPendingExecution(
@@ -599,7 +638,10 @@ async function reconcileProcessingPendingExecution(
   return releasedPendingExecutionCapacity(capacityOwnerId)
 }
 
-async function reconcilePendingExecutionCapacity(billingScopeId: string) {
+async function reconcilePendingExecutionCapacity(
+  billingScopeId: string,
+  preferredPendingExecutionId?: string
+) {
   let rows: PendingExecutionClaim[]
   try {
     rows = await listProcessingPendingExecutionsForBillingScope(billingScopeId)
@@ -607,6 +649,11 @@ async function reconcilePendingExecutionCapacity(billingScopeId: string) {
     logger.error('Pending execution capacity reconciliation failed', { billingScopeId, error })
     return
   }
+  rows.sort(
+    (left, right) =>
+      Number(right.id === preferredPendingExecutionId) -
+      Number(left.id === preferredPendingExecutionId)
+  )
 
   const activeRowsById = new Map(rows.map((row) => [row.id, row]))
   for (const row of rows) {

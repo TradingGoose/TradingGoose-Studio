@@ -167,7 +167,7 @@ async function logWebhookFailure(params: {
 
 export async function executeWebhookJob(
   payload: WebhookExecutionPayload,
-  options: { pendingExecutionId: string | null }
+  pendingExecutionId: string
 ) {
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
@@ -289,7 +289,7 @@ export async function executeWebhookJob(
       payload.body,
       mockRequest,
       requestId,
-      options.pendingExecutionId
+      pendingExecutionId
     )
     const airtablePoll =
       payload.provider === 'airtable' ? (formattedInput as AirtablePollResult) : null
@@ -311,7 +311,6 @@ export async function executeWebhookJob(
         message,
       })
       executionLogOwned = true
-      await airtablePoll?.acknowledge?.()
       if (airtablePoll?.continuation) {
         await enqueueAirtableContinuation(airtablePoll.continuation)
       }
@@ -374,8 +373,6 @@ export async function executeWebhookJob(
       },
       triggerData,
     })
-    await airtablePoll?.acknowledge?.()
-
     logger.info(`[${requestId}] Webhook execution completed`, {
       success: result.success,
       workflowId: payload.workflowId,

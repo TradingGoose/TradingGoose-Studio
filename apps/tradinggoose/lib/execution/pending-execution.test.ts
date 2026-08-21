@@ -59,8 +59,11 @@ const txSelectChain = {
 }
 
 const txInsertValuesMock = vi.fn()
+const txInsertReturningMock = vi.fn()
 const txInsertChain = {
   values: txInsertValuesMock,
+  onConflictDoNothing: vi.fn().mockReturnThis(),
+  returning: txInsertReturningMock,
 }
 
 const selectChain = {
@@ -699,7 +702,8 @@ describe('enqueuePendingExecution', () => {
     txSelectLimitMock.mockResolvedValue([])
     selectLimitMock.mockResolvedValue([])
     txExecuteMock.mockResolvedValue(undefined)
-    txInsertValuesMock.mockResolvedValue(undefined)
+    txInsertValuesMock.mockReturnValue(txInsertChain)
+    txInsertReturningMock.mockResolvedValue([{ id: 'inserted' }])
     updateReturningMock.mockResolvedValue([])
     deleteReturningMock.mockResolvedValue([])
     deleteWhereMock.mockReturnValue(deleteChain)
@@ -708,7 +712,15 @@ describe('enqueuePendingExecution', () => {
     configureTransactionMock()
   })
 
-  it('executes streamed local work directly without queue or billing gates', async () => {
+  it('starts one streamed local execution from a direct ownership marker', async () => {
+    let finishExecution = () => {}
+    executePendingExecutionJobMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishExecution = resolve
+        })
+    )
+
     const result = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId: 'pending-local-1',
@@ -728,38 +740,54 @@ describe('enqueuePendingExecution', () => {
     })
     expect(triggerMock).not.toHaveBeenCalled()
     expect(idempotencyCreateMock).not.toHaveBeenCalled()
-    expect(executePendingExecutionJobMock).toHaveBeenCalledWith(
-      {
-        id: 'pending-local-1',
-        executionType: 'workflow',
-        payload: { executionId: 'pending-local-1', stream: true },
-      },
-      { triggerRuntime: false }
+    await vi.waitFor(() =>
+      expect(executePendingExecutionJobMock).toHaveBeenCalledWith(
+        {
+          id: 'pending-local-1',
+          executionType: 'workflow',
+          payload: { executionId: 'pending-local-1', stream: true },
+        },
+        { triggerRuntime: false }
+      )
     )
     expect(transactionMock).toHaveBeenCalledOnce()
     expect(txExecuteMock).toHaveBeenCalledOnce()
-    expect(txInsertValuesMock).not.toHaveBeenCalled()
+    expect(txInsertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'pending-local-1',
+        billingScopeId: 'workspace-1',
+        billingScopeType: 'local',
+        status: 'processing',
+        processingStartedAt: expect.any(Date),
+      })
+    )
     expect(resolveServerExecutionBillingContextMock).not.toHaveBeenCalled()
     expect(resolveServerExecutionBillingTierForScopeMock).not.toHaveBeenCalled()
+    finishExecution()
+    await vi.waitFor(() => expect(deleteWhereMock).toHaveBeenCalled())
   })
 
-  it('propagates direct local failures without leaving a queue row', async () => {
-    executePendingExecutionJobMock.mockRejectedValueOnce(new Error('Local workflow failed'))
+  it.each([
+    ['running', []],
+    ['completed', [{ id: 'log-1' }]],
+  ])('does not relaunch a %s local workflow', async (_state, existingLogs) => {
+    txSelectLimitMock.mockResolvedValueOnce(existingLogs)
+    if (!existingLogs.length) txInsertReturningMock.mockResolvedValueOnce([])
 
-    await expect(
-      enqueuePendingExecution({
-        executionType: 'workflow',
-        pendingExecutionId: 'pending-local-1',
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
-        userId: 'user-1',
-        source: 'workflow_api',
-        payload: { executionId: 'pending-local-1' },
-      })
-    ).rejects.toThrow('Local workflow failed')
+    const result = await enqueuePendingExecution({
+      executionType: 'workflow',
+      pendingExecutionId: 'pending-local-1',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      source: 'workflow_api',
+      payload: { executionId: 'pending-local-1' },
+    })
 
-    expect(executePendingExecutionJobMock).toHaveBeenCalledOnce()
-    expect(txInsertValuesMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ pendingExecutionId: 'pending-local-1', inserted: false })
+    expect(executePendingExecutionJobMock).not.toHaveBeenCalled()
+    expect(txInsertValuesMock).toHaveBeenCalledTimes(existingLogs.length ? 0 : 1)
+    expect(resolveServerExecutionBillingContextMock).not.toHaveBeenCalled()
   })
 
   it('processes local documents directly without Trigger', async () => {
@@ -774,11 +802,12 @@ describe('enqueuePendingExecution', () => {
       payload,
     })
 
-    expect(executePendingExecutionJobMock).toHaveBeenCalledWith(
-      { id: 'document-local-1', executionType: 'document', payload },
-      { triggerRuntime: false }
+    await vi.waitFor(() =>
+      expect(executePendingExecutionJobMock).toHaveBeenCalledWith(
+        { id: 'document-local-1', executionType: 'document', payload },
+        { triggerRuntime: false }
+      )
     )
-    expect(txInsertValuesMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
   })
 
@@ -825,15 +854,17 @@ describe('enqueuePendingExecution', () => {
 
   it('wakes a duplicate pending execution through the normal scope drain', async () => {
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
+    const processing = createPendingRow({ id: 'pending-local-1', status: 'processing' })
     txSelectLimitMock.mockResolvedValueOnce([{ id: 'pending-local-1' }])
-    mockClaimableRow(createPendingRow({ id: 'pending-local-1', billingScopeId: 'user-1' }))
+    selectLimitMock.mockResolvedValueOnce([processing])
+    selectChain.orderBy.mockResolvedValueOnce([processing])
 
     const result = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId: 'pending-local-1',
       workflowId: 'workflow-1',
       workspaceId: 'workspace-1',
-      userId: 'user-1',
+      userId: 'scope-1',
       source: 'workflow_api',
       payload: {
         executionId: 'pending-local-1',
