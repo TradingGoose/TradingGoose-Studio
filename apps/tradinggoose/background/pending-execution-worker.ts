@@ -90,6 +90,7 @@ async function executePendingExecution(payload: PendingExecutionTaskPayload) {
     return { success: true, skipped: 'not_processing' as const }
   }
 
+  const startedAt = Date.now()
   try {
     await dispatchPendingExecution(row)
     return { success: true, pendingExecutionId: row.id }
@@ -101,7 +102,7 @@ async function executePendingExecution(payload: PendingExecutionTaskPayload) {
       error,
     })
     const message = error instanceof Error ? error.message : PENDING_EXECUTION_WORKER_FAILURE_ERROR
-    await finalizePendingExecutionFailure(row, message, 1)
+    await finalizePendingExecutionFailure(row, message, Math.max(1, Date.now() - startedAt))
     throw error
   }
 }
@@ -124,7 +125,12 @@ async function terminalizeWorkflowExecution(
 ) {
   if (!isTierLimitedPendingExecution(row)) return
   if (!row.workflowId || !row.workspaceId) {
-    throw new Error(`Execution ${row.id} is missing workflow scope`)
+    logger.error('Pending execution is missing workflow scope during failure finalization', {
+      pendingExecutionId: row.id,
+      workflowId: row.workflowId,
+      workspaceId: row.workspaceId,
+    })
+    return
   }
 
   const existingLog = await getWorkflowExecutionLog(row.id)
@@ -171,25 +177,38 @@ async function mapWithConcurrency<T>(
 }
 
 async function cancelTriggerRun(row: PendingExecutionClaim) {
-  const page = await runs.list({
-    tag: getPendingExecutionTriggerKey(row.id),
-    taskIdentifier: PENDING_EXECUTION_TASK_ID,
-    limit: 1,
-  })
-  const run = page.data[0]
-  if (run && !run.isCompleted && !run.isCancelled) {
-    await runs.cancel(run.id)
+  if (row.billingScopeType === 'local') return
+
+  try {
+    const page = await runs.list({
+      tag: getPendingExecutionTriggerKey(row.id),
+      taskIdentifier: PENDING_EXECUTION_TASK_ID,
+      limit: 1,
+    })
+    const run = page.data[0]
+    if (run && !run.isCompleted && !run.isCancelled) {
+      await runs.cancel(run.id)
+    }
+  } catch (error) {
+    logger.error('Failed to cancel Trigger run for pending execution', {
+      pendingExecutionId: row.id,
+      error,
+    })
   }
 }
 
 async function cancelPendingExecutionDescendants(
   parentExecutionId: string,
-  options: { wake?: boolean } = {}
+  options: { wake?: boolean } = {},
+  visited = new Set<string>()
 ) {
+  if (visited.has(parentExecutionId)) return false
+  visited.add(parentExecutionId)
   const children = await listChildPendingWorkflowExecutions(parentExecutionId)
 
   await mapWithConcurrency(children, DESCENDANT_CANCELLATION_CONCURRENCY, async (child) => {
-    await cancelPendingExecutionDescendants(child.id, options)
+    if (visited.has(child.id)) return
+    await cancelPendingExecutionDescendants(child.id, options, visited)
     await cancelPendingWorkflowExecution({
       pendingExecutionId: child.id,
       userId: child.userId,

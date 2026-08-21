@@ -43,4 +43,5 @@ export async function executePendingExecutionJob(
         ? executeTriggeredDocumentProcessingJob(job.payload)
         : executeDocumentProcessingJob(job.payload)
   }
+  throw new Error(`Unsupported pending execution type: ${job.executionType}`)
 }

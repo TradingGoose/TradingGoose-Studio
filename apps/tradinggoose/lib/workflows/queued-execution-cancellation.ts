@@ -5,6 +5,7 @@ import {
   completePendingExecution,
   isPendingExecutionPayload,
   listChildPendingWorkflowExecutions,
+  markPendingExecutionOwnerCompleted,
   PENDING_EXECUTION_LOCK_NAMESPACE,
   type PendingExecutionPayload,
 } from '@/lib/execution/pending-execution'
@@ -204,6 +205,8 @@ export async function cancelPendingWorkflowExecution(params: {
         pendingExecutionId: claimed.id,
         wake: params.wake,
       })
+    } else {
+      await markPendingExecutionOwnerCompleted(claimed, { wake: params.wake })
     }
     return { status: 'cancelling' }
   }

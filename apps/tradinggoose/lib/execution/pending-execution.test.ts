@@ -297,7 +297,9 @@ describe('dispatchNextPendingExecution', () => {
     })
     mockClaimableRow(row)
 
-    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+    await expect(
+      dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).resolves.toEqual({
       status: 'dispatched',
       pendingExecutionId: 'pending-1',
     })
@@ -325,7 +327,7 @@ describe('dispatchNextPendingExecution', () => {
     })
     mockClaimableRow(row)
 
-    await dispatchNextPendingExecution({ billingScopeId: 'scope-1' })
+    await dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
 
     const triggerKey = getPendingExecutionTriggerKey('pending-1')
     expect(triggerMock).toHaveBeenCalledWith(
@@ -347,7 +349,7 @@ describe('dispatchNextPendingExecution', () => {
     })
     mockClaimableRow(row)
 
-    await dispatchNextPendingExecution({ billingScopeId: 'scope-1' })
+    await dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
 
     const triggerKey = getPendingExecutionTriggerKey('pending-1')
     expect(triggerMock).toHaveBeenCalledWith(
@@ -364,7 +366,9 @@ describe('dispatchNextPendingExecution', () => {
   it('does not inspect the Trigger queue in local mode', async () => {
     getTriggerExecutionStateMock.mockResolvedValue(directExecutionState)
 
-    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+    await expect(
+      dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).resolves.toEqual({
       status: 'empty',
     })
 
@@ -375,7 +379,9 @@ describe('dispatchNextPendingExecution', () => {
   })
 
   it('does not admit a worker when the billing scope queue is empty', async () => {
-    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+    await expect(
+      dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).resolves.toEqual({
       status: 'empty',
     })
 
@@ -402,7 +408,9 @@ describe('dispatchNextPendingExecution', () => {
       data: [createTriggerRun('WAITING', { id: 'run-processing-1' })],
     })
 
-    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+    await expect(
+      dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).resolves.toEqual({
       status: 'capacity_blocked',
       pendingExecutionId: 'pending-1',
     })
@@ -482,7 +490,9 @@ describe('dispatchNextPendingExecution', () => {
       { ...pending, status: 'processing', processingStartedAt: new Date() },
     ])
 
-    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+    await expect(
+      dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).resolves.toEqual({
       status: 'dispatched',
       pendingExecutionId: pending.id,
     })
@@ -529,7 +539,9 @@ describe('dispatchNextPendingExecution', () => {
       .mockResolvedValueOnce([{ id: processing.id, source: processing.source, payload: {} }])
     selectChain.orderBy.mockResolvedValueOnce([processing])
 
-    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+    await expect(
+      dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).resolves.toEqual({
       status: 'capacity_blocked',
       pendingExecutionId: pending.id,
     })
@@ -576,7 +588,9 @@ describe('dispatchNextPendingExecution', () => {
       data: [createTriggerRun('COMPLETED', { id: 'run-processing-1', isCompleted: true })],
     })
 
-    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+    await expect(
+      dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).resolves.toEqual({
       status: 'capacity_blocked',
       pendingExecutionId: pending.id,
     })
@@ -626,7 +640,9 @@ describe('dispatchNextPendingExecution', () => {
       { ...pending, status: 'processing', processingStartedAt: new Date() },
     ])
 
-    await expect(dispatchNextPendingExecution({ billingScopeId: 'scope-1' })).resolves.toEqual({
+    await expect(
+      dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).resolves.toEqual({
       status: 'dispatched',
       pendingExecutionId: pending.id,
     })
@@ -678,7 +694,7 @@ describe('wakePendingExecution', () => {
       .mockResolvedValueOnce([{ ...first, status: 'processing' }])
       .mockResolvedValueOnce([{ ...second, status: 'processing' }])
 
-    await wakePendingExecution({ billingScopeId: 'scope-1' })
+    await wakePendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
 
     expect(triggerMock).toHaveBeenCalledTimes(2)
     expect(triggerMock.mock.calls.map((call) => call[1])).toEqual([
@@ -1051,7 +1067,7 @@ describe('claimNextPendingExecution', () => {
       },
     ])
 
-    await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
+    await expect(claimNextPendingExecution('scope-1', 'user')).resolves.toEqual({
       status: 'claimed',
       row: expect.objectContaining({
         id: 'pending-1',
@@ -1075,7 +1091,7 @@ describe('claimNextPendingExecution', () => {
       },
     ])
 
-    await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
+    await expect(claimNextPendingExecution('scope-1', 'user')).resolves.toEqual({
       status: 'claimed',
       row: expect.objectContaining({
         id: 'pending-1',
@@ -1103,7 +1119,7 @@ describe('claimNextPendingExecution', () => {
       { id: 'processing-1', source: 'workflow_api', payload: {} },
     ])
 
-    await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
+    await expect(claimNextPendingExecution('scope-1', 'user')).resolves.toEqual({
       status: 'capacity_blocked',
       pendingExecutionId: 'pending-1',
     })
@@ -1151,7 +1167,7 @@ describe('claimNextPendingExecution', () => {
       },
     ])
 
-    await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
+    await expect(claimNextPendingExecution('scope-1', 'user')).resolves.toEqual({
       status: 'claimed',
       row: expect.objectContaining({
         id: 'runnable-child',
@@ -1185,7 +1201,7 @@ describe('claimNextPendingExecution', () => {
       { id: 'processing-1', source: 'workflow_api', payload: {} },
     ])
 
-    await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
+    await expect(claimNextPendingExecution('scope-1', 'user')).resolves.toEqual({
       status: 'capacity_blocked',
       pendingExecutionId: 'child-1',
     })
@@ -1212,7 +1228,7 @@ describe('claimNextPendingExecution', () => {
       },
     ])
 
-    await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
+    await expect(claimNextPendingExecution('scope-1', 'user')).resolves.toEqual({
       status: 'capacity_blocked',
       pendingExecutionId: 'pending-1',
     })
@@ -1237,6 +1253,7 @@ describe('completePendingExecution', () => {
 
     expect(deleteReturningMock).toHaveBeenCalledWith({
       billingScopeId: 'pendingExecution.billingScopeId',
+      billingScopeType: 'pendingExecution.billingScopeType',
       parentExecutionId: expect.anything(),
     })
     expect(eqMock).toHaveBeenCalledWith('pendingExecution.billingScopeId', 'scope-1')

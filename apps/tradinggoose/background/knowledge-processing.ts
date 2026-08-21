@@ -35,12 +35,21 @@ export type DocumentProcessingPayload = {
 function isDocumentProcessingPayload(value: unknown): value is DocumentProcessingPayload {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Record<string, unknown>
+  const docData = candidate.docData as Record<string, unknown> | null
+  const processingOptions = candidate.processingOptions as Record<string, unknown> | null
   return (
     typeof candidate.knowledgeBaseId === 'string' &&
     typeof candidate.documentId === 'string' &&
     typeof candidate.userId === 'string' &&
     typeof candidate.workspaceId === 'string' &&
-    typeof candidate.requestId === 'string'
+    typeof candidate.requestId === 'string' &&
+    typeof docData?.filename === 'string' &&
+    typeof docData.fileUrl === 'string' &&
+    typeof docData.fileSize === 'number' &&
+    typeof docData.mimeType === 'string' &&
+    typeof processingOptions?.chunkSize === 'number' &&
+    typeof processingOptions.minCharactersPerChunk === 'number' &&
+    typeof processingOptions.chunkOverlap === 'number'
   )
 }
 
@@ -90,7 +99,7 @@ export async function executeTriggeredDocumentProcessingJob(value: unknown) {
 }
 
 export async function markDocumentProcessingJobFailed(value: unknown, errorMessage: string) {
-  if (isDocumentProcessingPayload(value)) {
-    await markDocumentProcessingFailed(value.documentId, errorMessage)
-  }
+  if (!value || typeof value !== 'object') return
+  const { documentId } = value as Record<string, unknown>
+  if (typeof documentId === 'string') await markDocumentProcessingFailed(documentId, errorMessage)
 }
