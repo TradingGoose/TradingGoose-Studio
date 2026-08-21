@@ -22,11 +22,6 @@ const SUBSCRIPTION_UPGRADE_PATH = '/api/auth/subscription/upgrade'
 const DISABLED_AUTH_POST_PATHS = new Set([
   '/api/auth/subscription/cancel',
   '/api/auth/subscription/billing-portal',
-  '/api/auth/organization/invite-member',
-  '/api/auth/organization/update-member-role',
-  '/api/auth/organization/remove-member',
-  '/api/auth/organization/leave',
-  '/api/auth/organization/delete',
 ])
 
 const isSystemOAuthCallbackPath = (pathname: string) =>

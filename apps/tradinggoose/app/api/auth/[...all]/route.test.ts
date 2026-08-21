@@ -502,22 +502,29 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthHandler).not.toHaveBeenCalled()
   })
 
-  it.each([
-    'subscription/billing-portal',
-    'subscription/cancel',
-    'organization/invite-member',
-    'organization/update-member-role',
-    'organization/remove-member',
-    'organization/leave',
-    'organization/delete',
-  ])('disables the Better Auth %s endpoint', async (path) => {
+  it.each(['subscription/billing-portal', 'subscription/cancel'])(
+    'disables the Better Auth %s endpoint',
+    async (path) => {
+      const { handleAuthRequest } = await import('./route')
+      const response = await handleAuthRequest(
+        new Request(`http://localhost/api/auth/${path}`, { method: 'POST' })
+      )
+
+      expect(response.status).toBe(404)
+      expect(mockAuthHandler).not.toHaveBeenCalled()
+    }
+  )
+
+  it('keeps organization management delegated to Better Auth', async () => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+
     const { handleAuthRequest } = await import('./route')
     const response = await handleAuthRequest(
-      new Request(`http://localhost/api/auth/${path}`, { method: 'POST' })
+      new Request('http://localhost/api/auth/organization/update-member-role', { method: 'POST' })
     )
 
-    expect(response.status).toBe(404)
-    expect(mockAuthHandler).not.toHaveBeenCalled()
+    expect(response.status).toBe(204)
+    expect(mockAuthHandler).toHaveBeenCalledOnce()
   })
 
   it('rejects private tier upgrades without a persisted grant', async () => {

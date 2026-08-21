@@ -1659,24 +1659,6 @@ export const auth = betterAuth({
             },
           }
         },
-        onSubscriptionCreated: async ({
-          stripeSubscription,
-          subscription,
-        }: {
-          stripeSubscription: Stripe.Subscription
-          subscription: any
-        }) => {
-          logger.info('[onSubscriptionCreated] Direct Stripe subscription created', {
-            subscriptionId: subscription.id,
-            referenceId: subscription.referenceId,
-            status: subscription.status,
-          })
-
-          await handleCompletedSubscription({
-            subscriptionId: subscription.id,
-            stripeSubscription,
-          })
-        },
         onSubscriptionComplete: async ({
           stripeSubscription,
           subscription,
