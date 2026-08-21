@@ -85,19 +85,19 @@ vi.mock('@/hooks/queries/private-tier-access', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/hooks/queries/private-tier-access')>()
   return {
     ...original,
-    usePrivateTierAccess: () => ({
-      data: { privateTiers: mocks.privateTiers },
-      isLoading: false,
-      isError: Boolean(mocks.privateTierAccessError),
-      error: mocks.privateTierAccessError,
-    }),
-    usePrivateTierAccessMutation: () => ({
-      mutate: vi.fn(),
-      reset: vi.fn(),
-      isPending: false,
-      isError: false,
-      isSuccess: false,
-      error: null,
+    usePrivateTierAccessForm: () => ({
+      accessCode: '',
+      errorCode: mocks.privateTierAccessError
+        ? (original.getPrivateTierAccessErrorCode(mocks.privateTierAccessError) ??
+          PRIVATE_TIER_ACCESS_ERROR_CODES.loadFailed)
+        : null,
+      mutation: { isPending: false, isSuccess: false },
+      onChange: vi.fn(),
+      onSubmit: vi.fn(),
+      query: {
+        data: { privateTiers: mocks.privateTiers },
+        isLoading: false,
+      },
     }),
   }
 })
@@ -276,7 +276,7 @@ describe('Subscription billing subject', () => {
     return onOpenChange
   }
 
-  it('uses the exact workspace billing organization instead of personal billing', () => {
+  it('uses the exact workspace billing organization while keeping redemption user-scoped', () => {
     mocks.workspaceSettings = workspaceBillingOwner({
       type: 'organization',
       organizationId: 'org-billing',
@@ -287,7 +287,7 @@ describe('Subscription billing subject', () => {
     expect(mocks.organizationBillingId).toBe('org-billing')
     expect(container.textContent).toContain('Organization Pro')
     expect(container.textContent).not.toContain('Personal Pro')
-    expect(container.querySelector('#private-tier-access-code')).toBeNull()
+    expect(container.querySelector('#private-tier-access-code')).not.toBeNull()
   })
 
   it('uses personal billing when the workspace billing owner is the session user', () => {

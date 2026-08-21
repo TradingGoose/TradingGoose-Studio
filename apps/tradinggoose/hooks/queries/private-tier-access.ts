@@ -1,3 +1,4 @@
+import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   isPrivateTierAccessErrorCode,
@@ -59,4 +60,27 @@ export function usePrivateTierAccessMutation() {
     onMutate: () => queryClient.cancelQueries({ queryKey: privateTierAccessKey }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: privateTierAccessKey }),
   })
+}
+
+export function usePrivateTierAccessForm() {
+  const query = usePrivateTierAccess()
+  const mutation = usePrivateTierAccessMutation()
+  const [accessCode, setAccessCode] = useState('')
+  const errorCode =
+    getPrivateTierAccessErrorCode(mutation.error) ??
+    (mutation.isError ? PRIVATE_TIER_ACCESS_ERROR_CODES.validateFailed : null) ??
+    getPrivateTierAccessErrorCode(query.error) ??
+    (query.isError ? PRIVATE_TIER_ACCESS_ERROR_CODES.loadFailed : null)
+
+  function onChange(value: string) {
+    mutation.reset()
+    setAccessCode(value)
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    mutation.mutate(accessCode.trim(), { onSuccess: () => setAccessCode('') })
+  }
+
+  return { accessCode, errorCode, mutation, onChange, onSubmit, query }
 }

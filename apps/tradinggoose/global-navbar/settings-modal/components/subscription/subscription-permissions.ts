@@ -34,6 +34,14 @@ interface SubscriptionSurfaceInput {
   enterprisePlaceholder: EnterprisePlaceholderDisplay | null
 }
 
+export const mergeAccessibleBillingTiers = (
+  publicTiers: readonly PublicBillingTierDisplay[] = [],
+  privateTiers: readonly PublicBillingTierDisplay[] = []
+) =>
+  [...publicTiers, ...privateTiers].sort(
+    (left, right) => left.displayOrder - right.displayOrder || left.id.localeCompare(right.id)
+  )
+
 export function getSubscriptionTierAlternatives(
   tiers: PublicBillingTierDisplay[],
   ownerType: PublicBillingTierDisplay['ownerType'],

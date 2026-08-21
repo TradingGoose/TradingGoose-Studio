@@ -386,6 +386,10 @@ export const organizationMutationOptions = {
           throw new Error('Failed to create organization')
         }
 
+        await client.organization.setActive({
+          organizationId: result.data.id,
+        })
+
         return { success: true, organizationId: result.data.id }
       },
       onSuccess: () => {

@@ -1,9 +1,8 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { Button, Input, Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
-import { PRIVATE_TIER_ACCESS_ERROR_CODES } from '@/lib/billing/private-tier-access-contract'
 import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
 import type { BillingTierSummary } from '@/lib/billing/types'
@@ -19,17 +18,16 @@ import {
   useOrganizationBillingWorkspaces,
   useOrganizations,
 } from '@/hooks/queries/organization'
-import {
-  getPrivateTierAccessErrorCode,
-  usePrivateTierAccess,
-  usePrivateTierAccessMutation,
-} from '@/hooks/queries/private-tier-access'
+import { usePrivateTierAccessForm } from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { useAdminWorkspaces } from '@/hooks/queries/workspace'
 import type { LocaleCode } from '@/i18n/utils'
 import { toUpgradeTarget } from '../subscription/plan-configs'
-import { getSubscriptionSurfaceState } from '../subscription/subscription-permissions'
+import {
+  getSubscriptionSurfaceState,
+  mergeAccessibleBillingTiers,
+} from '../subscription/subscription-permissions'
 import {
   MemberInvitationCard,
   NoOrganizationView,
@@ -105,8 +103,14 @@ export function TeamManagement() {
   } = useOrganizationBilling(activeOrgId || '')
   const { data: publicBillingCatalog, isLoading: isLoadingPublicBillingCatalog } =
     usePublicBillingCatalog()
-  const privateTierAccess = usePrivateTierAccess()
-  const privateTierAccessMutation = usePrivateTierAccessMutation()
+  const {
+    accessCode,
+    errorCode: privateAccessErrorCode,
+    mutation: privateTierAccessMutation,
+    onChange: onPrivateTierAccessCodeChange,
+    onSubmit: handlePrivateTierAccess,
+    query: privateTierAccess,
+  } = usePrivateTierAccessForm()
 
   const inviteMutation = useMutation(organizationMutationOptions.inviteMember(queryClient, locale))
   const removeMemberMutation = useMutation(organizationMutationOptions.removeMember(queryClient))
@@ -151,7 +155,6 @@ export function TeamManagement() {
   }>({ open: false, memberId: '', memberName: '', shouldReduceSeats: false })
   const [orgName, setOrgName] = useState('')
   const [orgSlug, setOrgSlug] = useState('')
-  const [accessCode, setAccessCode] = useState('')
   const [isAddSeatDialogOpen, setIsAddSeatDialogOpen] = useState(false)
   const [newSeatCount, setNewSeatCount] = useState(1)
   const [pendingAction, setPendingAction] = useState<string | null>(null)
@@ -252,10 +255,10 @@ export function TeamManagement() {
     personalBillingPayload?.billingEnabled ??
     organizationsData?.billingData?.data?.billingEnabled ??
     true
-  const availableOrganizationTiers = [
-    ...(publicBillingCatalog?.publicTiers ?? []),
-    ...(privateTierAccess.data?.privateTiers ?? []),
-  ].sort((left, right) => left.displayOrder - right.displayOrder || left.id.localeCompare(right.id))
+  const availableOrganizationTiers = mergeAccessibleBillingTiers(
+    publicBillingCatalog?.publicTiers,
+    privateTierAccess.data?.privateTiers
+  )
   const organizationPlanSurface = getSubscriptionSurfaceState({
     subscription: {
       isFree: false,
@@ -550,20 +553,10 @@ export function TeamManagement() {
         billingTier: adjustableSeatTier.displayName,
       })
 
-      await handleUpgrade(
-        {
-          billingTierId: adjustableSeatTier.id,
-          displayName: adjustableSeatTier.displayName,
-          ownerType: adjustableSeatTier.ownerType,
-          usageScope: adjustableSeatTier.usageScope,
-          seatMode: adjustableSeatTier.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
-          seatCount: adjustableSeatTier.seatCount,
-        },
-        {
-          seats,
-          organizationId: activeOrgId,
-        }
-      )
+      await handleUpgrade(toUpgradeTarget(adjustableSeatTier), {
+        seats,
+        organizationId: activeOrgId,
+      })
     },
     [session?.user, activeOrgId, adjustableSeatTier, handleUpgrade]
   )
@@ -572,18 +565,6 @@ export function TeamManagement() {
   const queryFailure = queryError instanceof Error ? queryError.message : null
   const actionFailure = (action: string) =>
     actionError?.action === action ? actionError.message : null
-  const privateAccessErrorCode =
-    getPrivateTierAccessErrorCode(privateTierAccessMutation.error) ??
-    (privateTierAccessMutation.isError ? PRIVATE_TIER_ACCESS_ERROR_CODES.validateFailed : null) ??
-    getPrivateTierAccessErrorCode(privateTierAccess.error) ??
-    (privateTierAccess.isError ? PRIVATE_TIER_ACCESS_ERROR_CODES.loadFailed : null)
-  const handlePrivateTierAccess = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    privateTierAccessMutation.mutate(accessCode.trim(), {
-      onSuccess: () => setAccessCode(''),
-    })
-  }
-
   if (isLoading && !displayOrganization) {
     return (
       <div className='px-6 pt-4 pb-4'>
@@ -657,10 +638,7 @@ export function TeamManagement() {
                 value={accessCode}
                 placeholder={privateAccessCopy('placeholder')}
                 autoComplete='off'
-                onChange={(event) => {
-                  setAccessCode(event.target.value)
-                  privateTierAccessMutation.reset()
-                }}
+                onChange={(event) => onPrivateTierAccessCodeChange(event.target.value)}
               />
               <Button
                 type='submit'

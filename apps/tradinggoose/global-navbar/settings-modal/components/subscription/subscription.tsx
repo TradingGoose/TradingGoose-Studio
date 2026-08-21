@@ -1,6 +1,6 @@
 'use client'
 
-import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useSession } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
-import { PRIVATE_TIER_ACCESS_ERROR_CODES } from '@/lib/billing/private-tier-access-contract'
 import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
 import { EMPTY_BILLING_TIER_SUMMARY } from '@/lib/billing/tier-summary'
@@ -22,11 +21,7 @@ import {
   patchBillingUsageNotifications,
 } from '@/hooks/queries/general-settings'
 import { useOrganizationBilling } from '@/hooks/queries/organization'
-import {
-  getPrivateTierAccessErrorCode,
-  usePrivateTierAccess,
-  usePrivateTierAccessMutation,
-} from '@/hooks/queries/private-tier-access'
+import { usePrivateTierAccessForm } from '@/hooks/queries/private-tier-access'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
 import { useWorkspaceSettings } from '@/hooks/queries/workspace'
@@ -39,7 +34,10 @@ import {
   shouldOpenBillingPortalForPaygActivationError,
 } from './payg-ui'
 import { toPlanFeatures, toUpgradeTarget } from './plan-configs'
-import { getSubscriptionSurfaceState } from './subscription-permissions'
+import {
+  getSubscriptionSurfaceState,
+  mergeAccessibleBillingTiers,
+} from './subscription-permissions'
 
 const UPGRADE_ERROR_TIMEOUT = 3000
 
@@ -271,8 +269,14 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     refetch: refetchUsageLimit,
   } = useUsageLimitData()
   const { data: publicBillingCatalog, isLoading: isCatalogLoading } = usePublicBillingCatalog()
-  const privateTierAccess = usePrivateTierAccess()
-  const privateTierAccessMutation = usePrivateTierAccessMutation()
+  const {
+    accessCode,
+    errorCode: privateAccessErrorCode,
+    mutation: privateTierAccessMutation,
+    onChange: onPrivateTierAccessCodeChange,
+    onSubmit: handlePrivateTierAccess,
+    query: privateTierAccess,
+  } = usePrivateTierAccessForm()
 
   const {
     data: organizationBillingData,
@@ -285,13 +289,12 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
   const [upgradeError, setUpgradeError] = useState<string | null>(null)
   const [isPrimaryActionPending, setIsPrimaryActionPending] = useState(false)
-  const [accessCode, setAccessCode] = useState('')
   const usageLimitRef = useRef<UsageLimitRef | null>(null)
 
-  const availableTiers = [
-    ...(publicBillingCatalog?.publicTiers ?? []),
-    ...(privateTierAccess.data?.privateTiers ?? []),
-  ].sort((left, right) => left.displayOrder - right.displayOrder || left.id.localeCompare(right.id))
+  const availableTiers = mergeAccessibleBillingTiers(
+    publicBillingCatalog?.publicTiers,
+    privateTierAccess.data?.privateTiers
+  )
   const billingPayload = subscriptionData?.data
   const organizationBillingPayload =
     organizationBillingData?.organizationId === organizationBillingId
@@ -517,20 +520,6 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     }
   }
 
-  function handlePrivateTierAccess(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const code = accessCode.trim()
-    privateTierAccessMutation.mutate(code, {
-      onSuccess: () => setAccessCode(''),
-    })
-  }
-
-  const privateAccessErrorCode =
-    getPrivateTierAccessErrorCode(privateTierAccessMutation.error) ??
-    (privateTierAccessMutation.isError ? PRIVATE_TIER_ACCESS_ERROR_CODES.validateFailed : null) ??
-    getPrivateTierAccessErrorCode(privateTierAccess.error) ??
-    (privateTierAccess.isError ? PRIVATE_TIER_ACCESS_ERROR_CODES.loadFailed : null)
-
   const isLoading =
     isWorkspaceSettingsPending ||
     (isOrganizationBillingSubject
@@ -541,17 +530,20 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     isCatalogLoading ||
     privateTierAccess.isLoading
 
+  const shouldClose =
+    !isLoading &&
+    ((workspaceId && (isWorkspaceSettingsError || !currentWorkspace)) ||
+      (!isOrganizationBillingSubject && !isOtherUserBillingSubject && isSubscriptionError))
+
+  useEffect(() => {
+    if (shouldClose) onOpenChange(false)
+  }, [onOpenChange, shouldClose])
+
   if (isLoading) {
     return <SubscriptionSkeleton />
   }
 
-  if (
-    (workspaceId && (isWorkspaceSettingsError || !currentWorkspace)) ||
-    (!isOrganizationBillingSubject && !isOtherUserBillingSubject && isSubscriptionError)
-  ) {
-    onOpenChange(false)
-    return null
-  }
+  if (shouldClose) return null
 
   if (isOtherUserBillingSubject) {
     return (
@@ -649,41 +641,36 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
 
-        {canManageSelectedPlan && (
-          <div className='space-y-2 rounded-sm border p-3'>
-            <label htmlFor='private-tier-access-code' className='font-medium text-sm'>
-              {copy('privateAccess.label')}
-            </label>
-            <form className='flex gap-2' onSubmit={handlePrivateTierAccess}>
-              <Input
-                id='private-tier-access-code'
-                value={accessCode}
-                placeholder={copy('privateAccess.placeholder')}
-                autoComplete='off'
-                onChange={(event) => {
-                  setAccessCode(event.target.value)
-                  privateTierAccessMutation.reset()
-                }}
-              />
-              <Button
-                type='submit'
-                disabled={!accessCode.trim() || privateTierAccessMutation.isPending}
-              >
-                {copy('privateAccess.validate')}
-              </Button>
-            </form>
-            {privateAccessErrorCode ? (
-              <p role='alert' className='text-destructive text-xs'>
-                {copy(`privateAccess.errors.${privateAccessErrorCode}`)}
-              </p>
-            ) : null}
-            {privateTierAccessMutation.isSuccess ? (
-              <p role='status' className='text-muted-foreground text-xs'>
-                {copy('privateAccess.success')}
-              </p>
-            ) : null}
-          </div>
-        )}
+        <div className='space-y-2 rounded-sm border p-3'>
+          <label htmlFor='private-tier-access-code' className='font-medium text-sm'>
+            {copy('privateAccess.label')}
+          </label>
+          <form className='flex gap-2' onSubmit={handlePrivateTierAccess}>
+            <Input
+              id='private-tier-access-code'
+              value={accessCode}
+              placeholder={copy('privateAccess.placeholder')}
+              autoComplete='off'
+              onChange={(event) => onPrivateTierAccessCodeChange(event.target.value)}
+            />
+            <Button
+              type='submit'
+              disabled={!accessCode.trim() || privateTierAccessMutation.isPending}
+            >
+              {copy('privateAccess.validate')}
+            </Button>
+          </form>
+          {privateAccessErrorCode ? (
+            <p role='alert' className='text-destructive text-xs'>
+              {copy(`privateAccess.errors.${privateAccessErrorCode}`)}
+            </p>
+          ) : null}
+          {privateTierAccessMutation.isSuccess ? (
+            <p role='status' className='text-muted-foreground text-xs'>
+              {copy('privateAccess.success')}
+            </p>
+          ) : null}
+        </div>
 
         {hasVisiblePlanCards && (
           <div className='flex flex-col gap-2'>
