@@ -288,7 +288,7 @@ describe('dispatchNextPendingExecution', () => {
     configureTransactionMock()
   })
 
-  it('maps a finite tier workflow limit onto the exact Trigger.dev run', async () => {
+  it('passes a finite tier workflow limit to the durable supervisor payload', async () => {
     const row = createPendingRow()
     resolveServerExecutionBillingTierForScopeMock.mockResolvedValue({
       concurrencyLimit: null,
@@ -309,16 +309,15 @@ describe('dispatchNextPendingExecution', () => {
     expect(idempotencyCreateMock).toHaveBeenCalledWith(triggerKey, { scope: 'global' })
     expect(triggerMock).toHaveBeenCalledWith(
       'pending-execution',
-      { pendingExecutionId: 'pending-1' },
+      { pendingExecutionId: 'pending-1', executionMaxDuration: 45 },
       {
         idempotencyKey: 'idempotency-key',
         tags: [triggerKey],
-        maxDuration: 45,
       }
     )
   })
 
-  it('maps a null tier workflow limit to timeout.None', async () => {
+  it('passes timeout.None to the supervisor for an unlimited tier', async () => {
     const row = createPendingRow()
     resolveServerExecutionBillingTierForScopeMock.mockResolvedValue({
       concurrencyLimit: null,
@@ -332,11 +331,10 @@ describe('dispatchNextPendingExecution', () => {
     const triggerKey = getPendingExecutionTriggerKey('pending-1')
     expect(triggerMock).toHaveBeenCalledWith(
       'pending-execution',
-      { pendingExecutionId: 'pending-1' },
+      { pendingExecutionId: 'pending-1', executionMaxDuration: TIMEOUT_NONE },
       {
         idempotencyKey: 'idempotency-key',
         tags: [triggerKey],
-        maxDuration: TIMEOUT_NONE,
       }
     )
   })
@@ -470,19 +468,17 @@ describe('dispatchNextPendingExecution', () => {
       })
       .mockResolvedValueOnce({
         data: [
-          createTriggerRun('TIMED_OUT', {
+          createTriggerRun('EXPIRED', {
             id: 'run-child-1',
             durationMs: 10_000,
-            isCompleted: true,
           }),
         ],
       })
       .mockResolvedValueOnce({
         data: [
-          createTriggerRun('TIMED_OUT', {
+          createTriggerRun('SYSTEM_FAILURE', {
             id: 'run-processing-1',
             durationMs: 45_000,
-            isCompleted: true,
           }),
         ],
       })
@@ -500,14 +496,14 @@ describe('dispatchNextPendingExecution', () => {
     expect(finalizePendingExecutionFailureMock).toHaveBeenNthCalledWith(
       1,
       borrowedChild,
-      'Workflow execution time limit exceeded',
+      'Workflow execution expired before it started',
       10_000,
       { wake: false }
     )
     expect(finalizePendingExecutionFailureMock).toHaveBeenNthCalledWith(
       2,
       processing,
-      'Workflow execution time limit exceeded',
+      'Workflow execution stopped before it could finish',
       45_000,
       { wake: false }
     )
@@ -520,7 +516,7 @@ describe('dispatchNextPendingExecution', () => {
     })
     expect(triggerMock).toHaveBeenCalledWith(
       'pending-execution',
-      { pendingExecutionId: pending.id },
+      { pendingExecutionId: pending.id, executionMaxDuration: 45 },
       expect.anything()
     )
   })
@@ -549,8 +545,8 @@ describe('dispatchNextPendingExecution', () => {
     expect(triggerMock).toHaveBeenCalledOnce()
     expect(triggerMock).toHaveBeenCalledWith(
       'pending-execution',
-      { pendingExecutionId: processing.id },
-      expect.objectContaining({ maxDuration: 45 })
+      { pendingExecutionId: processing.id, executionMaxDuration: 45 },
+      expect.not.objectContaining({ maxDuration: expect.anything() })
     )
     expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
   })
@@ -650,7 +646,7 @@ describe('dispatchNextPendingExecution', () => {
     expect(deleteReturningMock).toHaveBeenCalledOnce()
     expect(triggerMock).toHaveBeenCalledWith(
       'pending-execution',
-      { pendingExecutionId: pending.id },
+      { pendingExecutionId: pending.id, executionMaxDuration: 45 },
       expect.anything()
     )
   })
@@ -698,8 +694,8 @@ describe('wakePendingExecution', () => {
 
     expect(triggerMock).toHaveBeenCalledTimes(2)
     expect(triggerMock.mock.calls.map((call) => call[1])).toEqual([
-      { pendingExecutionId: 'pending-1' },
-      { pendingExecutionId: 'pending-2' },
+      { pendingExecutionId: 'pending-1', executionMaxDuration: 45 },
+      { pendingExecutionId: 'pending-2', executionMaxDuration: 45 },
     ])
     expect(updateReturningMock).toHaveBeenCalledTimes(2)
     expect(getTriggerExecutionStateMock).toHaveBeenCalledOnce()
@@ -893,7 +889,7 @@ describe('enqueuePendingExecution', () => {
     })
     expect(triggerMock).toHaveBeenCalledWith(
       'pending-execution',
-      { pendingExecutionId: 'pending-local-1' },
+      { pendingExecutionId: 'pending-local-1', executionMaxDuration: TIMEOUT_NONE },
       expect.anything()
     )
   })
@@ -955,11 +951,10 @@ describe('enqueuePendingExecution', () => {
     const triggerKey = getPendingExecutionTriggerKey('pending-existing')
     expect(triggerMock).toHaveBeenCalledWith(
       'pending-execution',
-      { pendingExecutionId: 'pending-existing' },
+      { pendingExecutionId: 'pending-existing', executionMaxDuration: TIMEOUT_NONE },
       {
         idempotencyKey: 'idempotency-key',
         tags: [triggerKey],
-        maxDuration: TIMEOUT_NONE,
       }
     )
   })
@@ -990,7 +985,7 @@ describe('enqueuePendingExecution', () => {
     expect(txInsertValuesMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'pending-b' }))
     expect(triggerMock).toHaveBeenCalledWith(
       'pending-execution',
-      { pendingExecutionId: 'pending-a' },
+      { pendingExecutionId: 'pending-a', executionMaxDuration: TIMEOUT_NONE },
       expect.anything()
     )
     expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'processing' }))

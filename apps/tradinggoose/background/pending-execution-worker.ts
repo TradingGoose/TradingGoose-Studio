@@ -1,15 +1,17 @@
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { runs, task } from '@trigger.dev/sdk'
+import { runs, task, timeout } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import {
   completePendingExecution,
   getPendingExecutionTriggerKey,
   getProcessingPendingExecution,
+  isTerminalPendingExecutionRunStatus,
   isTierLimitedPendingExecution,
   listChildPendingWorkflowExecutions,
   markPendingExecutionOwnerCompleted,
   PENDING_EXECUTION_TASK_ID,
+  PENDING_EXECUTION_TIME_LIMIT_ERROR,
   type PendingExecutionClaim,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -23,8 +25,14 @@ const logger = createLogger('PendingExecutionWorker')
 export const PENDING_EXECUTION_WORKER_FAILURE_ERROR =
   'Workflow execution stopped before it could finish'
 const DESCENDANT_CANCELLATION_CONCURRENCY = 5
+const PENDING_EXECUTION_RUN_TASK_ID = 'pending-execution-run'
 
 type PendingExecutionTaskPayload = {
+  pendingExecutionId: string
+  executionMaxDuration?: number
+}
+
+type PendingExecutionRunTaskPayload = {
   pendingExecutionId: string
 }
 
@@ -84,27 +92,77 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
   }
 }
 
-async function executePendingExecution(payload: PendingExecutionTaskPayload) {
+async function executePendingExecutionRun(payload: PendingExecutionRunTaskPayload) {
   const row = await getProcessingPendingExecution(payload.pendingExecutionId)
   if (!row) {
     return { success: true, skipped: 'not_processing' as const }
   }
 
-  const startedAt = Date.now()
-  try {
-    await dispatchPendingExecution(row)
-    return { success: true, pendingExecutionId: row.id }
-  } catch (error) {
-    logger.error('Pending execution failed', {
-      pendingExecutionId: row.id,
-      executionType: row.executionType,
-      workflowId: row.workflowId,
-      error,
-    })
-    const message = error instanceof Error ? error.message : PENDING_EXECUTION_WORKER_FAILURE_ERROR
-    await finalizePendingExecutionFailure(row, message, Math.max(1, Date.now() - startedAt))
-    throw error
+  await dispatchPendingExecution(row)
+  return { success: true, pendingExecutionId: row.id }
+}
+
+export const pendingExecutionRunTask = task<
+  typeof PENDING_EXECUTION_RUN_TASK_ID,
+  PendingExecutionRunTaskPayload
+>({
+  id: PENDING_EXECUTION_RUN_TASK_ID,
+  retry: {
+    maxAttempts: 1,
+  },
+  run: executePendingExecutionRun,
+})
+
+function isMaxDurationError(error: unknown) {
+  return error instanceof Error && error.name === 'MAX_DURATION_EXCEEDED'
+}
+
+function getPendingExecutionFailureMessage(error: unknown) {
+  if (isMaxDurationError(error)) return PENDING_EXECUTION_TIME_LIMIT_ERROR
+  if (isRecord(error) && typeof error.message === 'string' && error.message.length > 0) {
+    return error.message
   }
+  return PENDING_EXECUTION_WORKER_FAILURE_ERROR
+}
+
+async function finalizePendingExecutionRunFailure(
+  payload: PendingExecutionTaskPayload,
+  error: unknown,
+  startedAt: number
+) {
+  const row = await getProcessingPendingExecution(payload.pendingExecutionId)
+  if (!row) {
+    return { success: true, skipped: 'not_processing' as const }
+  }
+
+  const message = getPendingExecutionFailureMessage(error)
+  const durationMs =
+    isMaxDurationError(error) &&
+    payload.executionMaxDuration !== undefined &&
+    payload.executionMaxDuration !== timeout.None
+      ? payload.executionMaxDuration * 1_000
+      : Math.max(1, Date.now() - startedAt)
+  logger.error('Pending execution failed', {
+    pendingExecutionId: row.id,
+    executionType: row.executionType,
+    workflowId: row.workflowId,
+    error,
+  })
+  await finalizePendingExecutionFailure(row, message, durationMs)
+  throw new Error(message)
+}
+
+async function executePendingExecution(payload: PendingExecutionTaskPayload) {
+  const startedAt = Date.now()
+  const result = await pendingExecutionRunTask.triggerAndWait(
+    { pendingExecutionId: payload.pendingExecutionId },
+    payload.executionMaxDuration === undefined
+      ? undefined
+      : { maxDuration: payload.executionMaxDuration }
+  )
+
+  if (result.ok) return result.output
+  return finalizePendingExecutionRunFailure(payload, result.error, startedAt)
 }
 
 export const pendingExecutionTask = task<
@@ -112,6 +170,7 @@ export const pendingExecutionTask = task<
   PendingExecutionTaskPayload
 >({
   id: PENDING_EXECUTION_TASK_ID,
+  maxDuration: timeout.None,
   retry: {
     maxAttempts: 1,
   },
@@ -186,7 +245,7 @@ async function cancelTriggerRun(row: PendingExecutionClaim) {
       limit: 1,
     })
     const run = page.data[0]
-    if (run && !run.isCompleted && !run.isCancelled) {
+    if (run && !isTerminalPendingExecutionRunStatus(run.status)) {
       await runs.cancel(run.id)
     }
   } catch (error) {

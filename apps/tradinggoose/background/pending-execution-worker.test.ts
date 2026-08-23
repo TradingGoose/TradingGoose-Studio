@@ -28,12 +28,14 @@ const mocks = vi.hoisted(() => ({
   loggingStart: vi.fn(),
   runsCancel: vi.fn(),
   runsList: vi.fn(),
-  task: vi.fn((config) => config),
+  triggerAndWait: vi.fn(),
+  task: vi.fn((config) => ({ ...config, triggerAndWait: mocks.triggerAndWait })),
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
   runs: { cancel: mocks.runsCancel, list: mocks.runsList },
   task: mocks.task,
+  timeout: { None: 2_147_483_647 },
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -63,9 +65,20 @@ vi.mock('@/lib/execution/pending-execution', () => ({
   getPendingExecutionTriggerKey: (id: string) => `pending-execution:${id}`,
   getProcessingPendingExecution: mocks.getProcessingPendingExecution,
   isTierLimitedPendingExecution: mocks.isTierLimitedPendingExecution,
+  isTerminalPendingExecutionRunStatus: (status: string) =>
+    [
+      'COMPLETED',
+      'CANCELED',
+      'FAILED',
+      'CRASHED',
+      'SYSTEM_FAILURE',
+      'EXPIRED',
+      'TIMED_OUT',
+    ].includes(status),
   listChildPendingWorkflowExecutions: mocks.listChildPendingWorkflowExecutions,
   markPendingExecutionOwnerCompleted: mocks.markPendingExecutionOwnerCompleted,
   PENDING_EXECUTION_TASK_ID: 'pending-execution',
+  PENDING_EXECUTION_TIME_LIMIT_ERROR: 'Workflow execution time limit exceeded',
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -113,7 +126,11 @@ vi.mock('./workflow-execution', () => ({
   isWorkflowExecutionPayload: mocks.isWorkflowExecutionPayload,
 }))
 
-import { finalizePendingExecutionFailure, pendingExecutionTask } from './pending-execution-worker'
+import {
+  finalizePendingExecutionFailure,
+  pendingExecutionRunTask,
+  pendingExecutionTask,
+} from './pending-execution-worker'
 
 const processingRow = (overrides: Record<string, unknown> = {}) => ({
   id: 'pending-workflow-1',
@@ -133,12 +150,22 @@ const processingRow = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
-const runTask = (pendingExecutionId: string) =>
+const runExecution = (pendingExecutionId: string) =>
   (
-    pendingExecutionTask as unknown as {
+    pendingExecutionRunTask as unknown as {
       run: (payload: { pendingExecutionId: string }) => Promise<unknown>
     }
   ).run({ pendingExecutionId })
+
+const runSupervisor = (pendingExecutionId: string, executionMaxDuration?: number) =>
+  (
+    pendingExecutionTask as unknown as {
+      run: (payload: {
+        pendingExecutionId: string
+        executionMaxDuration?: number
+      }) => Promise<unknown>
+    }
+  ).run({ pendingExecutionId, executionMaxDuration })
 
 describe('pending execution worker', () => {
   beforeEach(() => {
@@ -167,13 +194,19 @@ describe('pending execution worker', () => {
     mocks.loggingStart.mockResolvedValue('workflow-log-1')
     mocks.runsCancel.mockResolvedValue(undefined)
     mocks.runsList.mockResolvedValue({ data: [], pagination: {} })
+    mocks.triggerAndWait.mockResolvedValue({
+      ok: true,
+      id: 'run-pending-execution-run',
+      taskIdentifier: 'pending-execution-run',
+      output: { success: true, pendingExecutionId: 'pending-workflow-1' },
+    })
   })
 
   it('executes exactly the claimed row and releases capacity', async () => {
     const row = processingRow()
     mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
 
-    await expect(runTask(row.id)).resolves.toEqual({
+    await expect(runExecution(row.id)).resolves.toEqual({
       success: true,
       pendingExecutionId: row.id,
     })
@@ -187,18 +220,56 @@ describe('pending execution worker', () => {
     })
   })
 
-  it('persists a terminal error and still reports the Trigger run as failed', async () => {
-    const row = processingRow()
-    const error = new Error('Execution infrastructure failed')
-    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
-    mocks.executeWorkflowJob.mockRejectedValueOnce(error)
+  it('runs the supervisor without a deadline and applies the tier duration only to the child', async () => {
+    await expect(runSupervisor('pending-workflow-1', 45)).resolves.toEqual({
+      success: true,
+      pendingExecutionId: 'pending-workflow-1',
+    })
 
-    await expect(runTask(row.id)).rejects.toThrow(error.message)
+    expect(pendingExecutionTask).toMatchObject({ maxDuration: 2_147_483_647 })
+    expect(mocks.triggerAndWait).toHaveBeenCalledWith(
+      { pendingExecutionId: 'pending-workflow-1' },
+      { maxDuration: 45 }
+    )
+  })
+
+  it('persists a hard maxDuration timeout after Trigger stops the bounded child', async () => {
+    const row = processingRow()
+    const timeoutError = new Error('Task exceeded its maxDuration')
+    timeoutError.name = 'MAX_DURATION_EXCEEDED'
+    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+    mocks.triggerAndWait.mockResolvedValueOnce({
+      ok: false,
+      id: 'run-pending-execution-run',
+      taskIdentifier: 'pending-execution-run',
+      error: timeoutError,
+    })
+
+    await expect(runSupervisor(row.id, 45)).rejects.toThrow(
+      'Workflow execution time limit exceeded'
+    )
 
     expect(mocks.loggingCompleteWithError).toHaveBeenCalledWith(
-      expect.objectContaining({ error: { message: error.message } })
+      expect.objectContaining({
+        totalDurationMs: 45_000,
+        error: { message: 'Workflow execution time limit exceeded' },
+      })
     )
     expect(mocks.completePendingExecution).toHaveBeenCalledWith({ pendingExecutionId: row.id })
+    expect(mocks.loggingCompleteWithError.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.completePendingExecution.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('leaves bounded child failures for the supervisor to finalize', async () => {
+    const row = processingRow()
+    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+    mocks.executeWorkflowJob.mockRejectedValueOnce(new Error('Execution infrastructure failed'))
+
+    await expect(runExecution(row.id)).rejects.toThrow('Execution infrastructure failed')
+
+    expect(mocks.loggingCompleteWithError).not.toHaveBeenCalled()
+    expect(mocks.completePendingExecution).not.toHaveBeenCalled()
   })
 
   it('terminalizes a failed Airtable continuation admission', async () => {
@@ -208,10 +279,14 @@ describe('pending execution worker', () => {
       payload: { provider: 'airtable', phase: 'initial' },
     })
     mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
-    mocks.isWebhookExecutionPayload.mockReturnValue(true)
-    mocks.executeWebhookJob.mockRejectedValueOnce(new Error('Continuation admission failed'))
+    mocks.triggerAndWait.mockResolvedValueOnce({
+      ok: false,
+      id: 'run-pending-execution-run',
+      taskIdentifier: 'pending-execution-run',
+      error: new Error('Continuation admission failed'),
+    })
 
-    await expect(runTask(row.id)).rejects.toThrow('Continuation admission failed')
+    await expect(runSupervisor(row.id)).rejects.toThrow('Continuation admission failed')
 
     expect(mocks.completePendingExecution).toHaveBeenCalledWith({
       pendingExecutionId: row.id,
@@ -225,7 +300,7 @@ describe('pending execution worker', () => {
       processingRow({ id: 'child-1', source: 'workflow_block' }),
     ])
 
-    await expect(runTask(row.id)).resolves.toMatchObject({ success: true })
+    await expect(runExecution(row.id)).resolves.toMatchObject({ success: true })
 
     expect(mocks.markPendingExecutionOwnerCompleted).toHaveBeenCalledWith(row)
     expect(mocks.completePendingExecution).not.toHaveBeenCalled()
@@ -240,9 +315,14 @@ describe('pending execution worker', () => {
       payload: { documentId: 'document-1' },
     })
     mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
-    mocks.executeTriggeredDocumentProcessingJob.mockRejectedValueOnce(new Error('PDF parse failed'))
+    mocks.triggerAndWait.mockResolvedValueOnce({
+      ok: false,
+      id: 'run-pending-execution-run',
+      taskIdentifier: 'pending-execution-run',
+      error: new Error('PDF parse failed'),
+    })
 
-    await expect(runTask(row.id)).rejects.toThrow('PDF parse failed')
+    await expect(runSupervisor(row.id)).rejects.toThrow('PDF parse failed')
     expect(mocks.markDocumentProcessingJobFailed).toHaveBeenCalledWith(
       row.payload,
       'PDF parse failed'

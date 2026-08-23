@@ -15,7 +15,7 @@ import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/li
 export const PENDING_EXECUTION_TASK_ID = 'pending-execution'
 export const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 const WORKFLOW_BLOCK_SOURCE = 'workflow_block'
-const TIME_LIMIT_ERROR = 'Workflow execution time limit exceeded'
+export const PENDING_EXECUTION_TIME_LIMIT_ERROR = 'Workflow execution time limit exceeded'
 const CANCELLATION_ERROR = 'Workflow execution was cancelled'
 const EXPIRED_ERROR = 'Workflow execution expired before it started'
 const MAX_WAKE_DISPATCHES = 20
@@ -169,6 +169,18 @@ export function getPendingExecutionTriggerKey(pendingExecutionId: string) {
   return `${PENDING_EXECUTION_TASK_ID}:${digest}`
 }
 
+export function isTerminalPendingExecutionRunStatus(status: string) {
+  return (
+    status === 'COMPLETED' ||
+    status === 'CANCELED' ||
+    status === 'FAILED' ||
+    status === 'CRASHED' ||
+    status === 'SYSTEM_FAILURE' ||
+    status === 'EXPIRED' ||
+    status === 'TIMED_OUT'
+  )
+}
+
 async function triggerPendingExecution(row: PendingExecutionClaim) {
   let admissionStarted = false
   try {
@@ -186,11 +198,13 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
     admissionStarted = true
     await tasks.trigger(
       PENDING_EXECUTION_TASK_ID,
-      { pendingExecutionId: row.id },
+      {
+        pendingExecutionId: row.id,
+        ...(maxDuration === undefined ? {} : { executionMaxDuration: maxDuration }),
+      },
       {
         idempotencyKey,
         tags: [triggerKey],
-        ...(maxDuration === undefined ? {} : { maxDuration }),
       }
     )
   } catch (error) {
@@ -660,7 +674,7 @@ async function reconcileProcessingPendingExecution(
     await triggerPendingExecution(row)
     return false
   }
-  if (!run.isCompleted && !run.isCancelled) return false
+  if (!isTerminalPendingExecutionRunStatus(run.status)) return false
 
   if (run.status === 'COMPLETED') {
     if ((await listChildPendingWorkflowExecutions(row.id)).length > 0) {
@@ -675,13 +689,11 @@ async function reconcileProcessingPendingExecution(
     '@/background/pending-execution-worker'
   )
   const message =
-    run.status === 'TIMED_OUT'
-      ? TIME_LIMIT_ERROR
-      : run.status === 'EXPIRED'
-        ? EXPIRED_ERROR
-        : run.status === 'CANCELED'
-          ? CANCELLATION_ERROR
-          : PENDING_EXECUTION_WORKER_FAILURE_ERROR
+    run.status === 'EXPIRED'
+      ? EXPIRED_ERROR
+      : run.status === 'CANCELED'
+        ? CANCELLATION_ERROR
+        : PENDING_EXECUTION_WORKER_FAILURE_ERROR
   await finalizePendingExecutionFailure(row, message, run.durationMs, {
     wake: false,
   })
