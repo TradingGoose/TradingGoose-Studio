@@ -254,7 +254,13 @@ export async function dispatchNextPendingExecution(params: {
     return claim
   }
 
-  await triggerPendingExecution(claim.row)
+  try {
+    await triggerPendingExecution(claim.row)
+  } catch (error) {
+    const processing = await getProcessingPendingExecution(claim.row.id)
+    if (!processing) throw error
+    await reconcileProcessingPendingExecution(processing, processing.id)
+  }
 
   return { status: 'dispatched' as const, pendingExecutionId: claim.row.id }
 }
@@ -278,12 +284,12 @@ export async function wakePendingExecution(params: {
       }
     }
   } catch (error) {
-    if (error instanceof TriggerExecutionUnavailableError) throw error
     logger.error('Pending execution wake failed', {
       billingScopeId: params.billingScopeId,
       requestId: params.requestId,
       error,
     })
+    throw error
   }
 }
 

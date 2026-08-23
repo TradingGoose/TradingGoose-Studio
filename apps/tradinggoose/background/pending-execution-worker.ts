@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { runs, task, timeout } from '@trigger.dev/sdk'
+import { retry, runs, task, timeout } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import {
   completePendingExecution,
@@ -13,6 +13,7 @@ import {
   PENDING_EXECUTION_TASK_ID,
   PENDING_EXECUTION_TIME_LIMIT_ERROR,
   type PendingExecutionClaim,
+  wakePendingExecution,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
@@ -86,9 +87,9 @@ async function getWorkflowExecutionLog(executionId: string) {
 async function dispatchPendingExecution(row: PendingExecutionClaim) {
   await executePendingExecutionJob(row, { triggerRuntime: true })
   if ((await listChildPendingWorkflowExecutions(row.id)).length === 0) {
-    await completePendingExecution({ pendingExecutionId: row.id })
+    await completePendingExecution({ pendingExecutionId: row.id, wake: false })
   } else {
-    await markPendingExecutionOwnerCompleted(row)
+    await markPendingExecutionOwnerCompleted(row, { wake: false })
   }
 }
 
@@ -131,9 +132,7 @@ async function finalizePendingExecutionRunFailure(
   startedAt: number
 ) {
   const row = await getProcessingPendingExecution(payload.pendingExecutionId)
-  if (!row) {
-    return { success: true, skipped: 'not_processing' as const }
-  }
+  if (!row) return
 
   const message = getPendingExecutionFailureMessage(error)
   const durationMs =
@@ -148,12 +147,16 @@ async function finalizePendingExecutionRunFailure(
     workflowId: row.workflowId,
     error,
   })
-  await finalizePendingExecutionFailure(row, message, durationMs)
-  throw new Error(message)
+  await finalizePendingExecutionFailure(row, message, durationMs, { wake: false })
+  return message
 }
 
 async function executePendingExecution(payload: PendingExecutionTaskPayload) {
   const startedAt = Date.now()
+  const row = await getProcessingPendingExecution(payload.pendingExecutionId)
+  if (!row) {
+    return { success: true, skipped: 'not_processing' as const }
+  }
   const result = await pendingExecutionRunTask.triggerAndWait(
     { pendingExecutionId: payload.pendingExecutionId },
     payload.executionMaxDuration === undefined
@@ -161,8 +164,19 @@ async function executePendingExecution(payload: PendingExecutionTaskPayload) {
       : { maxDuration: payload.executionMaxDuration }
   )
 
-  if (result.ok) return result.output
-  return finalizePendingExecutionRunFailure(payload, result.error, startedAt)
+  const failureMessage = result.ok
+    ? undefined
+    : await finalizePendingExecutionRunFailure(payload, result.error, startedAt)
+  await retry.onThrow(
+    () =>
+      wakePendingExecution({
+        billingScopeId: row.billingScopeId,
+        billingScopeType: row.billingScopeType,
+      }),
+    { maxAttempts: 3 }
+  )
+  if (failureMessage) throw new Error(failureMessage)
+  return result.ok ? result.output : { success: true, skipped: 'not_processing' as const }
 }
 
 export const pendingExecutionTask = task<

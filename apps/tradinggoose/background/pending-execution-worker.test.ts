@@ -28,11 +28,14 @@ const mocks = vi.hoisted(() => ({
   loggingStart: vi.fn(),
   runsCancel: vi.fn(),
   runsList: vi.fn(),
+  retryOnThrow: vi.fn((callback: () => Promise<unknown>) => callback()),
   triggerAndWait: vi.fn(),
+  wakePendingExecution: vi.fn(),
   task: vi.fn((config) => ({ ...config, triggerAndWait: mocks.triggerAndWait })),
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
+  retry: { onThrow: mocks.retryOnThrow },
   runs: { cancel: mocks.runsCancel, list: mocks.runsList },
   task: mocks.task,
   timeout: { None: 2_147_483_647 },
@@ -79,6 +82,7 @@ vi.mock('@/lib/execution/pending-execution', () => ({
   markPendingExecutionOwnerCompleted: mocks.markPendingExecutionOwnerCompleted,
   PENDING_EXECUTION_TASK_ID: 'pending-execution',
   PENDING_EXECUTION_TIME_LIMIT_ERROR: 'Workflow execution time limit exceeded',
+  wakePendingExecution: mocks.wakePendingExecution,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -200,6 +204,7 @@ describe('pending execution worker', () => {
       taskIdentifier: 'pending-execution-run',
       output: { success: true, pendingExecutionId: 'pending-workflow-1' },
     })
+    mocks.wakePendingExecution.mockResolvedValue({ status: 'empty' })
   })
 
   it('executes exactly the claimed row and releases capacity', async () => {
@@ -217,10 +222,35 @@ describe('pending execution worker', () => {
     })
     expect(mocks.completePendingExecution).toHaveBeenCalledWith({
       pendingExecutionId: row.id,
+      wake: false,
     })
+    expect(mocks.wakePendingExecution).not.toHaveBeenCalled()
+  })
+
+  it('retries a failed post-completion wake without repeating the completed execution', async () => {
+    const row = processingRow()
+    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+    mocks.wakePendingExecution
+      .mockRejectedValueOnce(new Error('Trigger wake failed'))
+      .mockResolvedValueOnce({ status: 'empty' })
+    mocks.retryOnThrow.mockImplementationOnce(async (callback) => {
+      try {
+        return await callback()
+      } catch {
+        return callback()
+      }
+    })
+
+    await expect(runSupervisor(row.id)).resolves.toMatchObject({ success: true })
+
+    expect(mocks.triggerAndWait).toHaveBeenCalledOnce()
+    expect(mocks.wakePendingExecution).toHaveBeenCalledTimes(2)
+    expect(mocks.retryOnThrow).toHaveBeenCalledWith(expect.any(Function), { maxAttempts: 3 })
   })
 
   it('runs the supervisor without a deadline and applies the tier duration only to the child', async () => {
+    mocks.getProcessingPendingExecution.mockResolvedValueOnce(processingRow())
+
     await expect(runSupervisor('pending-workflow-1', 45)).resolves.toEqual({
       success: true,
       pendingExecutionId: 'pending-workflow-1',
@@ -237,7 +267,7 @@ describe('pending execution worker', () => {
     const row = processingRow()
     const timeoutError = new Error('Task exceeded its maxDuration')
     timeoutError.name = 'MAX_DURATION_EXCEEDED'
-    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+    mocks.getProcessingPendingExecution.mockResolvedValue(row)
     mocks.triggerAndWait.mockResolvedValueOnce({
       ok: false,
       id: 'run-pending-execution-run',
@@ -255,7 +285,11 @@ describe('pending execution worker', () => {
         error: { message: 'Workflow execution time limit exceeded' },
       })
     )
-    expect(mocks.completePendingExecution).toHaveBeenCalledWith({ pendingExecutionId: row.id })
+    expect(mocks.completePendingExecution).toHaveBeenCalledWith({
+      pendingExecutionId: row.id,
+      wake: false,
+    })
+    expect(mocks.wakePendingExecution).toHaveBeenCalledOnce()
     expect(mocks.loggingCompleteWithError.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.completePendingExecution.mock.invocationCallOrder[0]
     )
@@ -278,7 +312,7 @@ describe('pending execution worker', () => {
       source: 'webhook:airtable',
       payload: { provider: 'airtable', phase: 'initial' },
     })
-    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+    mocks.getProcessingPendingExecution.mockResolvedValue(row)
     mocks.triggerAndWait.mockResolvedValueOnce({
       ok: false,
       id: 'run-pending-execution-run',
@@ -290,6 +324,7 @@ describe('pending execution worker', () => {
 
     expect(mocks.completePendingExecution).toHaveBeenCalledWith({
       pendingExecutionId: row.id,
+      wake: false,
     })
   })
 
@@ -302,7 +337,7 @@ describe('pending execution worker', () => {
 
     await expect(runExecution(row.id)).resolves.toMatchObject({ success: true })
 
-    expect(mocks.markPendingExecutionOwnerCompleted).toHaveBeenCalledWith(row)
+    expect(mocks.markPendingExecutionOwnerCompleted).toHaveBeenCalledWith(row, { wake: false })
     expect(mocks.completePendingExecution).not.toHaveBeenCalled()
   })
 
@@ -314,7 +349,7 @@ describe('pending execution worker', () => {
       workspaceId: null,
       payload: { documentId: 'document-1' },
     })
-    mocks.getProcessingPendingExecution.mockResolvedValueOnce(row)
+    mocks.getProcessingPendingExecution.mockResolvedValue(row)
     mocks.triggerAndWait.mockResolvedValueOnce({
       ok: false,
       id: 'run-pending-execution-run',
@@ -327,7 +362,10 @@ describe('pending execution worker', () => {
       row.payload,
       'PDF parse failed'
     )
-    expect(mocks.completePendingExecution).toHaveBeenCalledWith({ pendingExecutionId: row.id })
+    expect(mocks.completePendingExecution).toHaveBeenCalledWith({
+      pendingExecutionId: row.id,
+      wake: false,
+    })
   })
 
   it('settles reconciled failures without starting a nested queue wake', async () => {

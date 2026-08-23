@@ -339,6 +339,49 @@ describe('dispatchNextPendingExecution', () => {
     )
   })
 
+  it('accepts an ambiguously acknowledged admission when the tagged run exists', async () => {
+    const row = createPendingRow()
+    const error = new Error('Trigger admission response was lost')
+    mockClaimableRow(row)
+    selectLimitMock.mockResolvedValueOnce([{ ...row, status: 'processing' }])
+    triggerMock.mockRejectedValueOnce(error)
+    runsListMock.mockResolvedValueOnce({ data: [createTriggerRun('EXECUTING')] })
+
+    await expect(
+      dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).resolves.toEqual({
+      status: 'dispatched',
+      pendingExecutionId: row.id,
+    })
+
+    expect(triggerMock).toHaveBeenCalledOnce()
+    expect(runsListMock).toHaveBeenCalledWith({
+      tag: getPendingExecutionTriggerKey(row.id),
+      taskIdentifier: 'pending-execution',
+      limit: 1,
+    })
+    expect(updateChain.set).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'pending' }))
+  })
+
+  it('retries the exact admission when an ambiguous response has no tagged run', async () => {
+    const row = createPendingRow()
+    const error = new Error('Trigger admission response was lost')
+    mockClaimableRow(row)
+    selectLimitMock.mockResolvedValueOnce([{ ...row, status: 'processing' }])
+    triggerMock.mockRejectedValueOnce(error).mockResolvedValueOnce(undefined)
+
+    await expect(
+      dispatchNextPendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).resolves.toEqual({
+      status: 'dispatched',
+      pendingExecutionId: row.id,
+    })
+
+    expect(triggerMock).toHaveBeenCalledTimes(2)
+    expect(triggerMock.mock.calls[1]).toEqual(triggerMock.mock.calls[0])
+    expect(updateChain.set).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'pending' }))
+  })
+
   it('leaves indicator calculation on its existing intrinsic timeout', async () => {
     const row = createPendingRow({
       executionType: 'monitor',
@@ -700,6 +743,23 @@ describe('wakePendingExecution', () => {
     expect(updateReturningMock).toHaveBeenCalledTimes(2)
     expect(getTriggerExecutionStateMock).toHaveBeenCalledOnce()
   })
+
+  it('returns a pre-admission claim to the queue and propagates the wake failure', async () => {
+    const row = createPendingRow()
+    const error = new Error('Trigger wake failed')
+    mockClaimableRow(row)
+    idempotencyCreateMock.mockRejectedValueOnce(error)
+
+    await expect(
+      wakePendingExecution({ billingScopeId: 'scope-1', billingScopeType: 'user' })
+    ).rejects.toThrow(error.message)
+
+    expect(updateChain.set).toHaveBeenCalledWith({
+      status: 'pending',
+      processingStartedAt: null,
+      updatedAt: expect.any(Date),
+    })
+  })
 })
 
 describe('enqueuePendingExecution', () => {
@@ -966,7 +1026,9 @@ describe('enqueuePendingExecution', () => {
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
     triggerMock.mockRejectedValue(error)
     txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([])
-    mockClaimableRow(createPendingRow({ id: 'pending-a', billingScopeId: 'user-1' }))
+    const claimed = createPendingRow({ id: 'pending-a', billingScopeId: 'user-1' })
+    mockClaimableRow(claimed)
+    if (!resetClaim) selectLimitMock.mockResolvedValueOnce([{ ...claimed, status: 'processing' }])
 
     await expect(
       enqueuePendingExecution({
@@ -988,6 +1050,7 @@ describe('enqueuePendingExecution', () => {
       { pendingExecutionId: 'pending-a', executionMaxDuration: TIMEOUT_NONE },
       expect.anything()
     )
+    expect(triggerMock).toHaveBeenCalledTimes(resetClaim ? 1 : 2)
     expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'processing' }))
     expect(deleteWhereMock).not.toHaveBeenCalled()
     if (resetClaim) {
