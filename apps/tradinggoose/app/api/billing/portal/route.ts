@@ -36,7 +36,7 @@ export async function POST() {
 
     const portal = await createBillingManagementPortalSession(stripe, {
       customer: personalStripeCustomer.id,
-      return_url: `${getBaseUrl()}/workspace?billing=updated`,
+      return_url: `${getBaseUrl()}/workspace`,
     })
 
     return NextResponse.json({ url: portal.url })
@@ -44,4 +44,17 @@ export async function POST() {
     logger.error('Failed to create billing portal session', { error })
     return NextResponse.json({ error: 'Failed to create billing portal session' }, { status: 500 })
   }
+}
+
+export async function GET() {
+  const response = await POST()
+
+  if (response.status === 401) {
+    const loginUrl = new URL('/login', getBaseUrl())
+    loginUrl.searchParams.set('callbackUrl', '/api/billing/portal')
+    return NextResponse.redirect(loginUrl)
+  }
+
+  if (!response.ok) return response
+  return NextResponse.redirect((await response.json()).url)
 }

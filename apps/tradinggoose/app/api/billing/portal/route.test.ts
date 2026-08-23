@@ -10,7 +10,6 @@ const mockRequireStripeClient = vi.fn()
 const mockEnsureStripeUserCustomer = vi.fn()
 const mockStripeBillingPortalSessionsCreate = vi.fn()
 const mockStripeBillingPortalConfigurationsList = vi.fn()
-const mockStripeBillingPortalConfigurationsUpdate = vi.fn()
 const mockStripeBillingPortalConfigurationsCreate = vi.fn()
 vi.mock('@/lib/auth', () => ({
   getSession: mockGetSession,
@@ -30,12 +29,7 @@ vi.mock('@/lib/billing/stripe-customers', () => ({
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
-  createLogger: () => ({
-    debug: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  }),
+  createLogger: () => ({ error: vi.fn() }),
 }))
 
 vi.mock('@/lib/urls/utils', () => ({
@@ -47,10 +41,15 @@ async function postPortal() {
   return POST()
 }
 
+async function getPortal() {
+  const { GET } = await import('./route')
+  return GET()
+}
+
 function expectPortalSession(customer: string) {
   expect(mockStripeBillingPortalSessionsCreate).toHaveBeenCalledWith({
     customer,
-    return_url: 'https://example.com/workspace?billing=updated',
+    return_url: 'https://example.com/workspace',
     configuration: 'bpc_management',
   })
 }
@@ -65,14 +64,12 @@ describe('/api/billing/portal route', () => {
     })
     mockGetBillingGateState.mockResolvedValue({
       billingEnabled: true,
-      stripeConfigured: true,
     })
     mockRequireStripeClient.mockReturnValue({
       billingPortal: {
         configurations: {
           create: mockStripeBillingPortalConfigurationsCreate,
           list: mockStripeBillingPortalConfigurationsList,
-          update: mockStripeBillingPortalConfigurationsUpdate,
         },
         sessions: {
           create: mockStripeBillingPortalSessionsCreate,
@@ -125,6 +122,27 @@ describe('/api/billing/portal route', () => {
       userId: 'user-1',
     })
     expectPortalSession('cus_user_123')
+  })
+
+  it('redirects an authenticated email link to the personal billing portal', async () => {
+    const response = await getPortal()
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe('https://billing.stripe.test/session')
+    expectPortalSession('cus_user_123')
+  })
+
+  it('redirects an unauthenticated email link to login with the portal callback', async () => {
+    mockGetSession.mockResolvedValueOnce(null)
+
+    const response = await getPortal()
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(
+      'https://example.com/login?callbackUrl=%2Fapi%2Fbilling%2Fportal'
+    )
+    expect(mockEnsureStripeUserCustomer).not.toHaveBeenCalled()
+    expect(mockStripeBillingPortalSessionsCreate).not.toHaveBeenCalled()
   })
 
   it('returns 404 when no personal user record can be resolved', async () => {

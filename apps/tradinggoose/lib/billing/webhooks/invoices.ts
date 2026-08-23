@@ -136,7 +136,7 @@ async function sendPaymentFailureEmails(
   invoice: Stripe.Invoice
 ): Promise<void> {
   try {
-    const billingPortalUrl = `${getBaseUrl()}/workspace?tab=subscription`
+    const billingPortalUrl = `${getBaseUrl()}/api/billing/portal`
     const amountDue = invoice.amount_due / 100 // Convert cents to dollars
     const { lastFourDigits, failureReason } = await getPaymentMethodDetails(invoice)
 
