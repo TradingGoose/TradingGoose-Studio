@@ -66,6 +66,7 @@ describe('pending execution job', () => {
     mocks.executeTriggeredDocumentProcessingJob.mockResolvedValue(undefined)
     mocks.executeWebhookJob.mockResolvedValue(undefined)
     mocks.isWebhookExecutionPayload.mockReturnValue(false)
+    mocks.isWorkflowExecutionPayload.mockReturnValue(false)
   })
 
   it('executes documents directly when Trigger is disabled', async () => {
@@ -118,5 +119,20 @@ describe('pending execution job', () => {
       { ...payload, executionId: 'webhook-job-1' },
       'webhook-job-1'
     )
+  })
+
+  it('passes the pending execution identifier to workflow execution', async () => {
+    const payload = { workflowId: 'workflow-1' }
+    mocks.isWorkflowExecutionPayload.mockReturnValue(true)
+
+    await executePendingExecutionJob(
+      { id: 'workflow-job-1', executionType: 'workflow', payload },
+      { triggerRuntime: true }
+    )
+
+    expect(mocks.executeWorkflowJob).toHaveBeenCalledWith({
+      ...payload,
+      executionId: 'workflow-job-1',
+    })
   })
 })

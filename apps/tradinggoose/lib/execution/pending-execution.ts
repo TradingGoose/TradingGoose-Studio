@@ -16,7 +16,8 @@ export const PENDING_EXECUTION_TASK_ID = 'pending-execution'
 export const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 const WORKFLOW_BLOCK_SOURCE = 'workflow_block'
 export const PENDING_EXECUTION_TIME_LIMIT_ERROR = 'Workflow execution time limit exceeded'
-const CANCELLATION_ERROR = 'Workflow execution was cancelled'
+export const PENDING_EXECUTION_CANCELLATION_ERROR = 'Workflow execution was cancelled'
+export const PENDING_EXECUTION_FAILURE_ERROR = 'Workflow execution stopped before it could finish'
 const EXPIRED_ERROR = 'Workflow execution expired before it started'
 const MAX_WAKE_DISPATCHES = 20
 const logger = createLogger('PendingExecutionQueue')
@@ -164,12 +165,12 @@ export function isTierLimitedPendingExecution(
   )
 }
 
-export function getPendingExecutionTriggerKey(pendingExecutionId: string) {
+function getPendingExecutionTriggerKey(pendingExecutionId: string) {
   const digest = createHash('sha256').update(pendingExecutionId).digest('hex')
   return `${PENDING_EXECUTION_TASK_ID}:${digest}`
 }
 
-export function isTerminalPendingExecutionRunStatus(status: string) {
+function isTerminalPendingExecutionRunStatus(status: string) {
   return (
     status === 'COMPLETED' ||
     status === 'CANCELED' ||
@@ -179,6 +180,36 @@ export function isTerminalPendingExecutionRunStatus(status: string) {
     status === 'EXPIRED' ||
     status === 'TIMED_OUT'
   )
+}
+
+type PendingExecutionTriggerRun = {
+  status: string
+  durationMs: number
+}
+
+type PendingExecutionTriggerRunResult =
+  | { type: 'local' }
+  | { type: 'missing' }
+  | { type: 'run'; run: PendingExecutionTriggerRun }
+
+export async function cancelPendingExecutionTriggerRun(
+  row: Pick<PendingExecutionClaim, 'id' | 'billingScopeType'>
+): Promise<PendingExecutionTriggerRunResult> {
+  if (row.billingScopeType === 'local') return { type: 'local' }
+
+  const page = await runs.list({
+    tag: getPendingExecutionTriggerKey(row.id),
+    taskIdentifier: PENDING_EXECUTION_TASK_ID,
+    limit: 1,
+  })
+  const run = page.data[0]
+  if (!run) return { type: 'missing' }
+  if (isTerminalPendingExecutionRunStatus(run.status)) {
+    return { type: 'run', run: { status: run.status, durationMs: run.durationMs } }
+  }
+
+  await runs.cancel(run.id)
+  return { type: 'run', run: { status: 'CANCELED', durationMs: run.durationMs } }
 }
 
 async function triggerPendingExecution(row: PendingExecutionClaim) {
@@ -200,6 +231,8 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
       PENDING_EXECUTION_TASK_ID,
       {
         pendingExecutionId: row.id,
+        billingScopeId: row.billingScopeId,
+        billingScopeType: row.billingScopeType,
         ...(maxDuration === undefined ? {} : { executionMaxDuration: maxDuration }),
       },
       {
@@ -246,7 +279,7 @@ export async function dispatchNextPendingExecution(params: {
   }
 
   let claim = await claimNextPendingExecution(params.billingScopeId, params.billingScopeType)
-  if (claim.status === 'capacity_blocked') {
+  if (claim.status === 'capacity_blocked' || claim.status === 'empty') {
     await reconcilePendingExecutionCapacity(params.billingScopeId)
     claim = await claimNextPendingExecution(params.billingScopeId, params.billingScopeType)
   }
@@ -503,13 +536,11 @@ function startLocalPendingExecution(params: PendingExecutionInsert) {
         })
         const row = await getProcessingPendingExecution(params.pendingExecutionId)
         if (!row) return
-        const { finalizePendingExecutionFailure, PENDING_EXECUTION_WORKER_FAILURE_ERROR } =
-          await import('@/background/pending-execution-worker')
-        const message =
-          error instanceof Error ? error.message : PENDING_EXECUTION_WORKER_FAILURE_ERROR
-        await finalizePendingExecutionFailure(row, message, Math.max(1, Date.now() - startedAt), {
-          wake: false,
-        })
+        const { finalizePendingExecutionFailure } = await import(
+          '@/background/pending-execution-worker'
+        )
+        const message = error instanceof Error ? error.message : PENDING_EXECUTION_FAILURE_ERROR
+        await finalizePendingExecutionFailure(row, message, Math.max(1, Date.now() - startedAt))
       }
     )
     .catch((error) => {
@@ -665,58 +696,78 @@ async function releasedPendingExecutionCapacity(capacityOwnerId: string) {
   return (await getProcessingPendingExecution(capacityOwnerId)) === null
 }
 
+async function finalizeReconciledPendingExecution(
+  row: PendingExecutionClaim,
+  capacityOwnerId: string,
+  message: string,
+  durationMs: number
+) {
+  const { finalizePendingExecutionFailure } = await import('@/background/pending-execution-worker')
+  await finalizePendingExecutionFailure(row, message, durationMs)
+  return releasedPendingExecutionCapacity(capacityOwnerId)
+}
+
 async function reconcileProcessingPendingExecution(
   row: PendingExecutionClaim,
   capacityOwnerId: string
 ) {
-  const page = await runs.list({
-    tag: getPendingExecutionTriggerKey(row.id),
-    taskIdentifier: PENDING_EXECUTION_TASK_ID,
-    limit: 1,
-  })
-  const run = page.data[0]
+  const cancellationRequested = typeof row.payload.cancelRequestedAt === 'string'
+  let run: PendingExecutionTriggerRun | undefined
+
+  if (cancellationRequested) {
+    const cancellation = await cancelPendingExecutionTriggerRun(row)
+    if (cancellation.type === 'local') return false
+    if (cancellation.type === 'missing') {
+      if (!row.processingStartedAt) {
+        throw new Error(`Processing pending execution ${row.id} has no processingStartedAt`)
+      }
+      const durationMs = Math.max(1, Date.now() - row.processingStartedAt.getTime())
+      return finalizeReconciledPendingExecution(
+        row,
+        capacityOwnerId,
+        PENDING_EXECUTION_CANCELLATION_ERROR,
+        durationMs
+      )
+    }
+    run = cancellation.run
+  } else {
+    const page = await runs.list({
+      tag: getPendingExecutionTriggerKey(row.id),
+      taskIdentifier: PENDING_EXECUTION_TASK_ID,
+      limit: 1,
+    })
+    run = page.data[0]
+  }
 
   if (!run) {
+    if (typeof row.payload.ownerCompletedAt === 'string') {
+      await settlePendingExecutionOwner(row, { wake: false })
+      return releasedPendingExecutionCapacity(capacityOwnerId)
+    }
     await triggerPendingExecution(row)
     return false
   }
   if (!isTerminalPendingExecutionRunStatus(run.status)) return false
 
   if (run.status === 'COMPLETED') {
-    if ((await listChildPendingWorkflowExecutions(row.id)).length > 0) {
-      await markPendingExecutionOwnerCompleted(row, { wake: false })
-      return releasedPendingExecutionCapacity(capacityOwnerId)
-    }
-    await completePendingExecution({ pendingExecutionId: row.id, wake: false })
+    await settlePendingExecutionOwner(row, { wake: false })
     return releasedPendingExecutionCapacity(capacityOwnerId)
   }
 
-  const { finalizePendingExecutionFailure, PENDING_EXECUTION_WORKER_FAILURE_ERROR } = await import(
-    '@/background/pending-execution-worker'
-  )
   const message =
     run.status === 'EXPIRED'
       ? EXPIRED_ERROR
       : run.status === 'CANCELED'
-        ? CANCELLATION_ERROR
-        : PENDING_EXECUTION_WORKER_FAILURE_ERROR
-  await finalizePendingExecutionFailure(row, message, run.durationMs, {
-    wake: false,
-  })
-  return releasedPendingExecutionCapacity(capacityOwnerId)
+        ? PENDING_EXECUTION_CANCELLATION_ERROR
+        : PENDING_EXECUTION_FAILURE_ERROR
+  return finalizeReconciledPendingExecution(row, capacityOwnerId, message, run.durationMs)
 }
 
 async function reconcilePendingExecutionCapacity(
   billingScopeId: string,
   preferredPendingExecutionId?: string
 ) {
-  let rows: PendingExecutionClaim[]
-  try {
-    rows = await listProcessingPendingExecutionsForBillingScope(billingScopeId)
-  } catch (error) {
-    logger.error('Pending execution capacity reconciliation failed', { billingScopeId, error })
-    return
-  }
+  const rows = await listProcessingPendingExecutionsForBillingScope(billingScopeId)
   rows.sort(
     (left, right) =>
       Number(right.id === preferredPendingExecutionId) -
@@ -734,6 +785,7 @@ async function reconcilePendingExecutionCapacity(
         pendingExecutionId: row.id,
         error,
       })
+      throw error
     }
   }
 }
@@ -753,10 +805,15 @@ export async function isPendingWorkflowExecutionCancellationRequested(pendingExe
   return typeof payload.cancelRequestedAt === 'string'
 }
 
-export async function markPendingExecutionOwnerCompleted(
+export async function settlePendingExecutionOwner(
   row: Pick<PendingExecutionClaim, 'id'>,
-  options: { wake?: boolean } = {}
+  options: { wake?: boolean }
 ) {
+  if ((await listChildPendingWorkflowExecutions(row.id)).length === 0) {
+    await completePendingExecution({ pendingExecutionId: row.id, wake: options.wake })
+    return
+  }
+
   const ownerCompletedAt = new Date().toISOString()
   await db
     .update(pendingExecution)
@@ -821,7 +878,7 @@ export async function completePendingExecution(params: {
 
 async function completeOwnerWithoutChildren(
   pendingExecutionId: string,
-  options: { wake?: boolean } = {}
+  options: { wake?: boolean }
 ) {
   const owner = await getProcessingPendingExecution(pendingExecutionId)
   if (typeof owner?.payload.ownerCompletedAt !== 'string') return

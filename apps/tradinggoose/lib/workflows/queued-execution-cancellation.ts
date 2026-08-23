@@ -2,12 +2,11 @@ import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import {
-  completePendingExecution,
   isPendingExecutionPayload,
-  listChildPendingWorkflowExecutions,
-  markPendingExecutionOwnerCompleted,
+  PENDING_EXECUTION_CANCELLATION_ERROR,
   PENDING_EXECUTION_LOCK_NAMESPACE,
   type PendingExecutionPayload,
+  settlePendingExecutionOwner,
 } from '@/lib/execution/pending-execution'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import type {
@@ -106,7 +105,7 @@ async function recordQueuedWorkflowCancellation(params: {
   })
   await loggingSession.completeWithError({
     workspaceId: params.workspaceId,
-    error: { message: 'Workflow execution was cancelled' },
+    error: { message: PENDING_EXECUTION_CANCELLATION_ERROR },
     billable: false,
   })
 }
@@ -200,14 +199,7 @@ export async function cancelPendingWorkflowExecution(params: {
       throw error
     }
 
-    if ((await listChildPendingWorkflowExecutions(claimed.id)).length === 0) {
-      await completePendingExecution({
-        pendingExecutionId: claimed.id,
-        wake: params.wake,
-      })
-    } else {
-      await markPendingExecutionOwnerCompleted(claimed, { wake: params.wake })
-    }
+    await settlePendingExecutionOwner(claimed, { wake: params.wake })
     return { status: 'cancelling' }
   }
 
