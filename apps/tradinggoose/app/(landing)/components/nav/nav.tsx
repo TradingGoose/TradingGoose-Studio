@@ -24,6 +24,7 @@ import { soehne } from '@/app/fonts/soehne/soehne'
 import { UserMenu } from '@/global-navbar/components/user-menu'
 import { SettingsDialog } from '@/global-navbar/settings-modal/settings-dialog'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
+import { useCurrentOrganizationAccessState } from '@/hooks/queries/organization'
 import { Link, replaceLocaleDocument, usePathname, useRouter } from '@/i18n/navigation'
 import {
   formatTemplate,
@@ -130,6 +131,8 @@ export default function Nav({
   const userAvatar = user?.image
   const userAvatarVersion = user?.updatedAt ? new Date(user.updatedAt).getTime() : null
   const showStandaloneLanguageSwitcher = variant !== 'landing' || !isAuthenticated
+  const { billingEnabled, canConfigureSso, canOpenTeamSettings } =
+    useCurrentOrganizationAccessState({ enabled: isAuthenticated })
 
   const openSettings = useCallback((section: SettingsSection) => {
     setActiveSettingsSection(section)
@@ -188,6 +191,9 @@ export default function Nav({
         userAvatar={userAvatar}
         userAvatarVersion={userAvatarVersion}
         onOpenSettings={openSettings}
+        billingEnabled={billingEnabled}
+        canOpenTeamSettings={canOpenTeamSettings}
+        canConfigureSso={canConfigureSso}
       />
     ) : null
 

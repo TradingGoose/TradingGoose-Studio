@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 import { workspaceKeys } from '@/hooks/queries/workspace'
 import type { LocaleCode } from '@/i18n/utils'
 
@@ -99,6 +100,30 @@ export function useOrganizationBilling(orgId: string) {
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,
   })
+}
+
+export function useCurrentOrganizationAccessState(options?: { enabled?: boolean }) {
+  const { data: organizationsData } = useOrganizations(options)
+  const activeOrganizationId = organizationsData?.activeOrganization?.id ?? ''
+  const { data: organizationBillingData } = useOrganizationBilling(activeOrganizationId)
+  const activeOrganizationBilling =
+    organizationBillingData?.organizationId === activeOrganizationId
+      ? organizationBillingData
+      : null
+  const organizationRole = activeOrganizationBilling?.userRole
+  const billingEnabled = organizationsData
+    ? (organizationsData.billingData?.data?.billingEnabled ?? true)
+    : false
+
+  return {
+    billingEnabled,
+    ...getOrganizationAccessState({
+      billingEnabled,
+      hasOrganization: Boolean(activeOrganizationId),
+      isOrganizationAdmin: organizationRole === 'owner' || organizationRole === 'admin',
+      organizationTier: activeOrganizationBilling?.subscriptionTier,
+    }),
+  }
 }
 
 async function fetchOrganizationWorkspaces(
