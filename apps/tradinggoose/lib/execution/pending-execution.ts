@@ -213,6 +213,7 @@ export async function cancelPendingExecutionTriggerRun(
 }
 
 async function triggerPendingExecution(row: PendingExecutionClaim) {
+  const startedAt = Date.now()
   let admissionStarted = false
   try {
     const triggerKey = getPendingExecutionTriggerKey(row.id)
@@ -241,15 +242,21 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
       }
     )
   } catch (error) {
-    const admissionRejected =
-      error instanceof ApiError &&
-      (error.status === 400 ||
-        error.status === 401 ||
-        error.status === 403 ||
-        error.status === 404 ||
-        error.status === 422 ||
-        error.status === 429)
-    if (!admissionStarted || admissionRejected) {
+    const status = error instanceof ApiError ? error.status : undefined
+    const permanentAdmissionError =
+      status === 400 || status === 401 || status === 403 || status === 404 || status === 422
+    const retryableAdmissionError =
+      status === 408 || status === 409 || status === 429 || (status !== undefined && status >= 500)
+
+    if (permanentAdmissionError && error instanceof ApiError) {
+      const { finalizePendingExecutionFailure } = await import(
+        '@/background/pending-execution-worker'
+      )
+      await finalizePendingExecutionFailure(row, error.message, Math.max(1, Date.now() - startedAt))
+      throw error
+    }
+
+    if (!admissionStarted || status === 429) {
       await db
         .update(pendingExecution)
         .set({
@@ -259,7 +266,7 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
         })
         .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))
     }
-    if (admissionRejected) {
+    if (retryableAdmissionError) {
       throw new TriggerExecutionUnavailableError(
         'Trigger.dev rejected execution admission. Retry the request.'
       )

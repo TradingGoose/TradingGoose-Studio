@@ -1053,57 +1053,63 @@ describe('enqueuePendingExecution', () => {
   })
 
   it.each([
-    ['ambiguous', new Error('Trigger unavailable'), false],
-    ['rejected', new ApiError(400, undefined, 'Invalid task payload', undefined), true],
-    ['rate-limited', new ApiError(429, undefined, 'Too many requests', undefined), true],
-  ])('keeps the new row queued after an %s dispatch failure', async (_, error, resetClaim) => {
+    ['bad request', new ApiError(400, undefined, 'Bad request', undefined), 'permanent'],
+    ['unauthorized', new ApiError(401, undefined, 'Unauthorized', undefined), 'permanent'],
+    ['forbidden', new ApiError(403, undefined, 'Forbidden', undefined), 'permanent'],
+    ['not found', new ApiError(404, undefined, 'Not found', undefined), 'permanent'],
+    ['unprocessable', new ApiError(422, undefined, 'Unprocessable', undefined), 'permanent'],
+    ['ambiguous', new Error('Trigger unavailable'), 'ambiguous'],
+    ['timed out', new ApiError(408, undefined, 'Request timed out', undefined), 'retryable'],
+    ['conflicted', new ApiError(409, undefined, 'Request conflicted', undefined), 'retryable'],
+    ['rate-limited', new ApiError(429, undefined, 'Too many requests', undefined), 'reset'],
+    ['server-failed', new ApiError(500, undefined, 'Server failed', undefined), 'retryable'],
+  ])('applies the %s admission failure policy', async (_, error, policy) => {
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
     triggerMock.mockRejectedValue(error)
     txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([])
     const claimed = createPendingRow({ id: 'pending-a', billingScopeId: 'user-1' })
     mockClaimableRow(claimed)
-    if (!resetClaim) selectLimitMock.mockResolvedValueOnce([{ ...claimed, status: 'processing' }])
+    if (policy === 'ambiguous' || policy === 'retryable') {
+      selectLimitMock.mockResolvedValueOnce([{ ...claimed, status: 'processing' }])
+    }
 
-    await expect(
-      enqueuePendingExecution({
-        executionType: 'workflow',
-        pendingExecutionId: 'pending-b',
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
-        userId: 'user-1',
-        source: 'workflow_api',
-        payload: {
-          executionId: 'pending-b',
-        },
-      })
-    ).rejects.toMatchObject(
-      resetClaim
-        ? {
-            name: 'TriggerExecutionUnavailableError',
-            message: 'Trigger.dev rejected execution admission. Retry the request.',
-          }
-        : { message: error.message }
-    )
+    const admission = enqueuePendingExecution({
+      executionType: 'workflow',
+      pendingExecutionId: 'pending-b',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      source: 'workflow_api',
+      payload: { executionId: 'pending-b' },
+    })
+
+    if (policy === 'permanent') {
+      await expect(admission).rejects.toThrow(error.message)
+      expect(finalizePendingExecutionFailureMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: claimed.id, status: 'processing' }),
+        error.message,
+        expect.any(Number)
+      )
+    } else {
+      await expect(admission).rejects.toMatchObject(
+        error instanceof ApiError
+          ? {
+              name: 'TriggerExecutionUnavailableError',
+              message: 'Trigger.dev rejected execution admission. Retry the request.',
+            }
+          : { message: error.message }
+      )
+      expect(finalizePendingExecutionFailureMock).not.toHaveBeenCalled()
+    }
 
     expect(txInsertValuesMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'pending-b' }))
-    expect(triggerMock).toHaveBeenCalledWith(
-      'pending-execution',
-      createSupervisorPayload(claimed, TIMEOUT_NONE),
-      expect.anything()
-    )
-    expect(triggerMock).toHaveBeenCalledTimes(resetClaim ? 1 : 2)
-    expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'processing' }))
-    expect(deleteWhereMock).not.toHaveBeenCalled()
-    if (resetClaim) {
+    expect(triggerMock).toHaveBeenCalledTimes(policy === 'permanent' || policy === 'reset' ? 1 : 2)
+    if (policy === 'reset') {
       expect(updateChain.set).toHaveBeenCalledWith({
         status: 'pending',
         processingStartedAt: null,
         updatedAt: expect.any(Date),
       })
-      expect(andMock).toHaveBeenCalledWith(
-        { field: 'pendingExecution.id', value: 'pending-a' },
-        { field: 'pendingExecution.status', value: 'processing' }
-      )
     } else {
       expect(updateChain.set).not.toHaveBeenCalledWith(
         expect.objectContaining({ status: 'pending' })
