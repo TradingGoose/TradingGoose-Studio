@@ -252,7 +252,19 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
       const { finalizePendingExecutionFailure } = await import(
         '@/background/pending-execution-worker'
       )
-      await finalizePendingExecutionFailure(row, error.message, Math.max(1, Date.now() - startedAt))
+      try {
+        await finalizePendingExecutionFailure(
+          row,
+          error.message,
+          Math.max(1, Date.now() - startedAt)
+        )
+      } catch (finalizationError) {
+        logger.error(
+          'Permanent Trigger admission failure finalization failed',
+          { pendingExecutionId: row.id, status: error.status, message: error.message },
+          finalizationError
+        )
+      }
       throw error
     }
 

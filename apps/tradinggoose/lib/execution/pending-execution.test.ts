@@ -1066,6 +1066,10 @@ describe('enqueuePendingExecution', () => {
   ])('applies the %s admission failure policy', async (_, error, policy) => {
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
     triggerMock.mockRejectedValue(error)
+    if (error instanceof ApiError && error.status === 400)
+      finalizePendingExecutionFailureMock.mockRejectedValueOnce(
+        new Error('Failure finalization failed')
+      )
     txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([])
     const claimed = createPendingRow({ id: 'pending-a', billingScopeId: 'user-1' })
     mockClaimableRow(claimed)
@@ -1084,7 +1088,7 @@ describe('enqueuePendingExecution', () => {
     })
 
     if (policy === 'permanent') {
-      await expect(admission).rejects.toThrow(error.message)
+      await expect(admission).rejects.toBe(error)
       expect(finalizePendingExecutionFailureMock).toHaveBeenCalledWith(
         expect.objectContaining({ id: claimed.id, status: 'processing' }),
         error.message,
