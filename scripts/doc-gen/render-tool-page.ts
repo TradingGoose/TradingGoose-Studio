@@ -245,11 +245,14 @@ function renderToolSection(
     result += '#### Input\n\n'
   }
 
-  // Input table
-  result += '| Parameter | Type | Required | Description |\n'
-  result += '| --------- | ---- | -------- | ----------- |\n'
-  for (const param of toolInfo.params) {
-    result += `| \`${param.name}\` | ${param.type} | ${param.required ? 'Yes' : 'No'} | ${escapeMdx(param.description)} |\n`
+  if (toolInfo.params.length === 0) {
+    result += 'This operation has no direct parameters.\n'
+  } else {
+    result += '| Parameter | Type | Required | Description |\n'
+    result += '| --------- | ---- | -------- | ----------- |\n'
+    for (const param of toolInfo.params) {
+      result += `| \`${param.name}\` | ${param.type} | ${param.required ? 'Yes' : 'No'} | ${escapeMdx(param.description)} |\n`
+    }
   }
 
   // Output table

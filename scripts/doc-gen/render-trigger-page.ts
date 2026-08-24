@@ -21,6 +21,10 @@ export function renderTriggerPage(
   const pageName = `${providerName} Trigger`
   const pageDesc = primary.description || `Trigger workflows from ${providerName} events`
 
+  if (provider === 'portfolio') {
+    return renderPortfolioTriggerPage(primary, pageName, pageDesc, relatedDocPage)
+  }
+
   const isMultiEvent = triggers.length > 1
   const isPolling = !primary.hasWebhook
   const triggerType = isPolling ? 'Polling' : 'Webhook'
@@ -59,6 +63,61 @@ ${pageDesc}
 
 ${renderRelatedDocCard(relatedDocPage)}
 ${configSection}
+`
+}
+
+function renderPortfolioTriggerPage(
+  trigger: TriggerConfig,
+  pageName: string,
+  pageDesc: string,
+  relatedDocPage?: RelatedDocPage
+): string {
+  const outputs = {
+    input: { type: 'string', description: 'Human-readable portfolio monitor match message.' },
+    event: { type: 'string', description: 'Always portfolio_state_condition_matched.' },
+    portfolio: {
+      identity: { type: 'object', description: 'Canonical trading portfolio identity.' },
+      detail: { type: 'object', description: 'Portfolio detail snapshot at match time.' },
+    },
+    monitor: {
+      id: { type: 'string', description: 'Portfolio monitor ID.' },
+      workflowId: { type: 'string', description: 'Target workflow ID.' },
+      blockId: { type: 'string', description: 'Target trigger block ID.' },
+      providerId: { type: 'string', description: 'Trading provider ID.' },
+      serviceId: { type: 'string', description: 'Trading service ID.' },
+      accountId: { type: 'string', description: 'Broker account ID.' },
+    },
+    condition: { type: 'json', description: 'Matched portfolio fire condition.' },
+  }
+
+  return `---
+title: ${pageName}
+description: ${pageDesc}
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+${relatedDocPage ? `import { Card, Cards } from 'fumadocs-ui/components/card'` : ''}
+
+<BlockInfoCard
+  type="portfolio"
+  color=""
+/>
+
+${pageDesc}
+
+<Callout type="info">
+  This is an **event-driven** trigger. Configured portfolio monitors emit workflow events when their condition matches.
+</Callout>
+
+${renderRelatedDocCard(relatedDocPage)}## Configuration
+
+Manage portfolio monitors from the workspace **Monitor** surface. Select a broker account, define the condition to evaluate, and choose the workflow target containing this Portfolio trigger.
+
+The delivered \`event\` is always \`portfolio_state_condition_matched\`. The \`input\` message is \`Portfolio state condition matched for {account}\`, where \`{account}\` uses \`portfolio.identity.accountName\` when available and otherwise falls back to \`portfolio.identity.accountId\`.
+
+${renderOutputsSection(outputs).trimEnd()}
 `
 }
 

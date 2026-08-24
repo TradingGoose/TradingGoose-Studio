@@ -1,0 +1,53 @@
+---
+title: "Heatmap"
+description: "Compare market or portfolio listings in a color-coded heatmap."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `heatmap` |
+| **Category** | Trading |
+
+The Heatmap widget is a read-only view of listings sized and colored from current market or portfolio data.
+
+## Features
+
+- **Two sources** -- `sourceMode` selects `watchlist` or `portfolio` data.
+- **Watchlist sizing** -- `watchlistSizeMetric` uses `volumeUsd` for USD turnover or `volume` for unit volume.
+- **Portfolio context** -- Portfolio mode reads the selected broker account through `tradingProvider`, `serviceId`, and `portfolioIdentity`.
+- **Linked selection** -- Selecting a tile updates the linked `listing` for widgets with the same pair color.
+- **Refresh** -- Updating `runtime.refreshAt` requests fresh data without changing saved settings.
+
+## Usage
+
+Choose the market provider and its parameters or credentials. In Watchlist mode, select listings and choose `volumeUsd` or `volume` sizing. In Portfolio mode, select a broker and broker account so `portfolioIdentity` identifies the holdings. Click a tile to publish its listing to linked widgets. The heatmap does not place or modify orders.
+
+<Callout type="info">Portfolio mode requires a configured broker account; quote enrichment can still depend on the selected market provider.</Callout>
+
+## Configuration
+
+| Parameter | Description |
+|-----------|-------------|
+| `listing` | Listing currently shared with linked widgets. |
+| `sourceMode` | `watchlist` or `portfolio`. |
+| `watchlistSizeMetric` | `volumeUsd` or `volume` in Watchlist mode. |
+| `marketProvider` | Provider used for listing and quote data. |
+| `marketProviderParams` | Provider-specific market parameters. |
+| `marketAuth` | Optional market-provider credentials. |
+| `tradingProvider` | Broker provider used in Portfolio mode. |
+| `serviceId` | Broker service identifier. |
+| `portfolioIdentity` | Canonical selected broker-account identity. |
+| `runtime.refreshAt` | Timestamp used to request refresh. |
+
+## Related
+
+<Cards>
+  <Card title="Watchlist" href="/widgets/watchlist">Manage and select listings used by market views.</Card>
+  <Card title="Data Chart" href="/widgets/data-chart">Inspect the listing selected from the heatmap.</Card>
+  <Card title="Portfolio Snapshot" href="/widgets/portfolio-snapshot">Review the same broker account in summary form.</Card>
+</Cards>

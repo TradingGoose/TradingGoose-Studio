@@ -60,6 +60,13 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "required": true
         },
         {
+            "id": "fileId",
+            "type": "short-input",
+            "title": "Or Enter File ID Manually",
+            "layout": "full",
+            "placeholder": "ID of the file to get content from"
+        },
+        {
             "id": "fileName",
             "type": "short-input",
             "title": "Folder Name",
@@ -96,7 +103,8 @@ Create a new folder in Google Drive
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `fileName` | string | Yes | Name of the folder to create |
-| `folderId` | string | No | ID of the parent folder |
+| `folderSelector` | string | No | Select the parent folder to create the folder in |
+| `folderId` | string | No | ID of the parent folder \(internal use\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
@@ -150,6 +158,13 @@ Refer to the block outputs for this operation.
             "placeholder": "Select Google Drive account",
             "provider": "google-drive",
             "required": true
+        },
+        {
+            "id": "fileId",
+            "type": "short-input",
+            "title": "Or Enter File ID Manually",
+            "layout": "full",
+            "placeholder": "ID of the file to get content from"
         },
         {
             "id": "fileName",
@@ -281,6 +296,13 @@ Refer to the block outputs for this operation.
             "required": true
         },
         {
+            "id": "fileId",
+            "type": "short-input",
+            "title": "Or Enter File ID Manually",
+            "layout": "full",
+            "placeholder": "ID of the file to get content from"
+        },
+        {
             "id": "fileName",
             "type": "short-input",
             "title": "File Name",
@@ -334,7 +356,8 @@ Upload a file to Google Drive
 | `file` | file | No | Binary file to upload \(UserFile object\) |
 | `content` | string | No | Text content to upload \(use this OR file, not both\) |
 | `mimeType` | string | No | The MIME type of the file to upload \(auto-detected from file if not provided\) |
-| `folderId` | string | No | The ID of the folder to upload the file to |
+| `folderSelector` | string | No | Select the folder to upload the file to |
+| `folderId` | string | No | The ID of the folder to upload the file to \(internal use\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
@@ -390,6 +413,13 @@ Refer to the block outputs for this operation.
             "required": true
         },
         {
+            "id": "fileId",
+            "type": "short-input",
+            "title": "Or Enter File ID Manually",
+            "layout": "full",
+            "placeholder": "ID of the file to get content from"
+        },
+        {
             "id": "folderSelector",
             "type": "file-selector",
             "title": "Select Folder",
@@ -432,7 +462,8 @@ List files and folders in Google Drive
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `folderId` | string | No | The ID of the folder to list files from |
+| `folderSelector` | string | No | Select the folder to list files from |
+| `folderId` | string | No | The ID of the folder to list files from \(internal use\) |
 | `query` | string | No | A query to filter the files |
 | `pageSize` | number | No | The number of files to return |
 | `pageToken` | string | No | The page token to use for pagination |

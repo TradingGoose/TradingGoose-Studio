@@ -13,6 +13,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   color="#115e59"
 />
 
+{/* MANUAL-CONTENT-START:intro */}
+Select both **Broker** and **Broker Account** before running Portfolio Detail. The selected broker account supplies the canonical `portfolioIdentity` required by `trading_get_portfolio_detail`.
+{/* MANUAL-CONTENT-END */}
+
+
 
 ## Configuration
 
@@ -48,18 +53,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ### `trading_get_portfolio_detail`
 
+Fetch account summary, cash, positions, and orders from Alpaca or Tradier.
+
 #### Input
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
+| `portfolioIdentity` | json | Yes | Canonical portfolioIdentity selected by the broker account field. |
 
 #### Output
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `summary` | string | Status of portfolio detail retrieval |
-| `provider` | string | Provider used |
-| `portfolioDetail` | json | Canonical portfolio detail payload |
+| `summary` | string | Status message for portfolio detail retrieval. |
+| `provider` | string | Broker/provider used for the request. |
+| `portfolioDetail` | json | Canonical portfolio detail with cash, positions, and summary. |
 
 
 ## Usage Instructions
