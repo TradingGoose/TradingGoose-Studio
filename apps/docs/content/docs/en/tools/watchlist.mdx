@@ -48,15 +48,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Read Lists (<code>watchlist_read_lists</code>)</div>
+
+Read root watchlists available in the current workspace.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+This operation has no direct parameters.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `watchlists` | array | Watchlist records. |
-| `watchlist` | json | Watchlist record. |
-| `items` | array | Watchlist items in display order. |
-| `listings` | array | Listing items in the watchlist. |
-| `sections` | array | Section/category items in the watchlist. |
+| `watchlists` | array | Watchlist records including items, settings, and metadata. |
 
 </div>
 
@@ -102,13 +106,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Read List Items (<code>watchlist_read_list_items</code>)</div>
+
+Read one watchlist with ordered listings and section/category items.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `watchlistId` | string | Yes | Root watchlist id to read. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `watchlists` | array | Watchlist records. |
 | `watchlist` | json | Watchlist record. |
-| `items` | array | Watchlist items in display order. |
+| `items` | array | Watchlist items in display order, including listings and sections. |
 | `listings` | array | Listing items in the watchlist. |
 | `sections` | array | Section/category items in the watchlist. |
 

@@ -1,0 +1,48 @@
+---
+title: "Portfolio Snapshot"
+description: "Review account performance, cash, positions, and quote coverage."
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `portfolio_snapshot` |
+| **Category** | Trading |
+
+Portfolio Snapshot is a read-only summary of a selected broker account over a supported performance window.
+
+## Features
+
+- **Performance summary** -- Shows return, start equity, end equity, high equity, low equity, and the equity series.
+- **Account detail** -- Displays cash and position count from the selected portfolio.
+- **Quote enrichment** -- Adds quote-enriched value, daily change, daily-change percent, and quoted-position coverage as quoted positions out of eligible positions in the quote request.
+- **Partial availability** -- Quote enrichment may be partial or unavailable without hiding broker portfolio data.
+- **Refresh** -- `runtime.refreshAt` requests new broker and quote data.
+
+## Usage
+
+Select a broker and broker account, then choose `selectedWindow` from the performance windows supported by that provider. Configure a market provider for current quote enrichment. Refresh requests a new snapshot; unavailable quotes do not prevent cash, positions, or performance data from rendering.
+
+## Configuration
+
+| Parameter | Description |
+|-----------|-------------|
+| `provider` | Trading provider used for portfolio data. |
+| `serviceId` | Broker service identifier. |
+| `portfolioIdentity` | Canonical selected broker-account identity. |
+| `marketProvider` | Provider used for quote enrichment. |
+| `marketProviderParams` | Provider-specific market parameters. |
+| `marketAuth` | Optional market-provider credentials. |
+| `selectedWindow` | Provider-supported performance window. |
+| `runtime.refreshAt` | Timestamp used to request refresh. |
+
+## Related
+
+<Cards>
+  <Card title="Heatmap" href="/widgets/heatmap">Compare holdings and listings visually.</Card>
+  <Card title="Quick Order" href="/widgets/quick-order">Prepare an order for the selected account.</Card>
+  <Card title="Portfolio Detail Tool" href="/tools/portfolio_detail">Inspect the workflow tool input and output contract.</Card>
+</Cards>

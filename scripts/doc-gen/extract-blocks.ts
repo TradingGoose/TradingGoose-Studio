@@ -35,9 +35,9 @@ export function extractBlockConfig(
     const rawBgColor = extractStringProperty(fileContent, 'bgColor')
     const bgColor = rawBgColor && rawBgColor.length > 0 ? rawBgColor : ''
     const outputs = extractOutputs(fileContent)
-    const toolsAccess = extractToolsAccess(fileContent)
+    const toolsAccess = extractToolsAccess(fileContent, options)
     const subBlocks = extractSubBlocks(fileContent, options)
-    const operationToolMap = extractOperationToolMap(fileContent)
+    const operationToolMap = extractOperationToolMap(fileContent, options)
 
     return {
       type: type || blockName.toLowerCase(),
@@ -119,9 +119,14 @@ function extractOutputs(content: string): Record<string, any> {
 
 // ── Tools access extraction ───────────────────────────────────────
 
-function extractToolsAccess(content: string): string[] {
+function extractToolsAccess(content: string, options: ExtractBlockConfigOptions): string[] {
   const accessMatch = content.match(/access\s*:\s*\[\s*([^\]]+)\s*\]/)
-  if (!accessMatch) return []
+  if (!accessMatch) {
+    const valuesMatch = content.match(/access\s*:\s*Object\.values\(([A-Za-z_$][\w$]*)\)/)
+    if (!valuesMatch) return []
+    const staticMap = resolveImportedStringMap(valuesMatch[1], content, options)
+    return staticMap ? Object.values(staticMap) : []
+  }
 
   const tools: string[] = []
   const toolMatches = accessMatch[1].match(/['"]([^'"]+)['"]/g)
@@ -435,7 +440,10 @@ function escapeRegExp(value: string): string {
  * Extract the switch statement in tools.config.tool that maps operation IDs to tool names.
  * e.g., case 'send': return 'slack_message' → { send: 'slack_message' }
  */
-function extractOperationToolMap(content: string): Record<string, string> {
+function extractOperationToolMap(
+  content: string,
+  options: ExtractBlockConfigOptions
+): Record<string, string> {
   const map: Record<string, string> = {}
 
   // Find the tool config function with a switch statement
@@ -457,6 +465,10 @@ function extractOperationToolMap(content: string): Record<string, string> {
         }
       }
     }
+    const indexedMap = content.match(/return\s+([A-Za-z_$][\w$]*)\s*\[\s*operation\s*\]/)
+    if (indexedMap) {
+      return resolveImportedStringMap(indexedMap[1], content, options) || map
+    }
     return map
   }
 
@@ -469,4 +481,47 @@ function extractOperationToolMap(content: string): Record<string, string> {
   }
 
   return map
+}
+
+function resolveImportedStringMap(
+  identifier: string,
+  content: string,
+  options: ExtractBlockConfigOptions
+): Record<string, string> | null {
+  if (!options.triggersPath) return null
+  const importPath = resolveImportedSymbolPath(identifier, content)
+  if (!importPath?.startsWith('@/tools/')) return null
+
+  const appRoot = path.dirname(options.triggersPath)
+  const relativePath = importPath.slice('@/tools/'.length)
+  const candidates = [
+    path.join(appRoot, 'tools', `${relativePath}.ts`),
+    path.join(appRoot, 'tools', relativePath, 'index.ts'),
+  ]
+  const sourcePath = candidates.find((candidate) => fs.existsSync(candidate))
+  if (!sourcePath) return null
+  return extractStaticStringMap(identifier, fs.readFileSync(sourcePath, 'utf-8'))
+}
+
+function extractStaticStringMap(
+  identifier: string,
+  content: string
+): Record<string, string> | null {
+  const declaration = new RegExp(
+    `export\\s+const\\s+${escapeRegExp(identifier)}\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*as\\s+const`
+  )
+  const match = content.match(declaration)
+  if (!match) return null
+
+  const result: Record<string, string> = {}
+  const entry = /(?:^|,)\s*(?:([A-Za-z_$][\w$]*)|['"]([^'"]+)['"])\s*:\s*['"]([^'"]+)['"]\s*(?=,|$)/g
+  let cursor = 0
+  let item: RegExpExecArray | null
+  while ((item = entry.exec(match[1])) !== null) {
+    if (match[1].slice(cursor, item.index).trim()) return null
+    result[item[1] || item[2]] = item[3]
+    cursor = entry.lastIndex
+  }
+  if (match[1].slice(cursor).replace(/,\s*$/, '').trim() || Object.keys(result).length === 0) return null
+  return result
 }

@@ -1,13 +1,23 @@
 import fs from 'fs'
 import path from 'path'
 import type { GeneratorContext } from './types'
-import { updateMetaJson } from './utils'
 
 interface WidgetInfo {
   key: string
   name: string
   description: string
   category: 'Editor' | 'List' | 'Utility' | 'Data' | 'Extension'
+}
+
+const HAND_WRITTEN_TRADING_WIDGETS = new Set(['heatmap', 'portfolio_snapshot', 'quick_order'])
+const WIDGET_META = {
+  title: 'Widgets',
+  pages: [
+    'index', 'editor-workflow', 'list-workflow', 'workflow-chat', 'workflow-console',
+    'workflow-variables', 'editor-indicator', 'list-indicator', 'data-chart', 'watchlist',
+    'heatmap', 'portfolio-snapshot', 'quick-order', 'editor-skill', 'list-skill',
+    'editor-mcp', 'editor-custom-tool', 'list-custom-tool',
+  ],
 }
 
 /**
@@ -23,10 +33,13 @@ export async function generateWidgetDocs(ctx: GeneratorContext) {
     fs.mkdirSync(docsDir, { recursive: true })
   }
 
-  const widgets = scanWidgets(widgetsDir)
+  const widgets = scanWidgets(widgetsDir).filter((widget) => widget.key !== 'list_mcp')
+  const mergedListMcpPage = path.join(docsDir, 'list-mcp.mdx')
+  if (fs.existsSync(mergedListMcpPage)) fs.rmSync(mergedListMcpPage)
   let generated = 0
 
   for (const widget of widgets) {
+    if (HAND_WRITTEN_TRADING_WIDGETS.has(widget.key)) continue
     const slug = widget.key.replace(/_/g, '-')
     const outputPath = path.join(docsDir, `${slug}.mdx`)
 
@@ -38,7 +51,16 @@ export async function generateWidgetDocs(ctx: GeneratorContext) {
     generated++
   }
 
-  updateMetaJson(docsDir)
+  const missingPages = WIDGET_META.pages.filter(
+    (slug) => !fs.existsSync(path.join(docsDir, `${slug}.mdx`))
+  )
+  if (missingPages.length > 0) {
+    throw new Error(`Missing canonical widget documentation: ${missingPages.join(', ')}`)
+  }
+  if (fs.existsSync(mergedListMcpPage)) {
+    throw new Error('Merged list_mcp documentation must not be generated')
+  }
+  fs.writeFileSync(path.join(docsDir, 'meta.json'), `${JSON.stringify(WIDGET_META, null, 2)}\n`)
 
   console.log(`  ✓ Generated ${generated} widget pages (${widgets.length} total widgets)`)
   return generated

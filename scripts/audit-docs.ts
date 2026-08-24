@@ -143,7 +143,7 @@ function matchSourceToDocs(
     if (doc && !usedDocs.has(doc.slug)) {
       matched.push({ source: src, doc })
       usedDocs.add(doc.slug)
-    } else if (!doc) {
+    } else {
       unmatchedSources.push(src)
     }
   }
@@ -169,7 +169,7 @@ function scanBlocks(): SourceItem[] {
   const builtInTypes = new Set([
     'agent', 'api', 'condition', 'evaluator', 'function', 'guardrails',
     'loop', 'parallel', 'response', 'router', 'variables', 'wait',
-    'workflow', 'workflow_input', 'note', 'human_in_the_loop',
+    'workflow', 'workflow_input', 'note', 'human_in_the_loop', 'webhook_request',
   ])
 
   for (const file of files) {
@@ -196,7 +196,7 @@ function scanTools(): SourceItem[] {
   const builtInTypes = new Set([
     'agent', 'api', 'condition', 'evaluator', 'function', 'guardrails',
     'loop', 'parallel', 'response', 'router', 'variables', 'wait',
-    'workflow', 'workflow_input', 'note', 'human_in_the_loop',
+    'workflow', 'workflow_input', 'note', 'human_in_the_loop', 'webhook_request',
   ])
 
   const items: SourceItem[] = []
@@ -290,6 +290,7 @@ function scanTriggers(): SourceItem[] {
   if (!fs.existsSync(dir)) return []
 
   const items: SourceItem[] = []
+  const ownedIds = new Set<string>()
 
   // 1. Core trigger types from triggers/blocks/ (the fundamental trigger types)
   const coreBlockTriggers: Record<string, string> = {
@@ -315,7 +316,9 @@ function scanTriggers(): SourceItem[] {
           generic_webhook: 'webhook',
           schedule: 'schedule',
         }
-        items.push({ id: slugMap[file] || file, name, description: '', sourcePath: fullPath })
+        const id = slugMap[file] || file
+        items.push({ id, name, description: '', sourcePath: fullPath })
+        ownedIds.add(normalizeSlug(id))
       }
     }
   }
@@ -329,6 +332,7 @@ function scanTriggers(): SourceItem[] {
     })
 
   for (const triggerDir of triggerDirs) {
+    if (ownedIds.has(normalizeSlug(triggerDir))) continue
     const fullPath = path.join(dir, triggerDir)
     let name = triggerDir.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 

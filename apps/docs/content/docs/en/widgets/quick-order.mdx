@@ -1,0 +1,65 @@
+---
+title: "Quick Order"
+description: "Validate and submit broker orders from a compact trading form."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `quick_order` |
+| **Category** | Trading |
+
+Quick Order provides a focused Buy/Sell form for the selected broker account and listing.
+
+## Features
+
+- **Capability-aware controls** -- Order types are filtered by provider and listing; time-in-force choices are filtered by provider support.
+- **Sizing limits** -- Quantity and notional modes appear only when supported by the provider and asset.
+- **Conditional prices** -- Limit, stop, and trailing inputs appear for the applicable order type.
+- **Validation and submission** -- Account, listing, sizing, price, and provider constraints are checked before submission.
+
+## Usage
+
+Select Buy or Sell, choose a listing, then select a supported sizing mode, order type, and time in force. Enter quantity or notional value as required. Trailing orders accept one of `trailPrice` or `trailPercent`; the alternatives are mutually exclusive. Review validation feedback before submitting.
+
+<Callout type="warn">Submitting the form sends a live trading action through the configured broker account.</Callout>
+
+## Configuration
+
+Persisted widget configuration:
+
+| Parameter | Description |
+|-----------|-------------|
+| `provider` | Trading provider. |
+| `serviceId` | Broker service identifier. |
+| `portfolioIdentity` | Canonical broker-account identity. |
+| `marketProvider` | Market-data provider used for listing discovery. |
+| `marketProviderParams` | Provider-specific market parameters. |
+| `marketAuth` | Optional market-provider credentials. |
+| `side` | Persisted Buy or Sell side. |
+
+Transient form state:
+
+| Parameter | Description |
+|-----------|-------------|
+| `listing` | Listing selected for this order. |
+| `sizingMode` | Quantity or notional sizing. |
+| `orderType` | Provider/listing-supported order type. |
+| `timeInForce` | Provider-supported time-in-force value. |
+| `quantity` | Unit quantity. |
+| `notional` | Currency amount. |
+| `limitPrice` | Limit price when required. |
+| `stopPrice` | Stop price when required. |
+| `trailPrice` | Absolute trailing amount. |
+| `trailPercent` | Percentage trailing amount. |
+
+## Related
+
+<Cards>
+  <Card title="Portfolio Snapshot" href="/widgets/portfolio-snapshot">Review the account used for the order.</Card>
+  <Card title="Trading Action Tool" href="/tools/trading_action">See the workflow tool contract used for trading actions.</Card>
+</Cards>

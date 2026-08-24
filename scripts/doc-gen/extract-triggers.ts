@@ -106,7 +106,7 @@ function extractTriggersFromFile(content: string, provider: string): TriggerConf
     triggers.push({
       id,
       name,
-      provider: extractTopString(objContent, 'provider') || provider,
+      provider: extractTopString(objContent, 'webhookProvider') || provider,
       description: ESC(desc || ''),
       subBlocks,
       outputs,
@@ -118,14 +118,39 @@ function extractTriggersFromFile(content: string, provider: string): TriggerConf
   return triggers
 }
 
-/** Extract a string property from the first ~300 chars of an object (top level only) */
+/** Extract a direct string property from the outer trigger object only. */
 function extractTopString(obj: string, prop: string): string | null {
-  // Only search the first part before subBlocks/outputs to avoid matching nested fields
-  const searchArea = obj.substring(0, Math.min(obj.length, 500))
-  const m =
-    searchArea.match(new RegExp(`${prop}\\s*:\\s*'([^']*)'`)) ||
-    searchArea.match(new RegExp(`${prop}\\s*:\\s*"([^"]*)"`))
-  return m ? m[1] : null
+  let depth = 0
+  let quote = ''
+  let escaped = false
+  for (let index = 0; index < obj.length; index++) {
+    const char = obj[index]
+    if (quote) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === quote) quote = ''
+      continue
+    }
+    if (char === "'" || char === '"' || char === '`') {
+      quote = char
+      continue
+    }
+    if (char === '{') {
+      depth++
+      continue
+    }
+    if (char === '}') {
+      depth--
+      continue
+    }
+    if (depth !== 1) continue
+
+    const match = obj.slice(index).match(
+      new RegExp(`^${prop}\\s*:\\s*(?:'([^']*)'|"([^"]*)")`)
+    )
+    if (match) return match[1] ?? match[2]
+  }
+  return null
 }
 
 function extractOutputs(content: string): Record<string, any> {

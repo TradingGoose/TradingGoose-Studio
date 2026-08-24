@@ -4,8 +4,6 @@ description: Trigger workflow from portfolio monitor state changes
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { BlockConfigPreview } from "@/components/ui/block-config-preview"
-import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { SchemaTree } from "@/components/ui/schema-tree"
 import { Callout } from 'fumadocs-ui/components/callout'
 
@@ -18,9 +16,14 @@ import { Callout } from 'fumadocs-ui/components/callout'
 Trigger workflow from portfolio monitor state changes
 
 <Callout type="info">
-  This is a **polling-based** trigger. TradingGoose automatically checks for new data on a regular interval.
+  This is an **event-driven** trigger. Configured portfolio monitors emit workflow events when their condition matches.
 </Callout>
 
+## Configuration
+
+Manage portfolio monitors from the workspace **Monitor** surface. Select a broker account, define the condition to evaluate, and choose the workflow target containing this Portfolio trigger.
+
+The delivered `event` is always `portfolio_state_condition_matched`. The `input` message is `Portfolio state condition matched for {account}`, where `{account}` uses `portfolio.identity.accountName` when available and otherwise falls back to `portfolio.identity.accountId`.
 
 #### Output Schema
 
@@ -30,12 +33,12 @@ Trigger workflow from portfolio monitor state changes
       {
           "name": "input",
           "type": "string",
-          "description": "Primary workflow text input."
+          "description": "Human-readable portfolio monitor match message."
       },
       {
           "name": "event",
           "type": "string",
-          "description": "Portfolio monitor event key."
+          "description": "Always portfolio_state_condition_matched."
       },
       {
           "name": "portfolio",
@@ -45,12 +48,49 @@ Trigger workflow from portfolio monitor state changes
               {
                   "name": "identity",
                   "type": "object",
-                  "description": "Trading portfolio identity."
+                  "description": "Canonical trading portfolio identity."
               },
               {
                   "name": "detail",
                   "type": "object",
-                  "description": "Portfolio detail snapshot."
+                  "description": "Portfolio detail snapshot at match time."
+              }
+          ]
+      },
+      {
+          "name": "monitor",
+          "type": "object",
+          "description": "monitor",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Portfolio monitor ID."
+              },
+              {
+                  "name": "workflowId",
+                  "type": "string",
+                  "description": "Target workflow ID."
+              },
+              {
+                  "name": "blockId",
+                  "type": "string",
+                  "description": "Target trigger block ID."
+              },
+              {
+                  "name": "providerId",
+                  "type": "string",
+                  "description": "Trading provider ID."
+              },
+              {
+                  "name": "serviceId",
+                  "type": "string",
+                  "description": "Trading service ID."
+              },
+              {
+                  "name": "accountId",
+                  "type": "string",
+                  "description": "Broker account ID."
               }
           ]
       },
@@ -61,5 +101,3 @@ Trigger workflow from portfolio monitor state changes
       }
   ]}
 />
-
-
