@@ -148,12 +148,21 @@ async function finalizePendingExecutionRunFailure(
   return message
 }
 
+const PENDING_EXECUTION_WAKE_MAX_ATTEMPTS = 10
+
 async function wakePendingExecutionUntilSuccessful(payload: PendingExecutionTaskPayload) {
-  while (true) {
+  for (let attempt = 1; attempt <= PENDING_EXECUTION_WAKE_MAX_ATTEMPTS; attempt += 1) {
     try {
       await wakePendingExecution(payload)
       return
-    } catch {
+    } catch (error) {
+      if (attempt === PENDING_EXECUTION_WAKE_MAX_ATTEMPTS) {
+        logger.error('Pending execution wake exhausted retries', {
+          pendingExecutionId: payload.pendingExecutionId,
+          error,
+        })
+        throw error
+      }
       await wait.for({ seconds: PENDING_EXECUTION_WAKE_RETRY_SECONDS })
     }
   }
