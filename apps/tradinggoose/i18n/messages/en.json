@@ -1857,7 +1857,6 @@
       "singleSignOn": "Single Sign-On",
       "logOut": "Log out",
       "loggingOut": "Logging out…",
-      "billingPortalSelectOrganization": "Select an organization to manage billing.",
       "billingPortalFailed": "Failed to open billing portal",
       "themeLabel": "Theme: {theme}",
       "languageLabel": "Language",
@@ -1986,6 +1985,21 @@
         "delete": "Delete"
       },
       "subscription": {
+        "privateAccess": {
+          "label": "Private tier access code",
+          "placeholder": "Enter access code",
+          "validate": "Validate",
+          "success": "Private tier access unlocked.",
+          "errors": {
+            "unauthorized": "Sign in again to manage private tier access.",
+            "rateLimited": "Too many access code attempts. Please try again later.",
+            "unavailable": "Private tier validation is temporarily unavailable.",
+            "required": "Enter an access code.",
+            "invalid": "That access code is invalid.",
+            "loadFailed": "Could not load your private tier access.",
+            "validateFailed": "Could not validate the access code."
+          }
+        },
         "titles": {
           "manage": "Manage Subscription",
           "restore": "Restore Subscription",
@@ -1994,6 +2008,7 @@
           "nextBillingDate": "Next Billing Date",
           "usageNotifications": "Usage notifications",
           "billingOwner": "Billing owner",
+          "organizationBilling": "Organization billing",
           "organizationUsage": "Organization Usage",
           "custom": "Custom",
           "seats": "seats"
@@ -2003,7 +2018,9 @@
           "manage": "Open Stripe Billing Portal to cancel, restore, or update your subscription.",
           "usageNotifications": "Email me when usage reaches the billing warning threshold",
           "customPlan": "Contact your account team for billing tier and usage limit changes",
-          "teamMemberView": "Contact your team admin to increase limits"
+          "nonOwnerOrganizationView": "Contact the organization owner to manage billing.",
+          "otherBillingOwner": "This workspace's billing is managed by another workspace administrator.",
+          "organizationBillingUnavailable": "You cannot access this billing organization. Assign billing to an eligible workspace administrator below."
         },
         "notifications": {
           "pending": "Saving usage notification preference…",
@@ -22143,9 +22160,8 @@
         "save": "Save Tier",
         "saving": "Saving…",
         "updated": "Tier updated",
-        "delete": "Delete Tier",
-        "deleting": "Deleting…",
-        "activeSubscriptionsWarning": "This tier has active subscriptions. Delete is disabled until they are moved off.",
+        "archive": "Archive Tier",
+        "activeSubscriptionsWarning": "Existing subscriptions will remain on this tier, but it will not be available for new subscriptions after it is archived.",
         "loading": "Loading billing tier...",
         "notFoundTitle": "Tier not found",
         "notFoundDescription": "Go back to billing and choose a different tier.",
@@ -22222,7 +22238,10 @@
           "canEditUsageLimit": "Can edit usage limit",
           "canEditUsageLimitHint": "Allow usage limit changes.",
           "canConfigureSso": "Can configure SSO",
-          "canConfigureSsoHint": "Allow SSO setup."
+          "canConfigureSsoHint": "Allow SSO setup.",
+          "accessCode": "Private tier access code",
+          "accessCodeHint": "Use a case-sensitive access code.",
+          "accessCodeBlank": "Leave blank to disable future grants until a new code is set."
         },
         "seats": {
           "seatCount": "Seat Count",
@@ -22248,6 +22267,9 @@
           "concurrencyLimit": "Max Concurrent Executions",
           "concurrencyLimitHint": "Max parallel executions.",
           "concurrencyLimitBlank": "Leave blank while drafting.",
+          "workflowExecutionTimeLimit": "Workflow Execution Time Limit",
+          "workflowExecutionTimeLimitHint": "Maximum processing time for one workflow, in seconds.",
+          "workflowExecutionTimeLimitBlank": "Leave blank for unlimited execution time.",
           "syncRateLimit": "Sync Executions / Min",
           "syncRateLimitHint": "Per-minute sync execution limit.",
           "syncRateLimitBlank": "Leave blank while drafting.",
@@ -22304,7 +22326,7 @@
           "userTiersNoOrgSeats": "User tiers do not manage organization seats",
           "seatMaxAboveCount": "seat maximum must stay above seat count",
           "noLimitsConfigured": "No included usage, storage, concurrency, rate, or retention limits configured",
-          "limitsConfigured": "{count}/7 limits configured",
+          "limitsConfigured": "{count}/{total} limits configured",
           "usingBasePricingOnly": "Using base platform pricing only"
         }
       },

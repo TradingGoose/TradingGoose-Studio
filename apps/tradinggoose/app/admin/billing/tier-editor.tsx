@@ -40,6 +40,7 @@ export function getErrorMessage(error: unknown, fallback: string) {
 export type TierFormDefaults = {
   displayName: string
   description: string
+  accessCode: string
   status: AdminBillingTierMutationInput['status']
   ownerType: AdminBillingTierMutationInput['ownerType']
   usageScope: AdminBillingTierMutationInput['usageScope']
@@ -49,6 +50,7 @@ export type TierFormDefaults = {
   includedUsageLimitUsd: string
   storageLimitGb: string
   concurrencyLimit: string
+  workflowExecutionTimeLimitSeconds: string
   seatCount: string
   seatMaximum: string
   stripeMonthlyPriceId: string
@@ -102,12 +104,12 @@ type BillingBreadcrumbItem = {
   href?: string
 }
 
-const getTierStatusOptions = (copy: AdminBillingCopy) =>
+export const getTierStatusOptions = (copy: AdminBillingCopy, includeDraft = true) =>
   [
     { value: 'draft', label: copy.status.draft },
     { value: 'active', label: copy.status.active },
     { value: 'archived', label: copy.status.archived },
-  ] as const
+  ].filter((option) => includeDraft || option.value !== 'draft')
 
 const getTierOwnerTypeOptions = (copy: AdminBillingCopy) =>
   [
@@ -243,6 +245,7 @@ export function createTierFormDefaults(tier?: AdminBillingTierSnapshot): TierFor
   return normalizeTierFormDefaults({
     displayName: tier?.displayName ?? '',
     description: tier?.description ?? '',
+    accessCode: tier?.accessCode ?? '',
     status: tier?.status ?? 'draft',
     ownerType: tier?.ownerType ?? 'user',
     usageScope: tier?.usageScope ?? 'individual',
@@ -252,6 +255,9 @@ export function createTierFormDefaults(tier?: AdminBillingTierSnapshot): TierFor
     includedUsageLimitUsd: formatOptionalNumber(tier?.includedUsageLimitUsd ?? null),
     storageLimitGb: formatOptionalNumber(tier?.storageLimitGb ?? null),
     concurrencyLimit: formatOptionalNumber(tier?.concurrencyLimit ?? null),
+    workflowExecutionTimeLimitSeconds: formatOptionalNumber(
+      tier?.workflowExecutionTimeLimitSeconds ?? null
+    ),
     seatCount: formatOptionalNumber(tier?.seatCount ?? null),
     seatMaximum: formatOptionalNumber(tier?.seatMaximum ?? null),
     stripeMonthlyPriceId: tier?.stripeMonthlyPriceId ?? '',
@@ -334,6 +340,7 @@ export function buildTierMutationInput(formData: FormData): AdminBillingTierMuta
   return {
     displayName: readRequiredText(formData, 'tierLabel'),
     description: readRequiredText(formData, 'description'),
+    accessCode: readOptionalText(formData, 'accessCode'),
     status: readRequiredText(formData, 'status') as AdminBillingTierMutationInput['status'],
     ownerType: accessFields.ownerType,
     usageScope: accessFields.usageScope,
@@ -343,6 +350,10 @@ export function buildTierMutationInput(formData: FormData): AdminBillingTierMuta
     includedUsageLimitUsd: readOptionalNumber(formData, 'includedUsageLimitUsd'),
     storageLimitGb: readOptionalInteger(formData, 'storageLimitGb'),
     concurrencyLimit: readOptionalInteger(formData, 'concurrencyLimit'),
+    workflowExecutionTimeLimitSeconds: readOptionalInteger(
+      formData,
+      'workflowExecutionTimeLimitSeconds'
+    ),
     seatCount: readOptionalInteger(formData, 'seatCount'),
     seatMaximum: readOptionalInteger(formData, 'seatMaximum'),
     stripeMonthlyPriceId: readOptionalText(formData, 'stripeMonthlyPriceId'),
@@ -368,6 +379,22 @@ export function buildTierMutationInput(formData: FormData): AdminBillingTierMuta
     isDefault: readBoolean(formData, 'isDefault'),
     displayOrder: readOptionalInteger(formData, 'displayOrder') ?? 0,
   }
+}
+
+export function buildTierMutationInputFromDefaults(
+  defaults: TierFormDefaults
+): AdminBillingTierMutationInput {
+  const formData = new FormData()
+
+  for (const [key, value] of Object.entries(defaults)) {
+    if (typeof value === 'boolean') {
+      if (value) formData.set(key, 'on')
+    } else {
+      formData.set(key === 'displayName' ? 'tierLabel' : key, value)
+    }
+  }
+
+  return buildTierMutationInput(formData)
 }
 
 function getOptionLabel(
@@ -415,6 +442,24 @@ function countPricingFeatureLines(value: string) {
     .split('\n')
     .map((entry) => entry.trim())
     .filter(Boolean).length
+}
+
+export function getConfiguredLimitSummary(defaults: TierFormDefaults) {
+  const configuredLimits = [
+    defaults.includedUsageLimitUsd,
+    defaults.storageLimitGb,
+    defaults.concurrencyLimit,
+    defaults.workflowExecutionTimeLimitSeconds,
+    defaults.syncRateLimitPerMinute,
+    defaults.asyncRateLimitPerMinute,
+    defaults.apiEndpointRateLimitPerMinute,
+    defaults.logRetentionDays,
+  ]
+
+  return {
+    count: configuredLimits.filter(isFilled).length,
+    total: configuredLimits.length,
+  }
 }
 
 function getTierSectionSummaries(
@@ -489,15 +534,8 @@ function getTierSectionSummaries(
     isFilled(defaults.seatMaximum) &&
     Number(defaults.seatMaximum) < Number(defaults.seatCount)
 
-  const configuredLimitCount = [
-    defaults.includedUsageLimitUsd,
-    defaults.storageLimitGb,
-    defaults.concurrencyLimit,
-    defaults.syncRateLimitPerMinute,
-    defaults.asyncRateLimitPerMinute,
-    defaults.apiEndpointRateLimitPerMinute,
-    defaults.logRetentionDays,
-  ].filter(isFilled).length
+  const { count: configuredLimitCount, total: configuredLimitTotal } =
+    getConfiguredLimitSummary(defaults)
   const limitMissing = [
     defaults.status === 'active' && !isFilled(defaults.includedUsageLimitUsd)
       ? copy.editor.summaries.includedUsage
@@ -660,6 +698,7 @@ function getTierSectionSummaries(
                 : null,
               formatTemplate(copy.editor.summaries.limitsConfigured, {
                 count: configuredLimitCount,
+                total: configuredLimitTotal,
               }),
             ]),
       missing: formatMissingMessage(copy, limitMissing),
@@ -713,6 +752,7 @@ export function createTierPreviewState(formData: FormData): TierFormDefaults {
   return normalizeTierFormDefaults({
     displayName: readRequiredText(formData, 'tierLabel'),
     description: readRequiredText(formData, 'description'),
+    accessCode: readRequiredText(formData, 'accessCode'),
     status: (readRequiredText(formData, 'status') || 'draft') as TierFormDefaults['status'],
     ownerType: accessFields.ownerType,
     usageScope: accessFields.usageScope,
@@ -722,6 +762,10 @@ export function createTierPreviewState(formData: FormData): TierFormDefaults {
     includedUsageLimitUsd: readRequiredText(formData, 'includedUsageLimitUsd'),
     storageLimitGb: readRequiredText(formData, 'storageLimitGb'),
     concurrencyLimit: readRequiredText(formData, 'concurrencyLimit'),
+    workflowExecutionTimeLimitSeconds: readRequiredText(
+      formData,
+      'workflowExecutionTimeLimitSeconds'
+    ),
     seatCount: readRequiredText(formData, 'seatCount'),
     seatMaximum: readRequiredText(formData, 'seatMaximum'),
     stripeMonthlyPriceId: readRequiredText(formData, 'stripeMonthlyPriceId'),
@@ -911,7 +955,15 @@ function SelectField({
 
   return (
     <FieldShell id={id} label={label} hint={hint} className={className}>
-      <Select name={name} disabled={disabled} items={options} {...selectProps}>
+      {disabled && name ? (
+        <input type='hidden' name={name} value={value ?? defaultValue ?? ''} />
+      ) : null}
+      <Select
+        name={disabled ? undefined : name}
+        disabled={disabled}
+        items={options}
+        {...selectProps}
+      >
         <SelectTrigger id={id} aria-labelledby={`${id}-label`} className={triggerClassName}>
           <SelectValue />
         </SelectTrigger>
@@ -963,6 +1015,7 @@ export function TierEditorFormSurface({
   onSectionStateChange,
   onAccessFieldChange,
   requireStripeMonthlyPriceId = false,
+  structuralIdentityLocked = false,
   isPending,
   onSubmit,
   onFormChange,
@@ -977,6 +1030,7 @@ export function TierEditorFormSurface({
   onSectionStateChange: (sectionId: TierEditorSectionId, open: boolean) => void
   onAccessFieldChange: (field: keyof TierDerivedAccessFields, value: string) => void
   requireStripeMonthlyPriceId?: boolean
+  structuralIdentityLocked?: boolean
   isPending: boolean
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
   onFormChange: (event: FormEvent<HTMLFormElement>) => void
@@ -984,7 +1038,7 @@ export function TierEditorFormSurface({
 }) {
   const sectionSummaries = getTierSectionSummaries(previewValues, locale, copy)
   const derivedAccessFields = normalizeTierAccessFields(previewValues)
-  const tierStatusOptions = getTierStatusOptions(copy)
+  const tierStatusOptions = getTierStatusOptions(copy, !structuralIdentityLocked)
   const tierOwnerTypeOptions = getTierOwnerTypeOptions(copy)
   const tierUsageScopeOptions = getTierUsageScopeOptions(copy)
   const tierSeatModeOptions = getTierSeatModeOptions(copy)
@@ -1022,6 +1076,26 @@ export function TierEditorFormSurface({
                   </div>
                   <FieldHint>{copy.editor.general.defaultRules}</FieldHint>
                 </div>
+
+                <FieldShell
+                  id='accessCode'
+                  label={copy.editor.access.accessCode}
+                  hint={copy.editor.access.accessCodeHint}
+                  nullable
+                  blankHint={copy.editor.access.accessCodeBlank}
+                  optionalLabel={copy.editor.optional}
+                  defaultBlankHint={copy.editor.defaultBlankHint}
+                >
+                  <Input
+                    id='accessCode'
+                    name='accessCode'
+                    aria-labelledby='accessCode-label'
+                    defaultValue={initialValues.accessCode}
+                    disabled={previewValues.isPublic}
+                    autoComplete='off'
+                    className='h-9'
+                  />
+                </FieldShell>
 
                 <div className='grid gap-3 md:grid-cols-12'>
                   <FieldShell
@@ -1156,6 +1230,7 @@ export function TierEditorFormSurface({
                         type='number'
                         step='0.01'
                         defaultValue={initialValues.monthlyPriceUsd}
+                        readOnly={structuralIdentityLocked}
                       />
                     </FieldShell>
                     <FieldShell
@@ -1173,6 +1248,7 @@ export function TierEditorFormSurface({
                         aria-labelledby='stripeMonthlyPriceId-label'
                         defaultValue={initialValues.stripeMonthlyPriceId}
                         required={requireStripeMonthlyPriceId}
+                        readOnly={structuralIdentityLocked}
                       />
                     </FieldShell>
                   </div>
@@ -1200,6 +1276,7 @@ export function TierEditorFormSurface({
                         type='number'
                         step='0.01'
                         defaultValue={initialValues.yearlyPriceUsd}
+                        readOnly={structuralIdentityLocked}
                       />
                     </FieldShell>
                     <FieldShell
@@ -1216,6 +1293,7 @@ export function TierEditorFormSurface({
                         name='stripeYearlyPriceId'
                         aria-labelledby='stripeYearlyPriceId-label'
                         defaultValue={initialValues.stripeYearlyPriceId}
+                        readOnly={structuralIdentityLocked}
                       />
                     </FieldShell>
                   </div>
@@ -1236,6 +1314,7 @@ export function TierEditorFormSurface({
                       name='stripeProductId'
                       aria-labelledby='stripeProductId-label'
                       defaultValue={initialValues.stripeProductId}
+                      readOnly={structuralIdentityLocked}
                     />
                   </FieldShell>
                 </div>
@@ -1258,6 +1337,7 @@ export function TierEditorFormSurface({
                   value={derivedAccessFields.ownerType}
                   options={tierOwnerTypeOptions}
                   hint={copy.editor.access.ownerTypeHint}
+                  disabled={structuralIdentityLocked}
                   onValueChange={(value) => onAccessFieldChange('ownerType', value)}
                 />
                 <SelectField
@@ -1267,7 +1347,7 @@ export function TierEditorFormSurface({
                   value={derivedAccessFields.usageScope}
                   options={tierUsageScopeOptions}
                   hint={copy.editor.access.usageScopeHint}
-                  disabled={derivedAccessFields.ownerType === 'user'}
+                  disabled={structuralIdentityLocked || derivedAccessFields.ownerType === 'user'}
                   onValueChange={(value) => onAccessFieldChange('usageScope', value)}
                 />
                 <SelectField
@@ -1277,7 +1357,7 @@ export function TierEditorFormSurface({
                   value={derivedAccessFields.seatMode}
                   options={tierSeatModeOptions}
                   hint={copy.editor.access.seatModeHint}
-                  disabled={derivedAccessFields.ownerType === 'user'}
+                  disabled={structuralIdentityLocked || derivedAccessFields.ownerType === 'user'}
                   onValueChange={(value) => onAccessFieldChange('seatMode', value)}
                 />
                 <SwitchField
@@ -1424,6 +1504,25 @@ export function TierEditorFormSurface({
                         {copy.editor.limits.throughputDescription}
                       </p>
                     </div>
+                    <FieldShell
+                      id='workflowExecutionTimeLimitSeconds'
+                      label={copy.editor.limits.workflowExecutionTimeLimit}
+                      hint={copy.editor.limits.workflowExecutionTimeLimitHint}
+                      nullable
+                      blankHint={copy.editor.limits.workflowExecutionTimeLimitBlank}
+                      optionalLabel={copy.editor.optional}
+                      defaultBlankHint={copy.editor.defaultBlankHint}
+                    >
+                      <Input
+                        id='workflowExecutionTimeLimitSeconds'
+                        name='workflowExecutionTimeLimitSeconds'
+                        aria-labelledby='workflowExecutionTimeLimitSeconds-label'
+                        type='number'
+                        min='5'
+                        max='2147483'
+                        defaultValue={initialValues.workflowExecutionTimeLimitSeconds}
+                      />
+                    </FieldShell>
                     <FieldShell
                       id='concurrencyLimit'
                       label={copy.editor.limits.concurrencyLimit}

@@ -315,6 +315,26 @@ describe('Webhook Trigger API Route', () => {
       expect(data.message).toBe('Webhook processed')
     })
 
+    it('returns 503 when execution admission fails', async () => {
+      globalMockData.webhooks.push({
+        id: 'generic-webhook-id',
+        provider: 'generic',
+        path: 'test-path',
+        isActive: true,
+        providerConfig: { requireAuth: false },
+        workflowId: 'test-workflow-id',
+        blockId: 'generic-trigger-id',
+      })
+      enqueuePendingExecutionMock.mockRejectedValueOnce(new Error('Trigger admission failed'))
+
+      const req = createMockRequest('POST', { event: 'test', id: 'test-123' })
+      const { POST } = await import('@/app/api/webhooks/trigger/[path]/route')
+      const response = await POST(req, { params: Promise.resolve({ path: 'test-path' }) })
+
+      expect(response.status).toBe(503)
+      await expect(response.json()).resolves.toEqual({ message: 'Internal server error' })
+    })
+
     /**
      * Test generic webhook with Bearer token authentication (no custom header)
      */

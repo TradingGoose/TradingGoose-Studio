@@ -1,15 +1,10 @@
 import { db } from '@tradinggoose/db'
-import {
-  credential as credentialTable,
-  webhook as webhookTable,
-  workflow as workflowTable,
-} from '@tradinggoose/db/schema'
+import { credential as credentialTable, webhook as webhookTable } from '@tradinggoose/db/schema'
 import { and, eq, inArray, isNull, type SQL, sql } from 'drizzle-orm'
 import {
   getOAuthAccessTokenForStoredCredential,
   getOAuthAccessTokenForUserCredential,
 } from '@/lib/credentials/oauth'
-import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -131,7 +126,6 @@ export function getWebhookSnapshotRevision(
 type AirtableCredentialScope = {
   userId: string
   workspaceId?: string | null
-  storedCredential?: true
 }
 const AIRTABLE_PENDING_CLEANUP_KEY = 'airtablePendingCleanup'
 const AIRTABLE_LIFECYCLE_KEY = 'airtableLifecycle'
@@ -143,7 +137,6 @@ type AirtableStableWebhookLifecycle =
   | {
       phase: 'provisioning'
       previous: AirtablePreviousWebhook | null
-      emptyObservations: 0 | 1
       expiresAt: number
     }
   | { phase: 'deleting' }
@@ -165,18 +158,12 @@ const getAirtableAccessToken = (
   requestId: string,
   scope: AirtableCredentialScope
 ) =>
-  scope.storedCredential && scope.workspaceId
-    ? getOAuthAccessTokenForStoredCredential({
-        credentialId,
-        workspaceId: scope.workspaceId,
-        requestId,
-      })
-    : getOAuthAccessTokenForUserCredential({
-        credentialId,
-        userId: scope.userId,
-        ...(scope.workspaceId ? { workspaceId: scope.workspaceId } : {}),
-        requestId,
-      })
+  getOAuthAccessTokenForUserCredential({
+    credentialId,
+    userId: scope.userId,
+    ...(scope.workspaceId ? { workspaceId: scope.workspaceId } : {}),
+    requestId,
+  })
 
 export function getAirtableDeclarativeProviderConfig(value: unknown) {
   const {
@@ -214,7 +201,6 @@ function getStableAirtableWebhookLifecycle(value: unknown): AirtableStableWebhoo
   if (lifecycle.phase === 'deleting') return { phase: 'deleting' }
   if (
     lifecycle.phase !== 'provisioning' ||
-    (lifecycle.emptyObservations !== 0 && lifecycle.emptyObservations !== 1) ||
     typeof lifecycle.expiresAt !== 'number' ||
     !Number.isFinite(lifecycle.expiresAt) ||
     (lifecycle.previous !== null && toConfig(lifecycle.previous) !== lifecycle.previous)
@@ -363,18 +349,70 @@ async function deleteAirtableWebhookSubscription(
     return false
   }
 }
-export async function processAirtableWebhookCleanup(
+async function processOneAirtableWebhookCleanup(
   current: typeof webhookTable.$inferSelect,
   requestId: string,
   scope: AirtableCredentialScope
 ) {
   const lifecycle = getAirtableWebhookLifecycle(current.providerConfig)
+  if (lifecycle?.phase === 'provisioning') {
+    const claim = getWebhookRevision(
+      current,
+      eq(webhookTable.provider, 'airtable'),
+      airtableWebhookDeadlineExpired()
+    )
+    const [claimed] = await db
+      .update(webhookTable)
+      .set({
+        providerConfig: setAirtableWebhookDeadline(current.providerConfig),
+        updatedAt: claim.updatedAt,
+      })
+      .where(claim.where)
+      .returning()
+    if (!claimed) return { cleaned: false, webhook: current }
+
+    const { baseId, credentialId } = validateAirtableWebhookConfig(claimed.providerConfig)
+    const accessToken = await getAirtableAccessToken(credentialId, requestId, scope)
+    if (!accessToken) return { cleaned: false, webhook: claimed }
+    const response = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks`, {
+      signal: AbortSignal.timeout(30_000),
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok) return { cleaned: false, webhook: claimed }
+    const { webhooks } = (await response.json()) as {
+      webhooks?: Array<{ id: string; notificationUrl: string }>
+    }
+    if (!Array.isArray(webhooks)) return { cleaned: false, webhook: claimed }
+    const notificationUrl = `${getBaseUrl()}/api/webhooks/trigger/${claimed.path}`
+    const previousExternalId = getAirtableWebhookCleanup(
+      lifecycle.previous?.providerConfig
+    )?.externalId
+    for (const remote of webhooks) {
+      if (remote.id === previousExternalId || remote.notificationUrl !== notificationUrl) continue
+      const target = { baseId, credentialId, externalId: remote.id }
+      if (!(await deleteAirtableWebhookSubscription(target, requestId, accessToken))) {
+        return { cleaned: false, webhook: claimed }
+      }
+    }
+
+    const settlement = getWebhookRevision(claimed, eq(webhookTable.provider, 'airtable'))
+    if (lifecycle.previous) {
+      const [restored] = await db
+        .update(webhookTable)
+        .set({ ...lifecycle.previous, updatedAt: settlement.updatedAt })
+        .where(settlement.where)
+        .returning()
+      return { cleaned: Boolean(restored), webhook: restored ?? claimed }
+    }
+    const [deleted] = await db.delete(webhookTable).where(settlement.where).returning()
+    return { cleaned: Boolean(deleted), webhook: deleted ? null : claimed }
+  }
   const resume = lifecycle?.phase === 'cleanup' ? lifecycle.resume : lifecycle
   const target =
     lifecycle?.phase === 'cleanup'
       ? lifecycle.target
       : getPendingAirtableWebhookCleanup(current.providerConfig)[0]
-  if (!target) return { cleaned: false, webhook: current }
+  if (!target) return { cleaned: true, webhook: current }
   const accessToken = await getAirtableAccessToken(target.credentialId, requestId, scope)
   if (!accessToken) return { cleaned: false, webhook: current }
   const owner = crypto.randomUUID()
@@ -430,166 +468,24 @@ export async function processAirtableWebhookCleanup(
     .returning()
   return { cleaned: cleaned && Boolean(settled), webhook: settled ?? claimed }
 }
-async function listMatchingAirtableWebhookCleanup(
-  providerConfig: unknown,
-  path: string,
+
+export async function processAirtableWebhookCleanup(
+  current: typeof webhookTable.$inferSelect,
   requestId: string,
-  userId: string,
-  workspaceId: string | null,
-  excluded: AirtableWebhookCleanup[]
-): Promise<AirtableWebhookCleanup[] | null> {
-  const config = toConfig(providerConfig)
-  const { baseId, credentialId } = config
-  if (typeof baseId !== 'string' || !baseId || typeof credentialId !== 'string' || !credentialId)
-    return null
-  try {
-    const accessToken = await getAirtableAccessToken(credentialId, requestId, {
-      storedCredential: true,
-      userId,
-      workspaceId,
-    })
-    if (!accessToken) return null
-    const response = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks`, {
-      signal: AbortSignal.timeout(30_000),
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    if (!response.ok) return null
-    const body = (await response.json()) as {
-      webhooks?: Array<{ id?: unknown; notificationUrl?: unknown; specification?: unknown }>
-    }
-    if (!Array.isArray(body.webhooks)) return null
-    const notificationUrl = `${getBaseUrl()}/api/webhooks/trigger/${path}`
-    const specification = stableStringifyJsonValue(getAirtableWebhookSpecification(config))
-    const matches: AirtableWebhookCleanup[] = []
-    for (const rawEntry of body.webhooks) {
-      const entry = toConfig(rawEntry)
-      if (entry.notificationUrl === null) continue
-      if (typeof entry.notificationUrl !== 'string') return null
-      if (entry.notificationUrl !== notificationUrl) continue
-      if (
-        typeof entry.id !== 'string' ||
-        !entry.id.trim() ||
-        toConfig(entry.specification) !== entry.specification
-      )
-        return null
-      if (stableStringifyJsonValue(entry.specification) !== specification) continue
-      matches.push({ baseId, credentialId, externalId: entry.id })
-    }
-    return matches.filter((entry) => !excluded.some((known) => sameAirtableCleanup(entry, known)))
-  } catch {
-    return null
-  }
+  scope: AirtableCredentialScope
+): ReturnType<typeof processOneAirtableWebhookCleanup> {
+  const result = await processOneAirtableWebhookCleanup(current, requestId, scope)
+  const providerConfig = result.webhook?.providerConfig
+  if (
+    !result.cleaned ||
+    !result.webhook ||
+    (!getPendingAirtableWebhookCleanup(providerConfig).length &&
+      getAirtableWebhookLifecycle(providerConfig)?.phase !== 'cleanup')
+  )
+    return result
+  return processAirtableWebhookCleanup(result.webhook, requestId, scope)
 }
-export async function sweepAirtableWebhookCleanup(requestId: string) {
-  const rows = await db
-    .select({
-      webhook: webhookTable,
-      userId: workflowTable.userId,
-      workspaceId: workflowTable.workspaceId,
-    })
-    .from(webhookTable)
-    .innerJoin(workflowTable, eq(webhookTable.workflowId, workflowTable.id))
-    .where(eq(webhookTable.provider, 'airtable'))
-  for (const row of rows) {
-    try {
-      let current = row.webhook
-      const updateCurrent = async (values: Partial<typeof current>, ...conditions: SQL[]) => {
-        const revision = getWebhookRevision(
-          current,
-          eq(webhookTable.provider, 'airtable'),
-          ...conditions
-        )
-        const [saved] = await db
-          .update(webhookTable)
-          .set({ ...values, updatedAt: revision.updatedAt })
-          .where(revision.where)
-          .returning()
-        if (saved) current = saved
-        return saved
-      }
-      const updateConfig = (providerConfig: unknown, ...conditions: SQL[]) =>
-        updateCurrent({ providerConfig }, ...conditions)
-      const deleteCurrent = async () => {
-        const revision = getWebhookRevision(current, eq(webhookTable.provider, 'airtable'))
-        return (await db.delete(webhookTable).where(revision.where).returning())[0]
-      }
-      let lifecycle = getAirtableWebhookLifecycle(current.providerConfig)
-      let pending = getPendingAirtableWebhookCleanup(current.providerConfig)
-      const scope = {
-        storedCredential: true as const,
-        userId: row.userId,
-        workspaceId: row.workspaceId,
-      }
-      if (lifecycle?.phase === 'cleanup') {
-        await processAirtableWebhookCleanup(current, requestId, scope)
-        continue
-      }
-      const active = getAirtableWebhookCleanup(current.providerConfig)
-      const remotePending = pending.filter(
-        (cleanup) => !active || !sameAirtableCleanup(active, cleanup)
-      )
-      if (remotePending.length !== pending.length) {
-        const saved = await updateConfig(
-          setPendingAirtableWebhookCleanup(current.providerConfig, remotePending)
-        )
-        if (!saved) continue
-        pending = remotePending
-      }
-      if (pending.length) {
-        await processAirtableWebhookCleanup(current, requestId, scope)
-        continue
-      }
-      lifecycle = getAirtableWebhookLifecycle(current.providerConfig)
-      if (lifecycle?.phase === 'provisioning') {
-        const claimed = await updateConfig(
-          setAirtableWebhookDeadline(current.providerConfig),
-          airtableWebhookDeadlineExpired()
-        )
-        if (!claimed) continue
-        lifecycle = getAirtableWebhookLifecycle(current.providerConfig)
-        if (lifecycle?.phase !== 'provisioning') continue
-        const previousActive = getAirtableWebhookCleanup(lifecycle.previous?.providerConfig)
-        const matches = await listMatchingAirtableWebhookCleanup(
-          current.providerConfig,
-          current.path,
-          requestId,
-          row.userId,
-          row.workspaceId,
-          previousActive ? [previousActive] : []
-        )
-        if (matches === null) continue
-        if (matches.length) {
-          const saved = await updateConfig(
-            setAirtableWebhookLifecycle(
-              setPendingAirtableWebhookCleanup(current.providerConfig, matches),
-              { ...lifecycle, emptyObservations: 0 }
-            )
-          )
-          if (saved) await processAirtableWebhookCleanup(saved, requestId, scope)
-        } else if (lifecycle.emptyObservations === 0) {
-          await updateConfig(
-            setAirtableWebhookLifecycle(current.providerConfig, {
-              ...lifecycle,
-              emptyObservations: 1,
-            })
-          )
-        } else if (lifecycle.previous) {
-          if (!(await updateCurrent(lifecycle.previous))) continue
-        } else {
-          if (!(await deleteCurrent())) continue
-        }
-        continue
-      }
-      if (
-        (lifecycle?.phase === 'deleting' || (!current.isActive && !active)) &&
-        !(await deleteCurrent())
-      )
-        continue
-    } catch (error) {
-      airtableLogger.error(`[${requestId}] Failed to reconcile Airtable webhook`, { error })
-    }
-  }
-}
+
 async function deleteTeamsRemote(externalId: string, accessToken: string) {
   try {
     const response = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${externalId}`, {

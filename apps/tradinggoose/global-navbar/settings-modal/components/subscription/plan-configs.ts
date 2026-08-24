@@ -14,6 +14,8 @@ import {
   Users,
   Zap,
 } from 'lucide-react'
+import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
+import type { BillingUpgradeTarget } from '@/lib/subscription/upgrade'
 import type { PlanFeature } from './components/plan-card'
 
 const FEATURE_ICON_RULES: Array<{ icon: LucideIcon; pattern: RegExp }> = [
@@ -44,4 +46,15 @@ export function toPlanFeatures(features: string[]): PlanFeature[] {
     icon: getPlanFeatureIcon(text),
     text,
   }))
+}
+
+export function toUpgradeTarget(tier: PublicBillingTierDisplay): BillingUpgradeTarget {
+  return {
+    billingTierId: tier.id,
+    displayName: tier.displayName,
+    ownerType: tier.ownerType,
+    usageScope: tier.usageScope,
+    seatMode: tier.seatMode === 'adjustable' ? 'adjustable' : 'fixed',
+    seatCount: tier.seatCount,
+  }
 }

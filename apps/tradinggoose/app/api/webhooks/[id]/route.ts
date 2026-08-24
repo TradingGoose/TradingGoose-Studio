@@ -282,35 +282,38 @@ export async function DELETE(
     }
     const foundWebhook = webhookData.webhook
     if (foundWebhook.provider === 'airtable') {
-      const existingLifecycle = getAirtableWebhookLifecycle(foundWebhook.providerConfig)
-      if (
-        existingLifecycle?.phase === 'provisioning' ||
-        (existingLifecycle?.phase === 'cleanup' && existingLifecycle.resume?.phase !== 'deleting')
-      ) {
-        return NextResponse.json(
-          { error: 'Airtable webhook update already in progress' },
-          { status: 409 }
-        )
-      }
       const scope = {
         userId: session.user.id,
         workspaceId: webhookData.workflow.workspaceId ?? undefined,
       }
       let current = foundWebhook
+      let existingLifecycle = getAirtableWebhookLifecycle(current.providerConfig)
+      while (existingLifecycle && existingLifecycle.phase !== 'deleting') {
+        const recovery = await processAirtableWebhookCleanup(current, requestId, scope)
+        if (!recovery.cleaned) {
+          return NextResponse.json(
+            { error: 'Airtable webhook update already in progress' },
+            { status: 409 }
+          )
+        }
+        if (!recovery.webhook) return NextResponse.json({ success: true }, { status: 200 })
+        current = recovery.webhook
+        existingLifecycle = getAirtableWebhookLifecycle(current.providerConfig)
+      }
       if (!existingLifecycle) {
-        const activeCleanup = getAirtableWebhookCleanup(foundWebhook.providerConfig)
+        const activeCleanup = getAirtableWebhookCleanup(current.providerConfig)
         const cleanup = [
-          ...getPendingAirtableWebhookCleanup(foundWebhook.providerConfig),
+          ...getPendingAirtableWebhookCleanup(current.providerConfig),
           ...(activeCleanup ? [activeCleanup] : []),
         ]
         const deletingConfig = setPendingAirtableWebhookCleanup(
-          getAirtableDeclarativeProviderConfig(foundWebhook.providerConfig),
+          getAirtableDeclarativeProviderConfig(current.providerConfig),
           cleanup
         )
         const lifecycleConfig = setAirtableWebhookLifecycle(deletingConfig, {
           phase: 'deleting',
         })
-        const deletion = getWebhookRevision(foundWebhook, eq(webhook.provider, 'airtable'))
+        const deletion = getWebhookRevision(current, eq(webhook.provider, 'airtable'))
         const [deletingWebhook] = await db
           .update(webhook)
           .set({

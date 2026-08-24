@@ -494,13 +494,16 @@ export async function queueWebhookExecution(
     logger.error(`[${options.requestId}] Failed to queue webhook execution:`, error)
 
     if (foundWebhook.provider === 'microsoftteams') {
-      return NextResponse.json({
-        type: 'message',
-        text: 'Webhook processing failed',
-      })
+      return NextResponse.json(
+        {
+          type: 'message',
+          text: 'Webhook processing failed',
+        },
+        { status: 503 }
+      )
     }
 
-    return NextResponse.json({ message: 'Internal server error' }, { status: 200 })
+    return NextResponse.json({ message: 'Internal server error' }, { status: 503 })
   }
 
   if (foundWebhook.provider === 'microsoftteams') {

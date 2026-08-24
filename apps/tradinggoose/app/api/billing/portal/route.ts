@@ -1,20 +1,15 @@
-import { db } from '@tradinggoose/db'
-import { subscription as subscriptionTable } from '@tradinggoose/db/schema'
-import { and, eq, inArray, or, sql } from 'drizzle-orm'
-import { type NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import { ensureStripeUserCustomer } from '@/lib/billing/stripe-customers'
-import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
+import { createBillingManagementPortalSession } from '@/lib/billing/stripe-portal'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('BillingPortal')
-const BILLING_PORTAL_CUSTOMER_LOCK_NAMESPACE = 4_126_092
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   const session = await getSession()
 
   try {
@@ -22,11 +17,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json().catch(() => ({}))
-    const context: 'user' | 'organization' =
-      body?.context === 'organization' ? 'organization' : 'user'
-    const organizationId: string | undefined = body?.organizationId || undefined
-    const returnUrl: string = body?.returnUrl || `${getBaseUrl()}/workspace?billing=updated`
     const { billingEnabled } = await getBillingGateState()
 
     if (!billingEnabled) {
@@ -35,69 +25,18 @@ export async function POST(request: NextRequest) {
 
     const stripe = requireStripeClient()
 
-    let stripeCustomerId: string | null = null
+    const personalStripeCustomer = await ensureStripeUserCustomer(stripe, {
+      logger,
+      userId: session.user.id,
+    })
 
-    if (context === 'organization') {
-      if (!organizationId) {
-        return NextResponse.json({ error: 'organizationId is required' }, { status: 400 })
-      }
-
-      const canManageOrganization = await isOrganizationOwnerOrAdmin(
-        session.user.id,
-        organizationId
-      )
-      if (!canManageOrganization) {
-        return NextResponse.json({ error: 'Permission denied' }, { status: 403 })
-      }
-
-      const rows = await db
-        .select({ customer: subscriptionTable.stripeCustomerId })
-        .from(subscriptionTable)
-        .where(
-          and(
-            eq(subscriptionTable.referenceType, 'organization'),
-            eq(subscriptionTable.referenceId, organizationId),
-            or(
-              inArray(subscriptionTable.status, BILLING_ACTIVE_SUBSCRIPTION_STATUSES),
-              eq(subscriptionTable.cancelAtPeriodEnd, true)
-            )
-          )
-        )
-        .limit(1)
-
-      stripeCustomerId = rows.length > 0 ? rows[0].customer || null : null
-    } else {
-      const personalStripeCustomer = await db.transaction(async (tx) => {
-        await tx.execute(
-          sql`select pg_advisory_xact_lock(${BILLING_PORTAL_CUSTOMER_LOCK_NAMESPACE}, hashtext(${session.user.id}))`
-        )
-
-        return ensureStripeUserCustomer(stripe, {
-          dbClient: tx,
-          logger,
-          userId: session.user.id,
-        })
-      })
-
-      if (!personalStripeCustomer) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
-      }
-
-      stripeCustomerId = personalStripeCustomer.id
+    if (!personalStripeCustomer) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    if (!stripeCustomerId) {
-      logger.error('Stripe customer not found for portal session', {
-        context,
-        organizationId,
-        userId: session.user.id,
-      })
-      return NextResponse.json({ error: 'Stripe customer not found' }, { status: 404 })
-    }
-
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: stripeCustomerId,
-      return_url: returnUrl,
+    const portal = await createBillingManagementPortalSession(stripe, {
+      customer: personalStripeCustomer.id,
+      return_url: `${getBaseUrl()}/workspace`,
     })
 
     return NextResponse.json({ url: portal.url })

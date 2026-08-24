@@ -297,25 +297,10 @@ async function readBufferedEvents(params: {
     .filter((entry): entry is WorkflowExecutionEventEntry => Boolean(entry))
 }
 
-export async function createWorkflowExecutionEventWriter(params: {
+export function createWorkflowExecutionEventWriter(params: {
   pendingExecutionId: string
   workflowId: string
 }) {
-  const [row] = await db
-    .select({ id: pendingExecution.id })
-    .from(pendingExecution)
-    .where(
-      and(
-        eq(pendingExecution.id, params.pendingExecutionId),
-        eq(pendingExecution.workflowId, params.workflowId)
-      )
-    )
-    .limit(1)
-
-  if (!row) {
-    throw new Error(`Pending workflow execution ${params.pendingExecutionId} was not found`)
-  }
-
   let writeChain = Promise.resolve()
 
   const write = async (

@@ -43,15 +43,14 @@ type MonitorOption = { name: string; color: string }
 function createRandomEntry(
   stocks: ListingResolved[],
   indicators: MonitorOption[],
-  workflows: MonitorOption[],
-  counter: number
+  workflows: MonitorOption[]
 ): MonitorEntry {
   const stock = stocks[Math.floor(Math.random() * stocks.length)]
   const indicator = indicators[Math.floor(Math.random() * indicators.length)]
   const workflow = workflows[Math.floor(Math.random() * workflows.length)]
 
   return {
-    id: `entry-${counter}`,
+    id: crypto.randomUUID(),
     stock,
     indicator: indicator.name,
     indicatorColor: indicator.color,
@@ -140,20 +139,18 @@ export default function MonitorPreview({ stocks }: { stocks: ListingResolved[] }
     let timeoutId: ReturnType<typeof setTimeout>
 
     const tick = () => {
+      const nextEntry = createRandomEntry(
+        liveStocks,
+        monitorCopy.indicatorOptions,
+        monitorCopy.workflowOptions
+      )
+
       setEntries((prev) => {
         const updated = prev.map((entry) => ({
           ...entry,
           status: advanceStatus(entry.status),
         }))
-        const nextEntries = [
-          createRandomEntry(
-            liveStocks,
-            monitorCopy.indicatorOptions,
-            monitorCopy.workflowOptions,
-            Date.now()
-          ),
-          ...updated,
-        ]
+        const nextEntries = [nextEntry, ...updated]
         return nextEntries.slice(0, MAX_ROWS)
       })
 

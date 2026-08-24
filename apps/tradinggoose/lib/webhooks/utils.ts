@@ -1344,8 +1344,8 @@ async function commitAirtablePollPage(params: {
   externalId: string
   currentCursor: number | null
   nextCursor: number
-  receivedPayloads: unknown[]
-  mightHaveMore: boolean
+  receivedPayloads?: unknown[]
+  mightHaveMore?: boolean
 }) {
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -1360,28 +1360,37 @@ async function commitAirtablePollPage(params: {
       )
       .for('update')
       .limit(1)
-    if (!row)
+    if (!row) {
       throw new AirtableStageIntegrityError('Airtable pending execution lost processing ownership')
+    }
 
-    const { executionPayload, stage: durableStage } = assertAirtablePendingExecution(
+    const pendingState = assertAirtablePendingExecution(
       row.payload,
       params.webhookId,
       params.externalId
     )
-    const stage =
-      durableStage ??
-      ({
-        externalId: params.externalId,
-        apiCallCount: 0,
-        payloads: [],
-        cursor: params.currentCursor,
-        mightHaveMore: true,
-      } satisfies AirtablePollStage)
+    const executionPayload = pendingState.executionPayload
+    let stage = pendingState.stage
+
+    stage ??= {
+      externalId: params.externalId,
+      apiCallCount: 0,
+      payloads: [],
+      cursor: params.currentCursor,
+      mightHaveMore: true,
+    }
 
     if (stage.apiCallCount >= AIRTABLE_POLL_PAGE_LIMIT) {
       return { stage, committed: false }
     }
 
+    const nextStage: AirtablePollStage = {
+      externalId: params.externalId,
+      apiCallCount: stage.apiCallCount + 1,
+      payloads: [...stage.payloads, ...(params.receivedPayloads ?? [])],
+      cursor: params.nextCursor,
+      mightHaveMore: params.mightHaveMore === true,
+    }
     const [updatedWebhook] = await tx
       .update(webhook)
       .set({
@@ -1400,13 +1409,6 @@ async function commitAirtablePollPage(params: {
       .returning({ id: webhook.id })
     if (!updatedWebhook) return { stage, committed: false }
 
-    const nextStage: AirtablePollStage = {
-      externalId: params.externalId,
-      apiCallCount: stage.apiCallCount + 1,
-      payloads: [...stage.payloads, ...params.receivedPayloads],
-      cursor: params.nextCursor,
-      mightHaveMore: params.mightHaveMore,
-    }
     const [updatedExecution] = await tx
       .update(pendingExecution)
       .set({
@@ -1598,12 +1600,12 @@ async function formatAirtableWebhookInput(
     } catch (error) {
       if (error instanceof AirtableStageIntegrityError) throw error
       if (!stage?.payloads.length) throw error
-      logger.warn(`[${requestId}] Airtable polling stopped; executing durable payloads`, error)
+      logger.warn(`[${requestId}] Airtable polling stopped; executing collected payloads`, error)
       break
     }
   }
 
-  const durableStage =
+  const completedStage =
     stage ??
     ({
       externalId,
@@ -1613,8 +1615,8 @@ async function formatAirtableWebhookInput(
       mightHaveMore: false,
     } satisfies AirtablePollStage)
   return {
-    input: buildAirtablePollInput(durableStage, webhookData.providerConfig),
-    continuation: getStageContinuation(durableStage),
+    input: buildAirtablePollInput(completedStage, webhookData.providerConfig),
+    continuation: getStageContinuation(completedStage),
   }
 }
 

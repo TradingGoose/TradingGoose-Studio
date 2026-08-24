@@ -16,9 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
-import { getOrganizationAccessState } from '@/lib/organization/access'
-import { getUserRole } from '@/lib/organization/helpers'
-import { useOrganizations } from '@/hooks/queries/organization'
+import { useCurrentOrganizationAccessState } from '@/hooks/queries/organization'
 import { CopilotSidebarToggle } from './components/copilot-sidebar-toggle'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
@@ -104,20 +102,10 @@ export function GlobalNavbar({
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
   const isAuthenticated = Boolean(sessionData?.user?.id)
   const shouldShowSkeleton = isSessionLoading
-  const { data: organizationsData } = useOrganizations({
-    enabled: isAuthenticated && !isSessionLoading,
-  })
-  const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
-  const activeOrganization = organizationsData?.activeOrganization
-  const hasOrganization = Boolean(activeOrganization?.id)
-  const userRole = getUserRole(activeOrganization, sessionData?.user?.email)
-  const organizationAccess = getOrganizationAccessState({
-    billingEnabled,
-    hasOrganization,
-    isOrganizationAdmin: userRole === 'owner' || userRole === 'admin',
-    userTier: organizationsData?.billingData?.data?.tier,
-  })
-  const canOpenTeamSettings = organizationAccess.canOpenTeamSettings
+  const { billingEnabled, canConfigureSso, canOpenTeamSettings } =
+    useCurrentOrganizationAccessState({
+      enabled: isAuthenticated && !isSessionLoading,
+    })
   const [activeSettingsSection, setActiveSettingsSection] =
     React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
@@ -148,9 +136,12 @@ export function GlobalNavbar({
       if (section === 'team' && !canOpenTeamSettings) {
         return 'account'
       }
+      if (section === 'sso' && !canConfigureSso) {
+        return 'account'
+      }
       return section
     },
-    [billingEnabled, canOpenTeamSettings]
+    [billingEnabled, canConfigureSso, canOpenTeamSettings]
   )
 
   const openSettings = React.useCallback(
@@ -298,6 +289,9 @@ export function GlobalNavbar({
                 userAvatar={userAvatar}
                 userAvatarVersion={userAvatarVersion}
                 onOpenSettings={openSettings}
+                billingEnabled={billingEnabled}
+                canOpenTeamSettings={canOpenTeamSettings}
+                canConfigureSso={canConfigureSso}
                 canAccessSystemAdmin={isSystemAdmin && navigationMode !== 'admin'}
                 sidebarTrigger
               />

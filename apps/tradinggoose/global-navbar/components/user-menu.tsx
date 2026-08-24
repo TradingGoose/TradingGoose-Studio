@@ -40,14 +40,9 @@ import { signOut } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOrganizationAccessState } from '@/lib/organization/access'
-import { getUserRole } from '@/lib/organization/helpers'
-import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { cn } from '@/lib/utils'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
-import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
-import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { replaceLocaleDocument, usePathname, useRouter } from '@/i18n/navigation'
 import { getLocaleDisplayName, isLocaleCode, type LocaleCode, locales } from '@/i18n/utils'
 import { clearUserData } from '@/stores'
@@ -74,6 +69,9 @@ interface UserMenuProps {
   userAvatarVersion?: number | string | null
   userId?: string | null
   onOpenSettings: (section: SettingsSection) => void
+  billingEnabled: boolean
+  canOpenTeamSettings: boolean
+  canConfigureSso: boolean
   canAccessSystemAdmin?: boolean
   sidebarTrigger?: boolean
 }
@@ -85,6 +83,9 @@ export function UserMenu({
   userAvatarVersion,
   userId,
   onOpenSettings,
+  billingEnabled,
+  canOpenTeamSettings,
+  canConfigureSso,
   canAccessSystemAdmin = false,
   sidebarTrigger = false,
 }: UserMenuProps) {
@@ -108,7 +109,6 @@ export function UserMenu({
   const updateSetting = useGeneralStore((state) => state.updateSetting)
   const isGeneralLoading = useGeneralStore((state) => state.isLoading)
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
-  const { data: organizationsData } = useOrganizations()
   const userMenuCopy = useMemo(
     () => ({
       accountDetail: tUserMenu('accountDetail'),
@@ -121,7 +121,6 @@ export function UserMenu({
       singleSignOn: tUserMenu('singleSignOn'),
       logOut: tUserMenu('logOut'),
       loggingOut: tUserMenu('loggingOut'),
-      billingPortalSelectOrganization: tUserMenu('billingPortalSelectOrganization'),
       billingPortalFailed: tUserMenu('billingPortalFailed'),
       languageLabel: tUserMenu('languageLabel'),
       themeOptions: {
@@ -139,35 +138,6 @@ export function UserMenu({
   const currentThemeLabel = themeOptionLabels[currentThemeOption.value]
   const currentThemeAriaLabel = tUserMenu('themeLabel', { theme: currentThemeLabel })
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
-  const activeOrganization = organizationsData?.activeOrganization
-  const activeOrganizationId = activeOrganization?.id
-  const { data: organizationBillingData } = useOrganizationBilling(activeOrganizationId || '')
-  const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionData()
-  const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
-  const organizationBillingPayload =
-    (organizationBillingData as any)?.data ?? organizationBillingData ?? null
-  const billingEnabled =
-    organizationBillingPayload?.billingEnabled ??
-    billingPayload?.billingEnabled ??
-    organizationsData?.billingData?.data?.billingEnabled ??
-    true
-  const subscription = getSubscriptionStatus(billingPayload)
-  const isOrganizationPlan = subscription.tier.ownerType === 'organization'
-  const userRole = useMemo(
-    () => getUserRole(activeOrganization, userEmail),
-    [activeOrganization, userEmail]
-  )
-  const isOwner = userRole === 'owner'
-  const isAdmin = userRole === 'admin'
-  const organizationAccess = getOrganizationAccessState({
-    billingEnabled,
-    hasOrganization: Boolean(activeOrganizationId),
-    isOrganizationAdmin: isOwner || isAdmin,
-    userTier: billingPayload?.tier,
-    organizationTier: organizationBillingPayload?.subscriptionTier,
-  })
-  const canOpenTeamSettings = organizationAccess.canOpenTeamSettings
-  const canManageSSOSettings = organizationAccess.canConfigureSso
 
   useEffect(() => {
     if (!userId || typeof window === 'undefined') {
@@ -307,23 +277,11 @@ export function UserMenu({
 
   const handleOpenBillingPortal = async () => {
     if (!billingEnabled) return
-    if (isOpeningBillingPortal || isSubscriptionLoading) return
-
-    const context = isOrganizationPlan ? ('organization' as const) : ('user' as const)
-    if (context === 'organization' && !activeOrganizationId) {
-      logger.error('Cannot open billing portal without an active organization', {
-        tier: subscription.tier.displayName,
-      })
-      alert(userMenuCopy.billingPortalSelectOrganization)
-      return
-    }
+    if (isOpeningBillingPortal) return
 
     setIsOpeningBillingPortal(true)
     try {
-      await openBillingPortal({
-        context,
-        organizationId: context === 'organization' ? activeOrganizationId : undefined,
-      })
+      await openBillingPortal()
     } catch (error) {
       logger.error('Failed to open billing portal from user menu', { error })
       alert(error instanceof Error ? error.message : userMenuCopy.billingPortalFailed)
@@ -494,7 +452,7 @@ export function UserMenu({
               {userMenuCopy.subscription}
             </DropdownMenuItem>
             <DropdownMenuItem
-              disabled={isOpeningBillingPortal || isSubscriptionLoading}
+              disabled={isOpeningBillingPortal}
               closeOnClick={false}
               onClick={() => {
                 void handleOpenBillingPortal()
@@ -506,7 +464,7 @@ export function UserMenu({
           </DropdownMenuGroup>
         </>
       ) : null}
-      {canOpenTeamSettings || canManageSSOSettings ? (
+      {canOpenTeamSettings || canConfigureSso ? (
         <>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
@@ -521,7 +479,7 @@ export function UserMenu({
                 {userMenuCopy.teamManagement}
               </DropdownMenuItem>
             ) : null}
-            {canManageSSOSettings ? (
+            {canConfigureSso ? (
               <DropdownMenuItem
                 closeOnClick={false}
                 onClick={() => {

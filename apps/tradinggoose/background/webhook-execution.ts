@@ -1,6 +1,5 @@
 import { db } from '@tradinggoose/db'
 import { webhook, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { schedules } from '@trigger.dev/sdk'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { enqueuePendingExecution } from '@/lib/execution/pending-execution'
@@ -166,7 +165,10 @@ async function logWebhookFailure(params: {
   })
 }
 
-export async function executeWebhookJob(payload: WebhookExecutionPayload) {
+export async function executeWebhookJob(
+  payload: WebhookExecutionPayload,
+  pendingExecutionId: string
+) {
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
   const executionTarget = payload.executionTarget ?? 'deployed'
@@ -287,7 +289,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       payload.body,
       mockRequest,
       requestId,
-      executionId
+      pendingExecutionId
     )
     const airtablePoll =
       payload.provider === 'airtable' ? (formattedInput as AirtablePollResult) : null
@@ -371,7 +373,6 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       },
       triggerData,
     })
-
     logger.info(`[${requestId}] Webhook execution completed`, {
       success: result.success,
       workflowId: payload.workflowId,
@@ -432,19 +433,3 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
     throw error
   }
 }
-
-export const airtableWebhookCleanupSweep = schedules.task({
-  id: 'airtable-webhook-cleanup-sweep',
-  cron: '*/5 * * * *',
-  retry: {
-    maxAttempts: 3,
-    factor: 3,
-    minTimeoutInMs: 60_000,
-    maxTimeoutInMs: 900_000,
-    randomize: true,
-  },
-  run: async () => {
-    const { sweepAirtableWebhookCleanup } = await import('@/lib/webhooks/webhook-helpers')
-    await sweepAirtableWebhookCleanup(`airtable-cleanup-${Date.now()}`)
-  },
-})

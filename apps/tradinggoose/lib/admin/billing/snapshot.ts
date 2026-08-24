@@ -17,6 +17,7 @@ function toTierSnapshot(tier: BillingTierRecord): AdminBillingTierSnapshot {
     id: tier.id,
     displayName: tier.displayName,
     description: tier.description,
+    accessCode: tier.accessCode,
     status: tier.status,
     ownerType: tier.ownerType,
     usageScope: tier.usageScope,
@@ -35,6 +36,8 @@ function toTierSnapshot(tier: BillingTierRecord): AdminBillingTierSnapshot {
         : parseBillingAmount(tier.includedUsageLimitUsd),
     storageLimitGb: tier.storageLimitGb,
     concurrencyLimit: tier.concurrencyLimit,
+    workflowExecutionTimeLimitSeconds:
+      tier.workflowExecutionTimeLimitSeconds,
     seatCount: tier.seatCount,
     seatMaximum: tier.seatMaximum,
     stripeMonthlyPriceId: tier.stripeMonthlyPriceId,

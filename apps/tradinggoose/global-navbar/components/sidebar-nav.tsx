@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { Notebook } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import {
@@ -16,7 +15,6 @@ import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
 import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
-import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { Link } from '@/i18n/navigation'
 import { type LocaleCode, localizeDocsUrl } from '@/i18n/utils'
@@ -139,65 +137,20 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
     isError: isSubscriptionError,
   } = useSubscriptionData()
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
-  const billingEnabled = useMemo(() => billingPayload?.billingEnabled ?? true, [billingPayload])
+  const billingEnabled = billingPayload?.billingEnabled ?? true
   const subscription = getSubscriptionStatus(billingPayload)
   const usage = getUsage(billingPayload)
   const billingStatus = getBillingStatus(billingPayload)
-  const { data: organizationsData } = useOrganizations()
-  const activeOrganizationId = organizationsData?.activeOrganization?.id
-  const { data: organizationBillingData, isLoading: isLoadingOrgBilling } = useOrganizationBilling(
-    activeOrganizationId || ''
-  )
-
-  const isOrganizationPlan = subscription.tier.ownerType === 'organization'
-  const currentUsage = isOrganizationPlan
-    ? (organizationBillingData?.totalCurrentUsage ?? usage.current)
-    : usage.current
-  const usageLimit = isOrganizationPlan
-    ? (organizationBillingData?.totalUsageLimit ??
-      organizationBillingData?.minimumUsageLimit ??
-      usage.limit)
-    : usage.limit
-  const percentUsedRaw = isOrganizationPlan
-    ? (() => {
-        const totalLimit = organizationBillingData?.totalUsageLimit
-        if (totalLimit && totalLimit > 0) {
-          return ((organizationBillingData?.totalCurrentUsage ?? 0) / totalLimit) * 100
-        }
-        return usage.percentUsed
-      })()
-    : usage.percentUsed
-  const percentUsed = Math.max(0, Math.min(Math.round(percentUsedRaw ?? 0), 100))
-  const organizationWarningThresholdPercent =
-    typeof organizationBillingData?.warningThresholdPercent === 'number'
-      ? organizationBillingData.warningThresholdPercent
-      : 100
+  const percentUsed = Math.max(0, Math.min(Math.round(usage.percentUsed ?? 0), 100))
   const normalizedBillingStatus: 'ok' | 'warning' | 'exceeded' | 'blocked' =
-    billingPayload?.billingBlocked
-      ? 'blocked'
-      : isOrganizationPlan
-        ? percentUsed >= 100
-          ? 'exceeded'
-          : percentUsedRaw >= organizationWarningThresholdPercent
-            ? 'warning'
-            : 'ok'
-        : billingStatus === 'unknown'
-          ? 'ok'
-          : billingStatus
-  const safeCurrentUsage = Number.isFinite(currentUsage) ? Number(currentUsage) : 0
-  const safeUsageLimit = Number.isFinite(usageLimit) ? Number(usageLimit) : 0
-  const seatsText =
-    isOrganizationPlan && organizationBillingData?.seatsCount
-      ? `${organizationBillingData.seatsCount} seats`
-      : subscription.seats
-        ? `${subscription.seats} seats`
-        : undefined
+    billingStatus === 'unknown' ? 'ok' : billingStatus
+  const safeCurrentUsage = Number.isFinite(usage.current) ? Number(usage.current) : 0
+  const safeUsageLimit = Number.isFinite(usage.limit) ? Number(usage.limit) : 0
+  const seatsText = subscription.seats ? `${subscription.seats} seats` : undefined
   const usageTitle = subscription.tier.displayName
   const shouldShowUsageHeader =
     billingEnabled && (Boolean(subscriptionData) || isSubscriptionLoading || isSubscriptionError)
-  const showUsageSkeleton =
-    shouldShowUsageHeader &&
-    (!subscriptionData || (isOrganizationPlan && !organizationBillingData && isLoadingOrgBilling))
+  const showUsageSkeleton = shouldShowUsageHeader && !subscriptionData
 
   const handleOpenSubscriptionSettings = () => {
     if (!billingEnabled) return
@@ -210,22 +163,8 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
   }
 
   const handleResolvePayment = async () => {
-    const context =
-      subscription.tier.ownerType === 'organization' ? ('organization' as const) : ('user' as const)
-
-    if (context === 'organization' && !activeOrganizationId) {
-      logger.error('Cannot resolve payment without an active organization', {
-        tier: subscription.tier.displayName,
-      })
-      alert('Select an organization to manage billing.')
-      return
-    }
-
     try {
-      await openBillingPortal({
-        context,
-        organizationId: context === 'organization' ? activeOrganizationId : undefined,
-      })
+      await openBillingPortal()
     } catch (error) {
       logger.error('Failed to open billing portal from sidebar usage indicator', { error })
       alert(error instanceof Error ? error.message : 'Failed to open billing portal')

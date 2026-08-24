@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 const nullableNumberSchema = z.number().finite().nonnegative().nullable()
 const nullableIntegerSchema = z.number().int().nonnegative().nullable()
+const nullableExecutionTimeLimitSchema = z.number().int().min(5).max(2_147_483).nullable()
 const nullableTrimmedStringSchema = z
   .string()
   .trim()
@@ -15,6 +16,7 @@ function hasPositiveNumber(value: number | null): value is number {
 export const adminBillingTierMutationSchema = z.object({
   displayName: z.string().trim().min(1),
   description: z.string().trim().min(1),
+  accessCode: nullableTrimmedStringSchema,
   status: z.enum(['draft', 'active', 'archived']),
   ownerType: z.enum(['user', 'organization']),
   usageScope: z.enum(['individual', 'pooled']),
@@ -24,6 +26,7 @@ export const adminBillingTierMutationSchema = z.object({
   includedUsageLimitUsd: nullableNumberSchema,
   storageLimitGb: nullableIntegerSchema,
   concurrencyLimit: nullableIntegerSchema,
+  workflowExecutionTimeLimitSeconds: nullableExecutionTimeLimitSchema,
   seatCount: nullableIntegerSchema,
   seatMaximum: nullableIntegerSchema,
   stripeMonthlyPriceId: nullableTrimmedStringSchema,
@@ -47,9 +50,27 @@ export const adminBillingTierMutationSchema = z.object({
   displayOrder: z.number().int(),
 })
 
-export type AdminBillingTierMutationInput = z.infer<
-  typeof adminBillingTierMutationSchema
->
+export type AdminBillingTierMutationInput = z.infer<typeof adminBillingTierMutationSchema>
+
+export function toBillingTierMutationValues(
+  input: AdminBillingTierMutationInput,
+  updatedByUserId: string
+) {
+  const toDecimalString = (value: number | null) => (value === null ? null : value.toString())
+
+  return {
+    ...input,
+    monthlyPriceUsd: toDecimalString(input.monthlyPriceUsd),
+    yearlyPriceUsd: toDecimalString(input.yearlyPriceUsd),
+    includedUsageLimitUsd: toDecimalString(input.includedUsageLimitUsd),
+    workflowExecutionMultiplier: String(input.workflowExecutionMultiplier ?? 1),
+    workflowModelCostMultiplier: String(input.workflowModelCostMultiplier ?? 1),
+    functionExecutionMultiplier: String(input.functionExecutionMultiplier ?? 1),
+    copilotCostMultiplier: String(input.copilotCostMultiplier ?? 1),
+    updatedByUserId,
+    updatedAt: new Date(),
+  }
+}
 
 type AdminBillingTierValidationOptions = {
   requireStripeMonthlyPriceId?: boolean
@@ -57,8 +78,24 @@ type AdminBillingTierValidationOptions = {
 
 export function validateAdminBillingTierInput(
   input: AdminBillingTierMutationInput,
-  options: AdminBillingTierValidationOptions = {},
+  options: AdminBillingTierValidationOptions = {}
 ): string | null {
+  if (input.isPublic && input.accessCode) {
+    return 'Public tiers cannot configure a private access code'
+  }
+
+  if (input.accessCode && !input.stripeMonthlyPriceId) {
+    return 'Private tiers with an access code must configure a Stripe monthly price ID'
+  }
+
+  if (input.stripeYearlyPriceId && !input.stripeMonthlyPriceId) {
+    return 'Stripe yearly prices require a Stripe monthly price ID'
+  }
+
+  if (input.stripeMonthlyPriceId && input.stripeMonthlyPriceId === input.stripeYearlyPriceId) {
+    return 'Stripe monthly and yearly price IDs must be different'
+  }
+
   if (input.isDefault) {
     if (!input.isPublic) {
       return 'The default tier must be visible in the public catalog'
@@ -72,10 +109,7 @@ export function validateAdminBillingTierInput(
       return 'The default tier must be a public user tier with individual usage and fixed seats'
     }
 
-    if (
-      hasPositiveNumber(input.monthlyPriceUsd) ||
-      hasPositiveNumber(input.yearlyPriceUsd)
-    ) {
+    if (hasPositiveNumber(input.monthlyPriceUsd) || hasPositiveNumber(input.yearlyPriceUsd)) {
       return 'The default tier cannot configure a recurring price'
     }
   }
@@ -124,26 +158,17 @@ export function validateAdminBillingTierInput(
     if (input.concurrencyLimit === null) {
       return 'Active tiers must configure a concurrency limit'
     }
-
   }
 
   if (options.requireStripeMonthlyPriceId && !input.stripeMonthlyPriceId) {
     return 'New tiers must configure a Stripe monthly price ID'
   }
 
-  if (
-    input.isPublic &&
-    hasPositiveNumber(input.monthlyPriceUsd) &&
-    !input.stripeMonthlyPriceId
-  ) {
+  if (input.isPublic && hasPositiveNumber(input.monthlyPriceUsd) && !input.stripeMonthlyPriceId) {
     return 'Public tiers with a recurring monthly price must configure a Stripe monthly price ID'
   }
 
-  if (
-    input.isPublic &&
-    hasPositiveNumber(input.yearlyPriceUsd) &&
-    !input.stripeYearlyPriceId
-  ) {
+  if (input.isPublic && hasPositiveNumber(input.yearlyPriceUsd) && !input.stripeYearlyPriceId) {
     return 'Public tiers with a recurring yearly price must configure a Stripe yearly price ID'
   }
 

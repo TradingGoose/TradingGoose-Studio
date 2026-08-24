@@ -1,16 +1,18 @@
 /**
  * @vitest-environment node
  */
-import { expect, it, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   pendingRows: [] as unknown[],
   logRows: [] as unknown[],
+  storageMode: 'redis' as 'redis' | 'local',
+  dbSelect: vi.fn(),
 }))
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
-    select: (fields: Record<string, unknown>) => {
+    select: mocks.dbSelect.mockImplementation((fields: Record<string, unknown>) => {
       const rows = 'status' in fields ? mocks.pendingRows : mocks.logRows
       return {
         from: vi.fn(() => ({
@@ -19,7 +21,7 @@ vi.mock('@tradinggoose/db', () => ({
           })),
         })),
       }
-    },
+    }),
   },
 }))
 
@@ -31,18 +33,26 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/redis', () => ({
   getRedisClient: vi.fn(() => null),
-  getRedisStorageMode: vi.fn(() => 'redis'),
+  getRedisStorageMode: vi.fn(() => mocks.storageMode),
 }))
 
-import { readWorkflowExecutionEventState } from './workflow-execution-events'
+import {
+  createWorkflowExecutionEventWriter,
+  readWorkflowExecutionEventState,
+} from './workflow-execution-events'
 
-const startedAt = new Date('2026-08-20T12:00:00.000Z')
+beforeEach(() => {
+  mocks.pendingRows.length = 0
+  mocks.logRows.length = 0
+  mocks.storageMode = 'redis'
+  mocks.dbSelect.mockClear()
+})
 
 it('prefers a finalized error log and otherwise uses pending state', async () => {
   mocks.pendingRows.push({ status: 'processing' })
   mocks.logRows.push({
     level: 'error',
-    startedAt,
+    startedAt: new Date('2026-08-20T12:00:00.000Z'),
     endedAt: new Date('2026-08-20T12:10:00.000Z'),
     totalDurationMs: 600_000,
     executionData: {
@@ -72,5 +82,31 @@ it('prefers a finalized error log and otherwise uses pending state', async () =>
     result: null,
     failureReason: null,
     events: [],
+  })
+})
+
+it('writes and reads a terminal stream without a pending execution row', async () => {
+  mocks.storageMode = 'local'
+  const writer = createWorkflowExecutionEventWriter({
+    pendingExecutionId: 'local-execution-1',
+    workflowId: 'workflow-1',
+  })
+
+  await writer.write({
+    type: 'execution:completed',
+    data: { result: { success: true, output: { ok: true } } },
+  })
+
+  expect(mocks.dbSelect).not.toHaveBeenCalled()
+  await expect(
+    readWorkflowExecutionEventState({
+      pendingExecutionId: 'local-execution-1',
+      workflowId: 'workflow-1',
+      afterEventId: 0,
+    })
+  ).resolves.toMatchObject({
+    status: 'completed',
+    result: { success: true, output: { ok: true } },
+    events: [{ event: { type: 'execution:completed' } }],
   })
 })

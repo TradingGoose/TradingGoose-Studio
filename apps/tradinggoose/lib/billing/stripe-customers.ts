@@ -41,6 +41,19 @@ export function getStripeUserCustomerReplacementIdempotencyKey(
   return `billing-portal:user-customer-replacement:${hashedReplacementTarget}`
 }
 
+export async function getStoredStripeUserCustomerId(
+  userId: string,
+  dbClient: Pick<typeof db, 'select'> = db
+) {
+  const [record] = await dbClient
+    .select({ stripeCustomerId: user.stripeCustomerId })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1)
+
+  return record?.stripeCustomerId ?? null
+}
+
 export async function createStripeUserCustomer(
   stripe: StripeCustomerCreateClient,
   params: {

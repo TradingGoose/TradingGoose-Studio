@@ -42,6 +42,7 @@ export interface SystemBillingTierSettings {
   id: string
   displayName: string
   description: string
+  accessCode: string | null
   status: SystemBillingTierStatus
   ownerType: SystemBillingTierOwnerType
   usageScope: SystemBillingTierUsageScope
@@ -51,6 +52,7 @@ export interface SystemBillingTierSettings {
   includedUsageLimitUsd: number | null
   storageLimitGb: number | null
   concurrencyLimit: number | null
+  workflowExecutionTimeLimitSeconds: number | null
   seatCount: number | null
   seatMaximum: number | null
   stripeMonthlyPriceId: string | null
@@ -193,6 +195,7 @@ export const systemBillingTier = pgTable(
     id: text('id').primaryKey(),
     displayName: text('display_name').notNull(),
     description: text('description').notNull(),
+    accessCode: text('access_code'),
     status: text('status')
       .$type<SystemBillingTierStatus>()
       .notNull()
@@ -210,6 +213,9 @@ export const systemBillingTier = pgTable(
     includedUsageLimitUsd: decimal('included_usage_limit_usd'),
     storageLimitGb: integer('storage_limit_gb'),
     concurrencyLimit: integer('concurrency_limit'),
+    workflowExecutionTimeLimitSeconds: integer(
+      'workflow_execution_time_limit_seconds',
+    ),
     seatCount: integer('seat_count'),
     seatMaximum: integer('seat_maximum'),
     stripeMonthlyPriceId: text('stripe_monthly_price_id'),
@@ -257,6 +263,18 @@ export const systemBillingTier = pgTable(
     displayOrderIdx: index('system_billing_tier_display_order_idx').on(
       table.displayOrder,
     ),
+    accessCodeUnique: uniqueIndex(
+      'system_billing_tier_access_code_unique',
+    ).on(table.accessCode),
+    stripeMonthlyPriceIdUnique: uniqueIndex(
+      'system_billing_tier_stripe_monthly_price_id_unique',
+    ).on(table.stripeMonthlyPriceId),
+    stripeYearlyPriceIdUnique: uniqueIndex(
+      'system_billing_tier_stripe_yearly_price_id_unique',
+    ).on(table.stripeYearlyPriceId),
+    stripeProductIdUnique: uniqueIndex(
+      'system_billing_tier_stripe_product_id_unique',
+    ).on(table.stripeProductId),
     updatedByUserIdIdx: index('system_billing_tier_updated_by_user_id_idx').on(
       table.updatedByUserId,
     ),
@@ -303,6 +321,18 @@ export const systemBillingTier = pgTable(
     logRetentionDaysCheck: check(
       'system_billing_tier_log_retention_days_check',
       sql`${table.logRetentionDays} is null or ${table.logRetentionDays} >= 0`,
+    ),
+    accessCodeCheck: check(
+      'system_billing_tier_access_code_check',
+      sql`${table.accessCode} is null or (not ${table.isPublic} and ${table.accessCode} = btrim(${table.accessCode}))`,
+    ),
+    stripePriceIdsDistinctCheck: check(
+      'system_billing_tier_stripe_price_ids_distinct_check',
+      sql`${table.stripeMonthlyPriceId} is null or ${table.stripeYearlyPriceId} is null or ${table.stripeMonthlyPriceId} <> ${table.stripeYearlyPriceId}`,
+    ),
+    workflowExecutionTimeLimitCheck: check(
+      'system_billing_tier_workflow_execution_time_limit_check',
+      sql`${table.workflowExecutionTimeLimitSeconds} is null or ${table.workflowExecutionTimeLimitSeconds} between 5 and 2147483`,
     ),
     workflowExecutionMultiplierCheck: check(
       'system_billing_tier_workflow_execution_multiplier_check',

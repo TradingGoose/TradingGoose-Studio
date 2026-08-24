@@ -21,13 +21,12 @@ import {
   generateMicrosoftTeamsChatCallbackPath,
   getAirtableDeclarativeProviderConfig,
   getAirtableWebhookCleanup,
-  getAirtableWebhookLifecycle,
   getExternalSubscriptionCredentialIds,
   getExternalSubscriptionDeclarativeConfig,
-  getPendingAirtableWebhookCleanup,
   getWebhookRevision,
   getWebhookSnapshotRevision,
   lockExternalSubscriptionCredentials,
+  processAirtableWebhookCleanup,
   setAirtableWebhookDeadline,
   setAirtableWebhookLifecycle,
   setPendingAirtableWebhookCleanup,
@@ -279,22 +278,31 @@ export async function POST(request: NextRequest) {
         targetWebhookId = previousWebhook.id
       }
     }
-    const webhookId = targetWebhookId ?? nanoid()
-    if (getAirtableWebhookLifecycle(previousWebhook?.providerConfig)) {
-      return NextResponse.json(
-        { error: 'Airtable webhook update already in progress' },
-        { status: 409 }
-      )
+    const airtableScope = {
+      userId,
+      workspaceId,
     }
+    if (previousWebhook?.provider === 'airtable') {
+      const recovery = await processAirtableWebhookCleanup(
+        previousWebhook,
+        requestId,
+        airtableScope
+      )
+      if (!recovery.cleaned) {
+        return NextResponse.json(
+          { error: 'Airtable webhook update already in progress' },
+          { status: 409 }
+        )
+      }
+      previousWebhook = recovery.webhook
+      targetWebhookId = previousWebhook?.id ?? null
+    }
+    const webhookId = targetWebhookId ?? nanoid()
     if (previousWebhook?.provider && previousWebhook.provider !== provider) {
       return NextResponse.json(
         { error: 'Delete the webhook before changing providers' },
         { status: 409 }
       )
-    }
-    const airtableScope = {
-      userId,
-      workspaceId,
     }
     let finalProviderConfig = providerConfig
     let shouldProvisionWebflow = provider === 'webflow'
@@ -319,7 +327,6 @@ export async function POST(request: NextRequest) {
       } else {
         const lifecycle = {
           phase: 'provisioning' as const,
-          emptyObservations: 0 as const,
           expiresAt: 0,
           previous: previousWebhook
             ? {
@@ -379,10 +386,7 @@ export async function POST(request: NextRequest) {
           )
           finalProviderConfig = setPendingAirtableWebhookCleanup(
             { ...incomingConfig, externalId: airtableSubscription.externalId },
-            [
-              ...getPendingAirtableWebhookCleanup(storedProviderConfig),
-              ...(previousWebhook?.provider === 'airtable' && activeCleanup ? [activeCleanup] : []),
-            ]
+            activeCleanup ? [activeCleanup] : []
           )
         } catch (error) {
           logger.error(`[${requestId}] Error creating Airtable webhook`, error)
@@ -555,6 +559,13 @@ export async function POST(request: NextRequest) {
         }
         savedWebhook = saved[0]
       }
+    }
+    if (savedWebhook?.provider === 'airtable') {
+      const cleanup = await processAirtableWebhookCleanup(savedWebhook, requestId, airtableScope)
+      if (!cleanup.cleaned) {
+        return NextResponse.json({ error: 'Airtable webhook cleanup is pending' }, { status: 503 })
+      }
+      savedWebhook = cleanup.webhook ?? undefined
     }
     if (savedWebhook && provider === 'telegram') {
       const { createTelegramWebhook } = await import('@/lib/webhooks/webhook-helpers')

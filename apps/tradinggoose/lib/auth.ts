@@ -29,15 +29,9 @@ import {
 } from '@/components/emails/render-email'
 import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
-import {
-  ensureDefaultUserSubscription,
-  getEffectiveSubscription,
-} from '@/lib/billing/core/subscription'
+import { ensureDefaultUserSubscription } from '@/lib/billing/core/subscription'
 import { handleNewUser } from '@/lib/billing/core/usage'
-import {
-  ensureOrganizationForOrganizationSubscription,
-  syncSubscriptionUsageLimits,
-} from '@/lib/billing/organization'
+import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { createStripeUserCustomer } from '@/lib/billing/stripe-customers'
@@ -125,6 +119,30 @@ async function getHydratedSubscriptionById(subscriptionId: string) {
 
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
   return hydratedSubscriptions[0] ?? null
+}
+
+async function syncBillingTierAndRequireSubscription(input: {
+  subscriptionId: string
+  stripeSubscription: Stripe.Subscription
+}) {
+  await syncSubscriptionBillingTierFromStripeSubscription(input)
+
+  const hydratedSubscription = await getHydratedSubscriptionById(input.subscriptionId)
+  if (!hydratedSubscription) {
+    throw new Error(`Subscription ${input.subscriptionId} could not be hydrated`)
+  }
+
+  return hydratedSubscription
+}
+
+async function handleCompletedSubscription(input: {
+  subscriptionId: string
+  stripeSubscription: Stripe.Subscription
+}) {
+  const subscription = await syncBillingTierAndRequireSubscription(input)
+  await handleSubscriptionCreated(subscription)
+  await syncSubscriptionUsageLimits(subscription)
+  await sendBillingTierWelcomeEmail(subscription)
 }
 
 type SystemManagedGenericOAuthConfig = Omit<GenericOAuthConfig, 'clientId' | 'clientSecret'>
@@ -1589,8 +1607,16 @@ export const auth = betterAuth({
       subscription: {
         enabled: true,
         plans: getBetterAuthPlansConfig(),
-        authorizeReference: async ({ user, referenceId }) => {
-          return await authorizeSubscriptionReference(user.id, referenceId)
+        authorizeReference: async ({ user, referenceId }, context) => {
+          const customerType = context.body?.customerType ?? context.query?.customerType
+          if (customerType === 'organization') {
+            return false
+          }
+
+          return await authorizeSubscriptionReference(user.id, {
+            referenceType: 'organization',
+            referenceId,
+          })
         },
         getCheckoutSessionParams: async ({ plan, subscription }) => {
           const [settings, tier] = await Promise.all([
@@ -1634,11 +1660,9 @@ export const auth = betterAuth({
           }
         },
         onSubscriptionComplete: async ({
-          event,
           stripeSubscription,
           subscription,
         }: {
-          event: Stripe.Event
           stripeSubscription: Stripe.Subscription
           subscription: any
         }) => {
@@ -1649,21 +1673,10 @@ export const auth = betterAuth({
             status: subscription.status,
           })
 
-          await syncSubscriptionBillingTierFromStripeSubscription(
-            subscription.id,
-            stripeSubscription || (event.data.object as Stripe.Subscription | undefined)
-          )
-
-          const hydratedSubscription = await getHydratedSubscriptionById(subscription.id)
-          const subscriptionRecord = hydratedSubscription ?? { ...subscription, tier: null }
-          const resolvedSubscription =
-            await ensureOrganizationForOrganizationSubscription(subscriptionRecord)
-
-          await handleSubscriptionCreated(resolvedSubscription)
-
-          await syncSubscriptionUsageLimits(resolvedSubscription)
-
-          await sendBillingTierWelcomeEmail(resolvedSubscription)
+          await handleCompletedSubscription({
+            subscriptionId: subscription.id,
+            stripeSubscription,
+          })
         },
         onSubscriptionUpdate: async ({
           event,
@@ -1677,15 +1690,10 @@ export const auth = betterAuth({
             status: subscription.status,
           })
 
-          await syncSubscriptionBillingTierFromStripeSubscription(
-            subscription.id,
-            event.data.object as Stripe.Subscription | undefined
-          )
-
-          const hydratedSubscription = await getHydratedSubscriptionById(subscription.id)
-          const subscriptionRecord = hydratedSubscription ?? { ...subscription, tier: null }
-          const resolvedSubscription =
-            await ensureOrganizationForOrganizationSubscription(subscriptionRecord)
+          const resolvedSubscription = await syncBillingTierAndRequireSubscription({
+            subscriptionId: subscription.id,
+            stripeSubscription: event.data.object as Stripe.Subscription,
+          })
 
           try {
             await syncSubscriptionUsageLimits(resolvedSubscription)
@@ -1751,9 +1759,8 @@ export const auth = betterAuth({
     }),
     organization({
       allowUserToCreateOrganization: async (user) => {
-        const [{ billingEnabled }, personalSubscription, memberships] = await Promise.all([
+        const [{ billingEnabled }, memberships] = await Promise.all([
           getBillingGateState(),
-          getEffectiveSubscription(user.id),
           db
             .select({ id: schema.member.id })
             .from(schema.member)
@@ -1765,7 +1772,6 @@ export const auth = betterAuth({
           billingEnabled,
           hasOrganization: memberships.length > 0,
           isOrganizationAdmin: false,
-          userTier: personalSubscription?.tier,
         }).canCreateOrganization
       },
       // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow

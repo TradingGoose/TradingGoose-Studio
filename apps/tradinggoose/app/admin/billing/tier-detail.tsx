@@ -21,6 +21,7 @@ import type { LocaleCode } from '@/i18n/utils'
 import {
   BillingBreadcrumbs,
   buildTierMutationInput,
+  buildTierMutationInputFromDefaults,
   createTierFormDefaults,
   createTierPreviewState,
   DEFAULT_TIER_EDITOR_SECTIONS,
@@ -47,11 +48,6 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
   const updateTier = useMutation({
     mutationFn: ({ id, input }: { id: string; input: AdminBillingTierMutationInput }) =>
       sendAdminBillingMutationRequest(`${ADMIN_BILLING_TIERS_ENDPOINT}/${id}`, 'PATCH', input),
-    onSuccess: invalidateTierSnapshots,
-  })
-  const deleteTier = useMutation({
-    mutationFn: (id: string) =>
-      sendAdminBillingMutationRequest(`${ADMIN_BILLING_TIERS_ENDPOINT}/${id}`, 'DELETE'),
     onSuccess: invalidateTierSnapshots,
   })
   const initialValues = useMemo(() => createTierFormDefaults(tier), [tier])
@@ -94,11 +90,7 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
   )
 
   const headerRight = (
-    <PrimaryButton
-      form={formId}
-      type='submit'
-      disabled={updateTier.isPending || deleteTier.isPending}
-    >
+    <PrimaryButton form={formId} type='submit' disabled={updateTier.isPending}>
       {updateTier.isPending ? copy.tierDetail.saving : copy.tierDetail.save}
     </PrimaryButton>
   )
@@ -134,15 +126,19 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
     }
   }
 
-  async function handleDelete() {
+  async function handleArchive() {
     setError(null)
     setMessage(null)
 
     try {
-      await deleteTier.mutateAsync(tier.id)
+      const input = buildTierMutationInputFromDefaults({
+        ...createTierFormDefaults(tier),
+        status: 'archived',
+      })
+      await updateTier.mutateAsync({ id: tier.id, input })
       router.push('/admin/billing')
-    } catch (deleteError) {
-      setError(getErrorMessage(deleteError, copy.errors.unknown))
+    } catch (archiveError) {
+      setError(getErrorMessage(archiveError, copy.errors.unknown))
     }
   }
 
@@ -178,8 +174,9 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
             setSectionState((current) => ({ ...current, [sectionId]: open }))
           }
           onAccessFieldChange={handleAccessFieldChange}
-          isPending={updateTier.isPending || deleteTier.isPending}
+          isPending={updateTier.isPending}
           requireStripeMonthlyPriceId={true}
+          structuralIdentityLocked={tier.status !== 'draft'}
           onSubmit={handleSubmit}
           onFormChange={handleFormChange}
           footer={
@@ -187,10 +184,10 @@ function AdminBillingTierDetailEditorPage({ tier }: { tier: AdminBillingTierSnap
               <Button
                 type='button'
                 variant='outline'
-                onClick={handleDelete}
-                disabled={deleteTier.isPending || tier.subscriptionCount > 0 || tier.isDefault}
+                onClick={handleArchive}
+                disabled={updateTier.isPending || tier.isDefault || tier.status === 'archived'}
               >
-                {deleteTier.isPending ? copy.tierDetail.deleting : copy.tierDetail.delete}
+                {copy.tierDetail.archive}
               </Button>
             </div>
           }

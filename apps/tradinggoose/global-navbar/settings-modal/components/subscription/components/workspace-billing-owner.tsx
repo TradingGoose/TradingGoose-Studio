@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useParams } from 'next/navigation'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
 import {
@@ -20,8 +19,8 @@ import {
   useOrganizations,
 } from '@/hooks/queries/organization'
 import {
-  useWorkspaceSettings,
   type WorkspaceBillingOwner,
+  type WorkspaceSettingsResponse,
   workspaceMutationOptions,
 } from '@/hooks/queries/workspace'
 
@@ -31,15 +30,17 @@ function getBillingOwnerValue(billingOwner: WorkspaceBillingOwner): string {
   return billingOwner.type === 'organization' ? 'organization' : `user:${billingOwner.userId}`
 }
 
-export function WorkspaceBillingOwnerEditor() {
+interface WorkspaceBillingOwnerEditorProps {
+  isLoading: boolean
+  workspaceSettings: WorkspaceSettingsResponse | undefined
+}
+
+export function WorkspaceBillingOwnerEditor({
+  isLoading,
+  workspaceSettings,
+}: WorkspaceBillingOwnerEditorProps) {
   const { data: session } = useSession()
   const { data: organizationsData } = useOrganizations()
-  const params = useParams<{ workspaceId?: string | string[] }>()
-  const workspaceIdParam = params?.workspaceId
-  const workspaceId = Array.isArray(workspaceIdParam)
-    ? workspaceIdParam[0]
-    : (workspaceIdParam ?? '')
-  const { data: workspaceSettings, isLoading } = useWorkspaceSettings(workspaceId)
   const [error, setError] = useState<string | null>(null)
   const changeLockRef = useRef(false)
   const queryClient = useQueryClient()
@@ -57,7 +58,8 @@ export function WorkspaceBillingOwnerEditor() {
   )
   const isPending = updateWorkspaceSettings.isPending || assignWorkspaceToOrganization.isPending
   const canAssignOrganizationBilling = Boolean(
-    organizationBilling?.subscriptionTier?.ownerType === 'organization'
+    organizationBilling?.organizationId === activeOrganization?.id &&
+      organizationBilling?.subscriptionTier?.ownerType === 'organization'
   )
 
   if (!workspace || workspace.permissions !== 'admin' || !session?.user?.id) {
