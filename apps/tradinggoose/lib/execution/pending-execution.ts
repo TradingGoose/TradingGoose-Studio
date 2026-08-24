@@ -259,6 +259,11 @@ async function triggerPendingExecution(row: PendingExecutionClaim) {
         })
         .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))
     }
+    if (admissionRejected) {
+      throw new TriggerExecutionUnavailableError(
+        'Trigger.dev rejected execution admission. Retry the request.'
+      )
+    }
     throw error
   }
 }

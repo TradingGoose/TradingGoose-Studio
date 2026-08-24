@@ -45,16 +45,3 @@ export async function POST() {
     return NextResponse.json({ error: 'Failed to create billing portal session' }, { status: 500 })
   }
 }
-
-export async function GET() {
-  const response = await POST()
-
-  if (response.status === 401) {
-    const loginUrl = new URL('/login', getBaseUrl())
-    loginUrl.searchParams.set('callbackUrl', '/api/billing/portal')
-    return NextResponse.redirect(loginUrl)
-  }
-
-  if (!response.ok) return response
-  return NextResponse.redirect((await response.json()).url)
-}

@@ -41,11 +41,6 @@ async function postPortal() {
   return POST()
 }
 
-async function getPortal() {
-  const { GET } = await import('./route')
-  return GET()
-}
-
 function expectPortalSession(customer: string) {
   expect(mockStripeBillingPortalSessionsCreate).toHaveBeenCalledWith({
     customer,
@@ -122,27 +117,6 @@ describe('/api/billing/portal route', () => {
       userId: 'user-1',
     })
     expectPortalSession('cus_user_123')
-  })
-
-  it('redirects an authenticated email link to the personal billing portal', async () => {
-    const response = await getPortal()
-
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe('https://billing.stripe.test/session')
-    expectPortalSession('cus_user_123')
-  })
-
-  it('redirects an unauthenticated email link to login with the portal callback', async () => {
-    mockGetSession.mockResolvedValueOnce(null)
-
-    const response = await getPortal()
-
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toBe(
-      'https://example.com/login?callbackUrl=%2Fapi%2Fbilling%2Fportal'
-    )
-    expect(mockEnsureStripeUserCustomer).not.toHaveBeenCalled()
-    expect(mockStripeBillingPortalSessionsCreate).not.toHaveBeenCalled()
   })
 
   it('returns 404 when no personal user record can be resolved', async () => {

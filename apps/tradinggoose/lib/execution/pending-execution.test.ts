@@ -1055,6 +1055,7 @@ describe('enqueuePendingExecution', () => {
   it.each([
     ['ambiguous', new Error('Trigger unavailable'), false],
     ['rejected', new ApiError(400, undefined, 'Invalid task payload', undefined), true],
+    ['rate-limited', new ApiError(429, undefined, 'Too many requests', undefined), true],
   ])('keeps the new row queued after an %s dispatch failure', async (_, error, resetClaim) => {
     getTriggerExecutionStateMock.mockResolvedValue(triggerEnabledState)
     triggerMock.mockRejectedValue(error)
@@ -1075,7 +1076,14 @@ describe('enqueuePendingExecution', () => {
           executionId: 'pending-b',
         },
       })
-    ).rejects.toThrow(error.message)
+    ).rejects.toMatchObject(
+      resetClaim
+        ? {
+            name: 'TriggerExecutionUnavailableError',
+            message: 'Trigger.dev rejected execution admission. Retry the request.',
+          }
+        : { message: error.message }
+    )
 
     expect(txInsertValuesMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'pending-b' }))
     expect(triggerMock).toHaveBeenCalledWith(

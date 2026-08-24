@@ -22,7 +22,6 @@ import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('StripeInvoiceWebhooks')
 
@@ -136,7 +135,11 @@ async function sendPaymentFailureEmails(
   invoice: Stripe.Invoice
 ): Promise<void> {
   try {
-    const billingPortalUrl = `${getBaseUrl()}/api/billing/portal`
+    const paymentUrl = invoice.hosted_invoice_url
+    if (!paymentUrl) {
+      logger.warn('Failed invoice has no hosted payment URL', { invoiceId: invoice.id })
+      return
+    }
     const amountDue = invoice.amount_due / 100 // Convert cents to dollars
     const { lastFourDigits, failureReason } = await getPaymentMethodDetails(invoice)
 
@@ -187,7 +190,7 @@ async function sendPaymentFailureEmails(
           userName: userToNotify.name || undefined,
           amountDue,
           lastFourDigits,
-          billingPortalUrl,
+          paymentUrl,
           failureReason,
           locale,
         })
@@ -451,10 +454,6 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
         // This prevents spamming users with duplicate emails every 3-5-7 days
         if (attemptCount === 1) {
           await sendPaymentFailureEmails(sub, invoice)
-          logger.info('Payment failure email sent on first attempt', {
-            invoiceId: invoice.id,
-            customerId,
-          })
         } else {
           logger.info('Skipping payment failure email on retry attempt', {
             invoiceId: invoice.id,
