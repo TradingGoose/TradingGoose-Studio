@@ -63,6 +63,8 @@ const result = await client.executeWorkflow('workflow-id', {
 - `options` (ExecutionOptions, optional):
   - `input` (any): Input data to pass to the workflow. File objects are automatically converted to base64.
   - `timeout` (number): Timeout in milliseconds (default: 30000)
+  - `stream` (boolean): Add the API streaming control to the request.
+  - `selectedOutputs` (string[]): Select block outputs, such as `agent1.content`, for the streaming request.
 
 **Returns:** `Promise<WorkflowExecutionResult>`
 
@@ -112,7 +114,71 @@ Update the base URL.
 client.setBaseUrl('https://my-custom-domain.com');
 ```
 
+##### executeWithRetry(workflowId, options?, retryOptions?)
+
+Execute a workflow and retry only `RATE_LIMIT_EXCEEDED` responses. Defaults are 3 retries, a 1000 ms initial delay, a 30000 ms maximum delay, and a 2× backoff multiplier. The client honors `Retry-After` when present and adds ±25% jitter.
+
+```typescript
+const result = await client.executeWithRetry(
+  'workflow-id',
+  { input: { message: 'Hello' }, stream: true, selectedOutputs: ['agent1.content'] },
+  { maxRetries: 3, initialDelay: 1000, maxDelay: 30000, backoffMultiplier: 2 }
+);
+```
+
+##### getRateLimitInfo()
+
+Return the most recently observed `RateLimitInfo`, or `null` before a response supplies rate-limit headers. `retryAfter` is measured in milliseconds.
+
+##### getUsageLimits()
+
+Fetch current sync/async rate limits and account usage from `/api/users/me/usage-limits`.
+
+```typescript
+const limits = await client.getUsageLimits();
+console.log(limits.rateLimit.sync.remaining, limits.usage.currentPeriodCost);
+```
+
 ## Types
+
+### ExecutionOptions and RetryOptions
+
+```typescript
+interface ExecutionOptions {
+  input?: any;
+  timeout?: number; // milliseconds; default 30000
+  stream?: boolean;
+  selectedOutputs?: string[];
+}
+
+interface RetryOptions {
+  maxRetries?: number; // default 3
+  initialDelay?: number; // milliseconds; default 1000
+  maxDelay?: number; // milliseconds; default 30000
+  backoffMultiplier?: number; // default 2
+}
+```
+
+### RateLimitInfo and UsageLimits
+
+```typescript
+interface RateLimitInfo {
+  limit: number;
+  remaining: number;
+  reset: number;
+  retryAfter?: number; // milliseconds
+}
+
+interface UsageLimits {
+  success: boolean;
+  rateLimit: {
+    sync: { isLimited: boolean; limit: number; remaining: number; resetAt: string };
+    async: { isLimited: boolean; limit: number; remaining: number; resetAt: string };
+    authType: string;
+  };
+  usage: { currentPeriodCost: number; limit: number; plan: string };
+}
+```
 
 ### WorkflowExecutionResult
 
@@ -150,6 +216,8 @@ class TradingGooseError extends Error {
   status?: number;
 }
 ```
+
+HTTP failures preserve the API error code and status. Timeouts use `TIMEOUT`; transport or unexpected execution failures use `EXECUTION_ERROR`; usage-limit request failures use `USAGE_ERROR`; HTTP 429 uses `RATE_LIMIT_EXCEEDED`.
 
 ## Examples
 

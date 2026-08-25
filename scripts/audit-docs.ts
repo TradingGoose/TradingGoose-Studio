@@ -3,7 +3,8 @@
  * Documentation Audit Script
  *
  * Scans the tradinggoose app source and compares against existing docs
- * to produce a gap report across 5 categories:
+ * to produce a structural page-coverage report. Semantic/API content
+ * validation is intentionally separate from this source-to-page inventory.
  *   1. Blocks (built-in workflow blocks)
  *   2. Tools (integration tool pages under /tools/)
  *   3. Indicators (technical analysis indicators)
@@ -34,8 +35,8 @@ const PATHS = {
   widgets: path.join(APP_ROOT, 'widgets/widgets'),
   triggers: path.join(APP_ROOT, 'triggers'),
   mcpLib: path.join(APP_ROOT, 'lib/mcp'),
-  skillsStore: path.join(APP_ROOT, 'stores/skills'),
-  customToolWidget: path.join(APP_ROOT, 'widgets/widgets/editor_custom_tool'),
+  skillsLib: path.join(APP_ROOT, 'lib/skills'),
+  customToolsLib: path.join(APP_ROOT, 'lib/custom-tools'),
 }
 
 const DOC_PATHS = {
@@ -44,9 +45,7 @@ const DOC_PATHS = {
   indicators: path.join(DOCS_ROOT, 'indicators'),
   widgets: path.join(DOCS_ROOT, 'widgets'),
   triggers: path.join(DOCS_ROOT, 'triggers'),
-  mcp: path.join(DOCS_ROOT, 'utilities'),
-  skills: path.join(DOCS_ROOT, 'utilities'),
-  customTools: path.join(DOCS_ROOT, 'utilities'),
+  utilities: path.join(DOCS_ROOT, 'utilities'),
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -391,45 +390,36 @@ function scanTriggers(): SourceItem[] {
   return items
 }
 
-type UtilitySubCategory = 'mcp' | 'skills' | 'custom-tools'
-
-interface UtilityItem extends SourceItem {
-  subCategory: UtilitySubCategory
-}
-
-function scanUtilities(): UtilityItem[] {
-  const items: UtilityItem[] = []
+function scanUtilities(): SourceItem[] {
+  const items: SourceItem[] = []
 
   // MCP
   if (fs.existsSync(PATHS.mcpLib)) {
     items.push({
-      id: 'mcp-overview',
-      name: 'MCP Overview',
+      id: 'mcp',
+      name: 'MCP',
       description: 'Model Context Protocol integration',
       sourcePath: PATHS.mcpLib,
-      subCategory: 'mcp',
     })
   }
 
   // Skills
-  if (fs.existsSync(PATHS.skillsStore)) {
+  if (fs.existsSync(PATHS.skillsLib)) {
     items.push({
-      id: 'skills-overview',
-      name: 'Skills Overview',
+      id: 'skills',
+      name: 'Skills',
       description: 'Reusable skill definitions',
-      sourcePath: PATHS.skillsStore,
-      subCategory: 'skills',
+      sourcePath: PATHS.skillsLib,
     })
   }
 
   // Custom Tools
-  if (fs.existsSync(PATHS.customToolWidget)) {
+  if (fs.existsSync(PATHS.customToolsLib)) {
     items.push({
-      id: 'custom-tools-overview',
-      name: 'Custom Tools Overview',
+      id: 'custom-tools',
+      name: 'Custom Tools',
       description: 'User-defined custom tools',
-      sourcePath: PATHS.customToolWidget,
-      subCategory: 'custom-tools',
+      sourcePath: PATHS.customToolsLib,
     })
   }
 
@@ -505,72 +495,15 @@ function runAudit(filterCategory?: string): CategoryAudit[] {
     {
       key: 'utilities',
       label: 'Utilities (MCP / Skills / Custom Tools)',
-      description: 'Extensibility features: MCP servers, reusable skills, custom tool definitions',
+      description:
+        'Structural page coverage for MCP servers, reusable skills, and custom tools; semantic validation is separate',
       scanner: scanUtilities,
-      docPath: '', // checked individually below
+      docPath: DOC_PATHS.utilities,
     },
   ]
 
   for (const cat of categories) {
     if (filterCategory && cat.key !== filterCategory) continue
-
-    if (cat.key === 'utilities') {
-      // Special handling: check each sub-category against its own doc path
-      const utilItems = scanUtilities()
-      const subCats: Record<UtilitySubCategory, { docPath: string; label: string }> = {
-        mcp: { docPath: DOC_PATHS.mcp, label: 'MCP' },
-        skills: { docPath: DOC_PATHS.skills, label: 'Skills' },
-        'custom-tools': { docPath: DOC_PATHS.customTools, label: 'Custom Tools' },
-      }
-
-      const allSources: SourceItem[] = []
-      const allDocs: DocItem[] = []
-      const allMissing: SourceItem[] = []
-      const allOrphaned: DocItem[] = []
-      const allMatched: Array<{ source: SourceItem; doc: DocItem }> = []
-
-      for (const [subKey, subCat] of Object.entries(subCats)) {
-        const subSources = utilItems.filter((u) => u.subCategory === subKey)
-        const subDocs = listMdxFiles(subCat.docPath)
-        const hasIndexDoc = fs.existsSync(path.join(subCat.docPath, 'index.mdx'))
-        const docExists = subDocs.length > 0 || hasIndexDoc
-
-        allSources.push(...subSources)
-        allDocs.push(...subDocs)
-
-        if (!docExists) {
-          allMissing.push(...subSources)
-        } else {
-          for (const src of subSources) {
-            allMatched.push({
-              source: src,
-              doc: subDocs[0] || {
-                slug: 'index',
-                title: subCat.label,
-                filePath: path.join(subCat.docPath, 'index.mdx'),
-              },
-            })
-          }
-        }
-      }
-
-      const total = allSources.length
-      const covered = allMatched.length
-      const coverage =
-        total === 0 ? 'N/A' : `${covered}/${total} (${Math.round((covered / total) * 100)}%)`
-
-      audits.push({
-        category: cat.label,
-        description: cat.description,
-        source: allSources,
-        docs: allDocs,
-        missing: allMissing,
-        orphaned: allOrphaned,
-        matched: allMatched,
-        coverage,
-      })
-      continue
-    }
 
     const sources = cat.scanner()
     audits.push(auditCategory(cat.label, cat.description, sources, cat.docPath, cat.includeIndex))

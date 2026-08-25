@@ -2,23 +2,12 @@ import type { ReactNode } from 'react'
 import { Analytics } from '@vercel/analytics/next'
 import { defineI18nUI } from 'fumadocs-ui/i18n'
 import { RootProvider } from 'fumadocs-ui/provider/next'
-import { Geist_Mono, Inter } from 'next/font/google'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { DocsLayout } from '@/components/layout/docs'
 import '../global.css'
 import { i18n } from '@/lib/i18n'
 import { source } from '@/lib/source'
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-geist-sans',
-})
-
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-geist-mono',
-})
 
 const { provider } = defineI18nUI(i18n, {
   translations: {
@@ -87,11 +76,7 @@ export default async function Layout({ children, params }: LayoutProps) {
   }
 
   return (
-    <html
-      lang={locale}
-      className={`${inter.variable} ${geistMono.variable}`}
-      suppressHydrationWarning
-    >
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <script
           type='application/ld+json'

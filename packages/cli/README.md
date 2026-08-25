@@ -21,6 +21,7 @@ tradinggoose
 ### Options
 
 - `-p, --port <port>`: Specify the port to run TradingGoose on (default: 3000).
+- `-y, --yes`: Skip interactive prompts and use defaults.
 - `--no-pull`: Skip pulling the latest Docker images.
 
 ## Requirements

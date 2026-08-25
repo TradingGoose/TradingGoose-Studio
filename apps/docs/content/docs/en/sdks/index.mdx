@@ -1,36 +1,21 @@
 ---
 title: SDKs
-description: Programmatic access to TradingGoose workflows
+description: Programmatic access to TradingGoose workflows from TypeScript and Python
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout'
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-Integrate TradingGoose workflows into your applications with our SDKs.
-
-<Callout type="warn">
-  SDKs are currently under development. The API endpoints documented in the [Execution API](/execution/api) page are available now for direct HTTP integration.
-</Callout>
+TradingGoose provides published TypeScript/JavaScript and Python SDKs for executing deployed workflows, checking deployment status, controlling selected outputs, handling rate limits, and querying usage limits.
 
 <Cards>
   <Card title="Python SDK" href="/sdks/python">
-    Coming soon
+    Install `tradinggoose-sdk` for a synchronous Python client.
   </Card>
   <Card title="TypeScript SDK" href="/sdks/typescript">
-    Coming soon
+    Install `tradinggoose-ts-sdk` for Node.js and browser applications.
   </Card>
 </Cards>
 
-## Direct API Access
+Both clients authenticate with an API key through `X-API-Key` and default to `https://tradinggoose.ai`. They expose workflow execution and status, retry-on-rate-limit behavior, rate-limit metadata, and usage limits. Language-specific names, types, and timeout units are documented on their respective pages.
 
-While SDKs are in development, you can integrate with TradingGoose using the REST API directly:
-
-```bash
-curl -X POST \
-  https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
-  -H 'Content-Type: application/json' \
-  -H 'X-API-Key: YOUR_KEY' \
-  -d '{"input": "your data"}'
-```
-
-See the [Execution API](/execution/api) docs for complete endpoint documentation, streaming, and webhook callbacks.
+For direct HTTP integration, see the [Execution API](/execution/api).
