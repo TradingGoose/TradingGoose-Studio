@@ -68,6 +68,8 @@ Both SDKs provide the same core functionality:
 ✅ **Timeout Support** - Configurable timeouts for workflow execution  
 ✅ **Input Validation** - Validate workflows before execution  
 ✅ **Type Safety** - Full type definitions (TypeScript) and data classes (Python)  
+✅ **Streaming Controls** - Request streaming and select block outputs
+✅ **Rate-Limit Handling** - Inspect limits, retry 429 responses with backoff, and query usage limits
 
 ## API Compatibility
 

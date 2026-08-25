@@ -46,4 +46,4 @@ cat > tsconfig.json << EOF
 EOF
 
 echo "Dependencies installed successfully!"
-echo "You can now run './scripts/generate-docs.sh' to generate the documentation." 
+echo "From the repository root, run 'bun run docs:generate' to generate the documentation."

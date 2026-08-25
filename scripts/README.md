@@ -4,7 +4,10 @@ This directory contains scripts to automatically generate documentation for all 
 
 ## Available Scripts
 
-- `generate-docs.sh`: Generates documentation for all blocks
+- `bun run docs:generate`: Generates all supported documentation from the repository root
+- `bun run docs:generate:tools`: Generates tool documentation
+- `bun run docs:generate:triggers`: Generates trigger documentation
+- `bun run docs:audit`: Reports structural source-to-page coverage
 - `setup-doc-generator.sh`: Installs dependencies required for the documentation generator
 - `create-e2b-pinets-template.ts`: Builds an E2B template with `pinets` preinstalled and prints the template ID
 
@@ -46,7 +49,7 @@ To generate documentation manually:
 
 ```bash
 # From the project root
-./scripts/generate-docs.sh
+bun run docs:generate
 ```
 
 ## Troubleshooting TypeScript Errors
@@ -69,9 +72,7 @@ This will:
 2. **JSX Errors in block-info-card.tsx**: These don't affect functionality and can be ignored if you've run the setup script
 3. **Module Resolution**: The setup script configures proper ES module support
 
-## CI Integration
-
-The documentation generator runs automatically as part of the CI/CD pipeline whenever changes are pushed to the main branch. The updated documentation is committed back to the repository.
+Generated documentation is reviewed and committed with the source changes that require it; the repository does not automatically generate and commit documentation from CI.
 
 ## Adding Support for New Block Properties
 

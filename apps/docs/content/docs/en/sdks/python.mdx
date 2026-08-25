@@ -1,35 +1,52 @@
 ---
 title: Python SDK
-description: Python client library for TradingGoose (coming soon)
+description: Python client for TradingGoose workflows
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout'
+## Install
 
-<Callout type="warn">
-  The Python SDK is under active development. This page will be updated when the SDK is released.
-</Callout>
-
-## Status
-
-The Python SDK is being built to provide a native Python interface for executing TradingGoose workflows, managing workspace resources, and handling streaming responses.
-
-## In the Meantime
-
-Use the [Execution API](/execution/api) directly with any HTTP client:
-
-```python
-import requests
-
-response = requests.post(
-    "https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute",
-    headers={
-        "Content-Type": "application/json",
-        "X-API-Key": "YOUR_KEY",
-    },
-    json={"input": "your data"},
-)
-
-result = response.json()
+```bash
+pip install tradinggoose-sdk
 ```
 
-For streaming responses, see the [Streaming section](/triggers/api#streaming-responses) of the API Trigger docs.
+## Execute a workflow
+
+```python
+import os
+from tradinggoose import TradingGooseClient
+
+client = TradingGooseClient(
+    api_key=os.environ["TRADINGGOOSE_API_KEY"],
+    base_url="https://tradinggoose.ai",
+)
+
+result = client.execute_workflow(
+    "workflow-id",
+    input_data={"message": "Analyze this"},
+    timeout=30.0,
+    stream=True,
+    selected_outputs=["agent1.content"],
+)
+```
+
+`timeout` is measured in seconds and defaults to `30.0`. `stream` and `selected_outputs` are request controls; the current SDK returns `WorkflowExecutionResult`, not a streaming iterator.
+
+## Status and validation
+
+- `get_workflow_status(workflow_id)` returns `WorkflowStatus`.
+- `validate_workflow(workflow_id)` returns whether the workflow is deployed.
+- `set_api_key(api_key)`, `set_base_url(base_url)`, and `close()` manage the client.
+- The client supports `with TradingGooseClient(...) as client` context management.
+
+## Retry and limits
+
+`execute_with_retry` retries only `RATE_LIMIT_EXCEEDED`. Its defaults are `max_retries=3`, `initial_delay=1.0` seconds, `max_delay=30.0` seconds, and `backoff_multiplier=2.0`. It honors `Retry-After` and applies ±25% jitter. Python exposes these as keyword arguments rather than a separate retry-options type.
+
+- `get_rate_limit_info()` returns `RateLimitInfo` or `None`, with `limit`, `remaining`, `reset`, and optional `retry_after` stored in milliseconds.
+- `get_usage_limits()` returns `UsageLimits(success, rate_limit, usage)`; the rate-limit and usage payloads are dictionaries matching the API response.
+
+## Errors and results
+
+`TradingGooseError` preserves API `code` and HTTP `status`. The client uses `TIMEOUT`, `EXECUTION_ERROR`, `STATUS_ERROR`, `RATE_LIMIT_EXCEEDED`, and `USAGE_ERROR` for its own failure paths. `WorkflowExecutionResult` contains `success` and optional output, error, logs, metadata, trace spans, and duration.
+
+See the package's `packages/python-sdk/README.md` in the repository for complete examples and file-upload behavior.

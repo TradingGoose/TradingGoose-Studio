@@ -43,7 +43,7 @@ TradingGooseClient(api_key: str, base_url: str = "https://tradinggoose.ai")
 
 #### Methods
 
-##### execute_workflow(workflow_id, input_data=None, timeout=30.0)
+##### execute_workflow(workflow_id, input_data=None, timeout=30.0, stream=None, selected_outputs=None)
 
 Execute a workflow with optional input data.
 
@@ -51,7 +51,9 @@ Execute a workflow with optional input data.
 result = client.execute_workflow(
     "workflow-id",
     input_data={"message": "Hello, world!"},
-    timeout=30.0  # 30 seconds
+    timeout=30.0,  # seconds
+    stream=True,
+    selected_outputs=["agent1.content"],
 )
 ```
 
@@ -59,6 +61,8 @@ result = client.execute_workflow(
 - `workflow_id` (str): The ID of the workflow to execute
 - `input_data` (dict, optional): Input data to pass to the workflow. File objects are automatically converted to base64.
 - `timeout` (float): Timeout in seconds (default: 30.0)
+- `stream` (bool, optional): Add the API streaming control to the request.
+- `selected_outputs` (list, optional): Select block outputs for the streaming request.
 
 **Returns:** `WorkflowExecutionResult`
 
@@ -108,6 +112,31 @@ Update the base URL.
 client.set_base_url("https://my-custom-domain.com")
 ```
 
+##### execute_with_retry(...)
+
+Execute a workflow and retry only `RATE_LIMIT_EXCEEDED` responses. Defaults are 3 retries, a 1.0 second initial delay, a 30.0 second maximum delay, and a 2.0× backoff multiplier. The client honors `Retry-After` when present and adds ±25% jitter.
+
+```python
+result = client.execute_with_retry(
+    "workflow-id",
+    input_data={"message": "Hello"},
+    stream=True,
+    selected_outputs=["agent1.content"],
+    max_retries=3,
+    initial_delay=1.0,
+    max_delay=30.0,
+    backoff_multiplier=2.0,
+)
+```
+
+##### get_rate_limit_info()
+
+Return the latest `RateLimitInfo`, or `None` before a response supplies rate-limit headers. `retry_after` is stored in milliseconds.
+
+##### get_usage_limits()
+
+Return a `UsageLimits` value from `/api/users/me/usage-limits`.
+
 ##### close()
 
 Close the underlying HTTP session.
@@ -117,6 +146,25 @@ client.close()
 ```
 
 ## Data Classes
+
+### RateLimitInfo and UsageLimits
+
+```python
+@dataclass
+class RateLimitInfo:
+    limit: int
+    remaining: int
+    reset: int
+    retry_after: Optional[int] = None  # milliseconds
+
+@dataclass
+class UsageLimits:
+    success: bool
+    rate_limit: Dict[str, Any]
+    usage: Dict[str, Any]
+```
+
+Python does not export a separate retry-options type; retry settings are keyword arguments to `execute_with_retry`.
 
 ### WorkflowExecutionResult
 
@@ -151,6 +199,8 @@ class TradingGooseError(Exception):
         self.code = code
         self.status = status
 ```
+
+HTTP failures preserve the API error code and status. Timeouts use `TIMEOUT`; request/execution failures use `EXECUTION_ERROR`; usage-limit failures use `USAGE_ERROR`; HTTP 429 uses `RATE_LIMIT_EXCEEDED`.
 
 ## Examples
 
