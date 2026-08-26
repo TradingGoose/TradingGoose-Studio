@@ -14,11 +14,11 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import type { GeneratorContext } from './types'
-import { generateToolDocs } from './generate-tools'
 import { generateBlockDocs } from './generate-blocks'
+import { generateToolDocs } from './generate-tools'
 import { generateTriggerDocs } from './generate-triggers'
 import { generateWidgetDocs } from './generate-widgets'
+import type { GeneratorContext } from './types'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
