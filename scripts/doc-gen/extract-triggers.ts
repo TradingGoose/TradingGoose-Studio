@@ -145,9 +145,7 @@ function extractTopString(obj: string, prop: string): string | null {
     }
     if (depth !== 1) continue
 
-    const match = obj.slice(index).match(
-      new RegExp(`^${prop}\\s*:\\s*(?:'([^']*)'|"([^"]*)")`)
-    )
+    const match = obj.slice(index).match(new RegExp(`^${prop}\\s*:\\s*(?:'([^']*)'|"([^"]*)")`))
     if (match) return match[1] ?? match[2]
   }
   return null
@@ -200,7 +198,8 @@ function parseOutputFields(content: string): Record<string, any> {
     // Leaf: { type: 'string', description: '...' }
     // Container: { event_type: { type: 'string' }, channel: { type: 'string' } }
     const beforeFirstBrace = fieldContent.indexOf('{')
-    const searchArea = beforeFirstBrace > 0 ? fieldContent.substring(0, beforeFirstBrace) : fieldContent
+    const searchArea =
+      beforeFirstBrace > 0 ? fieldContent.substring(0, beforeFirstBrace) : fieldContent
     const typeMatch = searchArea.match(/\btype\s*:\s*['"]([^'"]+)['"]/)
     const descMatch = searchArea.match(/\bdescription\s*:\s*['"]([^'"]+)['"]/)
 

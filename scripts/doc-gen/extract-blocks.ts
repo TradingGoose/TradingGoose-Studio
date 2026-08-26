@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { globSync } from 'glob'
 import type { BlockConfig, DocSubBlock } from './types'
-import { extractStringProperty, extractBracedContent } from './utils'
+import { extractBracedContent, extractStringProperty } from './utils'
 
 interface ExtractBlockConfigOptions {
   includeTriggerDerivedSubBlocks?: boolean
@@ -141,17 +141,10 @@ function extractToolsAccess(content: string, options: ExtractBlockConfigOptions)
 
 // ── SubBlocks extraction ──────────────────────────────────────────
 
-function extractSubBlocks(
-  content: string,
-  options: ExtractBlockConfigOptions = {}
-): DocSubBlock[] {
+function extractSubBlocks(content: string, options: ExtractBlockConfigOptions = {}): DocSubBlock[] {
   const blocks = extractInlineSubBlocks(content)
 
-  if (
-    blocks.length > 0 ||
-    !options.includeTriggerDerivedSubBlocks ||
-    !options.triggersPath
-  ) {
+  if (blocks.length > 0 || !options.includeTriggerDerivedSubBlocks || !options.triggersPath) {
     return blocks
   }
 
@@ -161,7 +154,10 @@ function extractSubBlocks(
   return extractTriggerDerivedSubBlocks(triggerRefs, options.triggersPath)
 }
 
-function extractInlineSubBlocks(content: string, parseOptions: ParseSubBlockOptions = {}): DocSubBlock[] {
+function extractInlineSubBlocks(
+  content: string,
+  parseOptions: ParseSubBlockOptions = {}
+): DocSubBlock[] {
   const subBlocksStart = content.search(/subBlocks\s*:\s*\[/)
   if (subBlocksStart === -1) return []
 
@@ -199,7 +195,10 @@ function extractInlineSubBlocks(content: string, parseOptions: ParseSubBlockOpti
   return blocks
 }
 
-function parseSubBlockObject(blockStr: string, options: ParseSubBlockOptions = {}): DocSubBlock | null {
+function parseSubBlockObject(
+  blockStr: string,
+  options: ParseSubBlockOptions = {}
+): DocSubBlock | null {
   const getString = (prop: string): string | undefined => {
     const m =
       blockStr.match(new RegExp(`${prop}\\s*:\\s*'([^']*)'`)) ||
@@ -296,7 +295,9 @@ function parseSubBlockObject(blockStr: string, options: ParseSubBlockOptions = {
   return result
 }
 
-function extractTriggerSubBlockRefs(content: string): Array<{ triggerId: string; sliceStart: number }> {
+function extractTriggerSubBlockRefs(
+  content: string
+): Array<{ triggerId: string; sliceStart: number }> {
   const refs: Array<{ triggerId: string; sliceStart: number }> = []
   const regex =
     /getTrigger\(\s*['"]([^'"]+)['"]\s*\)\?\.subBlocks(?:\s*\?\?\s*\[\s*\])?(?:\.slice\(\s*(\d+)\s*\))?/g
@@ -391,7 +392,13 @@ function resolveImportedSymbolPath(identifier: string, fileContent: string): str
   while ((match = importRegex.exec(fileContent)) !== null) {
     const importedNames = match[1]
       .split(',')
-      .map((name) => name.trim().split(/\s+as\s+/).pop() || '')
+      .map(
+        (name) =>
+          name
+            .trim()
+            .split(/\s+as\s+/)
+            .pop() || ''
+      )
       .filter(Boolean)
 
     if (importedNames.includes(identifier)) {
@@ -417,10 +424,8 @@ function parseOptionsArray(arrayContent: string): Array<{ label: string; id: str
   let match: RegExpExecArray | null
 
   while ((match = objectRegex.exec(arrayContent)) !== null) {
-    const label =
-      match[1].match(/label\s*:\s*['"]([^'"]+)['"]/)?.[1]
-    const id =
-      match[1].match(/id\s*:\s*['"]([^'"]+)['"]/)?.[1]
+    const label = match[1].match(/label\s*:\s*['"]([^'"]+)['"]/)?.[1]
+    const id = match[1].match(/id\s*:\s*['"]([^'"]+)['"]/)?.[1]
 
     if (label && id) {
       options.push({ label, id })
@@ -514,7 +519,8 @@ function extractStaticStringMap(
   if (!match) return null
 
   const result: Record<string, string> = {}
-  const entry = /(?:^|,)\s*(?:([A-Za-z_$][\w$]*)|['"]([^'"]+)['"])\s*:\s*['"]([^'"]+)['"]\s*(?=,|$)/g
+  const entry =
+    /(?:^|,)\s*(?:([A-Za-z_$][\w$]*)|['"]([^'"]+)['"])\s*:\s*['"]([^'"]+)['"]\s*(?=,|$)/g
   let cursor = 0
   let item: RegExpExecArray | null
   while ((item = entry.exec(match[1])) !== null) {
@@ -522,6 +528,7 @@ function extractStaticStringMap(
     result[item[1] || item[2]] = item[3]
     cursor = entry.lastIndex
   }
-  if (match[1].slice(cursor).replace(/,\s*$/, '').trim() || Object.keys(result).length === 0) return null
+  if (match[1].slice(cursor).replace(/,\s*$/, '').trim() || Object.keys(result).length === 0)
+    return null
   return result
 }
