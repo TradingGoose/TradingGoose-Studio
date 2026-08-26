@@ -8,7 +8,10 @@ interface ToolConfigSource {
   id: string
 }
 
-export async function getToolInfo(toolName: string, toolsBasePath: string): Promise<ToolInfo | null> {
+export async function getToolInfo(
+  toolName: string,
+  toolsBasePath: string
+): Promise<ToolInfo | null> {
   try {
     const providerDir = resolveProviderDirectory(toolName, toolsBasePath)
     if (!providerDir) return null
@@ -25,8 +28,10 @@ export async function getToolInfo(toolName: string, toolsBasePath: string): Prom
       .sort((left, right) => {
         const leftRank = preferred.indexOf(left)
         const rightRank = preferred.indexOf(right)
-        return (leftRank < 0 ? preferred.length : leftRank) -
-          (rightRank < 0 ? preferred.length : rightRank) || left.localeCompare(right)
+        return (
+          (leftRank < 0 ? preferred.length : leftRank) -
+            (rightRank < 0 ? preferred.length : rightRank) || left.localeCompare(right)
+        )
       })
 
     const matches: Array<{ fileContent: string; config: ToolConfigSource }> = []
@@ -82,7 +87,10 @@ function resolveStringExpression(expression: string, fileContent: string): strin
   return extractStaticStringMap(fileContent, member[1])?.[member[2]] || null
 }
 
-function extractStaticStringMap(content: string, identifier: string): Record<string, string> | null {
+function extractStaticStringMap(
+  content: string,
+  identifier: string
+): Record<string, string> | null {
   const declaration = new RegExp(`(?:export\\s+)?const\\s+${escapeRegExp(identifier)}\\s*=\\s*\\{`)
   const match = declaration.exec(content)
   if (!match) return null
@@ -91,7 +99,8 @@ function extractStaticStringMap(content: string, identifier: string): Record<str
   if (!body) return null
   const inner = body.replace(/,\s*$/, '')
   const result: Record<string, string> = {}
-  const entry = /(?:^|,)\s*(?:([A-Za-z_$][\w$]*)|['"]([^'"]+)['"])\s*:\s*['"]([^'"]+)['"]\s*(?=,|$)/g
+  const entry =
+    /(?:^|,)\s*(?:([A-Za-z_$][\w$]*)|['"]([^'"]+)['"])\s*:\s*['"]([^'"]+)['"]\s*(?=,|$)/g
   let cursor = 0
   let item: RegExpExecArray | null
   while ((item = entry.exec(inner)) !== null) {
@@ -152,7 +161,9 @@ function parseFieldCollection(
 }
 
 function extractConstObject(content: string, identifier: string): string | null {
-  const match = new RegExp(`(?:export\\s+)?const\\s+${escapeRegExp(identifier)}(?:\\s*:[^=]+)?\\s*=\\s*\\{`).exec(content)
+  const match = new RegExp(
+    `(?:export\\s+)?const\\s+${escapeRegExp(identifier)}(?:\\s*:[^=]+)?\\s*=\\s*\\{`
+  ).exec(content)
   if (!match) return null
   const openBrace = match.index + match[0].lastIndexOf('{')
   const body = extractBracedContent(content, openBrace - 1)
@@ -181,8 +192,11 @@ function extractPropertyExpression(objectContent: string, property: string): str
 }
 
 function findExpressionEnd(text: string, start: number): number {
-  let braces = 0, brackets = 0, parens = 0
-  let quote = '', escaped = false
+  let braces = 0
+  let brackets = 0
+  let parens = 0
+  let quote = ''
+  let escaped = false
   for (let index = start; index < text.length; index++) {
     const char = text[index]
     if (quote) {
@@ -191,7 +205,10 @@ function findExpressionEnd(text: string, start: number): number {
       else if (char === quote) quote = ''
       continue
     }
-    if (char === "'" || char === '"' || char === '`') { quote = char; continue }
+    if (char === "'" || char === '"' || char === '`') {
+      quote = char
+      continue
+    }
     if (char === '{') braces++
     else if (char === '}') braces--
     else if (char === '[') brackets++

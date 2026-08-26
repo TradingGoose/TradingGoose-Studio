@@ -145,9 +145,7 @@ function extractTopString(obj: string, prop: string): string | null {
     }
     if (depth !== 1) continue
 
-    const match = obj.slice(index).match(
-      new RegExp(`^${prop}\\s*:\\s*(?:'([^']*)'|"([^"]*)")`)
-    )
+    const match = obj.slice(index).match(new RegExp(`^${prop}\\s*:\\s*(?:'([^']*)'|"([^"]*)")`))
     if (match) return match[1] ?? match[2]
   }
   return null

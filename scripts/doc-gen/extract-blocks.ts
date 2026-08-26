@@ -519,7 +519,8 @@ function extractStaticStringMap(
   if (!match) return null
 
   const result: Record<string, string> = {}
-  const entry = /(?:^|,)\s*(?:([A-Za-z_$][\w$]*)|['"]([^'"]+)['"])\s*:\s*['"]([^'"]+)['"]\s*(?=,|$)/g
+  const entry =
+    /(?:^|,)\s*(?:([A-Za-z_$][\w$]*)|['"]([^'"]+)['"])\s*:\s*['"]([^'"]+)['"]\s*(?=,|$)/g
   let cursor = 0
   let item: RegExpExecArray | null
   while ((item = entry.exec(match[1])) !== null) {
@@ -527,6 +528,7 @@ function extractStaticStringMap(
     result[item[1] || item[2]] = item[3]
     cursor = entry.lastIndex
   }
-  if (match[1].slice(cursor).replace(/,\s*$/, '').trim() || Object.keys(result).length === 0) return null
+  if (match[1].slice(cursor).replace(/,\s*$/, '').trim() || Object.keys(result).length === 0)
+    return null
   return result
 }

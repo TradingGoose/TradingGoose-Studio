@@ -13,10 +13,24 @@ const HAND_WRITTEN_TRADING_WIDGETS = new Set(['heatmap', 'portfolio_snapshot', '
 const WIDGET_META = {
   title: 'Widgets',
   pages: [
-    'index', 'editor-workflow', 'list-workflow', 'workflow-chat', 'workflow-console',
-    'workflow-variables', 'editor-indicator', 'list-indicator', 'data-chart', 'watchlist',
-    'heatmap', 'portfolio-snapshot', 'quick-order', 'editor-skill', 'list-skill',
-    'editor-mcp', 'editor-custom-tool', 'list-custom-tool',
+    'index',
+    'editor-workflow',
+    'list-workflow',
+    'workflow-chat',
+    'workflow-console',
+    'workflow-variables',
+    'editor-indicator',
+    'list-indicator',
+    'data-chart',
+    'watchlist',
+    'heatmap',
+    'portfolio-snapshot',
+    'quick-order',
+    'editor-skill',
+    'list-skill',
+    'editor-mcp',
+    'editor-custom-tool',
+    'list-custom-tool',
   ],
 }
 
