@@ -236,7 +236,7 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
     if (currentChat?.reviewSessionId === chat.reviewSessionId) return
     try {
       await store.getState().selectChat(chat)
-    } catch { }
+    } catch {}
   }
 
   const title = currentChat?.title || historyCopy.newChat
@@ -347,7 +347,7 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
                 if (!deleteChatId) return
                 try {
                   await store.getState().deleteChat(deleteChatId)
-                } catch { }
+                } catch {}
                 setDeleteChatId(null)
               }}
             >
