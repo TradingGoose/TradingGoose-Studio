@@ -73,8 +73,10 @@ export const azureOpenAIProvider: ProviderConfig = {
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
+    const model = request.model || DEFAULT_MODEL
+
     logger.info('Preparing Azure OpenAI request', {
-      model: request.model || DEFAULT_MODEL,
+      model,
       hasSystemPrompt: !!request.systemPrompt,
       hasMessages: !!request.messages?.length,
       hasTools: !!request.tools?.length,
@@ -138,7 +140,7 @@ export const azureOpenAIProvider: ProviderConfig = {
       : undefined
 
     // Build the request payload - use deployment name instead of model name
-    const deploymentName = (request.model || DEFAULT_MODEL).replace('azure/', '')
+    const deploymentName = model.replace('azure/', '')
     const payload: any = {
       model: deploymentName, // Azure OpenAI uses deployment name
       messages: allMessages,
@@ -261,7 +263,7 @@ export const azureOpenAIProvider: ProviderConfig = {
             success: true,
             output: {
               content: '', // Will be filled by the stream completion callback
-              model: request.model,
+              model,
               tokens: tokenUsage,
               toolCalls: undefined,
               providerTiming: {
@@ -563,7 +565,7 @@ export const azureOpenAIProvider: ProviderConfig = {
             success: true,
             output: {
               content: '', // Will be filled by the callback
-              model: request.model,
+              model,
               tokens: {
                 prompt: tokens.prompt,
                 completion: tokens.completion,
@@ -608,7 +610,7 @@ export const azureOpenAIProvider: ProviderConfig = {
 
       return {
         content,
-        model: request.model,
+        model,
         tokens,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,

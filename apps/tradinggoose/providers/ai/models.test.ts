@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   normalizeFireworksCatalogModel,
   resolveFireworksWireModel,
@@ -117,6 +117,8 @@ const REMOVED_MODELS = [
 ]
 
 describe('AI model catalog', () => {
+  afterEach(() => updateFireworksModels([]))
+
   it('contains the active sibling catalog for every existing provider', () => {
     const counts = Object.fromEntries(
       Object.entries(PROVIDER_DEFINITIONS).map(([providerId, provider]) => [
@@ -161,13 +163,20 @@ describe('AI model catalog', () => {
       'fireworks/kimi-k3',
       'fireworks/custom-model',
     ])
-
-    updateFireworksModels([])
   })
 
-  it('maps static Fireworks catalog IDs to their API resource names', () => {
-    expect(resolveFireworksWireModel('glm-5.2')).toBe('accounts/fireworks/models/glm-5p2')
-    expect(resolveFireworksWireModel('kimi-k3')).toBe('accounts/fireworks/models/kimi-k3')
+  it('maps Fireworks catalog IDs to their API resource names', () => {
+    expect(resolveFireworksWireModel('fireworks/glm-5.2')).toBe('accounts/fireworks/models/glm-5p2')
+    expect(resolveFireworksWireModel('fireworks/kimi-k3')).toBe('accounts/fireworks/models/kimi-k3')
+    expect(resolveFireworksWireModel('fireworks/custom-model')).toBe(
+      'accounts/fireworks/models/custom-model'
+    )
+    expect(resolveFireworksWireModel('fireworks/accounts/acme/models/custom')).toBe(
+      'accounts/acme/models/custom'
+    )
+    expect(resolveFireworksWireModel('accounts/acme/models/custom')).toBe(
+      'accounts/acme/models/custom'
+    )
     expect(resolveFireworksWireModel('custom-model')).toBe('custom-model')
     expect(normalizeFireworksCatalogModel('accounts/fireworks/models/glm-5p2')).toBe('glm-5.2')
     expect(normalizeFireworksCatalogModel('accounts/fireworks/models/kimi-k3')).toBe('kimi-k3')

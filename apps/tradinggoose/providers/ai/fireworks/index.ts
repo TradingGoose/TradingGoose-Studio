@@ -83,7 +83,7 @@ export const fireworksProvider: ProviderConfig = {
       baseURL: 'https://api.fireworks.ai/inference/v1',
     })
 
-    const apiModel = resolveFireworksWireModel(request.model.replace(/^fireworks\//, ''))
+    const apiModel = resolveFireworksWireModel(request.model)
 
     logger.info('Preparing Fireworks request', {
       model: apiModel,

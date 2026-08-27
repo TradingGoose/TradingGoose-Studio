@@ -300,7 +300,7 @@ ${fieldDescriptions}
           success: true,
           output: {
             content: '', // Will be filled by streaming content in chat component
-            model: request.model,
+            model,
             tokens: tokenUsage,
             toolCalls: undefined,
             providerTiming: {
@@ -648,7 +648,7 @@ ${fieldDescriptions}
         // If no tool calls were made, return a direct response
         return {
           content,
-          model: request.model || DEFAULT_MODEL,
+          model,
           tokens,
           toolCalls:
             toolCalls.length > 0
@@ -1019,7 +1019,7 @@ ${fieldDescriptions}
             success: true,
             output: {
               content: '', // Will be filled by the callback
-              model: request.model || DEFAULT_MODEL,
+              model,
               tokens: {
                 prompt: tokens.prompt,
                 completion: tokens.completion,
@@ -1063,7 +1063,7 @@ ${fieldDescriptions}
 
       return {
         content,
-        model: request.model || DEFAULT_MODEL,
+        model,
         tokens,
         toolCalls:
           toolCalls.length > 0

@@ -1033,12 +1033,10 @@ describe('copilot streaming regressions', () => {
               ok: true,
               status: 200,
               json: async () => ({
-                usage: {
-                  usage: 0,
-                  percentage: 0,
-                  contextWindow: 0,
-                  model: 'anthropic/claude-fable-5',
-                },
+                tokensUsed: 0,
+                percentage: 0,
+                contextWindow: 0,
+                model: 'anthropic/claude-fable-5',
               }),
             }
           }

@@ -3,13 +3,16 @@ import { mapToThinkingBudget, supportsDisablingGemini25Thinking } from '@/provid
 
 describe('Gemini 2.5 thinking configuration', () => {
   it('maps named levels to each model family budget', () => {
+    expect(mapToThinkingBudget('gemini-2.5-pro', 'minimal')).toBe(1024)
+    expect(mapToThinkingBudget('gemini-2.5-flash', 'minimal')).toBe(1024)
+    expect(mapToThinkingBudget('vertex/gemini-2.5-flash-lite', 'minimal')).toBe(1024)
     expect(mapToThinkingBudget('gemini-2.5-pro', 'low')).toBe(2048)
     expect(mapToThinkingBudget('gemini-2.5-flash', 'high')).toBe(24576)
     expect(mapToThinkingBudget('vertex/gemini-2.5-flash-lite', 'medium')).toBe(8192)
   })
 
-  it('uses the model high budget for an unknown level and dynamic budget for an unknown model', () => {
-    expect(mapToThinkingBudget('gemini-2.5-pro', 'unexpected')).toBe(32768)
+  it('uses the minimal budget for an unknown level and dynamic budget for an unknown model', () => {
+    expect(mapToThinkingBudget('gemini-2.5-pro', 'unexpected')).toBe(1024)
     expect(mapToThinkingBudget('gemini-unknown', 'high')).toBe(-1)
   })
 

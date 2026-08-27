@@ -10,7 +10,15 @@ const FIREWORKS_CATALOG_NAMES = Object.fromEntries(
 )
 
 export function resolveFireworksWireModel(model: string): string {
-  return FIREWORKS_WIRE_NAMES[model] ?? model
+  if (!model.startsWith('fireworks/')) return model
+
+  const catalogModel = model.slice('fireworks/'.length)
+  return (
+    FIREWORKS_WIRE_NAMES[catalogModel] ??
+    (catalogModel.startsWith('accounts/')
+      ? catalogModel
+      : `accounts/fireworks/models/${catalogModel}`)
+  )
 }
 
 export function normalizeFireworksCatalogModel(model: string): string {
