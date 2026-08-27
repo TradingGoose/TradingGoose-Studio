@@ -332,7 +332,7 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
   }, [])
 
   return (
-    <div className='flex h-full flex-col overflow-hidden'>
+    <div className='flex h-full flex-col w-full overflow-hidden'>
       {/* Show loading state until fully initialized */}
       {!isInitialized ? (
         <div className='flex h-full w-full items-center justify-center'>
