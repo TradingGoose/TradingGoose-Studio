@@ -1,5 +1,6 @@
 'use client'
 
+import { Check } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import {
   Button,
@@ -7,13 +8,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from '@/components/ui'
 import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
 import { cn } from '@/lib/utils'
-import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
+import { getProviderIcon } from '@/providers/ai/models'
 import { useCopilotStore } from '@/stores/copilot/store'
 
 interface ModelSelectorProps {
@@ -21,8 +19,23 @@ interface ModelSelectorProps {
   panelWidth: number
 }
 
+function ModelLabel({ model, className }: { model: string; className?: string }) {
+  const modelName = model.split('/').pop() ?? model
+  const ProviderIcon = getProviderIcon(modelName)
+
+  return (
+    <span className={cn('flex min-w-0 items-center gap-1.5', className)}>
+      {ProviderIcon && (
+        <span className='shrink-0 text-muted-foreground' aria-hidden='true'>
+          <ProviderIcon className='h-3 w-3' />
+        </span>
+      )}
+      <span className='truncate'>{modelName}</span>
+    </span>
+  )
+}
+
 export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
-  const modelCopy = useCopilotMessages().model
   const { selectedModel, setSelectedModel } = useCopilotStore(
     useShallow((state) => ({
       selectedModel: state.selectedModel,
@@ -32,52 +45,35 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
 
   return (
     <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <span className='inline-flex'>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    className='flex h-6 items-center gap-1.5 rounded-sm border bg-background px-2 py-1 font-medium text-xs hover:bg-muted/30 focus-visible:ring-0 focus-visible:ring-offset-0'
-                    aria-label={modelCopy.choose}
-                  />
-                }
-              >
-                <span className={cn(panelWidth < 360 ? 'max-w-[72px] truncate' : '')}>
-                  {selectedModel}
-                </span>
-              </DropdownMenuTrigger>
-            </span>
-          }
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant='outline'
+            size='sm'
+            className='flex h-6 items-center gap-1.5 rounded-sm border bg-background px-2 py-1 font-medium text-xs hover:bg-muted/30 focus-visible:ring-0 focus-visible:ring-offset-0'
+          />
+        }
+      >
+        <ModelLabel
+          model={selectedModel}
+          className={cn(panelWidth < 360 && 'max-w-[72px] truncate')}
         />
-        <TooltipContent side='top'>{modelCopy.choose}</TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent side={isNearTop ? 'bottom' : 'top'} className='max-h-[400px] p-0'>
-        <div className='w-[220px]'>
-          <div className='max-h-[280px] overflow-y-auto p-2'>
-            <div>
-              <div className='mb-1'>
-                <span className='font-medium text-xs'>{modelCopy.label}</span>
-              </div>
-              <div className='space-y-0.5'>
-                {COPILOT_RUNTIME_MODELS.map((model) => (
-                  <DropdownMenuItem
-                    key={model}
-                    onClick={() => void setSelectedModel(model)}
-                    className={cn(
-                      'flex h-7 items-center px-2 py-1 text-left text-xs',
-                      selectedModel === model ? 'bg-muted/50' : ''
-                    )}
-                  >
-                    {model}
-                  </DropdownMenuItem>
-                ))}
-              </div>
-            </div>
-          </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='start' side={isNearTop ? 'bottom' : 'top'} className='p-0'>
+        <div className='w-[160px] p-1'>
+          {COPILOT_RUNTIME_MODELS.map((model) => (
+            <DropdownMenuItem
+              key={model}
+              onClick={() => void setSelectedModel(model)}
+              className={cn(
+                'flex items-center justify-between rounded-sm px-2 py-1.5 text-xs leading-4',
+                selectedModel === model && 'bg-muted/40'
+              )}
+            >
+              <ModelLabel model={model} />
+              {selectedModel === model && <Check className='h-3 w-3 text-muted-foreground' />}
+            </DropdownMenuItem>
+          ))}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
