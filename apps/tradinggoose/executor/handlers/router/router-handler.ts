@@ -5,10 +5,12 @@ import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { PathTracker } from '@/executor/path/path'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
+import { getProviderDefaultModel } from '@/providers/ai/models'
 import { calculateCost, getProviderFromModel } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('RouterBlockHandler')
+const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 /**
  * Handler for Router blocks that dynamically select execution paths.
@@ -32,7 +34,7 @@ export class RouterBlockHandler implements BlockHandler {
 
     const routerConfig = {
       prompt: inputs.prompt,
-      model: inputs.model || 'gpt-4o',
+      model: inputs.model || DEFAULT_MODEL,
       apiKey: inputs.apiKey,
       temperature: inputs.temperature || 0,
     }

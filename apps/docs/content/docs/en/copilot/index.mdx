@@ -47,11 +47,15 @@ The access-level toggle in the input bar controls how much autonomy Copilot has.
 
 ## Supported Models
 
-Copilot supports models from Anthropic and OpenAI. Switch the active model from the input bar.
+Copilot supports exactly six OpenRouter models. Studio sends each canonical OpenRouter model slug unchanged, and you can switch the active model from the input bar.
 
-**Anthropic** -- claude-sonnet-4.6, claude-opus-4.6
+**Anthropic** -- anthropic/claude-fable-5, anthropic/claude-opus-5
 
-**OpenAI** -- gpt-5.4, gpt-5.4-mini
+**DeepSeek** -- deepseek/deepseek-v4-pro
+
+**OpenAI** -- openai/gpt-5.6-terra, openai/gpt-5.6-sol
+
+**xAI** -- x-ai/grok-4.6
 
 ## Setup
 
@@ -97,15 +101,8 @@ If you need to undo a Copilot action, you can revert or edit any previous messag
 
 ## Billing
 
-Copilot usage is billed per token from the underlying LLM provider:
-
-- **Input tokens** -- billed at the provider's base rate (at-cost).
-- **Output tokens** -- billed at 1.5x the provider's base output rate.
-
-```
-cost = (inputTokens * inputPrice + outputTokens * outputPrice * 1.5) / 1_000_000
-```
+Copilot completion charges use the authoritative total cost reported by OpenRouter, followed by the Copilot cost multiplier for your plan. This keeps final billing aligned with the actual routed request, including applicable cached-token, reasoning, media, search, long-context, and provider-specific charges.
 
 <Callout type="info">
-  Prices are per million tokens. See the [Cost Calculation](/execution/costs) page for detailed examples.
+  Studio may reserve a conservative estimate before a request. The final charge always uses OpenRouter's reported completion cost, not the estimate.
 </Callout>

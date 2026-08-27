@@ -12,6 +12,7 @@ import { prepareToolExecution } from '@/providers/ai/utils'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('GroqProvider')
+const DEFAULT_MODEL = getProviderDefaultModel('groq')
 
 /**
  * Helper to wrap Groq streaming into a browser-friendly ReadableStream
@@ -40,7 +41,7 @@ export const groqProvider: ProviderConfig = {
   description: "Groq's LLM models with high-performance inference",
   version: '1.0.0',
   models: getProviderModels('groq'),
-  defaultModel: getProviderDefaultModel('groq'),
+  defaultModel: DEFAULT_MODEL,
 
   executeRequest: async (
     request: ProviderRequest
@@ -90,10 +91,7 @@ export const groqProvider: ProviderConfig = {
 
     // Build the request payload
     const payload: any = {
-      model: (request.model || 'groq/meta-llama/llama-4-scout-17b-16e-instruct').replace(
-        'groq/',
-        ''
-      ),
+      model: (request.model || DEFAULT_MODEL).replace('groq/', ''),
       messages: allMessages,
     }
 
@@ -127,7 +125,7 @@ export const groqProvider: ProviderConfig = {
         logger.info('Groq request configuration:', {
           toolCount: filteredTools.length,
           toolChoice: 'auto', // Groq always uses auto
-          model: request.model || 'groq/meta-llama/llama-4-scout-17b-16e-instruct',
+          model: request.model || DEFAULT_MODEL,
         })
       }
     }
@@ -160,7 +158,7 @@ export const groqProvider: ProviderConfig = {
           success: true,
           output: {
             content: '', // Will be filled by streaming content in chat component
-            model: request.model || 'groq/meta-llama/llama-4-scout-17b-16e-instruct',
+            model: request.model || DEFAULT_MODEL,
             tokens: tokenUsage,
             toolCalls: undefined,
             providerTiming: {
@@ -395,7 +393,7 @@ export const groqProvider: ProviderConfig = {
             success: true,
             output: {
               content: '', // Will be filled by the callback
-              model: request.model || 'groq/meta-llama/llama-4-scout-17b-16e-instruct',
+              model: request.model || DEFAULT_MODEL,
               tokens: {
                 prompt: tokens.prompt,
                 completion: tokens.completion,

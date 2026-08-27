@@ -4,9 +4,15 @@ import type { StreamingExecution } from '@/executor/types'
 import { executeTool } from '@/tools'
 import { getProviderDefaultModel, getProviderModels } from '../models'
 import type { ProviderConfig, ProviderRequest, ProviderResponse, TimeSegment } from '../types'
-import { prepareToolExecution, prepareToolsWithUsageControl, trackForcedToolUsage } from '../utils'
+import {
+  prepareToolExecution,
+  prepareToolsWithUsageControl,
+  supportsTemperature,
+  trackForcedToolUsage,
+} from '../utils'
 
 const logger = createLogger('AnthropicProvider')
+const DEFAULT_MODEL = getProviderDefaultModel('anthropic')
 
 /**
  * Helper to wrap Anthropic streaming into a browser-friendly ReadableStream
@@ -36,7 +42,7 @@ export const anthropicProvider: ProviderConfig = {
   description: "Anthropic's Claude models",
   version: '1.0.0',
   models: getProviderModels('anthropic'),
-  defaultModel: getProviderDefaultModel('anthropic'),
+  defaultModel: DEFAULT_MODEL,
 
   executeRequest: async (
     request: ProviderRequest
@@ -242,12 +248,15 @@ ${fieldDescriptions}
     }
 
     // Build the request payload
+    const model = request.model || DEFAULT_MODEL
     const payload: any = {
-      model: request.model || 'claude-3-7-sonnet-20250219',
+      model,
       messages,
       system: systemPrompt,
       max_tokens: Number.parseInt(String(request.maxTokens)) || 1024,
-      temperature: Number.parseFloat(String(request.temperature ?? 0.7)),
+    }
+    if (supportsTemperature(model)) {
+      payload.temperature = Number.parseFloat(String(request.temperature ?? 0.7))
     }
 
     // Use the tools in the payload
@@ -291,7 +300,7 @@ ${fieldDescriptions}
           success: true,
           output: {
             content: '', // Will be filled by streaming content in chat component
-            model: request.model,
+            model,
             tokens: tokenUsage,
             toolCalls: undefined,
             providerTiming: {
@@ -639,7 +648,7 @@ ${fieldDescriptions}
         // If no tool calls were made, return a direct response
         return {
           content,
-          model: request.model || 'claude-3-7-sonnet-20250219',
+          model,
           tokens,
           toolCalls:
             toolCalls.length > 0
@@ -1010,7 +1019,7 @@ ${fieldDescriptions}
             success: true,
             output: {
               content: '', // Will be filled by the callback
-              model: request.model || 'claude-3-7-sonnet-20250219',
+              model,
               tokens: {
                 prompt: tokens.prompt,
                 completion: tokens.completion,
@@ -1054,7 +1063,7 @@ ${fieldDescriptions}
 
       return {
         content,
-        model: request.model || 'claude-3-7-sonnet-20250219',
+        model,
         tokens,
         toolCalls:
           toolCalls.length > 0

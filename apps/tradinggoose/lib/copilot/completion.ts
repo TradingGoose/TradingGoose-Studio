@@ -1,5 +1,3 @@
-import type { ProviderId } from '@/providers/ai/types'
-
 type CompletionContent =
   | string
   | Array<{
@@ -26,10 +24,6 @@ function readCompletionContent(content: CompletionContent): string {
   }
 
   return content.map((part) => (typeof part?.text === 'string' ? part.text : '')).join('')
-}
-
-export function formatCompletionModel(model: string, provider: ProviderId): string {
-  return model.includes('/') ? model : `${provider}/${model}`
 }
 
 function asCompletionPayload(payload: unknown): CompletionPayload {

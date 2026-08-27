@@ -16,6 +16,7 @@ import type {
 } from '@/executor/handlers/agent/types'
 import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
+import { getProviderDefaultModel } from '@/providers/ai/models'
 import { getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool, getToolAsync } from '@/tools'
@@ -30,7 +31,7 @@ import { resolveSkillMetadata } from './skills-resolver'
 
 const logger = createLogger('AgentBlockHandler')
 
-const DEFAULT_MODEL = 'gpt-4o'
+const DEFAULT_MODEL = getProviderDefaultModel('openai')
 const DEFAULT_FUNCTION_TIMEOUT = 600000
 const REQUEST_TIMEOUT = 120000
 

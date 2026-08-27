@@ -21,9 +21,9 @@ export const POST = withMcpAuth('read')(
   async (
     request: NextRequest,
     { userId, workspaceId, requestId },
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
   ) => {
-    const serverId = params.id
+    const { id: serverId } = await params
 
     try {
       logger.info(

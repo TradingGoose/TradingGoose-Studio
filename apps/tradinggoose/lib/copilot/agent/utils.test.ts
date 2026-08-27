@@ -14,13 +14,6 @@ describe('requestCopilotTitle', () => {
       })),
     }))
 
-    vi.doMock('@/lib/copilot/config', () => ({
-      getCopilotModel: vi.fn(() => ({
-        provider: 'anthropic',
-        model: 'claude-sonnet-4.6',
-      })),
-    }))
-
     global.fetch = vi.fn()
   })
 
@@ -29,7 +22,7 @@ describe('requestCopilotTitle', () => {
     vi.restoreAllMocks()
   })
 
-  it('uses the provided provider/model when generating a title', async () => {
+  it('passes the provided OpenRouter model through unchanged when generating a title', async () => {
     ;(global.fetch as any).mockResolvedValue({
       ok: true,
       json: () =>
@@ -49,8 +42,7 @@ describe('requestCopilotTitle', () => {
     const title = await requestCopilotTitle({
       message: 'Build a momentum screener with RSI filters',
       userId: 'user-1',
-      model: 'gpt-5.4',
-      provider: 'openai',
+      model: 'openai/gpt-5.6-terra',
     })
 
     expect(title).toBe('Momentum Screener')
@@ -66,7 +58,7 @@ describe('requestCopilotTitle', () => {
 
     const payload = JSON.parse(init.body)
     expect(payload).toMatchObject({
-      model: 'openai/gpt-5.4',
+      model: 'openai/gpt-5.6-terra',
       stream: false,
     })
     expect(payload.messages).toEqual([
@@ -81,7 +73,7 @@ describe('requestCopilotTitle', () => {
     ])
   })
 
-  it('derives the provider from the runtime model when provider is omitted', async () => {
+  it('passes another canonical OpenRouter model through unchanged', async () => {
     ;(global.fetch as any).mockResolvedValue({
       ok: true,
       json: () =>
@@ -101,13 +93,13 @@ describe('requestCopilotTitle', () => {
     const title = await requestCopilotTitle({
       message: 'Review the current skill implementation',
       userId: 'user-1',
-      model: 'claude-opus-4.6',
+      model: 'anthropic/claude-opus-5',
     })
 
     expect(title).toBe('Skill Review')
 
     const [, init] = (global.fetch as any).mock.calls[0]
     const payload = JSON.parse(init.body)
-    expect(payload.model).toBe('anthropic/claude-opus-4.6')
+    expect(payload.model).toBe('anthropic/claude-opus-5')
   })
 })

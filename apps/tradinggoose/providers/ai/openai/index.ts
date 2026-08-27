@@ -18,6 +18,7 @@ import {
 import { executeTool } from '@/tools'
 
 const logger = createLogger('OpenAIProvider')
+const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 /**
  * OpenAI provider configuration
@@ -28,13 +29,15 @@ export const openaiProvider: ProviderConfig = {
   description: "OpenAI's GPT models",
   version: '1.0.0',
   models: getProviderModels('openai'),
-  defaultModel: getProviderDefaultModel('openai'),
+  defaultModel: DEFAULT_MODEL,
 
   executeRequest: async (
     request: ProviderRequest
   ): Promise<ProviderResponse | StreamingExecution> => {
+    const model = request.model || DEFAULT_MODEL
+
     logger.info('Preparing OpenAI request', {
-      model: request.model || 'gpt-4o',
+      model,
       hasSystemPrompt: !!request.systemPrompt,
       hasMessages: !!request.messages?.length,
       hasTools: !!request.tools?.length,
@@ -84,7 +87,7 @@ export const openaiProvider: ProviderConfig = {
 
     // Build the request payload
     const payload: any = {
-      model: request.model || 'gpt-4o',
+      model,
       messages: allMessages,
     }
 
@@ -134,7 +137,7 @@ export const openaiProvider: ProviderConfig = {
                   : toolChoice.type === 'any'
                     ? `force:${toolChoice.any?.name || 'unknown'}`
                     : 'unknown',
-          model: request.model || 'gpt-4o',
+          model,
         })
       }
     }
@@ -199,7 +202,7 @@ export const openaiProvider: ProviderConfig = {
 
                 streamingResult.execution.output.tokens = newTokens
                 streamingResult.execution.output.cost = calculateCost(
-                  request.model,
+                  model,
                   newTokens.prompt,
                   newTokens.completion
                 )
@@ -210,7 +213,7 @@ export const openaiProvider: ProviderConfig = {
             success: true,
             output: {
               content: '', // Will be filled by the stream completion callback
-              model: request.model,
+              model,
               tokens: tokenUsage,
               toolCalls: undefined,
               providerTiming: {
@@ -505,7 +508,7 @@ export const openaiProvider: ProviderConfig = {
 
                 streamingResult.execution.output.tokens = newTokens
                 streamingResult.execution.output.cost = calculateCost(
-                  request.model,
+                  model,
                   newTokens.prompt,
                   newTokens.completion
                 )
@@ -516,7 +519,7 @@ export const openaiProvider: ProviderConfig = {
             success: true,
             output: {
               content: '', // Will be filled by the callback
-              model: request.model,
+              model,
               tokens: {
                 prompt: tokens.prompt,
                 completion: tokens.completion,
@@ -561,7 +564,7 @@ export const openaiProvider: ProviderConfig = {
 
       return {
         content,
-        model: request.model,
+        model,
         tokens,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,

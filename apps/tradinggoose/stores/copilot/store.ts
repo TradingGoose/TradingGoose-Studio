@@ -15,7 +15,6 @@ import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { sendStreamingMessage } from '@/lib/copilot/api'
 import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
-import { resolveCopilotRuntimeProvider } from '@/lib/copilot/runtime-provider'
 import { COPILOT_SESSION_KIND } from '@/lib/copilot/session-scope'
 import {
   ClientToolCallState,
@@ -782,7 +781,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
         try {
           const requestReviewSessionId = currentChat?.reviewSessionId
           const requestModel = get().selectedModel as CopilotStore['selectedModel']
-          const requestProvider = resolveCopilotRuntimeProvider(requestModel)
 
           const result = await sendStreamingMessage({
             message,
@@ -790,7 +788,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
             reviewSessionId: requestReviewSessionId,
             workspaceId: workspaceId ?? undefined,
             model: requestModel,
-            provider: requestProvider,
             fileAttachments,
             contexts: contextsToSend,
             abortSignal: abortController.signal,
@@ -818,13 +815,12 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
               errorContent =
                 '_Usage limit exceeded. To continue using this service, upgrade your plan or top up on credits._'
             } else if (result.status === 403) {
-              errorContent =
-                '_Provider config not allowed for non-enterprise users. Please remove the provider config and try again_'
+              errorContent = '_Request forbidden. Please verify your account access and try again._'
             } else if (result.status === 426) {
               errorContent =
                 '_Please upgrade to the latest version of the TradingGoose platform to continue using the copilot._'
             } else if (result.status === 429) {
-              errorContent = '_Provider rate limit exceeded. Please try again later._'
+              errorContent = '_AI service rate limit exceeded. Please try again later._'
             }
 
             const errorMessage = createErrorMessage(streamingMessage.id, errorContent)
@@ -1151,12 +1147,10 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
       fetchContextUsage: async () => {
         try {
           const { currentChat, selectedModel } = get()
-          const selectedProvider = resolveCopilotRuntimeProvider(selectedModel)
           logger.info('[Context Usage] Starting fetch', {
             hasConversationId: !!currentChat?.conversationId,
             conversationId: currentChat?.conversationId,
             model: selectedModel,
-            provider: selectedProvider,
           })
 
           if (!currentChat) {
@@ -1177,7 +1171,6 @@ const createCopilotStoreInstance = (storeChannelId: string) => {
             kind: 'context',
             conversationId: currentChat.conversationId,
             model: selectedModel,
-            provider: selectedProvider,
             ...(currentChat.workspaceId ? { workspaceId: currentChat.workspaceId } : {}),
           }
           logger.info('[Context Usage] Calling API', requestPayload)

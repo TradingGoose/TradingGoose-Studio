@@ -1,6 +1,5 @@
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { ProviderId } from '@/providers/ai/types'
 import type { ChatContext, MessageFileAttachment } from '@/stores/copilot/types'
 
 const logger = createLogger('CopilotAPI')
@@ -14,7 +13,6 @@ export interface SendMessageRequest {
   reviewSessionId?: string
   workspaceId?: string
   model?: CopilotRuntimeModel
-  provider?: ProviderId
   fileAttachments?: MessageFileAttachment[]
   abortSignal?: AbortSignal
   contexts?: ChatContext[]

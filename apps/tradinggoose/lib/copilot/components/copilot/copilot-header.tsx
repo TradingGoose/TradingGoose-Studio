@@ -342,7 +342,7 @@ export function CopilotHeader({ workspaceId }: { workspaceId: string }) {
           <AlertDialogFooter>
             <AlertDialogCancel>{historyCopy.cancel}</AlertDialogCancel>
             <AlertDialogAction
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className='bg-destructive text-destructive-foreground [&:not([data-disabled])]:hover:bg-destructive/70'
               onClick={async () => {
                 if (!deleteChatId) return
                 try {

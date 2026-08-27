@@ -1033,7 +1033,10 @@ describe('copilot streaming regressions', () => {
               ok: true,
               status: 200,
               json: async () => ({
-                usage: { usage: 0, percentage: 0, contextWindow: 0, model: 'claude-sonnet-4.6' },
+                tokensUsed: 0,
+                percentage: 0,
+                contextWindow: 0,
+                model: 'anthropic/claude-fable-5',
               }),
             }
           }
@@ -1727,7 +1730,8 @@ describe('copilot streaming regressions', () => {
     })
 
     const requestBody = parseJsonRequestBody(sendRequest)
-    expect(requestBody.provider).toBe('anthropic')
+    expect(requestBody.model).toBe('anthropic/claude-fable-5')
+    expect(requestBody).not.toHaveProperty('provider')
     expect(requestBody.contexts).toEqual([
       {
         kind: 'workflow',
@@ -2558,7 +2562,7 @@ describe('copilot context usage', () => {
           json: async () => ({
             tokensUsed: 1234,
             percentage: 0.96,
-            model: 'claude-sonnet-4.6',
+            model: 'anthropic/claude-fable-5',
             contextWindow: 128000,
             when: 'end',
           }),
@@ -2588,7 +2592,7 @@ describe('copilot context usage', () => {
         createdAt: new Date('2026-04-05T00:00:00.000Z'),
         updatedAt: new Date('2026-04-05T00:00:00.000Z'),
       },
-      selectedModel: 'claude-sonnet-4.6',
+      selectedModel: 'anthropic/claude-fable-5',
       contextUsage: null,
     })
 
@@ -2607,14 +2611,13 @@ describe('copilot context usage', () => {
     expect(requestBody).toEqual({
       kind: 'context',
       conversationId: 'conversation-context-usage-generic',
-      model: 'claude-sonnet-4.6',
-      provider: 'anthropic',
+      model: 'anthropic/claude-fable-5',
       workspaceId: 'workspace-context-usage',
     })
     expect(store.getState().contextUsage).toEqual({
       usage: 1234,
       percentage: 0.96,
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       contextWindow: 128000,
       when: 'end',
       estimatedTokens: 1234,

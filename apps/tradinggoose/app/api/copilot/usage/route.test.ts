@@ -15,7 +15,6 @@ describe('Copilot Usage API - Context', () => {
   const mockResolveWorkflowBillingContext = vi.fn()
   const mockHasProcessedMessage = vi.fn()
   const mockMarkMessageAsProcessed = vi.fn()
-  const mockCalculateCost = vi.fn()
   const mockReserveCopilotUsage = vi.fn()
   const mockCommitCopilotUsageReservation = vi.fn()
   const mockReleaseCopilotUsageReservation = vi.fn()
@@ -64,7 +63,6 @@ describe('Copilot Usage API - Context', () => {
     mockResolveWorkflowBillingContext.mockReset()
     mockHasProcessedMessage.mockReset()
     mockMarkMessageAsProcessed.mockReset()
-    mockCalculateCost.mockReset()
     mockReserveCopilotUsage.mockReset()
     mockCommitCopilotUsageReservation.mockReset()
     mockReleaseCopilotUsageReservation.mockReset()
@@ -87,7 +85,6 @@ describe('Copilot Usage API - Context', () => {
     })
     mockHasProcessedMessage.mockResolvedValue(false)
     mockMarkMessageAsProcessed.mockResolvedValue(undefined)
-    mockCalculateCost.mockReturnValue({ total: 1.5 })
     mockReserveCopilotUsage.mockResolvedValue({
       allowed: true,
       status: 200,
@@ -156,16 +153,6 @@ describe('Copilot Usage API - Context', () => {
       getTierCopilotCostMultiplier: (...args: any[]) => mockGetTierCopilotCostMultiplier(...args),
     }))
 
-    vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
-      buildCopilotRuntimeProviderConfig: vi.fn(() => ({
-        providerConfig: {
-          provider: 'openai',
-          model: 'gpt-5.4',
-          apiKey: 'test-copilot-key',
-        },
-      })),
-    }))
-
     vi.doMock('@/lib/logs/console/logger', () => ({
       createLogger: vi.fn(() => ({
         info: vi.fn(),
@@ -178,10 +165,6 @@ describe('Copilot Usage API - Context', () => {
     vi.doMock('@/lib/redis', () => ({
       hasProcessedMessage: (...args: any[]) => mockHasProcessedMessage(...args),
       markMessageAsProcessed: (...args: any[]) => mockMarkMessageAsProcessed(...args),
-    }))
-
-    vi.doMock('@/providers/ai/utils', () => ({
-      calculateCost: (...args: any[]) => mockCalculateCost(...args),
     }))
 
     vi.doMock('@/lib/environment', () => ({
@@ -210,7 +193,7 @@ describe('Copilot Usage API - Context', () => {
         JSON.stringify({
           tokensUsed: 4321,
           percentage: 0.42,
-          model: 'gpt-5.4',
+          model: 'openai/gpt-5.6-terra',
           contextWindow: 128000,
         }),
         {
@@ -225,7 +208,7 @@ describe('Copilot Usage API - Context', () => {
       body: JSON.stringify({
         kind: 'context',
         conversationId: 'conversation-1',
-        model: 'gpt-5.4',
+        model: 'openai/gpt-5.6-terra',
         workspaceId: 'workspace-1',
       }),
     })
@@ -238,7 +221,7 @@ describe('Copilot Usage API - Context', () => {
     expect(body).toEqual({
       tokensUsed: 4321,
       percentage: 0.42,
-      model: 'gpt-5.4',
+      model: 'openai/gpt-5.6-terra',
       contextWindow: 128000,
     })
 
@@ -246,12 +229,7 @@ describe('Copilot Usage API - Context', () => {
       endpoint: '/api/get-context-usage',
       body: {
         conversationId: 'conversation-1',
-        model: 'gpt-5.4',
-        provider: {
-          provider: 'openai',
-          model: 'gpt-5.4',
-          apiKey: 'test-copilot-key',
-        },
+        model: 'openai/gpt-5.6-terra',
         userId: 'user-1',
         workspaceId: 'workspace-1',
       },
@@ -271,7 +249,7 @@ describe('Copilot Usage API - Context', () => {
           JSON.stringify({
             tokensUsed: 100,
             percentage: 0.1,
-            model: 'gpt-5.4',
+            model: 'openai/gpt-5.6-terra',
             contextWindow: 128000,
           }),
           {
@@ -286,7 +264,7 @@ describe('Copilot Usage API - Context', () => {
         body: JSON.stringify({
           kind: 'context',
           conversationId: `conversation-${hosted ? 'hosted' : 'self-hosted'}`,
-          model: 'gpt-5.4',
+          model: 'openai/gpt-5.6-terra',
         }),
       })
 
@@ -297,7 +275,7 @@ describe('Copilot Usage API - Context', () => {
       await expect(response.json()).resolves.toEqual({
         tokensUsed: 100,
         percentage: 0.1,
-        model: 'gpt-5.4',
+        model: 'openai/gpt-5.6-terra',
         contextWindow: 128000,
       })
       expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
@@ -316,7 +294,7 @@ describe('Copilot Usage API - Context', () => {
       body: JSON.stringify({
         kind: 'context',
         conversationId: 'conversation-1',
-        model: 'gpt-5.4',
+        model: 'openai/gpt-5.6-terra',
         userId: 'user-1',
       }),
     })
@@ -337,7 +315,7 @@ describe('Copilot Usage API - Context', () => {
         action: 'commit',
         kind: 'context',
         conversationId: 'conversation-2',
-        model: 'gpt-5.4',
+        model: 'openai/gpt-5.6-terra',
         userId: 'user-1',
         assistantMessageId: 'assistant-message-1',
         reservationId: 'reservation-1',
@@ -392,62 +370,6 @@ describe('Copilot Usage API - Context', () => {
     })
   })
 
-  it('prices reserve requests from token estimates through the same Studio pricing path', async () => {
-    mockCheckInternalApiKey.mockReturnValue({ success: true })
-    mockIsBillingEnabledForRuntime.mockResolvedValue(true)
-    mockGetPersonalEffectiveSubscription.mockResolvedValue({
-      id: 'subscription-personal',
-      tier: createTier(2),
-    })
-    mockReserveCopilotUsage.mockResolvedValueOnce({
-      allowed: true,
-      status: 200,
-      reservationId: 'reservation-1',
-      reservedUsd: 3,
-      currentUsage: 8,
-      limit: 10,
-      remaining: 0,
-      activeReservedUsd: 3,
-      scopeType: 'user',
-      scopeId: 'user-1',
-    })
-
-    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'reserve',
-        userId: 'user-1',
-        model: 'openai/gpt-5.4',
-        estimatedPromptTokens: 100,
-        reservedCompletionTokens: 25,
-        reason: 'copilot_turn_model_call',
-      }),
-    })
-
-    const { POST } = await import('@/app/api/copilot/usage/route')
-    const response = await POST(request)
-
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      allowed: true,
-      status: 200,
-      reservationId: 'reservation-1',
-      reservedUsd: 3,
-      currentUsage: 8,
-      limit: 10,
-      remaining: 0,
-      activeReservedUsd: 3,
-      scopeType: 'user',
-      scopeId: 'user-1',
-    })
-    expect(mockReserveCopilotUsage).toHaveBeenCalledWith({
-      userId: 'user-1',
-      workflowId: undefined,
-      requestedUsd: 3,
-      reason: 'copilot_turn_model_call',
-    })
-  })
-
   it('no-ops reserve requests when billing is disabled', async () => {
     mockCheckInternalApiKey.mockReturnValue({ success: true })
     mockIsBillingEnabledForRuntime.mockResolvedValue(false)
@@ -457,9 +379,7 @@ describe('Copilot Usage API - Context', () => {
       body: JSON.stringify({
         action: 'reserve',
         userId: 'user-1',
-        model: 'openai/gpt-5.4',
-        estimatedPromptTokens: 100,
-        reservedCompletionTokens: 25,
+        requestedUsd: 1,
         reason: 'copilot_turn_model_call',
       }),
     })
@@ -573,7 +493,6 @@ describe('Copilot Usage API - Completion', () => {
   const mockResolveWorkflowBillingContext = vi.fn()
   const mockHasProcessedMessage = vi.fn()
   const mockMarkMessageAsProcessed = vi.fn()
-  const mockCalculateCost = vi.fn()
   const mockCommitCopilotUsageReservation = vi.fn()
   const mockReleaseCopilotUsageReservation = vi.fn()
   const mockIsHosted = vi.fn()
@@ -620,7 +539,6 @@ describe('Copilot Usage API - Completion', () => {
     mockResolveWorkflowBillingContext.mockReset()
     mockHasProcessedMessage.mockReset()
     mockMarkMessageAsProcessed.mockReset()
-    mockCalculateCost.mockReset()
     mockCommitCopilotUsageReservation.mockReset()
     mockReleaseCopilotUsageReservation.mockReset()
     mockIsHosted.mockReset()
@@ -646,7 +564,6 @@ describe('Copilot Usage API - Completion', () => {
     })
     mockHasProcessedMessage.mockResolvedValue(false)
     mockMarkMessageAsProcessed.mockResolvedValue(undefined)
-    mockCalculateCost.mockReturnValue({ total: 1.5 })
     mockCommitCopilotUsageReservation.mockImplementation(async ({ reservationId, operation }) => {
       try {
         return await operation()
@@ -719,27 +636,24 @@ describe('Copilot Usage API - Completion', () => {
       hasProcessedMessage: (...args: any[]) => mockHasProcessedMessage(...args),
       markMessageAsProcessed: (...args: any[]) => mockMarkMessageAsProcessed(...args),
     }))
-
-    vi.doMock('@/providers/ai/utils', () => ({
-      calculateCost: (...args: any[]) => mockCalculateCost(...args),
-    }))
   })
 
-  it('records internal completion billing with canonical provider model ids', async () => {
+  it('settles from OpenRouter usage.cost instead of stale local catalog pricing', async () => {
     const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
       method: 'POST',
       body: JSON.stringify({
         action: 'commit',
         kind: 'completion',
         userId: 'user-1',
-        model: 'anthropic/claude-sonnet-4.6',
-        remoteModel: 'claude-4.6-sonnet-20260217',
+        model: 'anthropic/claude-fable-5',
         completionId: 'completion-1',
         reservationId: 'reservation-1',
         usage: {
           prompt_tokens: 100,
           completion_tokens: 25,
           total_tokens: 125,
+          cost: 1.5,
+          cost_details: { upstream_inference_cost: 999 },
         },
       }),
       headers: { 'Content-Type': 'application/json' },
@@ -755,7 +669,7 @@ describe('Copilot Usage API - Completion', () => {
         billed: true,
         duplicate: false,
         tokens: 125,
-        model: 'anthropic/claude-sonnet-4.6',
+        model: 'anthropic/claude-fable-5',
         cost: 3,
       },
     })
@@ -771,7 +685,6 @@ describe('Copilot Usage API - Completion', () => {
       'copilot-completion-billing:completion-1',
       60 * 60 * 24 * 30
     )
-    expect(mockCalculateCost).toHaveBeenCalledWith('anthropic/claude-sonnet-4.6', 100, 25, false)
     expect(mockCommitCopilotUsageReservation).toHaveBeenCalledWith({
       userId: 'user-1',
       workflowId: undefined,
@@ -781,6 +694,39 @@ describe('Copilot Usage API - Completion', () => {
     expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
       reservationId: 'reservation-1',
     })
+  })
+
+  it('returns non-2xx when completion settlement cannot find a ledger', async () => {
+    mockAccrueUserUsageCost.mockResolvedValue(false)
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'commit',
+        kind: 'completion',
+        userId: 'user-1',
+        model: 'vendor/resolved-model',
+        completionId: 'generic-completion-1',
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 25,
+          total_tokens: 125,
+          cost: 1.5,
+        },
+      }),
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      billing: {
+        billed: false,
+        reason: 'ledger_not_found',
+      },
+    })
+    expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
   })
 
   it('mirrors hosted Copilot completion reports into self-hosted Studio usage', async () => {
@@ -799,13 +745,13 @@ describe('Copilot Usage API - Completion', () => {
       reports: [
         {
           kind: 'completion',
-          model: 'gpt-5.4',
-          remoteModel: 'openai/gpt-5.4',
+          model: 'openai/gpt-5.6-terra',
           completionId: 'local-completion-1',
           usage: {
             prompt_tokens: 100,
             completion_tokens: 25,
             total_tokens: 125,
+            cost: 1.5,
           },
         },
       ],
@@ -841,7 +787,7 @@ describe('Copilot Usage API - Completion', () => {
       reports: [
         {
           kind: 'completion',
-          model: 'gpt-5.4',
+          model: 'openai/gpt-5.6-terra',
           usage: {
             prompt_tokens: 100,
             completion_tokens: 25,
@@ -856,17 +802,13 @@ describe('Copilot Usage API - Completion', () => {
     expect(mockCommitCopilotUsageReservation).not.toHaveBeenCalled()
   })
 
-  it('isolates self-hosted Copilot completion mirror billing failures', async () => {
+  it('isolates self-hosted reports that are missing authoritative provider cost', async () => {
     mockIsHosted.mockReturnValue(false)
     mockIsBillingEnabledForRuntime.mockResolvedValue(true)
     mockGetPersonalEffectiveSubscription.mockResolvedValue({
       id: 'subscription-personal',
       tier: createTier(2),
     })
-    mockCalculateCost.mockImplementation(() => {
-      throw new Error('pricing unavailable')
-    })
-
     const { mirrorLocalCopilotCompletionUsageReports } = await import(
       '@/lib/copilot/completion-usage-billing'
     )
@@ -875,7 +817,7 @@ describe('Copilot Usage API - Completion', () => {
       reports: [
         {
           kind: 'completion',
-          model: 'gpt-5.4',
+          model: 'openai/gpt-5.6-terra',
           completionId: 'local-completion-2',
           usage: {
             prompt_tokens: 100,
@@ -906,9 +848,9 @@ describe('Copilot Usage API - Completion', () => {
       reports: [
         {
           kind: 'completion',
-          model: 'gpt-5.4',
+          model: 'openai/gpt-5.6-terra',
           completionId: 'hosted-completion-1',
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2, cost: 0.01 },
         },
       ],
     })
@@ -926,13 +868,14 @@ describe('Copilot Usage API - Completion', () => {
         action: 'commit',
         kind: 'completion',
         userId: 'user-1',
-        model: 'gpt-5.4',
+        model: 'openai/gpt-5.6-terra',
         completionId: 'completion-1',
         reservationId: 'reservation-1',
         usage: {
           prompt_tokens: 100,
           completion_tokens: 25,
           total_tokens: 125,
+          cost: 1.5,
         },
       }),
       headers: { 'Content-Type': 'application/json' },
@@ -962,18 +905,47 @@ describe('Copilot Usage API - Completion', () => {
     })
   })
 
-  it('skips completion billing when the usage payload has no token metrics', async () => {
+  it.each([
+    ['missing', { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 }],
+    ['negative', { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12, cost: -0.01 }],
+    ['malformed', { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12, cost: '0.01' }],
+  ])('fails settlement for %s OpenRouter usage.cost', async (_case, usage) => {
     const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
       method: 'POST',
       body: JSON.stringify({
         action: 'commit',
         kind: 'completion',
         userId: 'user-1',
-        model: 'gpt-5.4',
+        model: 'openai/gpt-5.6-terra',
+        completionId: 'invalid-cost-completion',
         reservationId: 'reservation-1',
-        usage: {},
+        usage,
       }),
       headers: { 'Content-Type': 'application/json' },
+    })
+
+    const { POST } = await import('@/app/api/copilot/usage/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(500)
+    expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
+    expect(mockMarkMessageAsProcessed).not.toHaveBeenCalled()
+    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
+      reservationId: 'reservation-1',
+    })
+  })
+
+  it('settles an explicit zero provider cost without consulting local pricing', async () => {
+    const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'commit',
+        kind: 'completion',
+        userId: 'user-1',
+        model: 'vendor/free-model',
+        completionId: 'free-completion',
+        usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12, cost: 0 },
+      }),
     })
 
     const { POST } = await import('@/app/api/copilot/usage/route')
@@ -983,28 +955,34 @@ describe('Copilot Usage API - Completion', () => {
     await expect(response.json()).resolves.toEqual({
       success: true,
       billing: {
-        billed: false,
-        reason: 'no_token_metrics',
+        billed: true,
+        duplicate: false,
+        cost: 0,
+        tokens: 12,
+        model: 'vendor/free-model',
       },
     })
     expect(mockAccrueUserUsageCost).not.toHaveBeenCalled()
-    expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
-      reservationId: 'reservation-1',
-    })
+    expect(mockMarkMessageAsProcessed).toHaveBeenCalledWith(
+      'copilot-completion-billing:free-completion',
+      60 * 60 * 24 * 30
+    )
   })
 
-  it('does not release reservations for malformed completion commits', async () => {
+  it('rejects a completion commit without the required idempotency key', async () => {
     const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
       method: 'POST',
       body: JSON.stringify({
         action: 'commit',
         kind: 'completion',
         userId: 'user-1',
+        model: 'openai/gpt-5.6-terra',
         reservationId: 'reservation-1',
         usage: {
           prompt_tokens: 100,
           completion_tokens: 25,
           total_tokens: 125,
+          cost: 1.5,
         },
       }),
       headers: { 'Content-Type': 'application/json' },
@@ -1027,13 +1005,14 @@ describe('Copilot Usage API - Completion', () => {
         action: 'commit',
         kind: 'completion',
         userId: 'user-1',
-        model: 'gpt-5.4',
+        model: 'openai/gpt-5.6-terra',
         completionId: 'completion-3',
         reservationId: 'reservation-1',
         usage: {
           prompt_tokens: 100,
           completion_tokens: 25,
           total_tokens: 125,
+          cost: 1.5,
         },
       }),
       headers: { 'Content-Type': 'application/json' },
@@ -1065,13 +1044,14 @@ describe('Copilot Usage API - Completion', () => {
         action: 'commit',
         kind: 'completion',
         userId: 'user-1',
-        model: 'gpt-5.4',
+        model: 'openai/gpt-5.6-terra',
         completionId: 'completion-2',
         reservationId: 'reservation-1',
         usage: {
           prompt_tokens: 100,
           completion_tokens: 25,
           total_tokens: 125,
+          cost: 1.5,
         },
       }),
       headers: { 'Content-Type': 'application/json' },
@@ -1097,7 +1077,7 @@ describe('Copilot Usage API - Completion', () => {
         action: 'commit',
         kind: 'completion',
         userId: 'user-1',
-        model: 'gpt-5.4',
+        model: 'openai/gpt-5.6-terra',
         usage: {
           prompt_tokens: 100,
           completion_tokens: 25,

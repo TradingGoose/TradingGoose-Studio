@@ -3,10 +3,12 @@ import { getBaseUrl } from '@/lib/urls/utils'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
+import { getProviderDefaultModel } from '@/providers/ai/models'
 import { calculateCost, getProviderFromModel } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('EvaluatorBlockHandler')
+const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 /**
  * Handler for Evaluator blocks that assess content against criteria.
@@ -21,7 +23,7 @@ export class EvaluatorBlockHandler implements BlockHandler {
     inputs: Record<string, any>,
     context: ExecutionContext
   ): Promise<BlockOutput> {
-    const model = inputs.model || 'gpt-4o'
+    const model = inputs.model || DEFAULT_MODEL
     const providerId = getProviderFromModel(model)
 
     // Process the content to ensure it's in a suitable format

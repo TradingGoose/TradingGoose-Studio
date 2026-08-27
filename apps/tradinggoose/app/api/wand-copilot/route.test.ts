@@ -68,7 +68,7 @@ describe('Wand Copilot API Route', () => {
 
     const payload = JSON.parse(init.body)
     expect(payload).toEqual({
-      model: 'anthropic/claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
       messages: [
         { role: 'system', content: 'You are a code assistant.' },
@@ -83,7 +83,7 @@ describe('Wand Copilot API Route', () => {
     expect(text).toContain('data: {"done":true}')
   })
 
-  it('uses the default copilot provider and model without env overrides', async () => {
+  it('uses the default OpenRouter model without env overrides', async () => {
     const upstreamStream = new ReadableStream({
       start(controller) {
         const encoder = new TextEncoder()
@@ -109,7 +109,7 @@ describe('Wand Copilot API Route', () => {
     const [, init] = (global.fetch as any).mock.calls[0]
     const payload = JSON.parse(init.body)
     expect(payload).toMatchObject({
-      model: 'anthropic/claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
   })

@@ -332,11 +332,11 @@ export function Copilot({ workspaceId, panelWidth, currentContext }: CopilotProp
   }, [])
 
   return (
-    <div className='flex h-full flex-col overflow-hidden'>
+    <div className='flex h-full w-full flex-col overflow-hidden'>
       {/* Show loading state until fully initialized */}
       {!isInitialized ? (
         <div className='flex h-full w-full items-center justify-center'>
-          <div className='flex flex-col items-center gap-3'>
+          <div className='flex flex-col items-center justify-center gap-3'>
             <LoadingAgent size='md' />
             <p className='text-muted-foreground text-sm'>
               {copilotCopy.history.loadingChatHistory}

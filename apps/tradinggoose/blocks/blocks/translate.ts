@@ -1,6 +1,7 @@
 import { TranslateIcon } from '@/components/icons/icons'
 import { isHosted } from '@/lib/environment'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
+import { getProviderDefaultModel } from '@/providers/ai/models'
 import {
   getAllModelProviders,
   getHostedModels,
@@ -8,6 +9,8 @@ import {
   providers,
 } from '@/providers/ai/utils'
 import { useProvidersStore } from '@/stores/providers/store'
+
+const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 const getCurrentOllamaModels = () => {
   return useProvidersStore.getState().providers.ollama.models
@@ -83,15 +86,15 @@ export const TranslateBlock: BlockConfig = {
       // Hide API key for hosted models and Ollama models
       condition: isHosted
         ? {
-          field: 'model',
-          value: getHostedModels(),
-          not: true, // Show for all models EXCEPT those listed
-        }
+            field: 'model',
+            value: getHostedModels(),
+            not: true, // Show for all models EXCEPT those listed
+          }
         : () => ({
-          field: 'model',
-          value: getCurrentOllamaModels(),
-          not: true, // Show for all models EXCEPT Ollama models
-        }),
+            field: 'model',
+            value: getCurrentOllamaModels(),
+            not: true, // Show for all models EXCEPT Ollama models
+          }),
     },
     {
       id: 'azureEndpoint',
@@ -134,7 +137,7 @@ export const TranslateBlock: BlockConfig = {
     access: ['openai_chat', 'anthropic_chat', 'google_chat'],
     config: {
       tool: (params: Record<string, any>) => {
-        const model = params.model || 'gpt-4o'
+        const model = params.model || DEFAULT_MODEL
         if (!model) {
           throw new Error('No model selected')
         }

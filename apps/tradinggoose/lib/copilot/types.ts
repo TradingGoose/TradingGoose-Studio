@@ -3,8 +3,6 @@
  * This file contains all copilot-related type definitions
  */
 
-import type { ProviderId } from '@/providers/ai/types'
-
 // Tool call state types (from apps/tradinggoose/types/tool-call.ts)
 export interface ToolCallState {
   id: string
@@ -52,19 +50,3 @@ export interface ParsedMessageContent {
   toolGroups: ToolCallGroup[]
   inlineContent?: InlineContent[]
 }
-
-// Provider configuration for TradingGoose Agent requests
-// This type is only for the `provider` field in requests sent to the TradingGoose Agent
-export type CopilotProviderConfig =
-  | {
-      provider: 'azure-openai'
-      model: string
-      apiKey?: string
-      apiVersion?: string
-      endpoint?: string
-    }
-  | {
-      provider: Exclude<ProviderId, 'azure-openai'>
-      model?: string
-      apiKey?: string
-    }
