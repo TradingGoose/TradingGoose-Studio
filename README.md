@@ -213,7 +213,7 @@ Yes. Run the repository locally or deploy it on your own infrastructure with you
 <details>
 <summary><strong>Installation</strong></summary>
 
-Requires Bun 1.3 or newer, Node.js 24.x, and Docker. The repository pins Bun `1.3.11`.
+Requires Bun 1.3.14, Node.js 24.x, and Docker. The repository pins Bun `1.3.14`.
 
 ```bash
 git clone https://github.com/TradingGoose/TradingGoose-Studio.git
