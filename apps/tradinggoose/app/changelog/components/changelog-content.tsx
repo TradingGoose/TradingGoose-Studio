@@ -1,10 +1,10 @@
 import { BookOpen, Github, Rss } from 'lucide-react'
+import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
-import { localizeDocsUrl, type LocaleCode } from '@/i18n/utils'
-import ChangelogList from './timeline-list'
 import type { PublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode, localizeDocsUrl } from '@/i18n/utils'
+import ChangelogList from './timeline-list'
 
 export interface ChangelogEntry {
   tag: string

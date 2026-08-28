@@ -1,3 +1,4 @@
+import type { DefaultIndicatorDefinition } from '../create-default-indicator'
 import adr from './adr'
 import adx from './adx'
 import alma from './alma'
@@ -84,7 +85,6 @@ import williamsR from './williamsR'
 import wma from './wma'
 import woodiesCci from './woodiesCci'
 import zigzag from './zigzag'
-import type { DefaultIndicatorDefinition } from '../create-default-indicator'
 
 export type DefaultIndicatorMeta = {
   id: string

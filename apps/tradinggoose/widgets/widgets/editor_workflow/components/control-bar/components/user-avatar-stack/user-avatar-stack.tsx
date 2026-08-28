@@ -1,9 +1,9 @@
 'use client'
 
 import { useMemo } from 'react'
+import { usePresence } from '@/hooks/workflow/use-presence'
 import { ConnectionStatus } from '@/widgets/widgets/editor_workflow/components/control-bar/components/user-avatar-stack/components/connection-status/connection-status'
 import { UserAvatar } from '@/widgets/widgets/editor_workflow/components/control-bar/components/user-avatar-stack/components/user-avatar/user-avatar'
-import { usePresence } from '@/hooks/workflow/use-presence'
 
 interface User {
   connectionId: string | number

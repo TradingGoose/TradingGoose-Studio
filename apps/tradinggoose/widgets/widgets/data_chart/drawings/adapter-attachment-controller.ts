@@ -1,12 +1,6 @@
 import type { MutableRefObject } from 'react'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import type { DrawToolsRef } from '@/widgets/widgets/data_chart/contract'
-import {
-  decodeManualOwnerSnapshot,
-  encodeManualOwnerSnapshot,
-  type ManualOwnerSnapshot,
-  normalizeManualOwnerSnapshot,
-} from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 import type {
   ClearOwnerStateOptions,
   DetachOptions,
@@ -27,6 +21,12 @@ import {
   toManualOwnerId,
 } from '@/widgets/widgets/data_chart/drawings/adapter-utils'
 import { createAttachmentControllerTargetResolvers } from '@/widgets/widgets/data_chart/drawings/attachment-controller-targets'
+import {
+  decodeManualOwnerSnapshot,
+  encodeManualOwnerSnapshot,
+  type ManualOwnerSnapshot,
+  normalizeManualOwnerSnapshot,
+} from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 import {
   registerAllManualTools,
   TEXT_EDITABLE_TOOL_TYPES,

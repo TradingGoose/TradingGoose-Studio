@@ -5,8 +5,8 @@ import { Loader2 } from 'lucide-react'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { cn } from '@/lib/utils'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { SearchableDropdown, type SearchableDropdownOption } from './searchable-dropdown'
 
 export const monitorControlSurfaceClass =

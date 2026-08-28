@@ -1,16 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useLocale } from 'next-intl'
 import { FileText, SearchIcon, SearchX } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
-import { type LocaleCode } from '@/i18n/utils'
-import PostCard from './post-card'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 import type { Post } from '../lib/types'
+import PostCard from './post-card'
 
 interface FilteredPostProps {
   posts: Post[]

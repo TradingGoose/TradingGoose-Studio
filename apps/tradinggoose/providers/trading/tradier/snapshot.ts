@@ -1,8 +1,8 @@
-import { fetchBrokerJson, toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import { buildPortfolioDetail } from '@/providers/trading/portfolio-detail'
 import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
-import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
+import { fetchBrokerJson, toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import { normalizeTradierTradingAccount } from '@/providers/trading/tradier/accounts'
+import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 import {
   extractTradierBalances,
   extractTradierPositions,

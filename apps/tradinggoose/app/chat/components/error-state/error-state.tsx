@@ -1,11 +1,12 @@
 'use client'
 
+import type { Messages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { useBrandConfig } from '@/lib/branding/branding'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { Messages } from 'next-intl'
 
 type ChatMessages = Messages['chat']
+
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { useRouter } from '@/i18n/navigation'

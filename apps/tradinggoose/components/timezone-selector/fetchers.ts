@@ -1,6 +1,6 @@
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
-import type { BlockOptionLoaderContext } from '@/blocks/types'
 import { formatTimezoneLabel, isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
+import type { BlockOptionLoaderContext } from '@/blocks/types'
 
 export type TimeZoneResponse = {
   name: string

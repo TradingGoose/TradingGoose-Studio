@@ -1,5 +1,5 @@
-import { CHAT_ERROR_CODES } from './constants'
 import type { Messages } from 'next-intl'
+import { CHAT_ERROR_CODES } from './constants'
 
 type ChatMessages = Messages['chat']
 

@@ -2,11 +2,11 @@ import { db } from '@tradinggoose/db'
 import { systemIntegrationDefinition, systemIntegrationSecret } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { encryptSecret } from '@/lib/utils-server'
 import {
   getSystemIntegrationCatalogDefinitionIds,
   getSystemIntegrationCatalogSeedSnapshot,
 } from '@/lib/system-integrations/catalog'
+import { encryptSecret } from '@/lib/utils-server'
 
 const nullableIdSchema = z
   .union([z.string().trim().min(1), z.null()])

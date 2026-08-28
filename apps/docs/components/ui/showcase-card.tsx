@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useMemo, useRef, useState, useEffect, useCallback } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 interface ShowcaseCardProps {

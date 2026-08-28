@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { globSync } from 'glob'
 import type { BlockConfig, DocSubBlock } from './types'
-import { extractStringProperty, extractBracedContent } from './utils'
+import { extractBracedContent, extractStringProperty } from './utils'
 
 interface ExtractBlockConfigOptions {
   includeTriggerDerivedSubBlocks?: boolean

@@ -9,8 +9,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import {
-  LandingMarketPreviewProvider,
   type LandingMarketPreviewMessages,
+  LandingMarketPreviewProvider,
 } from './landing-market-preview-provider'
 
 function MarketPreviewMessagesProbe() {

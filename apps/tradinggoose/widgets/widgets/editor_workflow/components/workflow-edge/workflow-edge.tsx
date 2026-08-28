@@ -1,12 +1,12 @@
 'use client'
-import { X } from 'lucide-react'
 import {
   BaseEdge,
-  EdgeLabelRenderer,
   type Edge,
+  EdgeLabelRenderer,
   type EdgeProps,
   getBezierPath,
 } from '@xyflow/react'
+import { X } from 'lucide-react'
 
 interface WorkflowEdgeData extends Record<string, unknown> {
   isSelected?: boolean

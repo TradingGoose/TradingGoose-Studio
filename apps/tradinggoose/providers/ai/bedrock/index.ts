@@ -13,15 +13,15 @@ import {
   type ToolUseBlock,
 } from '@aws-sdk/client-bedrock-runtime'
 import { createLogger } from '@/lib/logs/console/logger'
-import { toError } from '@/providers/ai/error'
 import type { StreamingExecution } from '@/executor/types'
-import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import {
   checkForForcedToolUsage,
   createReadableStreamFromBedrockStream,
   generateToolUseId,
   getBedrockInferenceProfileId,
 } from '@/providers/ai/bedrock/utils'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
   FunctionCallResponse,

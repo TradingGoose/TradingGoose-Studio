@@ -1,8 +1,8 @@
 import type { MarketProviderConfig } from '@/providers/market/providers'
+import type { AssetClass } from '@/providers/market/types'
 import exchangeCodeToMarket from '@/providers/market/yahoo-finance/exchangeCodeToMarket.json'
 import marketToExchangeCode from '@/providers/market/yahoo-finance/marketToExchangeCode.json'
 import { yfinanceSymbolRules } from '@/providers/market/yahoo-finance/rules'
-import { AssetClass } from '@/providers/market/types'
 
 const availableAssetClasses: AssetClass[] = [
   'stock',

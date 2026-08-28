@@ -296,7 +296,7 @@ export class AlpacaMarketStream {
 
   private scheduleReconnect() {
     if (this.reconnectTimer) return
-    const delay = Math.min(30000, 1000 * Math.pow(2, this.reconnectAttempts))
+    const delay = Math.min(30000, 1000 * 2 ** this.reconnectAttempts)
     this.reconnectAttempts += 1
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null

@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { SubBlockConfig } from '@/blocks/types'
 import { useBlock } from '@/lib/yjs/use-workflow-doc'
+import type { SubBlockConfig } from '@/blocks/types'
 
 /**
  * Centralized dependsOn gating for sub-block components.

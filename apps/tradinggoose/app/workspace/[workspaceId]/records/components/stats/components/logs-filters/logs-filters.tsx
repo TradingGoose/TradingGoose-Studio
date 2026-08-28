@@ -1,7 +1,7 @@
 'use client'
 
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useTranslations } from 'next-intl'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import FilterSection from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/filter-section'
 import FolderFilter from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/folder'
 import Timeline from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/timeline'

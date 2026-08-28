@@ -2,8 +2,8 @@
 
 import { LibraryBig } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Link } from '@/i18n/navigation'
 import { GlobalNavbarHeader } from '@/global-navbar'
+import { Link } from '@/i18n/navigation'
 
 interface BreadcrumbItem {
   label: string

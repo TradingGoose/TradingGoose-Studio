@@ -159,18 +159,17 @@ export async function PUT(
             message: result.message,
           },
         })
-      } else {
-        const updatedDocument = await updateDocument(documentId, validatedData, requestId)
-
-        logger.info(
-          `[${requestId}] Document updated: ${documentId} in knowledge base ${knowledgeBaseId}`
-        )
-
-        return NextResponse.json({
-          success: true,
-          data: updatedDocument,
-        })
       }
+      const updatedDocument = await updateDocument(documentId, validatedData, requestId)
+
+      logger.info(
+        `[${requestId}] Document updated: ${documentId} in knowledge base ${knowledgeBaseId}`
+      )
+
+      return NextResponse.json({
+        success: true,
+        data: updatedDocument,
+      })
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {
         logger.warn(`[${requestId}] Invalid document update data`, {

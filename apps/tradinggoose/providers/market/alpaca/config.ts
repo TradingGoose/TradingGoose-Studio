@@ -1,9 +1,9 @@
+import { alpacaSymbolRules } from '@/providers/market/alpaca/rules'
 import type {
   MarketProviderConfig,
   MarketProviderParamDefinition,
 } from '@/providers/market/providers'
-import { alpacaSymbolRules } from '@/providers/market/alpaca/rules'
-import { AssetClass } from '@/providers/market/types'
+import type { AssetClass } from '@/providers/market/types'
 
 const availableAssetClasses: AssetClass[] = ['stock', 'etf', 'crypto']
 

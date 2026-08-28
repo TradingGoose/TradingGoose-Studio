@@ -1,6 +1,6 @@
 import { IncidentioIcon } from '@/components/icons/icons'
-import type { BlockConfig } from '@/blocks/types'
 import { fetchTimeZoneOptions } from '@/components/timezone-selector/fetchers'
+import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { IncidentioResponse } from '@/tools/incidentio/types'
 

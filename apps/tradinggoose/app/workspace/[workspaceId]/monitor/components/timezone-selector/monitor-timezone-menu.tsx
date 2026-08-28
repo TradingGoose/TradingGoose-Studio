@@ -2,9 +2,9 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { fetchTimeZoneOptions } from '@/components/timezone-selector/fetchers'
+import { cn } from '@/lib/utils'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { formatTemplate } from '@/i18n/utils'
-import { cn } from '@/lib/utils'
 import { formatMonitorTimezoneLabel } from '../shared/monitor-time'
 import { monitorControlSurfaceClass } from '../shared/monitor-ui'
 import { SearchableDropdown, type SearchableDropdownOption } from '../shared/searchable-dropdown'

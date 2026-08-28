@@ -1,5 +1,5 @@
-import ReactMarkdown from 'react-markdown'
 import type { ComponentProps } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
 const legalMarkdownComponents = {

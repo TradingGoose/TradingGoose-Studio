@@ -3,7 +3,6 @@ import {
   normalizeAlpacaSnapshotAccountSummary,
   normalizeAlpacaTradingAccount,
 } from '@/providers/trading/alpaca/accounts'
-import { buildPortfolioDetail } from '@/providers/trading/portfolio-detail'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import {
   ALPACA_DEFAULT_BASE_CURRENCY,
@@ -11,8 +10,9 @@ import {
   normalizeAlpacaPositions,
   sumAlpacaPositionUnrealizedPnl,
 } from '@/providers/trading/alpaca/positions'
-import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
+import { buildPortfolioDetail } from '@/providers/trading/portfolio-detail'
 import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
+import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import type { TradingPortfolioAccountContext } from '@/providers/trading/types'
 
 async function fetchAlpacaTradingPositions(context: TradingPortfolioAccountContext) {

@@ -1,6 +1,6 @@
 import { executeInE2B, isE2BWarmSandboxLimitError } from '@/lib/execution/e2b'
-import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
 import { CodeLanguage } from '@/lib/execution/languages'
+import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
 import { buildPineTSE2BSingleIndicatorScript } from '@/lib/indicators/execution/e2b-script-builder'
 import { executeIndicatorInLocalVm } from '@/lib/indicators/execution/local-executor'
 import {

@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import type {
   MarketBar,
   MarketSeries,
@@ -6,7 +7,6 @@ import type {
   NormalizationMode,
 } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 
 const logger = createLogger('MarketProvider:AlphaVantage')
 
@@ -42,7 +42,7 @@ function resolveInterval(request: MarketSeriesRequest): string {
 }
 
 function isIntradayInterval(interval: string): interval is keyof typeof INTRADAY_INTERVAL_MAP {
-  return Object.prototype.hasOwnProperty.call(INTRADAY_INTERVAL_MAP, interval)
+  return Object.hasOwn(INTRADAY_INTERVAL_MAP, interval)
 }
 
 function shouldUseAdjusted(mode?: NormalizationMode): boolean {

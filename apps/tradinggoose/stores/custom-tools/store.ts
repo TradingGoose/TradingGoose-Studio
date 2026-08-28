@@ -1,5 +1,5 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { CustomToolsStore } from '@/stores/custom-tools/types'
 

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import Background from '@/app/(landing)/components/background/background'
 import { getBaseUrl } from '@/lib/urls/utils'
+import Background from '@/app/(landing)/components/background/background'
 
 export function generateMetadata(): Metadata {
   return {

@@ -1,15 +1,15 @@
 import type { Metadata } from 'next'
+import { getLocale } from 'next-intl/server'
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingSummary } from '@/lib/billing/public-catalog'
+import { DEFAULT_META_DESCRIPTION } from '@/lib/branding/metadata'
 import Landing from '@/app/(landing)/landing'
 import {
   buildLocalizedAlternates,
   getOpenGraphLocale,
-  localizeSiteUrl,
   type LocaleCode,
+  localizeSiteUrl,
 } from '@/i18n/utils'
-import { DEFAULT_META_DESCRIPTION } from '@/lib/branding/metadata'
-import { getLocale } from 'next-intl/server'
 
 export const dynamic = 'force-dynamic'
 

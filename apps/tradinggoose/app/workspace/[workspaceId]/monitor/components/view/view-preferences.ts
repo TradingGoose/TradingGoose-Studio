@@ -1,8 +1,8 @@
 import { BrowserStorage } from '@/lib/browser-storage'
 import {
   DEFAULT_MONITOR_SHELL_WORKING_STATE,
-  normalizeMonitorShellWorkingState,
   type MonitorShellWorkingState,
+  normalizeMonitorShellWorkingState,
 } from './view-config'
 
 const MONITOR_WORKING_STATE_PREFIX = 'monitor-working-state'

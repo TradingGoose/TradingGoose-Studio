@@ -1,5 +1,6 @@
 'use client'
 
+import { useMessages } from 'next-intl'
 import * as Icons from '@/components/icons/icons'
 import * as ProviderIcons from '@/components/icons/provider-icons'
 import { Avatar } from '@/components/ui/avatar'
@@ -7,7 +8,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Marquee } from '@/components/ui/marquee'
 import { MotionPreset } from '@/components/ui/motion-preset'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
-import { useMessages } from 'next-intl'
 
 type BrandLogo = {
   icon: React.ComponentType<{ className?: string }>

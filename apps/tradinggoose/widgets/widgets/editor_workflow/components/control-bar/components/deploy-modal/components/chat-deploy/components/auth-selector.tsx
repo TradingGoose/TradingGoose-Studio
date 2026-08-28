@@ -3,8 +3,8 @@ import { Check, Copy, Eye, EyeOff, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Label } from '@/components/ui'
 import type { ChatAuthType } from '@/lib/chat/deployment-config'
 import { getEnv, isTruthy } from '@/lib/env'
-import { formatTemplate } from '@/i18n/utils'
 import { cn, generatePassword } from '@/lib/utils'
+import { formatTemplate } from '@/i18n/utils'
 import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface AuthSelectorProps {

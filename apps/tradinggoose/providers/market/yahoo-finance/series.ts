@@ -1,9 +1,9 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type {
   MarketBar,
+  MarketInterval,
   MarketSeries,
   MarketSeriesRequest,
-  MarketInterval,
   NormalizationMode,
 } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'

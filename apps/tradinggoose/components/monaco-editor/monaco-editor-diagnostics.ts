@@ -20,7 +20,7 @@ const ENV_VARIABLE_REGEX = /\{\{[^}\s]+\}\}/g
 const isIdentifierStart = (char?: string) => !!char && /[A-Za-z_$]/.test(char)
 const isIdentifierPart = (char?: string) => !!char && /[A-Za-z0-9_$]/.test(char)
 const isPlaceholderStartChar = (char?: string) => !!char && /[A-Za-z_]/.test(char)
-const isInvalidPlaceholderPrefix = (char?: string) => !!char && /[A-Za-z0-9_$\]\)\}]/.test(char)
+const isInvalidPlaceholderPrefix = (char?: string) => !!char && /[A-Za-z0-9_$\])}]/.test(char)
 const isValidIdentifier = (value: string) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value)
 
 const toPlaceholderIdentifier = (token: string) =>

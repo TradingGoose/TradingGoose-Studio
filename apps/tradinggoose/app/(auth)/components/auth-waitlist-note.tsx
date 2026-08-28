@@ -1,9 +1,7 @@
 'use client'
-
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { inter } from '@/app/fonts/inter'
-import { useMessages } from 'next-intl'
-import { type LocaleCode } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 export function AuthWaitlistNote() {
   const locale = useLocale() as LocaleCode

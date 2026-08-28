@@ -1,9 +1,7 @@
 'use client'
 
 import * as React from 'react'
-
 import { motion } from 'motion/react'
-
 import { cn } from '@/lib/utils'
 
 interface AnimatedBeamProps {
@@ -150,7 +148,7 @@ function AnimatedBeam(props: AnimatedBeamProps) {
             delay,
             duration,
             ease: 'linear',
-            repeat: Infinity,
+            repeat: Number.POSITIVE_INFINITY,
             repeatDelay: 0,
           }}
         >

@@ -4,7 +4,7 @@ import type {
   MarketSeriesRequest,
   MarketSessionWindow,
 } from '@/providers/market/types'
-import { MAX_SESSION_LOOKAHEAD_DAYS, MAX_SESSION_RANGE_DAYS, MARKET_DAY_MS } from './constants'
+import { MARKET_DAY_MS, MAX_SESSION_LOOKAHEAD_DAYS, MAX_SESSION_RANGE_DAYS } from './constants'
 import { addDays, parseDateKey, toDate, toDateKey } from './date-utils'
 import { resolveMarketHours, resolveMarketHoursRange } from './market-hours-api'
 import { parseTime } from './time-utils'
@@ -177,8 +177,8 @@ export const resolveMarketSessionsForRange = async (
 export const resolveSeriesBoundsMs = (
   series: MarketSeries
 ): { startMs: number; endMs: number } | null => {
-  const startMs = series.start ? Date.parse(series.start) : NaN
-  const endMs = series.end ? Date.parse(series.end) : NaN
+  const startMs = series.start ? Date.parse(series.start) : Number.NaN
+  const endMs = series.end ? Date.parse(series.end) : Number.NaN
   if (Number.isFinite(startMs) && Number.isFinite(endMs) && startMs < endMs) {
     return { startMs, endMs }
   }
@@ -386,7 +386,7 @@ export const clampToMarketSession = async (
   let endMs = endDate.getTime()
 
   const adjustStart = async () => {
-    let cursor = new Date(startMs)
+    const cursor = new Date(startMs)
     const rangeStart = addDays(cursor, -1)
     const rangeEnd = addDays(cursor, MAX_SESSION_LOOKAHEAD_DAYS)
     const rangeMap = await resolveMarketHoursRange(
@@ -434,7 +434,7 @@ export const clampToMarketSession = async (
   }
 
   const adjustEnd = async () => {
-    let cursor = new Date(endMs)
+    const cursor = new Date(endMs)
     const rangeStart = addDays(cursor, -MAX_SESSION_LOOKAHEAD_DAYS)
     const rangeEnd = addDays(cursor, 1)
     const rangeMap = await resolveMarketHoursRange(

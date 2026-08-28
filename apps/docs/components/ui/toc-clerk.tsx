@@ -1,11 +1,11 @@
 'use client'
-import * as Primitive from 'fumadocs-core/toc'
 import { type ComponentProps, useEffect, useRef, useState } from 'react'
-import { cn } from '../../lib/cn'
-import { TocThumb } from './toc-thumb'
-import { useTOCItems } from './toc'
-import { mergeRefs } from '../../lib/merge-refs'
+import * as Primitive from 'fumadocs-core/toc'
 import { useI18n } from 'fumadocs-ui/contexts/i18n'
+import { cn } from '../../lib/cn'
+import { mergeRefs } from '../../lib/merge-refs'
+import { useTOCItems } from './toc'
+import { TocThumb } from './toc-thumb'
 
 export default function ClerkTOCItems({ ref, className, ...props }: ComponentProps<'div'>) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -24,8 +24,8 @@ export default function ClerkTOCItems({ ref, className, ...props }: ComponentPro
 
     function onResize(): void {
       if (container.clientHeight === 0) return
-      let w = 0,
-        h = 0
+      let w = 0
+      let h = 0
       const d: string[] = []
       for (let i = 0; i < items.length; i++) {
         const element: HTMLElement | null = container.querySelector(
@@ -34,9 +34,10 @@ export default function ClerkTOCItems({ ref, className, ...props }: ComponentPro
         if (!element) continue
 
         const styles = getComputedStyle(element)
-        const offset = getLineOffset(items[i].depth) + 1,
-          top = element.offsetTop + parseFloat(styles.paddingTop),
-          bottom = element.offsetTop + element.clientHeight - parseFloat(styles.paddingBottom)
+        const offset = getLineOffset(items[i].depth) + 1
+        const top = element.offsetTop + Number.parseFloat(styles.paddingTop)
+        const bottom =
+          element.offsetTop + element.clientHeight - Number.parseFloat(styles.paddingBottom)
 
         w = Math.max(offset, w)
         h = Math.max(h, bottom)
@@ -123,9 +124,9 @@ function TOCItem({
   upper?: number
   lower?: number
 }) {
-  const offset = getLineOffset(item.depth),
-    upperOffset = getLineOffset(upper),
-    lowerOffset = getLineOffset(lower)
+  const offset = getLineOffset(item.depth)
+  const upperOffset = getLineOffset(upper)
+  const lowerOffset = getLineOffset(lower)
 
   return (
     <Primitive.TOCItem

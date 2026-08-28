@@ -1,4 +1,4 @@
-import { memo, useMemo, type SyntheticEvent } from 'react'
+import { memo, type SyntheticEvent, useMemo } from 'react'
 import {
   ArrowLeftRight,
   ArrowUpDown,
@@ -15,10 +15,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { emitRemoveFromSubflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/workflow-editor-event-bus'
 import { useWorkflowI18n } from '@/widgets/widgets/editor_workflow/copy'
 

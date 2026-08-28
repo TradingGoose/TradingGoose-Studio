@@ -2,15 +2,16 @@
 
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+import type { Messages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { Messages } from 'next-intl'
 
 type ChatMessages = Messages['chat']
+
 import { getChatPasswordAuthErrorMessage } from '@/app/chat/errors'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'

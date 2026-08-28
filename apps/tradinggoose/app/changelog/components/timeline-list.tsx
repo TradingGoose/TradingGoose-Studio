@@ -1,14 +1,13 @@
 'use client'
 
 import React from 'react'
+import type { Messages } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import type { Messages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
-import { type LocaleCode } from '@/i18n/utils'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 import type { ChangelogEntry } from './changelog-content'
 
 type Props = {

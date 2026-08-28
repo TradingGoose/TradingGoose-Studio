@@ -3,12 +3,12 @@
  */
 
 import { act, type ReactNode } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
 import { NextIntlClientProvider } from 'next-intl'
+import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { getPublicCopy } from '@/i18n/public-copy'
 import { TradingProviderSelector } from '@/components/trading-selector/provider-selector'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { getPublicCopy } from '@/i18n/public-copy'
 
 describe('TradingProviderSelector', () => {
   let container: HTMLDivElement

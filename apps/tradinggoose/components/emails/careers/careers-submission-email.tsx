@@ -1,11 +1,10 @@
-import * as React from 'react'
 import { Body, Container, Head, Html, Preview, Section, Text } from '@react-email/components'
 import { format } from 'date-fns'
-import { getBrandConfig } from '@/lib/branding/branding'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from '@/components/emails/base-styles'
 import EmailFooter from '@/components/emails/footer'
 import EmailHeader from '@/components/emails/header'
+import { getBrandConfig } from '@/lib/branding/branding'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 interface CareersSubmissionEmailProps {
   name: string

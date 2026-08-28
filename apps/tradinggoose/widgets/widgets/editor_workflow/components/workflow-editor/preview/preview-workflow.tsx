@@ -4,16 +4,16 @@ import { useMemo, useState } from 'react'
 import {
   Background,
   ConnectionLineType,
-  ReactFlow,
   type EdgeTypes,
   type NodeTypes,
+  ReactFlow,
   ReactFlowProvider,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { cn } from '@/lib/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import type { PreviewDiffOperation } from './preview-diff'
 import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
+import type { PreviewDiffOperation } from './preview-diff'
 import { PreviewNode } from './preview-node'
 import { adaptPreviewPayloadToCanvas } from './preview-payload-adapter'
 import { PreviewSubflow } from './preview-subflow'

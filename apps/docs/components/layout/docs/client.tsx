@@ -1,16 +1,12 @@
 'use client'
 
-import { cn } from '../../../lib/cn'
 import { type ComponentProps, type ReactNode, useMemo } from 'react'
-import { useSidebar } from 'fumadocs-ui/contexts/sidebar'
-import { buttonVariants } from '../../ui/button'
-import { Sidebar as SidebarIcon } from 'lucide-react'
-import Link from 'fumadocs-core/link'
 import { usePathname } from 'fumadocs-core/framework'
-import { isTabActive } from '../../../lib/is-active'
-import type { Option } from '../../root-toggle'
-import { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree'
+import Link from 'fumadocs-core/link'
 import type * as PageTree from 'fumadocs-core/page-tree'
+import { useSidebar } from 'fumadocs-ui/contexts/sidebar'
+import { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree'
+import { Sidebar as SidebarIcon } from 'lucide-react'
 import {
   findFolderPathBySegments,
   getFolderHref,
@@ -19,6 +15,10 @@ import {
   humanizeSlug,
   supportedLanguages,
 } from '@/lib/page-tree'
+import { cn } from '../../../lib/cn'
+import { isTabActive } from '../../../lib/is-active'
+import type { Option } from '../../root-toggle'
+import { buttonVariants } from '../../ui/button'
 
 export function Navbar(props: ComponentProps<'header'>) {
   return (

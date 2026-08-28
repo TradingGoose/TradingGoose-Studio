@@ -15,10 +15,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
+import { cn } from '@/lib/utils'
 import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { formatDurationMs, formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 import { formatTemplate } from '@/i18n/utils'
-import { cn } from '@/lib/utils'
 import {
   formatMonitorTimelineHeaderGroup,
   formatMonitorTimelinePrimaryLabel,

@@ -5,8 +5,8 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { createLogger } from '@/lib/logs/console/logger'
 import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
+import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissions, type WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import {
   useWorkspacePermissions,

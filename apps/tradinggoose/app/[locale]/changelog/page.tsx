@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getLocale } from 'next-intl/server'
+import { getBaseUrl } from '@/lib/urls/utils'
 import ChangelogContent from '@/app/changelog/components/changelog-content'
 import { getPublicCopy } from '@/i18n/public-copy'
 import {
@@ -8,7 +9,6 @@ import {
   type LocaleCode,
   localizeSiteUrl,
 } from '@/i18n/utils'
-import { getBaseUrl } from '@/lib/urls/utils'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = (await getLocale()) as LocaleCode

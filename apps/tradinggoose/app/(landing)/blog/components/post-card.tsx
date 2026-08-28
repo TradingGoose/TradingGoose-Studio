@@ -1,16 +1,15 @@
 'use client'
 
-import Image from 'next/image'
 import { Clock } from 'lucide-react'
-import { useLocale } from 'next-intl'
-import { Card } from '@/components/ui/card'
+import Image from 'next/image'
+import { useLocale, useMessages } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { Link } from '@/i18n/navigation'
+import type { LocaleCode } from '@/i18n/utils'
 import { formatBlogDate } from '../lib/heading-slugs'
-import MarkdownTitle from './markdown-title'
 import type { Post } from '../lib/types'
-import { useMessages } from 'next-intl'
-import { type LocaleCode } from '@/i18n/utils'
+import MarkdownTitle from './markdown-title'
 
 interface PostCardProps {
   post: Post

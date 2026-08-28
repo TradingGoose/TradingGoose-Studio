@@ -1,6 +1,6 @@
 export * from './types/base'
-export * from './types/sereis'
 export * from './types/live'
+export * from './types/sereis'
 
 import type { MarketLiveRequest } from './types/live'
 import type { MarketSeriesRequest } from './types/sereis'

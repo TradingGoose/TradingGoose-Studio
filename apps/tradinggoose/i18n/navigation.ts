@@ -1,6 +1,6 @@
 import { createNavigation } from 'next-intl/navigation'
-import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, localizeUrl } from './utils'
 import { routing } from './routing'
+import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, localizeUrl } from './utils'
 
 // These navigation helpers localize canonical internal paths like `/verify`.
 // Do not pre-localize hrefs before passing them to this router.

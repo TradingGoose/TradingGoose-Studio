@@ -1,14 +1,14 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import type {
   MarketBar,
+  MarketInterval,
   MarketRequestBase,
   MarketSeries,
   MarketSeriesRequest,
-  MarketInterval,
   NormalizationMode,
 } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 
 const logger = createLogger('MarketProvider:Alpaca')
 

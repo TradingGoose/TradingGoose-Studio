@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import type { Messages } from 'next-intl'
 import { useLocale } from 'next-intl'
-import { useRouter } from '@/i18n/navigation'
 import { normalizeAuthErrorCode } from '@/lib/auth/auth-error-copy'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { normalizeCallbackUrl, type LocaleCode } from '@/i18n/utils'
-import type { Messages } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
+import { type LocaleCode, normalizeCallbackUrl } from '@/i18n/utils'
 
 const logger = createLogger('useVerification')
 type VerifyCopy = Messages['auth']['verify']

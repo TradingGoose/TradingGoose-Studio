@@ -359,7 +359,7 @@ export abstract class BaseLineTool<HorzScaleItem>
     series: ISeriesApi<SeriesType, HorzScaleItem>,
     horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
     finalOptions: LineToolOptionsInternal<LineToolType>,
-    points: LineToolPoint[] = [],
+    points: LineToolPoint[] | undefined,
     toolType: LineToolType,
     pointsCount: number,
     priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
@@ -371,8 +371,8 @@ export abstract class BaseLineTool<HorzScaleItem>
     this._chart = chart
     this._series = series
     this._horzScaleBehavior = horzScaleBehavior
-    this._points = points
-    this._creating = points.length === 0
+    this._points = points ?? []
+    this._creating = this._points.length === 0
     this.toolType = toolType
     this.pointsCount = pointsCount
     this._priceAxisLabelStackingManager = priceAxisLabelStackingManager

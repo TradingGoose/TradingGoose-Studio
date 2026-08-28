@@ -1,5 +1,5 @@
 import { redirect } from '@/i18n/navigation'
-import { type LocaleCode } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 export default async function WorkspacePage({
   params,

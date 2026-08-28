@@ -2,7 +2,7 @@
 // Keep it small; adapters can add provider-specific metadata separately.
 
 import type { ListingIdentity } from '@/lib/listing/identity'
-import type { MarketInterval, MarketRangeUnit, MarketRequestBase } from './base'
+import type { MarketRangeUnit, MarketRequestBase } from './base'
 
 export type MarketSeriesWindowMode = 'bars' | 'range' | 'absolute'
 

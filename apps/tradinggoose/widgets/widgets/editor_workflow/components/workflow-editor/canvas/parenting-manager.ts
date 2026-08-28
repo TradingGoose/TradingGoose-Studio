@@ -1,3 +1,4 @@
+import type { Edge, Node } from '@xyflow/react'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import type { WorkflowCanvasNodeData } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/block-registry'
@@ -8,7 +9,6 @@ import {
   getNodeHierarchy,
   resizeContainerNodes,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/node-position-utils'
-import type { Edge, Node } from '@xyflow/react'
 
 type BlocksById = Record<string, BlockState>
 type WorkflowCanvasNode = Node<WorkflowCanvasNodeData>

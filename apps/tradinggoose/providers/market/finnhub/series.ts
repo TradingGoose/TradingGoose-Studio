@@ -1,12 +1,12 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import type {
   MarketBar,
+  MarketInterval,
   MarketSeries,
   MarketSeriesRequest,
-  MarketInterval,
 } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 
 const logger = createLogger('MarketProvider:Finnhub')
 

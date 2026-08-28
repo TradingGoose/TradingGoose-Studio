@@ -1,6 +1,4 @@
 'use client'
-import { ChevronDown, ExternalLink } from 'lucide-react'
-import { usePathname } from 'fumadocs-core/framework'
 import {
   type ComponentProps,
   createContext,
@@ -8,26 +6,28 @@ import {
   Fragment,
   type ReactNode,
   useContext,
-  useMemo,
   useEffect,
+  useMemo,
   useState,
 } from 'react'
+import type { CollapsibleContentProps, CollapsibleTriggerProps } from '@radix-ui/react-collapsible'
+import { Presence } from '@radix-ui/react-presence'
+import type { ScrollAreaProps } from '@radix-ui/react-scroll-area'
+import { cva } from 'class-variance-authority'
+import { usePathname } from 'fumadocs-core/framework'
 import Link, { type LinkProps } from 'fumadocs-core/link'
+import type * as PageTree from 'fumadocs-core/page-tree'
+import { useMediaQuery } from 'fumadocs-core/utils/use-media-query'
 import { useOnChange } from 'fumadocs-core/utils/use-on-change'
+import { useSidebar } from 'fumadocs-ui/contexts/sidebar'
+import { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree'
+import { ChevronDown, ExternalLink } from 'lucide-react'
+import { getFolderHref } from '@/lib/page-tree'
+import { useSidebarResize } from '../hooks/use-sidebar-resize'
 import { cn } from '../lib/cn'
-import { ScrollArea, ScrollViewport } from './ui/scroll-area'
 import { isActive } from '../lib/is-active'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
-import { type ScrollAreaProps } from '@radix-ui/react-scroll-area'
-import { useSidebar } from 'fumadocs-ui/contexts/sidebar'
-import { cva } from 'class-variance-authority'
-import type { CollapsibleContentProps, CollapsibleTriggerProps } from '@radix-ui/react-collapsible'
-import type * as PageTree from 'fumadocs-core/page-tree'
-import { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree'
-import { useMediaQuery } from 'fumadocs-core/utils/use-media-query'
-import { Presence } from '@radix-ui/react-presence'
-import { useSidebarResize } from '../hooks/use-sidebar-resize'
-import { getFolderHref, getFolderSlug } from '@/lib/page-tree'
+import { ScrollArea, ScrollViewport } from './ui/scroll-area'
 
 export interface SidebarProps {
   /**
@@ -597,7 +597,7 @@ function PageTreeFolder({ item, ...props }: { item: PageTree.Folder; children: R
           icon={item.icon}
           label={item.name}
           {...props}
-        ></SidebarFolderLink>
+        />
       ) : (
         <SidebarFolderTrigger {...props} icon={item.icon} label={item.name} />
       )}

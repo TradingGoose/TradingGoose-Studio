@@ -4,27 +4,27 @@
  * Find the latest source code at https://github.com/huybuidac/shadcn-datetime-picker
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { cn } from '@/lib/utils'
-import { Clock, ChevronDownIcon, CheckIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
+  addHours,
+  endOfDay,
+  endOfHour,
+  endOfMinute,
   format,
   parse,
   setHours,
-  startOfHour,
-  endOfHour,
+  setMilliseconds,
   setMinutes,
-  startOfMinute,
-  endOfMinute,
   setSeconds,
   startOfDay,
-  endOfDay,
-  addHours,
+  startOfHour,
+  startOfMinute,
   subHours,
-  setMilliseconds,
 } from 'date-fns'
+import { CheckIcon, ChevronDownIcon, Clock } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
 
 interface SimpleTimeOption {
   value: any
@@ -162,7 +162,7 @@ export function SimpleTimePicker({
   const onHourChange = useCallback(
     (v: SimpleTimeOption) => {
       if (min) {
-        let newTime = buildTime({
+        const newTime = buildTime({
           use12HourFormat,
           value,
           formatStr,
@@ -177,7 +177,7 @@ export function SimpleTimePicker({
         }
       }
       if (max) {
-        let newTime = buildTime({
+        const newTime = buildTime({
           use12HourFormat,
           value,
           formatStr,
@@ -199,7 +199,7 @@ export function SimpleTimePicker({
   const onMinuteChange = useCallback(
     (v: SimpleTimeOption) => {
       if (min) {
-        let newTime = buildTime({
+        const newTime = buildTime({
           use12HourFormat,
           value,
           formatStr,
@@ -213,7 +213,7 @@ export function SimpleTimePicker({
         }
       }
       if (max) {
-        let newTime = buildTime({
+        const newTime = buildTime({
           use12HourFormat,
           value,
           formatStr,
@@ -234,7 +234,7 @@ export function SimpleTimePicker({
   const onAmpmChange = useCallback(
     (v: SimpleTimeOption) => {
       if (min) {
-        let newTime = buildTime({
+        const newTime = buildTime({
           use12HourFormat,
           value,
           formatStr,
@@ -251,7 +251,7 @@ export function SimpleTimePicker({
         }
       }
       if (max) {
-        let newTime = buildTime({
+        const newTime = buildTime({
           use12HourFormat,
           value,
           formatStr,
@@ -435,7 +435,7 @@ function buildTime(options: BuildTimeOptions) {
     let dateStr = dateStrRaw.slice(0, 11) + hour.toString().padStart(2, '0') + dateStrRaw.slice(13)
     dateStr = dateStr.slice(0, 14) + minute.toString().padStart(2, '0') + dateStr.slice(16)
     dateStr = dateStr.slice(0, 17) + second.toString().padStart(2, '0') + dateStr.slice(19)
-    dateStr = dateStr.slice(0, 24) + (ampm == AM_VALUE ? 'AM' : 'PM') + dateStr.slice(26)
+    dateStr = dateStr.slice(0, 24) + (ampm === AM_VALUE ? 'AM' : 'PM') + dateStr.slice(26)
     date = parse(dateStr, formatStr, value)
   } else {
     date = setHours(setMinutes(setSeconds(setMilliseconds(value, 0), second), minute), hour)

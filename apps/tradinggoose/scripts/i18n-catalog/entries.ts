@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
+import { findBestMatchingRoutePattern, normalizeRoutePath } from './ownership'
 import { extractCallableInitializer, getLiteralPropertyName } from './scan/core/ast'
 import type { NamedFunctionNode } from './scan/core/types'
-import { findBestMatchingRoutePattern, normalizeRoutePath } from './ownership'
 
 export const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts'] as const
 

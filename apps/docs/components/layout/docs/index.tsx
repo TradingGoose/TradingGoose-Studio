@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import {
   type ComponentProps,
   type FC,
@@ -6,13 +7,36 @@ import {
   type ReactNode,
   useMemo,
 } from 'react'
+import Link from 'fumadocs-core/link'
+import type * as PageTree from 'fumadocs-core/page-tree'
+import { NavProvider } from 'fumadocs-ui/contexts/layout'
+import { TreeContextProvider } from 'fumadocs-ui/contexts/tree'
+import { type GetSidebarTabsOptions, getSidebarTabs } from 'fumadocs-ui/utils/get-sidebar-tabs'
 import {
-  type BaseLayoutProps,
-  BaseLinkItem,
-  type BaseLinkType,
-  getLinks,
-  type LinkItemType,
-} from '../shared/index'
+  BookOpen,
+  Bot,
+  Cable,
+  CandlestickChart,
+  ChevronDown,
+  Code2,
+  Gauge,
+  Languages,
+  LayoutGrid,
+  Network,
+  ShieldCheck,
+  Sidebar as SidebarIcon,
+  Sparkles,
+  SquareStack,
+  Variable,
+  Wrench,
+  X,
+  Zap,
+} from 'lucide-react'
+import { getFolderSlug, getPageSlug } from '@/lib/page-tree'
+import { cn } from '../../../lib/cn'
+import { LanguageToggle } from '../../language-toggle'
+import { type Option, RootToggle } from '../../root-toggle'
+import { LargeSearchToggle, SearchToggle } from '../../search-toggle'
 import {
   Sidebar,
   SidebarCollapseTrigger,
@@ -31,38 +55,17 @@ import {
   SidebarTrigger,
   SidebarViewport,
 } from '../../sidebar'
-import { TreeContextProvider } from 'fumadocs-ui/contexts/tree'
-import { cn } from '../../../lib/cn'
-import { buttonVariants } from '../../ui/button'
-import { Book, ChevronDown, Languages, Sidebar as SidebarIcon, X } from 'lucide-react'
-import { LanguageToggle } from '../../language-toggle'
 import { ThemeToggle } from '../../theme-toggle'
+import { buttonVariants } from '../../ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover'
-import type * as PageTree from 'fumadocs-core/page-tree'
-import { DocsBreadcrumb, LayoutBody, LayoutTabs, Navbar, NavbarSidebarTrigger } from './client'
-import { NavProvider } from 'fumadocs-ui/contexts/layout'
-import { type Option, RootToggle } from '../../root-toggle'
-import Link from 'fumadocs-core/link'
-import { LargeSearchToggle, SearchToggle } from '../../search-toggle'
-import { getSidebarTabs, type GetSidebarTabsOptions } from 'fumadocs-ui/utils/get-sidebar-tabs'
 import {
-  BookOpen,
-  Bot,
-  Cable,
-  CandlestickChart,
-  Code2,
-  Gauge,
-  LayoutGrid,
-  Network,
-  ShieldCheck,
-  Sparkles,
-  SquareStack,
-  Variable,
-  Wrench,
-  Zap,
-} from 'lucide-react'
-import type { JSX } from 'react'
-import { getFolderSlug, getPageSlug } from '@/lib/page-tree'
+  type BaseLayoutProps,
+  BaseLinkItem,
+  type BaseLinkType,
+  getLinks,
+  type LinkItemType,
+} from '../shared/index'
+import { DocsBreadcrumb, LayoutBody, LayoutTabs, Navbar, NavbarSidebarTrigger } from './client'
 
 /** Icons for top-level sidebar categories only. Child pages do not get icons. */
 const categoryIconMap: Record<string, JSX.Element> = {
@@ -468,7 +471,7 @@ export function DocsLayout(props: DocsLayoutProps) {
           {...props.containerProps}
           className={cn(props.containerProps?.className)}
           sidebar={sidebar()}
-          navbar={<DocsNavbar {...props} links={links} tabs={tabMode == 'navbar' ? tabs : []} />}
+          navbar={<DocsNavbar {...props} links={links} tabs={tabMode === 'navbar' ? tabs : []} />}
         >
           {props.children}
         </LayoutBody>

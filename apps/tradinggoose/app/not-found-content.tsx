@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { useBrandConfig } from '@/lib/branding/branding'
 import Nav from '@/app/(landing)/components/nav/nav'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { useMessages } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 
 export default function NotFoundContent() {

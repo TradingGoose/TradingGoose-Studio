@@ -1,11 +1,11 @@
 'use client'
 
 import { useSession } from '@/lib/auth-client'
-import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { Terminal } from './terminal/terminal'
-import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { Terminal } from './terminal/terminal'
 
 interface WorkflowConsoleAppProps {
   workspaceId: string

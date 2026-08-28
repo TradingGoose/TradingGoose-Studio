@@ -1,21 +1,21 @@
 import { type HTMLAttributes, useMemo } from 'react'
-import { cn } from '../../../lib/cn'
-import { type BaseLayoutProps, getLinks, type LinkItemType, type NavOptions } from '../shared/index'
+import Link from 'fumadocs-core/link'
 import { NavProvider } from 'fumadocs-ui/contexts/layout'
+import { ChevronDown, Languages } from 'lucide-react'
+import { cn } from '../../../lib/cn'
+import { LanguageToggle, LanguageToggleText } from '../../language-toggle'
 import { LargeSearchToggle, SearchToggle } from '../../search-toggle'
 import { ThemeToggle } from '../../theme-toggle'
-import { LanguageToggle, LanguageToggleText } from '../../language-toggle'
-import { ChevronDown, Languages } from 'lucide-react'
-import Link from 'fumadocs-core/link'
+import { buttonVariants } from '../../ui/button'
+import { type BaseLayoutProps, getLinks, type LinkItemType, type NavOptions } from '../shared/index'
 import {
-  Navbar,
-  NavigationMenuLinkItem,
   MobileNavigationMenuContent,
   MobileNavigationMenuLinkItem,
   MobileNavigationMenuTrigger,
+  Navbar,
   NavigationMenuItem,
+  NavigationMenuLinkItem,
 } from './client'
-import { buttonVariants } from '../../ui/button'
 
 export interface HomeLayoutProps extends BaseLayoutProps {
   nav?: Partial<

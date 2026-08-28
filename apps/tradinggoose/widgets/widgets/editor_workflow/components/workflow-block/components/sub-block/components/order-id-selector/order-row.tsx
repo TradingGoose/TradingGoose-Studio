@@ -2,8 +2,8 @@
 
 import { useLocale } from 'next-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 import { cn } from '@/lib/utils'
+import { formatLocalizedNumber, formatUsd } from '@/i18n/formatters'
 import type { OrderHistorySearchOption } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/order-id-selector/types'
 import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 

@@ -1,17 +1,17 @@
-import { type Metadata } from 'next'
+import type { Metadata } from 'next'
 import { getLocale } from 'next-intl/server'
+import FilteredPosts from '@/app/(landing)/blog/components/filtered-posts'
+import PageHeading from '@/app/(landing)/blog/components/page-heading'
+import { getAllPosts } from '@/app/(landing)/blog/lib/posts'
 import BlogLayout from '@/app/(landing)/components/blog-layout'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { formatTemplate } from '@/i18n/utils'
 import {
   buildLocalizedAlternates,
+  formatTemplate,
   getOpenGraphLocale,
-  localizeSiteUrl,
   type LocaleCode,
+  localizeSiteUrl,
 } from '@/i18n/utils'
-import { getAllPosts } from '@/app/(landing)/blog/lib/posts'
-import PageHeading from '@/app/(landing)/blog/components/page-heading'
-import FilteredPosts from '@/app/(landing)/blog/components/filtered-posts'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = (await getLocale()) as LocaleCode

@@ -1,9 +1,8 @@
-import * as React from 'react'
 import { Img, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
+import { type EmailLocale, getEmailCopy } from '@/components/emails/email-copy'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { type EmailLocale, getEmailCopy } from '@/components/emails/email-copy'
 
 interface EmailHeaderProps {
   baseUrl?: string

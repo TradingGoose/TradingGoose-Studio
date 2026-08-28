@@ -11,7 +11,11 @@ import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { createIndicator, importIndicators } from '@/hooks/queries/indicators'
+import {
+  createIndicator,
+  importIndicators,
+  useIndicatorWriteStore,
+} from '@/hooks/queries/indicators'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
@@ -21,7 +25,6 @@ import {
   IndicatorListMessage,
 } from '@/widgets/widgets/list_indicator/components/indicator-list/indicator-list'
 import { indicatorListWidgetContract } from '@/widgets/widgets/list_indicator/contract'
-import { useIndicatorWriteStore } from '@/hooks/queries/indicators'
 
 const buildNewIndicator = (defaults: { name: string }) => {
   return {

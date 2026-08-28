@@ -1,6 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react'
-import type { NavProviderProps } from 'fumadocs-ui/contexts/layout'
 import type { I18nConfig } from 'fumadocs-core/i18n'
+import type { NavProviderProps } from 'fumadocs-ui/contexts/layout'
 
 export interface NavOptions extends NavProviderProps {
   enabled: boolean

@@ -1,6 +1,7 @@
 'use client'
 
 import { CircleIcon } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
@@ -11,7 +12,6 @@ import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 import { toPlanFeatures } from '@/global-navbar/settings-modal/components/subscription/plan-configs'
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useRegistrationState } from '@/hooks/queries/registration'
-import { useMessages } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 
 interface PricingTierCard {

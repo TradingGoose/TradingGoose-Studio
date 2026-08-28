@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { scanCatalogProject } from './scan'
 import {
   ARRAY_RUNTIME_CALLBACK_METHOD_NAMES,
   RUNTIME_CALLBACK_FUNCTION_NAMES,
   RUNTIME_CALLBACK_HOOK_NAMES,
 } from './scan/core/rules'
-import { scanCatalogProject } from './scan'
 import {
   cleanupTempProjects,
   createLocaleMessages,

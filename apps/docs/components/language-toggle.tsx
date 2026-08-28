@@ -1,9 +1,9 @@
 'use client'
-import { type ButtonHTMLAttributes, type HTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, HTMLAttributes } from 'react'
 import { useI18n } from 'fumadocs-ui/contexts/i18n'
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { cn } from '../lib/cn'
 import { buttonVariants } from './ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
 export type LanguageSelectProps = ButtonHTMLAttributes<HTMLButtonElement>
 

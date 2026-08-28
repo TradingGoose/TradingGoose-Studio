@@ -1,8 +1,8 @@
 'use client'
 
+import Image from 'next/image'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import Image from 'next/image'
 import { CodeBlock } from '@/components/ui/code-block'
 import { Link } from '@/i18n/navigation'
 import { flattenNodeText, textToSlug } from '../lib/heading-slugs'

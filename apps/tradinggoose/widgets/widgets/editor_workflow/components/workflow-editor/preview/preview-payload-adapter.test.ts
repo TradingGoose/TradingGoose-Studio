@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { adaptPreviewPayloadToCanvas } from './preview-payload-adapter'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { adaptPreviewPayloadToCanvas } from './preview-payload-adapter'
 
 const mockGetBlock = vi.fn()
 

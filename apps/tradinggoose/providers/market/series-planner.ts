@@ -127,7 +127,7 @@ const normalizeWindow = (
     if (startMs >= endMs) return null
 
     let resolvedStart: number = startMs
-    let resolvedEnd = endMs
+    const resolvedEnd = endMs
 
     if (retention?.maxRangeDays && retention.maxRangeDays > 0) {
       const maxRangeMs = retention.maxRangeDays * DAY_MS
@@ -221,8 +221,8 @@ export const planMarketSeriesRequest = (
     planned.start = new Date(window.startMs).toISOString()
     planned.end = new Date(window.endMs).toISOString()
   } else {
-    delete planned.start
-    delete planned.end
+    Reflect.deleteProperty(planned, 'start')
+    Reflect.deleteProperty(planned, 'end')
   }
 
   // Range param preserves "latest available" semantics for providers that support range windows.

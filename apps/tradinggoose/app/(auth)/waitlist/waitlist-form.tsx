@@ -1,14 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { cn } from '@/lib/utils'
-import { Link } from '@/i18n/navigation'
-import { useMessages } from 'next-intl'
-import { type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
+import { Link } from '@/i18n/navigation'
+import type { LocaleCode } from '@/i18n/utils'
 
 type WaitlistResponseStatus = 'pending' | 'approved' | 'rejected' | 'signed_up'
 

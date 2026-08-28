@@ -1,14 +1,13 @@
 'use client'
 
 import * as React from 'react'
-
 import {
   AnimatePresence,
-  motion,
-  useInView,
   type HTMLMotionProps,
-  type UseInViewOptions,
+  motion,
   type Transition,
+  type UseInViewOptions,
+  useInView,
   type Variant,
 } from 'motion/react'
 

@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import type { GeneratorContext } from './types'
 import {
   collectGeneratedToolSlugs,
   findToolDocSlugForTriggerProvider,
@@ -8,6 +7,7 @@ import {
 } from './doc-pages'
 import { extractAllTriggers, type TriggerConfig } from './extract-triggers'
 import { renderTriggerPage } from './render-trigger-page'
+import type { GeneratorContext } from './types'
 import { updateMetaJson } from './utils'
 
 /** Load resolved outputs from the pre-generated JSON (built by resolve-trigger-outputs.ts) */

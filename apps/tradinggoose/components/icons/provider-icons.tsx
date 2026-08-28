@@ -1,4 +1,4 @@
-import { useId, type SVGProps } from 'react'
+import { type SVGProps, useId } from 'react'
 
 export function OpenAIIcon(props: SVGProps<SVGSVGElement>) {
   return (

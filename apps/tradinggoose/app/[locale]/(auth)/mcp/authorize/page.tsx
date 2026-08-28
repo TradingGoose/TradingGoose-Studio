@@ -1,5 +1,5 @@
-import { getSessionCookie } from 'better-auth/cookies'
 import { Form } from '@base-ui/react/form'
+import { getSessionCookie } from 'better-auth/cookies'
 import { headers } from 'next/headers'
 import { Button } from '@/components/ui/button'
 import { getSession } from '@/lib/auth'

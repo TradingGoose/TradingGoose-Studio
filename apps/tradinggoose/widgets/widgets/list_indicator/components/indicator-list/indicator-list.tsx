@@ -9,12 +9,15 @@ import { type EntityListMember, getEntityFields } from '@/lib/yjs/entity-session
 import { bootstrapYjsProvider } from '@/lib/yjs/provider'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { createIndicator, deleteIndicator } from '@/hooks/queries/indicators'
+import {
+  createIndicator,
+  deleteIndicator,
+  useIndicatorWriteStore,
+} from '@/hooks/queries/indicators'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { usePendingEntitySelection } from '@/widgets/utils/use-pending-entity-selection'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
 import { getIndicatorIdFromParams } from '@/widgets/widgets/editor_indicator/utils'
-import { useIndicatorWriteStore } from '@/hooks/queries/indicators'
 import { IndicatorListItem } from './components/indicator-list-item'
 
 export const IndicatorListMessage = ({ message }: { message: string }) => (

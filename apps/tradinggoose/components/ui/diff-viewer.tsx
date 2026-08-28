@@ -1,11 +1,9 @@
 'use client'
-
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ComponentPropsWithoutRef, ComponentType } from 'react'
+import { useMemo } from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
-import type { ComponentPropsWithoutRef, ComponentType } from 'react'
 import { diffLines } from 'diff'
 import parseDiff from 'parse-diff'
-import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 
 export type PreComponent = ComponentType<

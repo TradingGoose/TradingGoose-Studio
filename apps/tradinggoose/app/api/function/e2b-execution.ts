@@ -3,8 +3,8 @@ import { CodeLanguage } from '@/lib/execution/languages'
 import { resolveExecutionRuntimeConfig } from '@/lib/execution/runtime-config'
 import { buildPineTSFunctionIndicatorRuntimePrologue } from '@/lib/indicators/execution/e2b-script-builder'
 import {
-  type FunctionIndicatorRuntimeManifest,
   FUNCTION_INDICATOR_USAGE_HINT,
+  type FunctionIndicatorRuntimeManifest,
 } from '@/lib/indicators/execution/function-indicator-runtime'
 import { formatE2BError } from './error-formatting'
 import { executeFunctionInLocalVm } from './local-execution'

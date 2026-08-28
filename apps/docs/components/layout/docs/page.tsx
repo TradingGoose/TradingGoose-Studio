@@ -1,5 +1,10 @@
-import { type ComponentProps } from 'react'
+import type { ComponentProps } from 'react'
+import type { AnchorProviderProps } from 'fumadocs-core/toc'
+import { I18nLabel } from 'fumadocs-ui/contexts/i18n'
+import { Text } from 'lucide-react'
 import { cn } from '../../../lib/cn'
+import { TOCItems, TOCProvider, TOCScrollArea } from '../../ui/toc'
+import ClerkTOCItems from '../../ui/toc-clerk'
 import {
   type BreadcrumbProps,
   type FooterProps,
@@ -11,11 +16,6 @@ import {
   PageTOCPopoverContent,
   PageTOCPopoverTrigger,
 } from './page-client'
-import { TOCItems, TOCProvider, TOCScrollArea } from '../../ui/toc'
-import { Text } from 'lucide-react'
-import { I18nLabel } from 'fumadocs-ui/contexts/i18n'
-import ClerkTOCItems from '../../ui/toc-clerk'
-import type { AnchorProviderProps } from 'fumadocs-core/toc'
 
 export function PageTOCTitle(props: ComponentProps<'h2'>) {
   return (

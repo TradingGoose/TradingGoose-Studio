@@ -1,21 +1,22 @@
 'use client'
 
-import Image from 'next/image'
 import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
+import { AgentIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { AgentIcon } from '@/components/icons/icons'
 import { useAuthRedirectUrls } from '@/lib/auth/redirect-urls'
-import { createLogger } from '@/lib/logs/console/logger'
 import { useSession } from '@/lib/auth-client'
+import { createLogger } from '@/lib/logs/console/logger'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
 import { useGeneralStore } from '@/stores/settings/general/store'
+
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 

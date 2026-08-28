@@ -1,28 +1,28 @@
+import { Clock } from 'lucide-react'
+import type { Metadata } from 'next'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import { Metadata } from 'next'
 import { getLocale } from 'next-intl/server'
-import { Clock } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { getBaseUrl } from '@/lib/urls/utils'
+import AiSummarize from '@/app/(landing)/blog/components/ai-summarize'
+import BreadcrumbNav from '@/app/(landing)/blog/components/breadcrumb-nav'
+import MarkdownContent from '@/app/(landing)/blog/components/markdown-content'
+import MarkdownTitle from '@/app/(landing)/blog/components/markdown-title'
+import SocialShare from '@/app/(landing)/blog/components/social-share'
+import TableOfContents from '@/app/(landing)/blog/components/table-of-contents'
+import { formatBlogDate } from '@/app/(landing)/blog/lib/heading-slugs'
+import { getPostBySlug } from '@/app/(landing)/blog/lib/posts'
 import BlogLayout from '@/app/(landing)/components/blog-layout'
 import { getPublicCopy } from '@/i18n/public-copy'
 import {
   buildLocalizedAlternates,
   getOpenGraphLocale,
-  localizeSiteUrl,
   type LocaleCode,
+  localizeSiteUrl,
 } from '@/i18n/utils'
-import { getBaseUrl } from '@/lib/urls/utils'
-import { getPostBySlug } from '@/app/(landing)/blog/lib/posts'
-import { formatBlogDate } from '@/app/(landing)/blog/lib/heading-slugs'
-import BreadcrumbNav from '@/app/(landing)/blog/components/breadcrumb-nav'
-import MarkdownTitle from '@/app/(landing)/blog/components/markdown-title'
-import MarkdownContent from '@/app/(landing)/blog/components/markdown-content'
-import TableOfContents from '@/app/(landing)/blog/components/table-of-contents'
-import SocialShare from '@/app/(landing)/blog/components/social-share'
-import AiSummarize from '@/app/(landing)/blog/components/ai-summarize'
 
 interface PostPageProps {
   params: Promise<{ slug: string }>

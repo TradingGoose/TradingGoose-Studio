@@ -1,9 +1,8 @@
 import { BotMessageSquareIcon, ChartCandlestick, DatabaseIcon, Workflow } from 'lucide-react'
 import { getLocale } from 'next-intl/server'
-
-import ProcessFlow from '@/app/(landing)/components/how-it-works/process-flow'
-import type { Process } from '@/app/(landing)/components/how-it-works/process-flow'
 import { MotionPreset } from '@/components/ui/motion-preset'
+import type { Process } from '@/app/(landing)/components/how-it-works/process-flow'
+import ProcessFlow from '@/app/(landing)/components/how-it-works/process-flow'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 

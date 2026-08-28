@@ -3,7 +3,7 @@ import Footer from '@/app/(landing)/components/footer/footer'
 import PublicNav from '@/app/(landing)/components/nav/public-nav'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { localizeSiteUrl, type LocaleCode } from '@/i18n/utils'
+import { type LocaleCode, localizeSiteUrl } from '@/i18n/utils'
 
 interface LegalLayoutProps {
   title: string

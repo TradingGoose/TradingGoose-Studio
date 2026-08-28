@@ -1,3 +1,6 @@
+import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
+import { fetchAlpacaLiveSnapshot } from '@/providers/market/alpaca/live'
+import { fetchAlpacaSeries } from '@/providers/market/alpaca/series'
 import type { MarketProvider } from '@/providers/market/providers'
 import type {
   MarketLiveRequest,
@@ -5,9 +8,6 @@ import type {
   MarketSeries,
   MarketSeriesRequest,
 } from '@/providers/market/types'
-import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
-import { fetchAlpacaLiveSnapshot } from '@/providers/market/alpaca/live'
-import { fetchAlpacaSeries } from '@/providers/market/alpaca/series'
 
 export const alpacaProvider: MarketProvider = {
   id: 'alpaca',

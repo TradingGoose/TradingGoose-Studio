@@ -6,8 +6,8 @@ import { requireAdminBillingUserId } from '@/lib/admin/billing/authorization'
 import { adminBillingSettingsMutationSchema } from '@/lib/admin/billing/settings-mutations'
 import {
   ADMIN_BILLING_UNAVAILABLE_ERROR,
-  getBillingGateState,
   GLOBAL_BILLING_SETTINGS_ID,
+  getBillingGateState,
 } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 

@@ -2,11 +2,11 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useMessages } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { SetNewPasswordForm } from '@/app/(auth)/reset-password/reset-password-form'
 import { inter } from '@/app/fonts/inter'
-import { useMessages } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('ResetPasswordPage')

@@ -6,9 +6,9 @@ import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 import {
   getSystemServiceDefinition,
   getSystemServiceDefinitions,
-  type SystemServiceSettingFieldDefinition,
   isSystemServiceCredentialKey,
   isSystemServiceSettingKey,
+  type SystemServiceSettingFieldDefinition,
 } from './catalog'
 
 const logger = createLogger('SystemServicesService')

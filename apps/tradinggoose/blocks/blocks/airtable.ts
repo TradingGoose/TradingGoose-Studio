@@ -1,8 +1,8 @@
 import { AirtableIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
-import { getTrigger } from '@/triggers'
 import { AuthMode } from '@/blocks/types'
 import type { AirtableResponse } from '@/tools/airtable/types'
+import { getTrigger } from '@/triggers'
 
 export const AirtableBlock: BlockConfig<AirtableResponse> = {
   type: 'airtable',

@@ -1,5 +1,5 @@
-import type { InputMetaMap } from '@/lib/indicators/types'
 import { inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
+import type { InputMetaMap } from '@/lib/indicators/types'
 
 export type DefaultIndicatorDefinition = {
   id: string

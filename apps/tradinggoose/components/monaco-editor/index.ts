@@ -4,8 +4,8 @@ export {
   createMonacoFunctionBodyDiagnosticSourceBuilder,
 } from '@/components/monaco-editor/monaco-editor-diagnostics'
 export type {
-  MonacoDiagnosticSourceBuilder,
   MonacoDecoration,
+  MonacoDiagnosticSourceBuilder,
   MonacoEditorHandle,
   MonacoEditorProps,
 } from '@/components/monaco-editor/monaco-editor-types'
