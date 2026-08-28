@@ -9,8 +9,14 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
   try {
-    const { domain, credentialId, workflowId, workspaceId, pageId, cloudId: providedCloudId } =
-      await request.json()
+    const {
+      domain,
+      credentialId,
+      workflowId,
+      workspaceId,
+      pageId,
+      cloudId: providedCloudId,
+    } = await request.json()
 
     if (!domain) {
       return NextResponse.json({ error: 'Domain is required' }, { status: 400 })

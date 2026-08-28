@@ -39,7 +39,6 @@ export const EmailHeader = ({ baseUrl = getBaseUrl(), tagline, locale }: EmailHe
             </td>
           </tr>
         </tbody>
-
       </table>
     </Section>
   )

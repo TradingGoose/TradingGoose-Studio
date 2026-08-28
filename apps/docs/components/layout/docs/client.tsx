@@ -26,7 +26,7 @@ export function Navbar(props: ComponentProps<'header'>) {
       {...props}
       className={cn(
         'sticky top-0 z-20 flex flex-col border-b border-fd-border bg-fd-background/40 backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm',
-        props.className,
+        props.className
       )}
     >
       {props.children}
@@ -43,10 +43,7 @@ export function LayoutBody({ sidebar, navbar, children, className, ...props }: L
   return (
     <div
       {...props}
-      className={cn(
-        'relative flex min-h-screen w-full text-fd-foreground',
-        className,
-      )}
+      className={cn('relative flex min-h-screen w-full text-fd-foreground', className)}
     >
       {sidebar}
       <div
@@ -71,7 +68,7 @@ export function NavbarSidebarTrigger({ className, ...props }: ComponentProps<'bu
       className={cn(
         buttonVariants({ color: 'ghost', size: 'icon-sm' }),
         'rounded-full border border-transparent transition-colors hover:border-fd-border',
-        className,
+        className
       )}
       onClick={() => setOpen((prev) => !prev)}
     >
@@ -91,7 +88,7 @@ export function LayoutTabs({ options, ...props }: ComponentProps<'div'> & { opti
       {...props}
       className={cn(
         'flex flex-row items-center gap-3 overflow-auto px-4 text-sm text-fd-muted-foreground',
-        props.className,
+        props.className
       )}
     >
       {options.map((option) => (
@@ -101,7 +98,13 @@ export function LayoutTabs({ options, ...props }: ComponentProps<'div'> & { opti
   )
 }
 
-function LayoutTab({ option: { title, url, unlisted, props }, selected = false }: { option: Option; selected?: boolean }) {
+function LayoutTab({
+  option: { title, url, unlisted, props },
+  selected = false,
+}: {
+  option: Option
+  selected?: boolean
+}) {
   return (
     <Link
       href={url}
@@ -112,7 +115,7 @@ function LayoutTab({ option: { title, url, unlisted, props }, selected = false }
         selected
           ? 'bg-fd-accent text-fd-accent-foreground shadow-sm'
           : 'hover:border-fd-border hover:bg-fd-accent hover:text-fd-accent-foreground',
-        props?.className,
+        props?.className
       )}
     >
       {title}
@@ -137,7 +140,7 @@ export function DocsBreadcrumb({ icon, label, href = '/', className }: DocsBread
   const nodes = useMemo(() => {
     const filtered = path.filter(
       (node): node is Exclude<PageTree.Node, PageTree.Separator> =>
-        node.type === 'folder' || node.type === 'page',
+        node.type === 'folder' || node.type === 'page'
     )
 
     if (filtered.length > 0) return filtered
@@ -149,12 +152,12 @@ export function DocsBreadcrumb({ icon, label, href = '/', className }: DocsBread
 
   return (
     <div
-      className={cn(
-        'flex min-w-0 items-center gap-1 text-xs text-fd-muted-foreground',
-        className,
-      )}
+      className={cn('flex min-w-0 items-center gap-1 text-xs text-fd-muted-foreground', className)}
     >
-      <Link href={href} className='flex shrink-0 items-center gap-2 text-sm text-fd-foreground font-medium'>
+      <Link
+        href={href}
+        className='flex shrink-0 items-center gap-2 text-sm text-fd-foreground font-medium'
+      >
         {icon}
         <span className='truncate'>{label}</span>
       </Link>

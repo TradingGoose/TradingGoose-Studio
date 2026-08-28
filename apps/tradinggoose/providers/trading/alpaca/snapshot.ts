@@ -54,7 +54,9 @@ export async function getAlpacaTradingAccountSnapshot(
     cashBalances: [
       {
         currency: account.baseCurrency || ALPACA_DEFAULT_BASE_CURRENCY,
-        currencySymbol: getAlpacaCurrencySymbol(account.baseCurrency || ALPACA_DEFAULT_BASE_CURRENCY),
+        currencySymbol: getAlpacaCurrencySymbol(
+          account.baseCurrency || ALPACA_DEFAULT_BASE_CURRENCY
+        ),
         amount: summaryTotals.totalCashValue,
         conversionRate: account.baseCurrency === ALPACA_DEFAULT_BASE_CURRENCY ? 1 : undefined,
         amountInAccountCurrency: summaryTotals.totalCashValue,

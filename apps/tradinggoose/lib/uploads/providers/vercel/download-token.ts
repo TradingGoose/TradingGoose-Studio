@@ -78,7 +78,9 @@ export async function verifyVercelDownloadToken(
       return null
     }
 
-    const payload = JSON.parse(decodeBase64Url(encodedPayload)) as Partial<VercelDownloadTokenPayload>
+    const payload = JSON.parse(
+      decodeBase64Url(encodedPayload)
+    ) as Partial<VercelDownloadTokenPayload>
     const now = Math.floor(Date.now() / 1000)
 
     if (
@@ -94,7 +96,8 @@ export async function verifyVercelDownloadToken(
 
     return {
       key: payload.key,
-      context: typeof payload.context === 'string' ? (payload.context as StorageContext) : undefined,
+      context:
+        typeof payload.context === 'string' ? (payload.context as StorageContext) : undefined,
     }
   } catch {
     return null

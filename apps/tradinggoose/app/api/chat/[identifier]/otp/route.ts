@@ -166,7 +166,7 @@ export async function POST(
 
       logger.info(`[${requestId}] OTP sent to ${email} for chat ${deployment.id}`)
       return addCorsHeaders(createSuccessResponse({ message: 'Verification code sent' }), request)
-      } catch (error: any) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return addCorsHeaders(
           createErrorResponse(
@@ -264,7 +264,7 @@ export async function PUT(
       setChatAuthCookie(response, deployment.id, deployment.authType)
 
       return response
-      } catch (error: any) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return addCorsHeaders(
           createErrorResponse(

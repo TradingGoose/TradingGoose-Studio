@@ -22,7 +22,7 @@ export async function uploadExecutionFile(
   context: ExecutionContext,
   fileBuffer: Buffer,
   fileName: string,
-  contentType: string,
+  contentType: string
 ): Promise<UserFile> {
   logger.info(`Uploading execution file: ${fileName} for execution ${context.executionId}`)
   logger.debug(`File upload context:`, {

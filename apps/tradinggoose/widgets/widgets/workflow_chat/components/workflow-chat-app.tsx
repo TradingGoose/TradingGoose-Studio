@@ -30,20 +30,20 @@ const WorkflowChatSessionProviders = ({
   const session = useSession()
   const user = session.data?.user
     ? {
-      id: session.data.user.id,
-      name: session.data.user.name ?? undefined,
-      email: session.data.user.email,
-    }
+        id: session.data.user.id,
+        name: session.data.user.name ?? undefined,
+        email: session.data.user.email,
+      }
     : undefined
 
   return (
     <Providers workspaceId={workspaceId} inheritUser>
-      <WorkflowSessionProvider
-        workspaceId={workspaceId}
-        workflowId={workflowId}
-        user={user}
-      >
-        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+        <WorkflowRouteProvider
+          workspaceId={workspaceId}
+          workflowId={workflowId}
+          channelId={channelId}
+        >
           {children}
         </WorkflowRouteProvider>
       </WorkflowSessionProvider>
@@ -65,11 +65,7 @@ const WorkflowChatApp = ({
       channelId={channelId}
     >
       <div className='flex h-full w-full flex-col overflow-y-auto'>
-        <Chat
-          chatMessage={chatMessage}
-          setChatMessage={setChatMessage}
-          hideScrollbar={false}
-        />
+        <Chat chatMessage={chatMessage} setChatMessage={setChatMessage} hideScrollbar={false} />
       </div>
     </WorkflowChatSessionProviders>
   )

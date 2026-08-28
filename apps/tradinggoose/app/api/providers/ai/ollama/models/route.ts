@@ -41,10 +41,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ models })
   } catch (error) {
-      logger.error('Failed to fetch Ollama models', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        host: (await resolveOllamaServiceConfig()).baseUrl,
-      })
+    logger.error('Failed to fetch Ollama models', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      host: (await resolveOllamaServiceConfig()).baseUrl,
+    })
 
     // Return empty array instead of error to avoid breaking the UI
     return NextResponse.json({ models: [] })

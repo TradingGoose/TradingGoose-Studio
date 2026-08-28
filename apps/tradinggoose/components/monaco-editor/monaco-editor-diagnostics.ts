@@ -151,9 +151,7 @@ const buildDiagnosticSource = ({
 }
 
 const buildPlaceholderDeclarationLines = (placeholderIdentifiers: string[]) =>
-  placeholderIdentifiers.map(
-    (identifier) => `declare const ${identifier}: any`
-  )
+  placeholderIdentifiers.map((identifier) => `declare const ${identifier}: any`)
 
 export const isMonacoDiagnosticLanguage = (
   language: string
@@ -195,9 +193,7 @@ export const createMonacoFunctionBodyDiagnosticSourceBuilder = ({
         '}',
         'declare const indicator: TradingGooseIndicatorRuntime',
         ...buildPlaceholderDeclarationLines(sanitizedSource.placeholderIdentifiers),
-        ...parameterNames
-          .filter(isValidIdentifier)
-          .map((name) => `declare const ${name}: any`),
+        ...parameterNames.filter(isValidIdentifier).map((name) => `declare const ${name}: any`),
         'async function __tg_function_body__() {',
       ],
       suffixLines: ['}'],

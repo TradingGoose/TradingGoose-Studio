@@ -71,10 +71,7 @@ describe('LandingMarketPreviewProvider', () => {
 
     await act(async () => {
       root.render(
-        <NextIntlClientProvider
-          locale='en'
-          messages={{ landing: copy.landing }}
-        >
+        <NextIntlClientProvider locale='en' messages={{ landing: copy.landing }}>
           <LandingMarketPreviewProvider messages={messages}>
             <MarketPreviewMessagesProbe />
           </LandingMarketPreviewProvider>
@@ -83,7 +80,9 @@ describe('LandingMarketPreviewProvider', () => {
     })
 
     expect(container.textContent).toContain(copy.landing.preview.shell.headerAriaLabel)
-    expect(container.textContent).toContain(copy.workspace.widgets.dataChart.controls.candleTypes.candle_solid)
+    expect(container.textContent).toContain(
+      copy.workspace.widgets.dataChart.controls.candleTypes.candle_solid
+    )
     expect(container.textContent).toContain('dataChart')
     expect(container.textContent).not.toContain('workflowEditor')
   })

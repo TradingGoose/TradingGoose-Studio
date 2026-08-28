@@ -358,7 +358,6 @@ describe('Schedule Utilities', () => {
         expect(nextRun > new Date()).toBe(true)
       }
     )
-
   })
 
   describe('validateCronExpression', () => {
@@ -464,5 +463,4 @@ describe('Schedule Utilities', () => {
       expect(result).toContain('invalid cron')
     })
   })
-
 })

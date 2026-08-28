@@ -7,7 +7,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { executeProviderRequest } from '@/providers/market'
 import { MarketProviderError, normalizeMarketProviderError } from '@/providers/market/errors'
 import type { MarketProviderRequest } from '@/providers/market/providers'
-import type { MarketDataType, MarketSeriesWindow, NormalizationMode } from '@/providers/market/types'
+import type {
+  MarketDataType,
+  MarketSeriesWindow,
+  NormalizationMode,
+} from '@/providers/market/types'
 import { MARKET_DATA_TYPES, NORMALIZATION_MODES } from '@/providers/market/types'
 
 const logger = createLogger('ProvidersAPI:Market')
@@ -115,10 +119,7 @@ export async function handleMarketProviderRequest({
     const requestPayload = parsed.data as MarketProviderRequest
     let normalizedRequest: MarketProviderRequest = requestPayload as MarketProviderRequest
 
-    if (
-      hasEnvVarRefs(normalizedRequest.auth) ||
-      hasEnvVarRefs(normalizedRequest.providerParams)
-    ) {
+    if (hasEnvVarRefs(normalizedRequest.auth) || hasEnvVarRefs(normalizedRequest.providerParams)) {
       const session = await getSession()
       if (!session?.user?.id) {
         throw new MarketProviderError({
@@ -132,14 +133,18 @@ export async function handleMarketProviderRequest({
       const envVars = await getEffectiveDecryptedEnv(session.user.id, workspaceId)
       const missingVars = new Set<string>()
       const resolvedAuth = normalizedRequest.auth
-        ? (resolveEnvVarRefs(normalizedRequest.auth, envVars, missingVars) as MarketProviderRequest['auth'])
+        ? (resolveEnvVarRefs(
+            normalizedRequest.auth,
+            envVars,
+            missingVars
+          ) as MarketProviderRequest['auth'])
         : normalizedRequest.auth
       const resolvedProviderParams = normalizedRequest.providerParams
         ? (resolveEnvVarRefs(
-          normalizedRequest.providerParams,
-          envVars,
-          missingVars
-        ) as MarketProviderRequest['providerParams'])
+            normalizedRequest.providerParams,
+            envVars,
+            missingVars
+          ) as MarketProviderRequest['providerParams'])
         : normalizedRequest.providerParams
 
       if (missingVars.size > 0) {
@@ -182,9 +187,7 @@ export async function handleMarketProviderRequest({
     return NextResponse.json(response)
   } catch (error) {
     const normalized =
-      error instanceof MarketProviderError
-        ? error
-        : normalizeMarketProviderError(error, providerId)
+      error instanceof MarketProviderError ? error : normalizeMarketProviderError(error, providerId)
 
     logger.error(`[${requestId}] Market provider request failed`, {
       provider: providerId,

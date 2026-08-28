@@ -109,8 +109,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
   try {
-    const { domain, credentialId, workflowId, workspaceId, projectId, cloudId: providedCloudId } =
-      await request.json()
+    const {
+      domain,
+      credentialId,
+      workflowId,
+      workspaceId,
+      projectId,
+      cloudId: providedCloudId,
+    } = await request.json()
 
     if (!domain) {
       return NextResponse.json({ error: 'Domain is required' }, { status: 400 })

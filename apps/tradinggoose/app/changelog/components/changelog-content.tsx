@@ -58,9 +58,7 @@ export default async function ChangelogContent({ copy, locale }: ChangelogConten
     <div className='bg-background'>
       <div className='relative grid md:grid-cols-2'>
         {/* Left intro panel */}
-        <div
-          className='md:absolute relative md:top-12 md:h-[95vh] overflow-hidden border-border border-b px-6 py-16 sm:px-10 md:sticky md:overflow-hidden md:border-r md:border-b-0 md:px-12 md:py-24'
-        >
+        <div className='md:absolute relative md:top-12 md:h-[95vh] overflow-hidden border-border border-b px-6 py-16 sm:px-10 md:sticky md:overflow-hidden md:border-r md:border-b-0 md:px-12 md:py-24'>
           <div
             className='pointer-events-none absolute inset-0 z-0'
             style={{
@@ -72,7 +70,13 @@ export default async function ChangelogContent({ copy, locale }: ChangelogConten
               WebkitMaskComposite: 'destination-in',
             }}
           >
-            <BackgroundRippleEffect cellSize={60} rows={20} cols={15} maskClassName='' interactive />
+            <BackgroundRippleEffect
+              cellSize={60}
+              rows={20}
+              cols={15}
+              maskClassName=''
+              interactive
+            />
           </div>
 
           <div className='relative mx-auto h-full max-w-xl md:flex md:flex-col md:justify-center'>

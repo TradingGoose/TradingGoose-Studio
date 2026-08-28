@@ -178,7 +178,10 @@ describe('i18n catalog report derivation', () => {
     const { scanResult, report } = buildAllReport(projectRoot, { withOrphans: true })
 
     expect(scanResult.scannedFiles).toEqual(
-      expect.arrayContaining(['components/emails/email-copy.ts', 'components/emails/render-email.ts'])
+      expect.arrayContaining([
+        'components/emails/email-copy.ts',
+        'components/emails/render-email.ts',
+      ])
     )
     expect(report.usedKeys).toEqual(expect.arrayContaining(['emails.body', 'emails.subject']))
     expect(report.usedKeys).not.toContain('emails.orphan')
@@ -481,11 +484,13 @@ export function renderQuickOrderHeader() {
     )
   })
 
-  ;([
-    ['forwardRef', 'forwardRef'],
-    ['memo', 'memo'],
-    ['memo(forwardRef)', 'memoForwardRef'],
-  ] as const).forEach(([label, wrapper]) => {
+  ;(
+    [
+      ['forwardRef', 'forwardRef'],
+      ['memo', 'memo'],
+      ['memo(forwardRef)', 'memoForwardRef'],
+    ] as const
+  ).forEach(([label, wrapper]) => {
     it(`does not report ${label}-wrapped exported component copy as orphaned`, () => {
       const projectRoot = createWrappedExportMonitorProject(wrapper)
 

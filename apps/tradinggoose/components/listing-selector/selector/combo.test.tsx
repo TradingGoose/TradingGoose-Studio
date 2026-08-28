@@ -43,7 +43,9 @@ describe('ListingSelector localized wrapper copy', () => {
       )
     })
 
-    expect(container.textContent).toContain(getPublicCopy('es').workspace.widgets.listingSelector.label)
+    expect(container.textContent).toContain(
+      getPublicCopy('es').workspace.widgets.listingSelector.label
+    )
     expect(container.textContent).not.toContain('Listing')
   })
 })

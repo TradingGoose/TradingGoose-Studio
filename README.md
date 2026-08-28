@@ -7,16 +7,16 @@
 </p>
 
 <p align="center">
-  <a href="https://docs.tradinggoose.ai"><img src="https://shieldcn.dev/badge/Docs-ffcc00.svg?size=xs&logo=googledocs&logoColor=202020"></a> 
-  <a href="https://discord.gg/wavf5JWhuT"><img src="https://shieldcn.dev/badge/Discord-5865F2.svg?size=xs&logo=discord" alt="Discord"></a> 
-  <a href="https://www.tradinggoose.ai"><img src="https://shieldcn.dev/badge/website-ffcc00.svg?size=xs&logo=ri%3AFaGlobe&logoColor=202020" alt="Website"></a> 
+  <a href="https://docs.tradinggoose.ai"><img src="https://shieldcn.dev/badge/Docs-ffcc00.svg?size=xs&logo=googledocs&logoColor=202020"></a>
+  <a href="https://discord.gg/wavf5JWhuT"><img src="https://shieldcn.dev/badge/Discord-5865F2.svg?size=xs&logo=discord" alt="Discord"></a>
+  <a href="https://www.tradinggoose.ai"><img src="https://shieldcn.dev/badge/website-ffcc00.svg?size=xs&logo=ri%3AFaGlobe&logoColor=202020" alt="Website"></a>
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://shieldcn.dev/github/license/TradingGoose/TradingGoose-Studio.svg?size=xs&variant=secondary" alt="License"></a>
   <a href="https://github.com/TradingGoose/TradingGoose-Studio"><img src="https://shieldcn.dev/github/stars/TradingGoose/TradingGoose-Studio.svg?size=xs&variant=secondary" alt="GitHub stars"></a>
   <a href="https://github.com/TradingGoose/TradingGoose-Studio/commits"><img src="https://shieldcn.dev/github/last-commit/TradingGoose/TradingGoose-Studio.svg?size=xs&variant=secondary" alt="Last commit"></a>
-  
+
 </p>
 
 <p align="center">

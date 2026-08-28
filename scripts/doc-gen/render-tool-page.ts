@@ -291,7 +291,8 @@ function renderOutputTable(outputs: Record<string, any>): string {
 
   for (const [key, val] of Object.entries(outputs)) {
     const type = typeof val === 'object' ? val.type || 'string' : 'string'
-    const description = typeof val === 'object' ? val.description || `${key} output` : `${key} output`
+    const description =
+      typeof val === 'object' ? val.description || `${key} output` : `${key} output`
     result += `| \`${key}\` | ${type} | ${escapeMdx(description)} |\n`
   }
 

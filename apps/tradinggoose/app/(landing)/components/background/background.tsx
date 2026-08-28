@@ -1,7 +1,6 @@
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { cn } from '@/lib/utils'
 
-
 type BackgroundProps = {
   className?: string
   children?: React.ReactNode

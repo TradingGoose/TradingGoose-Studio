@@ -25,7 +25,10 @@ export async function GET() {
     const access = await getSystemAdminAccess()
     if (!access.isAuthenticated || !access.userId) {
       logger.warn(`[${requestId}] Unauthorized admin services access attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
     }
 
     if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {
@@ -62,7 +65,10 @@ export async function PATCH(request: NextRequest) {
     const access = await getSystemAdminAccess()
     if (!access.isAuthenticated || !access.userId) {
       logger.warn(`[${requestId}] Unauthorized admin services update attempt`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_STORE_HEADERS })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: NO_STORE_HEADERS }
+      )
     }
 
     if (!access.isSystemAdmin && !access.canBootstrapSystemAdmin) {

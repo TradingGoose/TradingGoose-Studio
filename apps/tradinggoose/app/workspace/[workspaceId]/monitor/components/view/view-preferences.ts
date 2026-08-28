@@ -89,11 +89,7 @@ export const readMonitorWorkingState = (
   return normalizeMonitorShellWorkingState(rawValue)
 }
 
-export const writeMonitorWorkingState = (
-  workspaceId: string,
-  userId: string,
-  state: unknown
-) => {
+export const writeMonitorWorkingState = (workspaceId: string, userId: string, state: unknown) => {
   if (!workspaceId || !userId) return false
 
   return BrowserStorage.setItem(

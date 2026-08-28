@@ -12,8 +12,14 @@ const logger = createLogger('JiraIssueAPI')
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
   try {
-    const { domain, credentialId, workflowId, workspaceId, issueId, cloudId: providedCloudId } =
-      await request.json()
+    const {
+      domain,
+      credentialId,
+      workflowId,
+      workspaceId,
+      issueId,
+      cloudId: providedCloudId,
+    } = await request.json()
     if (!domain) {
       logger.error('Missing domain in request')
       return NextResponse.json({ error: 'Domain is required' }, { status: 400 })

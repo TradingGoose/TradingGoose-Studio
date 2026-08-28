@@ -30,14 +30,14 @@ export default async function LegalLayout({ title, children, path }: LegalLayout
             name: copy.nav.homeLabel,
             item: localizeSiteUrl(locale, '/'),
           },
-        {
-          '@type': 'ListItem',
-          position: 2,
-          name: title,
-          item: localizeSiteUrl(locale, path),
-        },
-      ],
-    }
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: title,
+            item: localizeSiteUrl(locale, path),
+          },
+        ],
+      }
     : null
 
   return (
@@ -59,7 +59,6 @@ export default async function LegalLayout({ title, children, path }: LegalLayout
           {children}
         </div>
       </div>
-
 
       <div className='relative z-20'>
         <Footer fullWidth={true} />

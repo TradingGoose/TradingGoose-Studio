@@ -44,7 +44,8 @@ export const useCustomToolsStore = create<CustomToolsStore>()(
           delete next[workspaceId]
           return {
             toolsByWorkspace: next,
-            activeWorkspaceId: state.activeWorkspaceId === workspaceId ? null : state.activeWorkspaceId,
+            activeWorkspaceId:
+              state.activeWorkspaceId === workspaceId ? null : state.activeWorkspaceId,
           }
         })
       },

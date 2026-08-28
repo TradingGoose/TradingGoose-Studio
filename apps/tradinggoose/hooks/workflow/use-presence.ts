@@ -1,9 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  useOptionalWorkflowSession,
-} from '@/lib/yjs/workflow-session-host'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 
 // UI presence user for components
 type PresenceUser = {
@@ -99,7 +97,7 @@ export function usePresence(): UsePresenceReturn {
     if (identityMatch) {
       const infoChanged = prev.some((p, i) => p.info !== result[i].info)
       if (!infoChanged) return prev
-      return prev.map((p, i) => p.info === result[i].info ? p : { ...p, info: result[i].info })
+      return prev.map((p, i) => (p.info === result[i].info ? p : { ...p, info: result[i].info }))
     }
 
     return result

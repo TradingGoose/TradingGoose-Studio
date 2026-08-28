@@ -2,7 +2,11 @@ import fs from 'fs'
 import path from 'path'
 import { glob } from 'glob'
 import type { GeneratorContext } from './types'
-import { findTriggerDocSlugForToolType, providerToTriggerDocSlug, shouldGenerateToolDoc } from './doc-pages'
+import {
+  findTriggerDocSlugForToolType,
+  providerToTriggerDocSlug,
+  shouldGenerateToolDoc,
+} from './doc-pages'
 import { extractBlockConfig } from './extract-blocks'
 import { extractAllTriggers } from './extract-triggers'
 import { getToolInfo } from './extract-tools'

@@ -58,7 +58,5 @@ export function KnowledgeHeader({ breadcrumbs, centerContent }: KnowledgeHeaderP
     </div>
   )
 
-  return (
-    <GlobalNavbarHeader left={breadcrumbContent} center={centerContent} />
-  )
+  return <GlobalNavbarHeader left={breadcrumbContent} center={centerContent} />
 }

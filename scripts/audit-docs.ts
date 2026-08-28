@@ -81,7 +81,14 @@ function listTsFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return []
   return fs
     .readdirSync(dir)
-    .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && f !== 'index.ts' && f !== 'types.ts' && f !== 'runtime.ts')
+    .filter(
+      (f) =>
+        f.endsWith('.ts') &&
+        !f.endsWith('.test.ts') &&
+        f !== 'index.ts' &&
+        f !== 'types.ts' &&
+        f !== 'runtime.ts'
+    )
     .map((f) => path.join(dir, f))
 }
 
@@ -129,7 +136,11 @@ function normalizeSlug(s: string): string {
 function matchSourceToDocs(
   sources: SourceItem[],
   docs: DocItem[]
-): { missing: SourceItem[]; orphaned: DocItem[]; matched: Array<{ source: SourceItem; doc: DocItem }> } {
+): {
+  missing: SourceItem[]
+  orphaned: DocItem[]
+  matched: Array<{ source: SourceItem; doc: DocItem }>
+} {
   const matched: Array<{ source: SourceItem; doc: DocItem }> = []
   const usedDocs = new Set<string>()
   const unmatchedSources: SourceItem[] = []
@@ -159,17 +170,28 @@ function scanBlocks(): SourceItem[] {
   const dir = PATHS.blocks
   if (!fs.existsSync(dir)) return []
 
-  const files = fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
 
   const items: SourceItem[] = []
 
   // Categories that are "built-in blocks" (not integration tools)
   const builtInTypes = new Set([
-    'agent', 'api', 'condition', 'evaluator', 'function', 'guardrails',
-    'loop', 'parallel', 'response', 'router', 'variables', 'wait',
-    'workflow', 'workflow_input', 'note', 'human_in_the_loop',
+    'agent',
+    'api',
+    'condition',
+    'evaluator',
+    'function',
+    'guardrails',
+    'loop',
+    'parallel',
+    'response',
+    'router',
+    'variables',
+    'wait',
+    'workflow',
+    'workflow_input',
+    'note',
+    'human_in_the_loop',
   ])
 
   for (const file of files) {
@@ -189,14 +211,25 @@ function scanTools(): SourceItem[] {
   const dir = PATHS.blocks
   if (!fs.existsSync(dir)) return []
 
-  const files = fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
 
   const builtInTypes = new Set([
-    'agent', 'api', 'condition', 'evaluator', 'function', 'guardrails',
-    'loop', 'parallel', 'response', 'router', 'variables', 'wait',
-    'workflow', 'workflow_input', 'note', 'human_in_the_loop',
+    'agent',
+    'api',
+    'condition',
+    'evaluator',
+    'function',
+    'guardrails',
+    'loop',
+    'parallel',
+    'response',
+    'router',
+    'variables',
+    'wait',
+    'workflow',
+    'workflow_input',
+    'note',
+    'human_in_the_loop',
   ])
 
   const items: SourceItem[] = []
@@ -240,7 +273,7 @@ function scanIndicators(): SourceItem[] {
     id: p.id,
     name: p.name,
     description: p.description,
-    sourcePath: path.join(PATHS.indicators, '..', '..', '..'),  // points to lib/indicators parent
+    sourcePath: path.join(PATHS.indicators, '..', '..', '..'), // points to lib/indicators parent
   }))
 }
 
@@ -257,10 +290,19 @@ function scanWidgets(): SourceItem[] {
 
     // Skip sub-components that aren't standalone dashboard widgets
     const widgetIndex = path.join(widgetDir, 'index.tsx')
-    if (!fs.existsSync(widgetIndex) || !fs.readFileSync(widgetIndex, 'utf-8').includes('DashboardWidgetDefinition')) continue
+    if (
+      !fs.existsSync(widgetIndex) ||
+      !fs.readFileSync(widgetIndex, 'utf-8').includes('DashboardWidgetDefinition')
+    )
+      continue
 
     // Skip list widgets that are documented within their editor page
-    const listMergedIntoEditor = new Set(['list_indicator', 'list_skill', 'list_mcp', 'list_custom_tool'])
+    const listMergedIntoEditor = new Set([
+      'list_indicator',
+      'list_skill',
+      'list_mcp',
+      'list_custom_tool',
+    ])
     if (listMergedIntoEditor.has(dirName)) continue
 
     // Try to read index or component file for metadata
@@ -321,12 +363,10 @@ function scanTriggers(): SourceItem[] {
   }
 
   // 2. Integration triggers from individual directories
-  const triggerDirs = fs
-    .readdirSync(dir)
-    .filter((f) => {
-      const full = path.join(dir, f)
-      return fs.statSync(full).isDirectory() && !['blocks', 'core'].includes(f)
-    })
+  const triggerDirs = fs.readdirSync(dir).filter((f) => {
+    const full = path.join(dir, f)
+    return fs.statSync(full).isDirectory() && !['blocks', 'core'].includes(f)
+  })
 
   for (const triggerDir of triggerDirs) {
     const fullPath = path.join(dir, triggerDir)
@@ -403,7 +443,8 @@ function auditCategory(
   const { missing, orphaned, matched } = matchSourceToDocs(sources, docs)
   const total = sources.length
   const covered = matched.length
-  const coverage = total === 0 ? 'N/A' : `${covered}/${total} (${Math.round((covered / total) * 100)}%)`
+  const coverage =
+    total === 0 ? 'N/A' : `${covered}/${total} (${Math.round((covered / total) * 100)}%)`
 
   return { category, description, source: sources, docs, missing, orphaned, matched, coverage }
 }
@@ -495,14 +536,22 @@ function runAudit(filterCategory?: string): CategoryAudit[] {
           allMissing.push(...subSources)
         } else {
           for (const src of subSources) {
-            allMatched.push({ source: src, doc: subDocs[0] || { slug: 'index', title: subCat.label, filePath: path.join(subCat.docPath, 'index.mdx') } })
+            allMatched.push({
+              source: src,
+              doc: subDocs[0] || {
+                slug: 'index',
+                title: subCat.label,
+                filePath: path.join(subCat.docPath, 'index.mdx'),
+              },
+            })
           }
         }
       }
 
       const total = allSources.length
       const covered = allMatched.length
-      const coverage = total === 0 ? 'N/A' : `${covered}/${total} (${Math.round((covered / total) * 100)}%)`
+      const coverage =
+        total === 0 ? 'N/A' : `${covered}/${total} (${Math.round((covered / total) * 100)}%)`
 
       audits.push({
         category: cat.label,
@@ -544,7 +593,9 @@ function printReport(audits: CategoryAudit[]) {
   // Summary table
   console.log(`${BOLD}  SUMMARY${RESET}`)
   console.log(`  ${'─'.repeat(66)}`)
-  console.log(`  ${BOLD}${'Category'.padEnd(35)}${'Source'.padEnd(10)}${'Docs'.padEnd(10)}${'Missing'.padEnd(10)}Coverage${RESET}`)
+  console.log(
+    `  ${BOLD}${'Category'.padEnd(35)}${'Source'.padEnd(10)}${'Docs'.padEnd(10)}${'Missing'.padEnd(10)}Coverage${RESET}`
+  )
   console.log(`  ${'─'.repeat(66)}`)
 
   let totalSource = 0
@@ -561,8 +612,13 @@ function printReport(audits: CategoryAudit[]) {
   }
 
   console.log(`  ${'─'.repeat(66)}`)
-  const totalCoverage = totalSource === 0 ? 'N/A' : `${totalSource - totalMissing}/${totalSource} (${Math.round(((totalSource - totalMissing) / totalSource) * 100)}%)`
-  console.log(`  ${BOLD}${'TOTAL'.padEnd(35)}${String(totalSource).padEnd(10)}${''.padEnd(10)}${RED}${String(totalMissing).padEnd(10)}${RESET}${BOLD}${totalCoverage}${RESET}`)
+  const totalCoverage =
+    totalSource === 0
+      ? 'N/A'
+      : `${totalSource - totalMissing}/${totalSource} (${Math.round(((totalSource - totalMissing) / totalSource) * 100)}%)`
+  console.log(
+    `  ${BOLD}${'TOTAL'.padEnd(35)}${String(totalSource).padEnd(10)}${''.padEnd(10)}${RED}${String(totalMissing).padEnd(10)}${RESET}${BOLD}${totalCoverage}${RESET}`
+  )
   console.log('')
 
   // Details per category
@@ -582,7 +638,9 @@ function printReport(audits: CategoryAudit[]) {
     }
 
     if (audit.orphaned.length > 0) {
-      console.log(`    ${YELLOW}${BOLD}Orphaned docs (no matching source) (${audit.orphaned.length}):${RESET}`)
+      console.log(
+        `    ${YELLOW}${BOLD}Orphaned docs (no matching source) (${audit.orphaned.length}):${RESET}`
+      )
       for (const doc of audit.orphaned) {
         console.log(`    ${YELLOW}?${RESET} ${doc.slug.padEnd(30)} ${DIM}${doc.title}${RESET}`)
       }
@@ -592,7 +650,9 @@ function printReport(audits: CategoryAudit[]) {
     if (audit.matched.length > 0) {
       console.log(`    ${GREEN}${BOLD}Matched (${audit.matched.length}):${RESET}`)
       for (const m of audit.matched) {
-        console.log(`    ${GREEN}✓${RESET} ${m.source.id.padEnd(30)} ${DIM}→ ${m.doc.slug}.mdx${RESET}`)
+        console.log(
+          `    ${GREEN}✓${RESET} ${m.source.id.padEnd(30)} ${DIM}→ ${m.doc.slug}.mdx${RESET}`
+        )
       }
       console.log('')
     }

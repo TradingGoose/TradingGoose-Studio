@@ -188,11 +188,12 @@ describe('pending execution worker', () => {
     }
     mocks.wakePendingExecution.mockResolvedValueOnce({ status: 'empty' })
 
+    await expect(runSupervisor(row.id)).rejects.toThrow('Trigger wake failed')
     await expect(runSupervisor(row.id)).resolves.toMatchObject({ success: true })
 
     expect(mocks.triggerAndWait).toHaveBeenCalledOnce()
     expect(mocks.wakePendingExecution).toHaveBeenCalledTimes(12)
-    expect(mocks.waitFor).toHaveBeenCalledTimes(11)
+    expect(mocks.waitFor).toHaveBeenCalledTimes(10)
     expect(mocks.waitFor).toHaveBeenCalledWith({ seconds: 30 })
     expect(pendingExecutionTask).toMatchObject({ retry: { maxAttempts: 10 } })
   })

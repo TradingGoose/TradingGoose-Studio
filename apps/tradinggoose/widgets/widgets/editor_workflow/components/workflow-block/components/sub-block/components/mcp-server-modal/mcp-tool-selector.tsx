@@ -32,12 +32,7 @@ export function McpToolSelector({ blockId, subBlock, disabled = false }: McpTool
   const [open, setOpen] = useState(false)
   const feedbackId = useId()
 
-  const {
-    isLoading: toolsBusy,
-    error,
-    refreshTools,
-    getToolsByServer,
-  } = useMcpTools(workspaceId)
+  const { isLoading: toolsBusy, error, refreshTools, getToolsByServer } = useMcpTools(workspaceId)
 
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
   const [, setSchemaCache] = useSubBlockValue(blockId, '_toolSchema')
@@ -135,9 +130,7 @@ export function McpToolSelector({ blockId, subBlock, disabled = false }: McpTool
               <CommandEmpty>
                 {error ? (
                   <div className='space-y-2 p-4 text-center'>
-                    <p className='font-medium text-destructive text-sm'>
-                      {copy.errorLoadingTools}
-                    </p>
+                    <p className='font-medium text-destructive text-sm'>{copy.errorLoadingTools}</p>
                     <Button
                       type='button'
                       variant='outline'

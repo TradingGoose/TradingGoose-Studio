@@ -5,10 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
 import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
-import {
-  DEFAULT_REGISTRATION_MODE,
-  getRegistrationPrimaryHref,
-} from '@/lib/registration/shared'
+import { DEFAULT_REGISTRATION_MODE, getRegistrationPrimaryHref } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 import { toPlanFeatures } from '@/global-navbar/settings-modal/components/subscription/plan-configs'

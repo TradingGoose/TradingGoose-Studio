@@ -90,7 +90,13 @@ export function LocalizedEmail({
                     <tr>
                       <td align='center'>
                         <Link href={cta.href} style={{ textDecoration: 'none' }}>
-                          <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                          <Text
+                            style={{
+                              ...baseStyles.button,
+                              display: 'inline-block',
+                              margin: '22px 0',
+                            }}
+                          >
                             {cta.label}
                           </Text>
                         </Link>

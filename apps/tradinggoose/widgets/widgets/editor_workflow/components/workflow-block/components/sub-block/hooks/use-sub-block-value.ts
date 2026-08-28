@@ -3,10 +3,7 @@ import { isEqual } from 'lodash'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { getProviderFromModel } from '@/providers/ai/utils'
-import {
-  useBlock,
-  useSubBlockValue as useYjsSubBlockValue,
-} from '@/lib/yjs/use-workflow-doc'
+import { useBlock, useSubBlockValue as useYjsSubBlockValue } from '@/lib/yjs/use-workflow-doc'
 
 const logger = createLogger('SubBlockValue')
 

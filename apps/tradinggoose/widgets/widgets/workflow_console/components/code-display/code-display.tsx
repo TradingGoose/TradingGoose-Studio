@@ -40,10 +40,7 @@ export const CodeDisplay = ({
   const resolvedGrammar = languages[resolvedLanguage]
 
   const escapeHtml = (value: string) =>
-    value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
+    value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
   // Calculate sidebar width based on number of lines
   const lineCount = code.split('\n').length

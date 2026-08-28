@@ -173,10 +173,8 @@ export const privateTierAccess = pgTable(
       name: 'private_tier_access_pkey',
       columns: [table.userId, table.billingTierId],
     }),
-    billingTierIdIdx: index('private_tier_access_billing_tier_id_idx').on(
-      table.billingTierId,
-    ),
-  }),
+    billingTierIdIdx: index('private_tier_access_billing_tier_id_idx').on(table.billingTierId),
+  })
 )
 
 export const userRateLimits = pgTable('user_rate_limits', {

@@ -134,8 +134,7 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
           error: null,
         })
       } catch (err) {
-        const permissionLoadFailure =
-          err instanceof Error ? err.message : 'Unknown error occurred'
+        const permissionLoadFailure = err instanceof Error ? err.message : 'Unknown error occurred'
         logger.error('Failed to fetch workspace permissions', {
           workspaceId,
           error: permissionLoadFailure,

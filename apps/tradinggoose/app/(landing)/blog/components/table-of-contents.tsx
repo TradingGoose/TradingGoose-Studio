@@ -54,11 +54,11 @@ export default function TableOfContents({ toc }: TableOfContentsProps) {
   const minDepth = Math.min(...toc.map((item) => item.depth))
 
   return (
-    <div className="space-y-2">
-      <p className="font-medium uppercase">{blogCopy.tableOfContents}</p>
-      <ul className="m-0 list-none">
+    <div className='space-y-2'>
+      <p className='font-medium uppercase'>{blogCopy.tableOfContents}</p>
+      <ul className='m-0 list-none'>
         {toc.map((item) => (
-          <li key={item.url} className="mt-0">
+          <li key={item.url} className='mt-0'>
             <a
               href={item.url}
               className={cn(

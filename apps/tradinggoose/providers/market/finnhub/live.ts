@@ -1,5 +1,9 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { MarketLiveRequest, MarketLiveSnapshot, MarketSeriesRequest } from '@/providers/market/types'
+import type {
+  MarketLiveRequest,
+  MarketLiveSnapshot,
+  MarketSeriesRequest,
+} from '@/providers/market/types'
 import { fetchFinnhubSeries } from '@/providers/market/finnhub/series'
 
 const logger = createLogger('MarketProvider:Finnhub:Live')

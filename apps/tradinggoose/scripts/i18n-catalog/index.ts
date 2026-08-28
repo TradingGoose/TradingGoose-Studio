@@ -120,12 +120,11 @@ export function runCatalogCli(projectRoot: string, flags: CliFlags): CatalogCliR
     ? scanCatalogProjectWithContext(context, { mode: 'all' })
     : scanCatalogProjectWithContext(context, { mode: 'route', routePath: flags.route! })
   const includeOrphans = Boolean(flags.withOrphans)
-  const globalScanResult =
-    includeOrphans
-      ? scanResult.mode === 'all'
-        ? scanResult
-        : scanCatalogProjectWithContext(context, { mode: 'all' })
-      : undefined
+  const globalScanResult = includeOrphans
+    ? scanResult.mode === 'all'
+      ? scanResult
+      : scanCatalogProjectWithContext(context, { mode: 'all' })
+    : undefined
   const report = buildCatalogReport({
     includeOrphans,
     projectRoot,

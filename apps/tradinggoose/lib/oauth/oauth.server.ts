@@ -29,7 +29,9 @@ interface ProviderAuthCredentials {
   clientSecret: string
 }
 
-function getSignInProviderEnvironmentCredentials(providerId: string): ProviderAuthCredentials | null {
+function getSignInProviderEnvironmentCredentials(
+  providerId: string
+): ProviderAuthCredentials | null {
   switch (providerId.trim()) {
     case 'github':
       return pickCredentials(getEnv('GITHUB_CLIENT_ID'), getEnv('GITHUB_CLIENT_SECRET'))
@@ -40,7 +42,9 @@ function getSignInProviderEnvironmentCredentials(providerId: string): ProviderAu
   }
 }
 
-function getProviderAuthTemplate(providerId: string): Omit<ProviderAuthConfig, 'clientId' | 'clientSecret'> {
+function getProviderAuthTemplate(
+  providerId: string
+): Omit<ProviderAuthConfig, 'clientId' | 'clientSecret'> {
   switch (providerId) {
     case 'google':
       return {
@@ -228,7 +232,9 @@ export const getOAuthProviderAvailability = async (
   const uniqueProviders = Array.from(
     new Set(providers.map((provider) => provider.trim()).filter((provider) => provider.length > 0))
   )
-  const systemManagedProviders = uniqueProviders.filter((providerId) => !isSignInOAuthProviderId(providerId))
+  const systemManagedProviders = uniqueProviders.filter(
+    (providerId) => !isSignInOAuthProviderId(providerId)
+  )
   const credentials = await loadSystemOAuthClientCredentials(systemManagedProviders)
 
   for (const providerId of uniqueProviders) {

@@ -74,7 +74,9 @@ export const formatOrderAmountAndDate = (
   }
 
   if (typeof order.notional === 'number' && Number.isFinite(order.notional)) {
-    return dateLabel ? `${formatNotional(locale, order.notional)}, ${dateLabel}` : formatNotional(locale, order.notional)
+    return dateLabel
+      ? `${formatNotional(locale, order.notional)}, ${dateLabel}`
+      : formatNotional(locale, order.notional)
   }
 
   return dateLabel ?? '—'
@@ -109,7 +111,9 @@ export function OrderIdRow({
   const quote = order?.quote?.trim() || ''
   const resolvedPlaceholderTitle = placeholderTitle || copy.placeholderTitle
   const resolvedPlaceholderSubtitle = placeholderSubtitle || copy.placeholderSubtitle
-  const summary = order ? formatOrderAmountAndDate(locale, order, copy) : resolvedPlaceholderSubtitle
+  const summary = order
+    ? formatOrderAmountAndDate(locale, order, copy)
+    : resolvedPlaceholderSubtitle
   const actionLabel = formatOrderAction(order?.side, copy)
   const environmentEmoji = getOrderEnvironmentEmoji(order?.environment)
 

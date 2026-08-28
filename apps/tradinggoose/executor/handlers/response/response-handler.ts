@@ -10,7 +10,14 @@ const logger = createLogger('ResponseBlockHandler')
 interface JSONProperty {
   id: string
   name: string
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'files' | typeof LISTING_IDENTITY_VALUE_TYPE
+  type:
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'object'
+    | 'array'
+    | 'files'
+    | typeof LISTING_IDENTITY_VALUE_TYPE
   value: any
   collapsed?: boolean
 }

@@ -132,11 +132,11 @@ export async function POST(request: NextRequest) {
       logger.info(`[${requestId}] Uploading to: ${uploadUrl}`)
 
       const uploadResponse = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
+        method: 'PUT',
+        headers: {
           Authorization: `Bearer ${credential.accessToken}`,
           'Content-Type': userFile.type || 'application/octet-stream',
-      },
+        },
         body: new Uint8Array(buffer),
       })
 

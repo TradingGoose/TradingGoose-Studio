@@ -1,4 +1,7 @@
-import type { MarketProviderConfig, MarketProviderParamDefinition } from '@/providers/market/providers'
+import type {
+  MarketProviderConfig,
+  MarketProviderParamDefinition,
+} from '@/providers/market/providers'
 import { alpacaSymbolRules } from '@/providers/market/alpaca/rules'
 import { AssetClass } from '@/providers/market/types'
 
@@ -179,7 +182,7 @@ export const alpacaProviderConfig: MarketProviderConfig = {
       ],
       windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: ['raw', 'adjusted', 'split_adjusted'],
-      marketSessions: ['regular', 'extended']
+      marketSessions: ['regular', 'extended'],
     },
     live: {
       channels: ['bars', 'trades', 'quotes'],

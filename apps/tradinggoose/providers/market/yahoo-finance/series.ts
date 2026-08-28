@@ -67,8 +67,7 @@ function toIsoString(value?: string | number): string | undefined {
 }
 
 function resolveInterval(request: MarketSeriesRequest): string {
-  const interval =
-    request.interval || (request.providerParams?.interval as string | undefined)
+  const interval = request.interval || (request.providerParams?.interval as string | undefined)
   if (!interval) return '1d'
   const mapped = YAHOO_INTERVAL_MAP[interval as MarketInterval]
   if (mapped) return mapped
@@ -109,9 +108,7 @@ function buildChartUrl(symbol: string, request: MarketSeriesRequest): string {
   return `${baseUrl}/${encodeURIComponent(symbol)}?${params.toString()}`
 }
 
-export async function fetchYahooFinanceSeries(
-  request: MarketSeriesRequest
-): Promise<MarketSeries> {
+export async function fetchYahooFinanceSeries(request: MarketSeriesRequest): Promise<MarketSeries> {
   const context = await resolveListingContext(request.listing)
   const symbol = resolveProviderSymbol(YahooFinanceProviderConfig, context)
   const interval = resolveInterval(request)

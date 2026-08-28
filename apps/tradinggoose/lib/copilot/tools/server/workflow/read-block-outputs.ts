@@ -7,9 +7,7 @@ import {
   readWorkflowVariableOutputs,
 } from '@/lib/copilot/workflow/block-output-utils'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
-import type {
-  ReadBlockOutputsResultType,
-} from '@/lib/copilot/tools/shared/schemas'
+import type { ReadBlockOutputsResultType } from '@/lib/copilot/tools/shared/schemas'
 import { loadWorkflowSnapshotForCopilot } from '@/lib/copilot/tools/server/entities/workflow'
 import { createLogger } from '@/lib/logs/console/logger'
 

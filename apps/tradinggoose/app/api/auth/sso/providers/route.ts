@@ -2,7 +2,10 @@ import { db, ssoProvider } from '@tradinggoose/db'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { getOrganizationBillingData, isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
+import {
+  getOrganizationBillingData,
+  isOrganizationOwnerOrAdmin,
+} from '@/lib/billing/core/organization'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'

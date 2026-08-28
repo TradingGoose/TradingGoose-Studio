@@ -34,7 +34,7 @@ function Marquee(props: MarqueeProps) {
         'group flex overflow-hidden p-3',
         {
           'flex-row': !vertical,
-          'flex-col': vertical
+          'flex-col': vertical,
         },
         className
       )}

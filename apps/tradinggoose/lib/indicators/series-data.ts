@@ -65,8 +65,7 @@ export const normalizeBarsMs = (barsMs: BarMs[], intervalMs?: number | null): Ba
   barsMs.forEach((bar) => {
     if (!bar || !Number.isFinite(bar.openTime)) return
     const openTime = bar.openTime
-    const closeTime =
-      Number.isFinite(bar.closeTime) && bar.closeTime > 0 ? bar.closeTime : openTime
+    const closeTime = Number.isFinite(bar.closeTime) && bar.closeTime > 0 ? bar.closeTime : openTime
     map.set(openTime, {
       openTime,
       closeTime,

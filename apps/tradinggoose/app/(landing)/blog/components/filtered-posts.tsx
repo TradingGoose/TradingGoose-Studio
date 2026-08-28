@@ -24,9 +24,9 @@ export default function FilteredPosts({ posts }: FilteredPostProps) {
 
   if (posts.length === 0) {
     return (
-      <Empty className="my-24">
+      <Empty className='my-24'>
         <EmptyHeader>
-          <EmptyMedia variant="icon">
+          <EmptyMedia variant='icon'>
             <FileText />
           </EmptyMedia>
           <EmptyTitle>{blogCopy.emptyTitle}</EmptyTitle>
@@ -42,31 +42,31 @@ export default function FilteredPosts({ posts }: FilteredPostProps) {
 
   return (
     <>
-      <div className="relative my-8">
+      <div className='relative my-8'>
         <Input
-          type="text"
+          type='text'
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
           placeholder={blogCopy.searchPlaceholder}
           aria-label={blogCopy.searchPlaceholder}
-          className="w-full pl-12"
-          id="search"
+          className='w-full pl-12'
+          id='search'
         />
-        <Label htmlFor="search">
-          <SearchIcon className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
+        <Label htmlFor='search'>
+          <SearchIcon className='absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground' />
         </Label>
       </div>
 
       {filteredPosts.length > 0 ? (
-        <div className="grid gap-10 lg:grid-cols-2">
+        <div className='grid gap-10 lg:grid-cols-2'>
           {filteredPosts.map((post, index) => (
             <PostCard key={post.slug} post={post} index={index} />
           ))}
         </div>
       ) : (
-        <Empty className="my-24">
+        <Empty className='my-24'>
           <EmptyHeader>
-            <EmptyMedia variant="icon">
+            <EmptyMedia variant='icon'>
               <SearchX />
             </EmptyMedia>
             <EmptyTitle>{formatTemplate(blogCopy.noMatches, { query: searchValue })}</EmptyTitle>

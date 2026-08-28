@@ -70,25 +70,18 @@ function SchemaNode({ field, depth }: { field: SchemaField; depth: number }) {
         </div>
 
         {/* Field name */}
-        <code className='shrink-0 text-xs font-semibold text-fd-foreground'>
-          {field.name}
-        </code>
+        <code className='shrink-0 text-xs font-semibold text-fd-foreground'>{field.name}</code>
 
         {/* Type badge */}
         <span
-          className={cn(
-            'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
-            typeBadgeColor
-          )}
+          className={cn('shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium', typeBadgeColor)}
         >
           {field.type}
         </span>
 
         {/* Description */}
         {field.description && field.description !== field.name && (
-          <span className='truncate text-xs text-fd-muted-foreground'>
-            {field.description}
-          </span>
+          <span className='truncate text-xs text-fd-muted-foreground'>{field.description}</span>
         )}
       </div>
 

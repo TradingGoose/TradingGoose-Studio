@@ -8,7 +8,7 @@ export const { Link, usePathname, useRouter, redirect, getPathname } = createNav
 
 // Locale switches cross the localized document boundary so server-owned JSON-LD
 // remains part of the initial document instead of being inserted by React.
-export function replaceLocaleDocument(locale: typeof routing.locales[number], pathname: string) {
+export function replaceLocaleDocument(locale: (typeof routing.locales)[number], pathname: string) {
   if (typeof window === 'undefined') {
     return
   }

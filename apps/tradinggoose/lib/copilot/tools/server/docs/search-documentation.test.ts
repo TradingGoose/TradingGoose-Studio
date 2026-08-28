@@ -98,7 +98,9 @@ describe('searchDocumentationServerTool', () => {
       from: fromMock,
     })
     generateSearchEmbeddingMock.mockRejectedValue(
-      new Error('Either the OpenAI default API key or Azure OpenAI service config must be configured')
+      new Error(
+        'Either the OpenAI default API key or Azure OpenAI service config must be configured'
+      )
     )
 
     await expect(

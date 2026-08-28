@@ -32,7 +32,10 @@ export const dynamic = 'force-dynamic'
 
 /** Strip markdown link syntax for meta tags: [text](url) → text */
 function toPlainTitle(md: string): string {
-  return md.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\n/g, ' ').trim()
+  return md
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\n/g, ' ')
+    .trim()
 }
 
 export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
@@ -97,10 +100,7 @@ export default async function PostPage({ params }: PostPageProps) {
         name: a.name,
         url: a.profileUrl,
         image: a.avatar,
-        sameAs: [
-          `https://github.com/${a.github}`,
-          ...(a.x ? [`https://x.com/${a.x}`] : []),
-        ],
+        sameAs: [`https://github.com/${a.github}`, ...(a.x ? [`https://x.com/${a.x}`] : [])],
       })),
     }),
     publisher: { '@id': `${siteBaseUrl}/#organization` },
@@ -112,44 +112,44 @@ export default async function PostPage({ params }: PostPageProps) {
   return (
     <BlogLayout path={`/blog/${slug}`} title={plainTitle}>
       <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingSchema).replace(/</g, '\\u003c') }}
+        type='application/ld+json'
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(blogPostingSchema).replace(/</g, '\\u003c'),
+        }}
       />
       <article>
         <BreadcrumbNav pageTitle={title} />
 
         <MarkdownTitle
           title={title}
-          as="h1"
-          className="mt-2 inline-block text-4xl font-bold leading-tight lg:text-5xl"
+          as='h1'
+          className='mt-2 inline-block text-4xl font-bold leading-tight lg:text-5xl'
         />
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-y-3 text-sm text-muted-foreground">
-          <div className="flex items-center gap-3">
+        <div className='mt-4 flex flex-wrap items-center justify-between gap-y-3 text-sm text-muted-foreground'>
+          <div className='flex items-center gap-3'>
             {authors?.length
               ? authors.map((author) => (
-                <a
-                  key={author.github}
-                  href={author.profileUrl}
-                  className="flex items-center gap-2"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src={author.avatar} alt={author.name} />
-                    <AvatarFallback className="text-xs">
-                      {author.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium text-foreground">{author.name}</span>
-                </a>
-              ))
+                  <a
+                    key={author.github}
+                    href={author.profileUrl}
+                    className='flex items-center gap-2'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                  >
+                    <Avatar className='h-6 w-6'>
+                      <AvatarImage src={author.avatar} alt={author.name} />
+                      <AvatarFallback className='text-xs'>{author.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span className='font-medium text-foreground'>{author.name}</span>
+                  </a>
+                ))
               : null}
-            <span className="text-muted-foreground/50">·</span>
+            <span className='text-muted-foreground/50'>·</span>
             {date && <time dateTime={date}>{formatBlogDate(date, 'long', locale)}</time>}
-            <span className="text-muted-foreground/50">·</span>
-            <div className="flex items-center gap-1">
-              <Clock className="size-3.5" />
+            <span className='text-muted-foreground/50'>·</span>
+            <div className='flex items-center gap-1'>
+              <Clock className='size-3.5' />
               <span>
                 {readingTime} {copy.blog.readTimeSuffix}
               </span>
@@ -157,10 +157,10 @@ export default async function PostPage({ params }: PostPageProps) {
           </div>
 
           {tags && tags.length > 0 && (
-            <ul className="m-0 flex list-none gap-2 p-0">
+            <ul className='m-0 flex list-none gap-2 p-0'>
               {tags.map((tag) => (
                 <li key={tag}>
-                  <Badge variant="secondary">{tag}</Badge>
+                  <Badge variant='secondary'>{tag}</Badge>
                 </li>
               ))}
             </ul>
@@ -173,23 +173,23 @@ export default async function PostPage({ params }: PostPageProps) {
             alt={title}
             width={1200}
             height={600}
-            className="my-8 h-auto w-full rounded-md border bg-muted transition-colors"
+            className='my-8 h-auto w-full rounded-md border bg-muted transition-colors'
             priority
           />
         )}
 
         {/* Two-column: content + TOC */}
-        <div className="relative lg:gap-10 xl:grid xl:grid-cols-[1fr_250px]">
-          <div className="w-full min-w-0">
+        <div className='relative lg:gap-10 xl:grid xl:grid-cols-[1fr_250px]'>
+          <div className='w-full min-w-0'>
             <MarkdownContent content={content} />
           </div>
 
-          <div className="hidden text-sm xl:block">
-            <div className="sticky top-10 max-h-[calc(100vh-4rem)] pt-4">
+          <div className='hidden text-sm xl:block'>
+            <div className='sticky top-10 max-h-[calc(100vh-4rem)] pt-4'>
               <SocialShare text={title} path={postPath} />
-              <Separator className="my-4" />
+              <Separator className='my-4' />
               <AiSummarize path={postPath} title={title} />
-              <Separator className="my-4" />
+              <Separator className='my-4' />
               <TableOfContents toc={toc} />
             </div>
           </div>

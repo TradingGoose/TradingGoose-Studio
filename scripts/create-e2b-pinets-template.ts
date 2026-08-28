@@ -122,7 +122,10 @@ const parseOptions = (argv: string[]): CliOptions => {
     }
 
     if (arg.startsWith('--pinets-version=')) {
-      options.pinetsVersion = requireValue(arg.slice('--pinets-version='.length), '--pinets-version')
+      options.pinetsVersion = requireValue(
+        arg.slice('--pinets-version='.length),
+        '--pinets-version'
+      )
       continue
     }
 
@@ -133,7 +136,10 @@ const parseOptions = (argv: string[]): CliOptions => {
     }
 
     if (arg.startsWith('--cpu=')) {
-      options.cpuCount = parsePositiveInt(requireValue(arg.slice('--cpu='.length), '--cpu'), '--cpu')
+      options.cpuCount = parsePositiveInt(
+        requireValue(arg.slice('--cpu='.length), '--cpu'),
+        '--cpu'
+      )
       continue
     }
 

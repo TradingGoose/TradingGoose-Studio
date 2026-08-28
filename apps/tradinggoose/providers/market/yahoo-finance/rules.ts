@@ -5,9 +5,10 @@ export const yfinanceSymbolRules: MarketSymbolRule[] = [
     city: 'SHANGHAI',
     template: '{base}.ss',
     active: true,
-  }, {
+  },
+  {
     city: 'SHENZHEN',
-    template: '{base}.sz', // AAPL/USD => AAPL.SZ 
+    template: '{base}.sz', // AAPL/USD => AAPL.SZ
     active: true,
   },
   {

@@ -20,7 +20,6 @@ interface InputTriggerBlock {
   }
 }
 
-
 function isInputTriggerBlock(value: unknown): value is InputTriggerBlock {
   return (
     !!value && typeof value === 'object' && (value as { type?: unknown }).type === 'input_trigger'

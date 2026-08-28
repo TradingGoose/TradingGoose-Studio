@@ -48,9 +48,7 @@ else
 end
 `
 
-const readInMemoryCacheEntry = (
-  key: string
-): { value: string; expiry: number | null } | null => {
+const readInMemoryCacheEntry = (key: string): { value: string; expiry: number | null } | null => {
   const cacheEntry = inMemoryCache.get(key)
   if (!cacheEntry) return null
   if (cacheEntry.expiry && cacheEntry.expiry <= Date.now()) {
@@ -78,7 +76,10 @@ const pruneInMemoryCache = () => {
   }
 
   if (inMemoryCache.size > MAX_CACHE_SIZE) {
-    const keysToDelete = Array.from(inMemoryCache.keys()).slice(0, inMemoryCache.size - MAX_CACHE_SIZE)
+    const keysToDelete = Array.from(inMemoryCache.keys()).slice(
+      0,
+      inMemoryCache.size - MAX_CACHE_SIZE
+    )
     for (const cacheKey of keysToDelete) {
       inMemoryCache.delete(cacheKey)
     }

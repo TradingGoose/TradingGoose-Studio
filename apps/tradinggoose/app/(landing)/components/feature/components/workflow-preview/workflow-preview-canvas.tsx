@@ -142,7 +142,11 @@ export function WorkflowPreviewCanvas({
 }: WorkflowPreviewCanvasProps) {
   return (
     <ReactFlowProvider>
-      <WorkflowPreviewFlow key={workflowKey} previewPayload={previewPayload} className={className} />
+      <WorkflowPreviewFlow
+        key={workflowKey}
+        previewPayload={previewPayload}
+        className={className}
+      />
     </ReactFlowProvider>
   )
 }

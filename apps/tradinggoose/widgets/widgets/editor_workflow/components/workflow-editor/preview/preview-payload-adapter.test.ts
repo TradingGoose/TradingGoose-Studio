@@ -112,7 +112,9 @@ describe('adaptPreviewPayloadToCanvas', () => {
     })
     expect(agentNode?.parentId).toBeUndefined()
     expect(agentNode?.extent).toBeUndefined()
-    expect((agentNode as any)?.data?.subBlockValues).toEqual(workflowState.blocks.agent_inside_loop.subBlocks)
+    expect((agentNode as any)?.data?.subBlockValues).toEqual(
+      workflowState.blocks.agent_inside_loop.subBlocks
+    )
   })
 
   it('skips unsupported block types and defaults missing edge type to workflowEdge', () => {

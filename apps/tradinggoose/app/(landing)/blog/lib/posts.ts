@@ -140,9 +140,7 @@ function parsePost(
 
   if (!published) return null
 
-  const resolvedImage = frontmatter.image
-    ? resolveImageUrl(frontmatter.image, postDir, source)
-    : ''
+  const resolvedImage = frontmatter.image ? resolveImageUrl(frontmatter.image, postDir, source) : ''
   const resolvedContent = resolveContentImages(content, postDir, source)
 
   return {

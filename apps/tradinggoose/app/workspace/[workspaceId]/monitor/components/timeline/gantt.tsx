@@ -277,7 +277,8 @@ const buildHeaderGroups = (
   const groups: TimelineHeaderGroup[] = []
 
   columns.forEach((column, index) => {
-    const groupId = headerGroupIds[index] ?? readMonitorTimelineHeaderGroupId(column, zoom, timezone)
+    const groupId =
+      headerGroupIds[index] ?? readMonitorTimelineHeaderGroupId(column, zoom, timezone)
     const current = groups[groups.length - 1]
 
     if (current?.id === groupId) {

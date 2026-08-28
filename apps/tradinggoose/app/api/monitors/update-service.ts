@@ -117,7 +117,9 @@ export async function updateMonitorForUser({
     )
   }
   const nextIsActive =
-    payload.isActive === undefined ? row.webhook.isActive : payload.isActive && workflowRow.isDeployed
+    payload.isActive === undefined
+      ? row.webhook.isActive
+      : payload.isActive && workflowRow.isDeployed
 
   const providerConfig = await buildProviderConfigForUpdate({
     source,

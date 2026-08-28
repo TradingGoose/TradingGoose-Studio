@@ -50,7 +50,9 @@ export type PreviewPayloadAdapterResult = {
   edges: Edge[]
 }
 
-function buildPreviewEdgeId(edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>): string {
+function buildPreviewEdgeId(
+  edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>
+): string {
   const sourceHandle =
     !edge.sourceHandle || edge.sourceHandle === 'source' || edge.sourceHandle === 'output'
       ? 'source'

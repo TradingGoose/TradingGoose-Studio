@@ -35,7 +35,10 @@ export function SettingsModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn('flex flex-col max-h-[90%] gap-0 p-0 lg:max-w-[50%] md:max-w-[75%] sm:max-w-[90%] ', dialogContentClassName)}
+        className={cn(
+          'flex flex-col max-h-[90%] gap-0 p-0 lg:max-w-[50%] md:max-w-[75%] sm:max-w-[90%] ',
+          dialogContentClassName
+        )}
       >
         <DialogHeader className={cn('border-b px-6 py-4', headerClassName)}>
           <div className='flex items-center justify-between gap-4'>
@@ -46,7 +49,9 @@ export function SettingsModal({
 
         <div className='flex min-h-0 flex-1 overflow-hidden'>
           {sidebar ? (
-            <div className={cn('w-[180px] flex-shrink-0 border-r', sidebarClassName)}>{sidebar}</div>
+            <div className={cn('w-[180px] flex-shrink-0 border-r', sidebarClassName)}>
+              {sidebar}
+            </div>
           ) : null}
           <div className={cn('flex-1 overflow-y-auto', contentClassName)}>{children}</div>
         </div>

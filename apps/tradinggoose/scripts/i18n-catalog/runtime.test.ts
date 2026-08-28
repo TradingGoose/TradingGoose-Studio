@@ -58,7 +58,7 @@ useLayoutEffect(() => {
     name: 'useLayoutEffect',
   },
   {
-    body: "const memoizedLabel = useMemo(() => copy.used, [copy])",
+    body: 'const memoizedLabel = useMemo(() => copy.used, [copy])',
     importLines: ["import { useMemo } from 'react'"],
     name: 'useMemo',
     returnExpression: '<div>{memoizedLabel}</div>',
@@ -439,11 +439,13 @@ export function MonitorPage() {
     )
   })
 
-  ;([
-    ['forwardRef', 'forwardRef'],
-    ['memo', 'memo'],
-    ['memo(forwardRef)', 'memoForwardRef'],
-  ] as const).forEach(([label, wrapper]) => {
+  ;(
+    [
+      ['forwardRef', 'forwardRef'],
+      ['memo', 'memo'],
+      ['memo(forwardRef)', 'memoForwardRef'],
+    ] as const
+  ).forEach(([label, wrapper]) => {
     it(`captures copy access through ${label}-wrapped exported components`, () => {
       const projectRoot = createWrappedExportMonitorProject(wrapper)
 

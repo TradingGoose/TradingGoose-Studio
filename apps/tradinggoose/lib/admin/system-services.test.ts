@@ -50,11 +50,15 @@ describe('admin system services', () => {
       required: true,
       defaultValue: 'https://market.tradinggoose.ai',
     })
-    expect(localExecution?.settings.find((setting) => setting.key === 'maxConcurrentExecutions')).toMatchObject({
+    expect(
+      localExecution?.settings.find((setting) => setting.key === 'maxConcurrentExecutions')
+    ).toMatchObject({
       required: true,
       defaultValue: '200',
     })
-    expect(localExecution?.settings.find((setting) => setting.key === 'maxActivePerOwner')).toMatchObject({
+    expect(
+      localExecution?.settings.find((setting) => setting.key === 'maxActivePerOwner')
+    ).toMatchObject({
       required: false,
       hasValue: false,
       defaultValue: '',

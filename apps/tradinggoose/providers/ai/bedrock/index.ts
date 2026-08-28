@@ -554,15 +554,8 @@ export const bedrockProvider: ProviderConfig = {
         for (const settledResult of executionResults) {
           if (settledResult.status === 'rejected' || !settledResult.value) continue
 
-          const {
-            toolUseId,
-            toolName,
-            toolParams,
-            result,
-            startTime,
-            endTime,
-            duration,
-          } = settledResult.value
+          const { toolUseId, toolName, toolParams, result, startTime, endTime, duration } =
+            settledResult.value
 
           timeSegments.push({
             type: 'tool',

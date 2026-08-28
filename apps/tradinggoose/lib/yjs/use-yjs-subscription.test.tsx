@@ -71,13 +71,27 @@ describe('useYjsSubscription', () => {
     root = createRoot(container)
 
     await act(async () => {
-      root?.render(<Harness source={emptySource} capture={(value) => { latestValue = value }} />)
+      root?.render(
+        <Harness
+          source={emptySource}
+          capture={(value) => {
+            latestValue = value
+          }}
+        />
+      )
     })
 
     expect(latestValue).toBe(emptyBlocks)
 
     await act(async () => {
-      root?.render(<Harness source={liveSource} capture={(value) => { latestValue = value }} />)
+      root?.render(
+        <Harness
+          source={liveSource}
+          capture={(value) => {
+            latestValue = value
+          }}
+        />
+      )
     })
 
     expect(latestValue).toBe(liveBlocks)

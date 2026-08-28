@@ -25,7 +25,8 @@ interface ChatHeaderProps {
 
 export function ChatHeader({ chatConfig, starCount, copy }: ChatHeaderProps) {
   const customImage = chatConfig?.customizations?.imageUrl || chatConfig?.customizations?.logoUrl
-  const title = chatConfig?.customizations?.headerText || chatConfig?.title || copy.header.titleFallback
+  const title =
+    chatConfig?.customizations?.headerText || chatConfig?.title || copy.header.titleFallback
   const brand = copy.header.brandName
 
   return (
@@ -44,9 +45,7 @@ export function ChatHeader({ chatConfig, starCount, copy }: ChatHeaderProps) {
               className='h-6 w-6 rounded-md object-cover'
             />
           )}
-          <h2 className={`${inter.className} font-medium text-[18px] text-foreground`}>
-            {title}
-          </h2>
+          <h2 className={`${inter.className} font-medium text-[18px] text-foreground`}>{title}</h2>
         </div>
       </div>
 
@@ -63,10 +62,7 @@ export function ChatHeader({ chatConfig, starCount, copy }: ChatHeaderProps) {
             {starCount}
           </span>
         </a>
-        <Link
-          href='/'
-          aria-label={formatTemplate(copy.header.homeAriaLabel, { brand })}
-        >
+        <Link href='/' aria-label={formatTemplate(copy.header.homeAriaLabel, { brand })}>
           <Image
             src='/favicon/goose.png'
             alt={brand}

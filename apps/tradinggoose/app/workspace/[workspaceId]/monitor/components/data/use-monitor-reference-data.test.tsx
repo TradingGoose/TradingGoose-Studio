@@ -109,7 +109,8 @@ describe('useMonitorReferenceData', () => {
     expect(loadWorkflowTargetOptionsMock).toHaveBeenCalledWith('workspace-1', {
       workflowName: getPublicCopy('en').workspace.monitor.fields.workflow,
       triggerBlockNames: {
-        indicator_trigger: getPublicCopy('en').workspace.widgets.blockEditor.blockNames.indicator_trigger,
+        indicator_trigger:
+          getPublicCopy('en').workspace.widgets.blockEditor.blockNames.indicator_trigger,
         portfolio_state_trigger:
           getPublicCopy('en').workspace.widgets.blockEditor.blockNames.portfolio_state_trigger,
       },

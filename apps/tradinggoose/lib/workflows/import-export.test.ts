@@ -216,20 +216,22 @@ describe('workflow import/export helpers', () => {
   })
 
   it('ignores generated workflow presentation color in transfer records', () => {
-    expect(parseImportedWorkflowFile({
-      version: '1',
-      fileType: 'tradingGooseExport',
-      exportedAt: '2026-04-08T15:30:00.000Z',
-      exportedFrom: 'workflowEditor',
-      resourceTypes: ['workflows'],
-      workflows: [
-        {
-          name: 'Primary Workflow',
-          color: '#3972F6',
-          state: createWorkflowState(),
-        },
-      ],
-    }).errors).toEqual([])
+    expect(
+      parseImportedWorkflowFile({
+        version: '1',
+        fileType: 'tradingGooseExport',
+        exportedAt: '2026-04-08T15:30:00.000Z',
+        exportedFrom: 'workflowEditor',
+        resourceTypes: ['workflows'],
+        workflows: [
+          {
+            name: 'Primary Workflow',
+            color: '#3972F6',
+            state: createWorkflowState(),
+          },
+        ],
+      }).errors
+    ).toEqual([])
   })
 
   it('renames duplicate imported workflows with the imported marker', () => {

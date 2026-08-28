@@ -1,7 +1,11 @@
 import fs from 'fs'
 import path from 'path'
 import type { GeneratorContext } from './types'
-import { collectGeneratedToolSlugs, findToolDocSlugForTriggerProvider, providerToTriggerDocSlug } from './doc-pages'
+import {
+  collectGeneratedToolSlugs,
+  findToolDocSlugForTriggerProvider,
+  providerToTriggerDocSlug,
+} from './doc-pages'
 import { extractAllTriggers, type TriggerConfig } from './extract-triggers'
 import { renderTriggerPage } from './render-trigger-page'
 import { updateMetaJson } from './utils'

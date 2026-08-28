@@ -595,9 +595,8 @@ export class LineToolParallelChannel<HorzScaleItem> extends BaseLineTool<HorzSca
     if (p0.timestamp > p1.timestamp) {
       // 1. Get the position of the derived P3 (Bottom Right) BEFORE the swap.
       const P3_old_position = this.getPoint(3)
-      if (P3_old_position === null) return
+      if (P3_old_position === null) return // 2. SWAP: P0 <-> P1
 
-      // 2. SWAP: P0 <-> P1
       ;[this._points[0], this._points[1]] = [p1, p0]
 
       // 3. SWAP: P2 (old Bottom Left) must become the new Bottom Right's counterpart.

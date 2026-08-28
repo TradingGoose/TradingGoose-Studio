@@ -66,18 +66,21 @@ function RippleBg({ containerRef, rows: minRows = DEFAULT_ROWS }: RippleBgProps)
 
   const cells = useMemo(() => Array.from({ length: rows * COLS }, (_, i) => i), [rows])
 
-  const getCell = useCallback((e: PointerEvent) => {
-    const grid = gridRef.current
-    if (!grid) return null
-    const rect = grid.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return null
-    const col = Math.floor(x / CELL_SIZE)
-    const row = Math.floor(y / CELL_SIZE)
-    if (row < 0 || row >= rows || col < 0 || col >= COLS) return null
-    return { row, col }
-  }, [rows])
+  const getCell = useCallback(
+    (e: PointerEvent) => {
+      const grid = gridRef.current
+      if (!grid) return null
+      const rect = grid.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      if (x < 0 || y < 0 || x > rect.width || y > rect.height) return null
+      const col = Math.floor(x / CELL_SIZE)
+      const row = Math.floor(y / CELL_SIZE)
+      if (row < 0 || row >= rows || col < 0 || col >= COLS) return null
+      return { row, col }
+    },
+    [rows]
+  )
 
   useEffect(() => {
     const el = containerRef.current
@@ -85,9 +88,7 @@ function RippleBg({ containerRef, rows: minRows = DEFAULT_ROWS }: RippleBgProps)
 
     const onMove = (e: PointerEvent) => {
       const cell = getCell(e)
-      setHoveredCell((prev) =>
-        prev?.row === cell?.row && prev?.col === cell?.col ? prev : cell
-      )
+      setHoveredCell((prev) => (prev?.row === cell?.row && prev?.col === cell?.col ? prev : cell))
     }
     const onDown = (e: PointerEvent) => {
       const cell = getCell(e)

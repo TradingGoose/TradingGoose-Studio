@@ -254,7 +254,9 @@ async function main() {
     process.exit(1)
   }
 
-  console.log(chalk.green(`✅ TradingGoose is now running at ${chalk.bold(`http://localhost:${port}`)}`))
+  console.log(
+    chalk.green(`✅ TradingGoose is now running at ${chalk.bold(`http://localhost:${port}`)}`)
+  )
   console.log(
     chalk.yellow(
       `🛑 To stop all containers, run: ${chalk.bold('docker stop tradinggoose-app tradinggoose-db tradinggoose-realtime')}`

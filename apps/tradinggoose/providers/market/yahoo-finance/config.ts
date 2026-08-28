@@ -220,7 +220,6 @@ const availability: MarketProviderConfig['availability'] = {
   live: false,
 }
 
-
 const exchangeCodes: MarketProviderConfig['exchangeCodes'] = [
   'AMS',
   'AQS',
@@ -348,18 +347,7 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
   capabilities: {
     series: {
       supportsInterval: true,
-      intervals: [
-        '1m',
-        '2m',
-        '5m',
-        '15m',
-        '30m',
-        '1h',
-        '1d',
-        '1w',
-        '1mo',
-        '3mo',
-      ],
+      intervals: ['1m', '2m', '5m', '15m', '30m', '1h', '1d', '1w', '1mo', '3mo'],
       windowModes: ['range', 'bars', 'absolute'],
       normalizationModes: ['raw', 'adjusted'],
       marketSessions: ['regular', 'extended'],

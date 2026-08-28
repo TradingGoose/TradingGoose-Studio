@@ -1,5 +1,9 @@
 import { parseUtcOffsetMinutes } from '@/lib/time-format'
-import type { MarketSeries, MarketSeriesRequest, MarketSessionWindow } from '@/providers/market/types'
+import type {
+  MarketSeries,
+  MarketSeriesRequest,
+  MarketSessionWindow,
+} from '@/providers/market/types'
 import { MAX_SESSION_LOOKAHEAD_DAYS, MAX_SESSION_RANGE_DAYS, MARKET_DAY_MS } from './constants'
 import { addDays, parseDateKey, toDate, toDateKey } from './date-utils'
 import { resolveMarketHours, resolveMarketHoursRange } from './market-hours-api'
@@ -181,9 +185,7 @@ export const resolveSeriesBoundsMs = (
 
   const bars = Array.isArray(series.bars) ? series.bars : []
   if (!bars.length) return null
-  const times = bars
-    .map((bar) => Date.parse(bar.timeStamp))
-    .filter((ts) => Number.isFinite(ts))
+  const times = bars.map((bar) => Date.parse(bar.timeStamp)).filter((ts) => Number.isFinite(ts))
   if (!times.length) return null
   const min = Math.min(...times)
   const max = Math.max(...times)
@@ -247,7 +249,7 @@ export const filterSeriesBySessions = (
   if (filteredBars.length === bars.length) return series
   const start = filteredBars[0]?.timeStamp ?? series.start
   const end = filteredBars.length
-    ? filteredBars[filteredBars.length - 1]?.timeStamp ?? series.end
+    ? (filteredBars[filteredBars.length - 1]?.timeStamp ?? series.end)
     : series.end
   return { ...series, bars: filteredBars, start, end }
 }
@@ -273,9 +275,7 @@ const resolveSessionBounds = (
   const regularWindow = resolveRegularSessionWindow(marketHours)
   const extendedWindow = resolveExtendedSessionWindow(marketHours)
   const sessionStart =
-    session === 'extended'
-      ? parseTime(extendedWindow.start)
-      : parseTime(regularWindow.start)
+    session === 'extended' ? parseTime(extendedWindow.start) : parseTime(regularWindow.start)
   const sessionEnd =
     session === 'extended' ? parseTime(extendedWindow.end) : parseTime(regularWindow.end)
   if (!sessionStart || !sessionEnd) return null
@@ -310,12 +310,7 @@ export const resolveLatestSessionEndMs = async (
   const nowMs = Date.now()
   const endDate = new Date(nowMs)
   const startDate = addDays(endDate, -(MAX_SESSION_LOOKAHEAD_DAYS - 1))
-  const rangeMap = await resolveMarketHoursRange(
-    listingId,
-    listingType,
-    startDate,
-    endDate
-  )
+  const rangeMap = await resolveMarketHoursRange(listingId, listingType, startDate, endDate)
   if (rangeMap && rangeMap.size === 0) return null
   const candidateKeys = rangeMap ? Array.from(rangeMap.keys()).sort().reverse() : []
 
@@ -404,9 +399,7 @@ export const clampToMarketSession = async (
     const candidateKeys = rangeMap ? Array.from(rangeMap.keys()).sort() : []
     for (let i = 0; i < MAX_SESSION_LOOKAHEAD_DAYS; i += 1) {
       const dateKey = candidateKeys[i]
-      const dateCursor = dateKey
-        ? parseDateKey(dateKey) ?? new Date(dateKey)
-        : addDays(cursor, i)
+      const dateCursor = dateKey ? (parseDateKey(dateKey) ?? new Date(dateKey)) : addDays(cursor, i)
       const hoursResponse =
         (dateKey ? rangeMap?.get(dateKey) : null) ??
         (await resolveMarketHours(listingId, listing.listing_type, dateCursor))
@@ -455,7 +448,7 @@ export const clampToMarketSession = async (
     for (let i = 0; i < MAX_SESSION_LOOKAHEAD_DAYS; i += 1) {
       const dateKey = candidateKeys[i]
       const dateCursor = dateKey
-        ? parseDateKey(dateKey) ?? new Date(dateKey)
+        ? (parseDateKey(dateKey) ?? new Date(dateKey))
         : addDays(cursor, -i)
       const hoursResponse =
         (dateKey ? rangeMap?.get(dateKey) : null) ??

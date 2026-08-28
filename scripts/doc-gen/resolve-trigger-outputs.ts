@@ -19,16 +19,24 @@ async function main() {
 
   for (const dir of dirs) {
     const fullDir = path.join(TRIGGERS_DIR, dir)
-    const tsFiles = fs.readdirSync(fullDir).filter(
-      (f) => f.endsWith('.ts') && !f.startsWith('utils') && !f.startsWith('types') && !f.startsWith('index')
-    )
+    const tsFiles = fs
+      .readdirSync(fullDir)
+      .filter(
+        (f) =>
+          f.endsWith('.ts') &&
+          !f.startsWith('utils') &&
+          !f.startsWith('types') &&
+          !f.startsWith('index')
+      )
 
     for (const file of tsFiles) {
       try {
         const mod = require(path.join(fullDir, file))
-        const trigger = mod.default || Object.values(mod).find(
-          (v: any) => v && typeof v === 'object' && 'id' in v && 'outputs' in v
-        )
+        const trigger =
+          mod.default ||
+          Object.values(mod).find(
+            (v: any) => v && typeof v === 'object' && 'id' in v && 'outputs' in v
+          )
         if (trigger && trigger.id && trigger.outputs) {
           result[trigger.id] = serializeOutputs(trigger.outputs)
         }

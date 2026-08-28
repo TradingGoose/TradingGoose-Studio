@@ -37,9 +37,9 @@ export default async function BlogPage() {
   const posts = await getAllPosts()
 
   return (
-    <BlogLayout path="/blog">
+    <BlogLayout path='/blog'>
       <script
-        type="application/ld+json"
+        type='application/ld+json'
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             '@context': 'https://schema.org',
