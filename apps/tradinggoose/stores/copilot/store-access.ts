@@ -5,9 +5,7 @@ type CopilotStoreResolver = (toolCallId: string) => StoreApi<CopilotStore>
 
 let resolveStoreForToolCall: CopilotStoreResolver | null = null
 
-export function registerCopilotStoreForToolCallResolver(
-  resolver: CopilotStoreResolver
-): void {
+export function registerCopilotStoreForToolCallResolver(resolver: CopilotStoreResolver): void {
   resolveStoreForToolCall = resolver
 }
 

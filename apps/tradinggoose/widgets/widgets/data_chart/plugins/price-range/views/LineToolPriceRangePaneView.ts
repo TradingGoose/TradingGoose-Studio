@@ -206,8 +206,6 @@ export class LineToolPriceRangePaneView<HorzScaleItem> extends LineToolPaneView<
           // Catch-all for disconnected tools
           shouldCull = true
           break
-
-        case OffScreenState.Visible:
         default:
           // Tool is visible or horizontally overlaps, proceed to render
           shouldCull = false
@@ -312,7 +310,6 @@ export class LineToolPriceRangePaneView<HorzScaleItem> extends LineToolPaneView<
         case BoxVerticalAlignment.Bottom:
           pivotY = maxY
           break
-        case BoxVerticalAlignment.Middle:
         default:
           pivotY = (minY + maxY) / 2
           break
@@ -326,7 +323,6 @@ export class LineToolPriceRangePaneView<HorzScaleItem> extends LineToolPaneView<
         case BoxHorizontalAlignment.Right:
           pivotX = maxX
           break
-        case BoxHorizontalAlignment.Center:
         default:
           pivotX = (minX + maxX) / 2
           break

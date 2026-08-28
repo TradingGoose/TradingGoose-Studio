@@ -532,15 +532,15 @@ Return ONLY the comment text - no explanations.`,
             }
             const accountIds = params.accountIds
               ? params.accountIds
-                .split(',')
-                .map((id: string) => id.trim())
-                .filter((id: string) => id)
+                  .split(',')
+                  .map((id: string) => id.trim())
+                  .filter((id: string) => id)
               : undefined
             const emails = params.emails
               ? params.emails
-                .split(',')
-                .map((email: string) => email.trim())
-                .filter((email: string) => email)
+                  .split(',')
+                  .map((email: string) => email.trim())
+                  .filter((email: string) => email)
               : undefined
             if ((!accountIds || accountIds.length === 0) && (!emails || emails.length === 0)) {
               throw new Error('At least one account ID or email is required')

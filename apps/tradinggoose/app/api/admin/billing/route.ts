@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSystemAdminAccess } from '@/lib/admin/access'
 import { getAdminBillingSnapshot } from '@/lib/admin/billing/snapshot'
-import {
-  ADMIN_BILLING_UNAVAILABLE_ERROR,
-  getBillingGateState,
-} from '@/lib/billing/settings'
+import { ADMIN_BILLING_UNAVAILABLE_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 

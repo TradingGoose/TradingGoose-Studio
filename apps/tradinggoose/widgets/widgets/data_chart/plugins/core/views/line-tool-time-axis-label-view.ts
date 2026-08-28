@@ -215,7 +215,7 @@ export class LineToolTimeAxisLabelView<HorzScaleItem> implements ITimeAxisView {
 
     // Get the specific point for this label
     const point = this._tool.getPoint(this._pointIndex)
-    if (!point || !isFinite(point.timestamp)) {
+    if (!point || !Number.isFinite(point.timestamp)) {
       return
     }
 
@@ -275,7 +275,7 @@ export class LineToolTimeAxisLabelView<HorzScaleItem> implements ITimeAxisView {
       interpolatedLogicalIndex as unknown as Logical
     )
 
-    if (coordinate === null || !isFinite(coordinate)) {
+    if (coordinate === null || !Number.isFinite(coordinate)) {
       console.warn(
         `[TimeLabelView] Skipping update: Logical-to-Coordinate failed for index ${interpolatedLogicalIndex}`
       )

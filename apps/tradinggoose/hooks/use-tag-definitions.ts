@@ -71,8 +71,7 @@ export function useTagDefinitions(
         throw new Error('Invalid response format')
       }
     } catch (err) {
-      const tagDefinitionLoadFailure =
-        err instanceof Error ? err.message : 'Unknown error occurred'
+      const tagDefinitionLoadFailure = err instanceof Error ? err.message : 'Unknown error occurred'
       logger.error('Error fetching tag definitions:', err)
       setError(tagDefinitionLoadFailure)
       setTagDefinitions([])

@@ -12,11 +12,7 @@ const CurrenciesSearchSchema = z.object({
   limit: limitMax500,
 })
 
-const CurrenciesSearchKeys = [
-  'currency_name',
-  'currency_code',
-  'currency_query',
-] as const
+const CurrenciesSearchKeys = ['currency_name', 'currency_code', 'currency_query'] as const
 
 export async function GET(request: NextRequest) {
   const currencyId = request.nextUrl.searchParams.get('currency_id')?.trim()

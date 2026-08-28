@@ -1,14 +1,13 @@
 'use client'
 
 import React from 'react'
+import type { Messages } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import type { Messages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
-import { type LocaleCode } from '@/i18n/utils'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 import type { ChangelogEntry } from './changelog-content'
 
 type Props = {
@@ -134,12 +133,12 @@ export default function ChangelogList({ initialEntries, copy, locale }: Props) {
         <div key={entry.tag} className='relative flex justify-end gap-2'>
           {/* Left: sticky version + date (desktop) */}
           <div className='sticky top-19 flex w-36 flex-col items-end gap-2 self-start pb-4 max-md:hidden'>
-            <Badge className='flex w-auto justify-end rounded-sm text-sm font-medium'>
+            <Badge className='flex w-auto justify-end rounded-sm font-medium text-sm'>
               <a href={entry.url} target='_blank' rel='noopener noreferrer'>
                 {entry.tag}
               </a>
             </Badge>
-            <div className={`${inter.className} text-right text-sm text-muted-foreground`}>
+            <div className={`${inter.className} text-right text-muted-foreground text-sm`}>
               {new Date(entry.date).toLocaleDateString(locale, {
                 year: 'numeric',
                 month: 'short',
@@ -214,7 +213,7 @@ export default function ChangelogList({ initialEntries, copy, locale }: Props) {
                   </div>
                 )}
               </div>
-              <div className={`${inter.className} text-sm text-muted-foreground`}>
+              <div className={`${inter.className} text-muted-foreground text-sm`}>
                 {new Date(entry.date).toLocaleDateString(locale, {
                   year: 'numeric',
                   month: 'short',

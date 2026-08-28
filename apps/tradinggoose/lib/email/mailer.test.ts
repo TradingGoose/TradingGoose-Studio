@@ -11,14 +11,13 @@ const {
   mockLoggerError,
   mockResolveResendServiceConfig,
   mockResolveAzureCommunicationEmailServiceConfig,
-} =
-  vi.hoisted(() => ({
-    mockLoggerInfo: vi.fn(),
-    mockLoggerWarn: vi.fn(),
-    mockLoggerError: vi.fn(),
-    mockResolveResendServiceConfig: vi.fn(),
-    mockResolveAzureCommunicationEmailServiceConfig: vi.fn(),
-  }))
+} = vi.hoisted(() => ({
+  mockLoggerInfo: vi.fn(),
+  mockLoggerWarn: vi.fn(),
+  mockLoggerError: vi.fn(),
+  mockResolveResendServiceConfig: vi.fn(),
+  mockResolveAzureCommunicationEmailServiceConfig: vi.fn(),
+}))
 
 vi.mock('resend', () => {
   return {

@@ -80,9 +80,7 @@ const CONDITION_ENTRIES_SCHEMA: Record<string, unknown> = {
   },
 }
 
-function buildCodeFenceValidator(
-  message: string
-): RuntimeToolManifestSemanticValidator {
+function buildCodeFenceValidator(message: string): RuntimeToolManifestSemanticValidator {
   return {
     path: '',
     kind: 'string_forbids_substring',
@@ -157,8 +155,7 @@ function buildSubBlockValidators(
           mode: 'expression',
           message:
             'Each non-empty condition branch value must be a valid TypeScript/JavaScript expression.',
-          codeFenceMessage:
-            'Condition expressions must not be wrapped in markdown fences.',
+          codeFenceMessage: 'Condition expressions must not be wrapped in markdown fences.',
         }),
       },
     ]
@@ -174,7 +171,8 @@ function buildSubBlockValidators(
         whenBlockType: blockType,
         path,
         validators: buildCodeSyntaxValidators({
-          mode: subBlock.generationType === 'typescript-function-body' ? 'function_body' : 'program',
+          mode:
+            subBlock.generationType === 'typescript-function-body' ? 'function_body' : 'program',
           message:
             subBlock.generationType === 'typescript-function-body'
               ? 'Expected valid raw TypeScript function-body code.'
@@ -232,11 +230,11 @@ async function getRegisteredBlocks(): Promise<RegisteredBlockEntry[]> {
   })
 }
 
-export async function buildWorkflowEmbeddedDocumentValidators(): Promise<EmbeddedDocumentValidator[]> {
+export async function buildWorkflowEmbeddedDocumentValidators(): Promise<
+  EmbeddedDocumentValidator[]
+> {
   const registeredBlocks = await getRegisteredBlocks()
   return registeredBlocks.flatMap(({ blockType, blockConfig }) =>
-    blockConfig.subBlocks.flatMap((subBlock) =>
-      buildSubBlockValidators(blockType, subBlock)
-    )
+    blockConfig.subBlocks.flatMap((subBlock) => buildSubBlockValidators(blockType, subBlock))
   )
 }

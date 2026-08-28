@@ -273,7 +273,7 @@ export class MarketDepthRenderer<HorzScaleItem> implements IPaneRenderer {
       const price = Number.parseFloat(level.Price)
       const size = Number.parseFloat(level.TotalSize || '0')
 
-      if (!isFinite(price) || !isFinite(size)) continue
+      if (!Number.isFinite(price) || !Number.isFinite(size)) continue
 
       // 1. Calculate Vertical Position (Y)
       const yPos = seriesApi.priceToCoordinate(price)

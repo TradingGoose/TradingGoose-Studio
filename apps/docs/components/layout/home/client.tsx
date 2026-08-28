@@ -1,9 +1,9 @@
-'use client';
-import { type ComponentProps, type PointerEvent, Fragment, useState } from 'react';
-import { cva } from 'class-variance-authority';
-import Link from 'fumadocs-core/link';
-import { cn } from '../../../lib/cn';
-import { BaseLinkItem, type LinkItemType } from '../shared/index';
+'use client'
+import { type ComponentProps, Fragment, type PointerEvent, useState } from 'react'
+import { cva } from 'class-variance-authority'
+import Link from 'fumadocs-core/link'
+import { useNav } from 'fumadocs-ui/contexts/layout'
+import { cn } from '../../../lib/cn'
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -12,9 +12,9 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
   NavigationMenuViewport,
-} from '../../navigation-menu';
-import { useNav } from 'fumadocs-ui/contexts/layout';
-import { buttonVariants } from '../../ui/button';
+} from '../../navigation-menu'
+import { buttonVariants } from '../../ui/button'
+import { BaseLinkItem, type LinkItemType } from '../shared/index'
 
 export const navItemVariants = cva('[&_svg]:size-4', {
   variants: {
@@ -33,62 +33,57 @@ export const navItemVariants = cva('[&_svg]:size-4', {
   defaultVariants: {
     variant: 'main',
   },
-});
+})
 
 export function Navbar(props: ComponentProps<'div'>) {
-  const [value, setValue] = useState('');
-  const { isTransparent } = useNav();
+  const [value, setValue] = useState('')
+  const { isTransparent } = useNav()
 
   return (
     <NavigationMenu value={value} onValueChange={setValue} asChild>
       <header
-        id="nd-nav"
+        id='nd-nav'
         {...props}
         className={cn(
-          'fixed top-(--fd-banner-height) z-40 left-0 right-(--removed-body-scroll-bar-size,0) backdrop-blur-lg border-b transition-colors *:mx-auto *:max-w-fd-container',
-          value.length > 0 && 'max-lg:shadow-lg max-lg:rounded-b-2xl',
+          'fixed top-(--fd-banner-height) right-(--removed-body-scroll-bar-size,0) left-0 z-40 border-b backdrop-blur-lg transition-colors *:mx-auto *:max-w-fd-container',
+          value.length > 0 && 'max-lg:rounded-b-2xl max-lg:shadow-lg',
           (!isTransparent || value.length > 0) && 'bg-fd-background',
-          props.className,
+          props.className
         )}
       >
-        <NavigationMenuList
-          className="flex h-14 w-full items-center px-4"
-          asChild
-        >
+        <NavigationMenuList className='flex h-14 w-full items-center px-4' asChild>
           <nav>{props.children}</nav>
         </NavigationMenuList>
 
         <NavigationMenuViewport />
       </header>
     </NavigationMenu>
-  );
+  )
 }
 
-export { NavigationMenuItem };
+export { NavigationMenuItem }
 
 export function NavigationMenuLinkItem({
   item,
   ...props
 }: {
-  item: LinkItemType;
-  className?: string;
+  item: LinkItemType
+  className?: string
 }) {
-  if (item.type === 'custom') return <div {...props}>{item.children}</div>;
+  if (item.type === 'custom') return <div {...props}>{item.children}</div>
 
   if (item.type === 'menu') {
     const children = item.items.map((child, j) => {
       if (child.type === 'custom') {
-        return <Fragment key={j}>{child.children}</Fragment>;
+        return <Fragment key={j}>{child.children}</Fragment>
       }
 
       const {
         banner = child.icon ? (
-          <div className="w-fit rounded-md border bg-fd-muted p-1 [&_svg]:size-4">
-            {child.icon}
-          </div>
+          <div className='w-fit rounded-md border bg-fd-muted p-1 [&_svg]:size-4'>{child.icon}</div>
         ) : null,
         ...rest
-      } = child.menu ?? {};
+      } = child.menu ?? {}
 
       return (
         <NavigationMenuLink key={`${j}-${child.url}`} asChild>
@@ -98,22 +93,20 @@ export function NavigationMenuLinkItem({
             {...rest}
             className={cn(
               'flex flex-col gap-2 rounded-lg border bg-fd-card p-3 transition-colors hover:bg-fd-accent/80 hover:text-fd-accent-foreground hover:backdrop-blur hover:supports-[backdrop-filter]:bg-fd-accent/55',
-              rest.className,
+              rest.className
             )}
           >
             {rest.children ?? (
               <>
                 {banner}
-                <p className="text-base font-medium">{child.text}</p>
-                <p className="text-sm text-fd-muted-foreground empty:hidden">
-                  {child.description}
-                </p>
+                <p className='font-medium text-base'>{child.text}</p>
+                <p className='text-fd-muted-foreground text-sm empty:hidden'>{child.description}</p>
               </>
             )}
           </Link>
         </NavigationMenuLink>
-      );
-    });
+      )
+    })
 
     return (
       <NavigationMenuItem {...props}>
@@ -126,11 +119,11 @@ export function NavigationMenuLinkItem({
             item.text
           )}
         </NavigationMenuTrigger>
-        <NavigationMenuContent className="grid grid-cols-1 gap-2 p-4 md:grid-cols-2 lg:grid-cols-3">
+        <NavigationMenuContent className='grid grid-cols-1 gap-2 p-4 md:grid-cols-2 lg:grid-cols-3'>
           {children}
         </NavigationMenuContent>
       </NavigationMenuItem>
-    );
+    )
   }
 
   return (
@@ -145,18 +138,18 @@ export function NavigationMenuLinkItem({
         </BaseLinkItem>
       </NavigationMenuLink>
     </NavigationMenuItem>
-  );
+  )
 }
 
 export function MobileNavigationMenuLinkItem({
   item,
   ...props
 }: {
-  item: LinkItemType;
-  className?: string;
+  item: LinkItemType
+  className?: string
 }) {
   if (item.type === 'custom')
-    return <div className={cn('grid', props.className)}>{item.children}</div>;
+    return <div className={cn('grid', props.className)}>{item.children}</div>
 
   if (item.type === 'menu') {
     const header = (
@@ -164,11 +157,11 @@ export function MobileNavigationMenuLinkItem({
         {item.icon}
         {item.text}
       </>
-    );
+    )
 
     return (
       <div className={cn('mb-4 flex flex-col', props.className)}>
-        <p className="mb-1 text-sm text-fd-muted-foreground">
+        <p className='mb-1 text-fd-muted-foreground text-sm'>
           {item.url ? (
             <NavigationMenuLink asChild>
               <Link href={item.url} external={item.external}>
@@ -183,7 +176,7 @@ export function MobileNavigationMenuLinkItem({
           <MobileNavigationMenuLinkItem key={i} item={child} />
         ))}
       </div>
-    );
+    )
   }
 
   return (
@@ -202,7 +195,7 @@ export function MobileNavigationMenuLinkItem({
               className: 'gap-1.5 [&_svg]:size-4',
             }),
           }[item.type ?? 'main'],
-          props.className,
+          props.className
         )}
         aria-label={item.type === 'icon' ? item.label : undefined}
       >
@@ -210,7 +203,7 @@ export function MobileNavigationMenuLinkItem({
         {item.type === 'icon' ? undefined : item.text}
       </BaseLinkItem>
     </NavigationMenuLink>
-  );
+  )
 }
 
 export function MobileNavigationMenuTrigger({
@@ -220,31 +213,24 @@ export function MobileNavigationMenuTrigger({
   /**
    * Enable hover to trigger
    */
-  enableHover?: boolean;
+  enableHover?: boolean
 }) {
   return (
     <NavigationMenuTrigger
       {...props}
       onPointerMove={
-        enableHover
-          ? undefined
-          : (e: PointerEvent<HTMLButtonElement>) => e.preventDefault()
+        enableHover ? undefined : (e: PointerEvent<HTMLButtonElement>) => e.preventDefault()
       }
     >
       {props.children}
     </NavigationMenuTrigger>
-  );
+  )
 }
 
-export function MobileNavigationMenuContent(
-  props: ComponentProps<typeof NavigationMenuContent>,
-) {
+export function MobileNavigationMenuContent(props: ComponentProps<typeof NavigationMenuContent>) {
   return (
-    <NavigationMenuContent
-      {...props}
-      className={cn('flex flex-col p-4', props.className)}
-    >
+    <NavigationMenuContent {...props} className={cn('flex flex-col p-4', props.className)}>
       {props.children}
     </NavigationMenuContent>
-  );
+  )
 }

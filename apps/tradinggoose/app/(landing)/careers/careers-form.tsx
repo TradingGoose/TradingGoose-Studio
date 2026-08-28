@@ -539,7 +539,7 @@ export function CareersForm() {
           </div>
 
           {submitStatus === 'success' ? (
-            <p role='status' className='text-center text-sm text-green-600'>
+            <p role='status' className='text-center text-green-600 text-sm'>
               {copy.actions.submitted}
             </p>
           ) : null}

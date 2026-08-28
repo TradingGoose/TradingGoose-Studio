@@ -4,7 +4,7 @@ const originalInternalSecret = process.env.INTERNAL_API_SECRET
 
 afterEach(() => {
   if (originalInternalSecret === undefined) {
-    delete process.env.INTERNAL_API_SECRET
+    Reflect.deleteProperty(process.env, 'INTERNAL_API_SECRET')
   } else {
     process.env.INTERNAL_API_SECRET = originalInternalSecret
   }

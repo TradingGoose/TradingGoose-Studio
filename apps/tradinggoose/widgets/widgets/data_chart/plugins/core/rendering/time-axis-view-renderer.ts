@@ -24,13 +24,6 @@ export class TimeAxisViewRenderer implements ITimeAxisViewRenderer {
   private _fallbackTextWidthCache: ITextWidthCache | null = null // NEW: Fallback cache
 
   /**
-   * Initializes the renderer. Data is set later via `setData`.
-   */
-  public constructor() {
-    // Data will be set via setData later
-  }
-
-  /**
    * Updates the data payload required to draw the time axis label.
    *
    * @param data - The {@link TimeAxisViewRendererData} containing the text, coordinate, and style.

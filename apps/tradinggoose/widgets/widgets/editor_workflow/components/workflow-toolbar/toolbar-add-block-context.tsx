@@ -15,9 +15,7 @@ export function ToolbarAddBlockProvider({
   children: ReactNode
 }) {
   return (
-    <ToolbarAddBlockContext.Provider value={onAddBlock}>
-      {children}
-    </ToolbarAddBlockContext.Provider>
+    <ToolbarAddBlockContext.Provider value={onAddBlock}>{children}</ToolbarAddBlockContext.Provider>
   )
 }
 

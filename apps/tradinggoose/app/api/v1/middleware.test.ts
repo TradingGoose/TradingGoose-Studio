@@ -73,7 +73,9 @@ describe('v1 rate-limit middleware', () => {
   })
 
   it('fails closed with a 503 when subscription lookup throws', async () => {
-    mockGetPersonalEffectiveSubscription.mockRejectedValueOnce(new Error('subscription lookup failed'))
+    mockGetPersonalEffectiveSubscription.mockRejectedValueOnce(
+      new Error('subscription lookup failed')
+    )
 
     const { checkRateLimit, createRateLimitResponse } = await import('@/app/api/v1/middleware')
     const result = await checkRateLimit(createRequest(), 'logs')

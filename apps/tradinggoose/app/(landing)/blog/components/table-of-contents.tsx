@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { useMessages } from 'next-intl'
-import { type LocaleCode } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import type { TOC } from '../lib/types'
 
 interface TableOfContentsProps {
@@ -54,18 +53,18 @@ export default function TableOfContents({ toc }: TableOfContentsProps) {
   const minDepth = Math.min(...toc.map((item) => item.depth))
 
   return (
-    <div className="space-y-2">
-      <p className="font-medium uppercase">{blogCopy.tableOfContents}</p>
-      <ul className="m-0 list-none">
+    <div className='space-y-2'>
+      <p className='font-medium uppercase'>{blogCopy.tableOfContents}</p>
+      <ul className='m-0 list-none'>
         {toc.map((item) => (
-          <li key={item.url} className="mt-0">
+          <li key={item.url} className='mt-0'>
             <a
               href={item.url}
               className={cn(
                 'inline-block border-l-2 py-1.5 pl-4 no-underline transition-all hover:text-primary hover:underline',
                 item.url === activeHeading
                   ? 'border-primary text-primary'
-                  : 'text-sm text-muted-foreground'
+                  : 'text-muted-foreground text-sm'
               )}
               style={{ paddingLeft: `${(item.depth - minDepth + 1) * 16}px` }}
             >

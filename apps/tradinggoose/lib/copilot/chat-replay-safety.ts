@@ -50,10 +50,7 @@ export function isAcceptedLiveMutationToolCall(toolCall: unknown): boolean {
     return false
   }
 
-  if (
-    typeof candidate.state !== 'string' ||
-    !ACCEPTED_LIVE_MUTATION_STATES.has(candidate.state)
-  ) {
+  if (typeof candidate.state !== 'string' || !ACCEPTED_LIVE_MUTATION_STATES.has(candidate.state)) {
     return false
   }
 

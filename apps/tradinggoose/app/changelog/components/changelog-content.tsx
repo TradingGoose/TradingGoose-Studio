@@ -1,10 +1,10 @@
 import { BookOpen, Github, Rss } from 'lucide-react'
+import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
-import { localizeDocsUrl, type LocaleCode } from '@/i18n/utils'
-import ChangelogList from './timeline-list'
 import type { PublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode, localizeDocsUrl } from '@/i18n/utils'
+import ChangelogList from './timeline-list'
 
 export interface ChangelogEntry {
   tag: string
@@ -58,9 +58,7 @@ export default async function ChangelogContent({ copy, locale }: ChangelogConten
     <div className='bg-background'>
       <div className='relative grid md:grid-cols-2'>
         {/* Left intro panel */}
-        <div
-          className='md:absolute relative md:top-12 md:h-[95vh] overflow-hidden border-border border-b px-6 py-16 sm:px-10 md:sticky md:overflow-hidden md:border-r md:border-b-0 md:px-12 md:py-24'
-        >
+        <div className='relative overflow-hidden border-border border-b px-6 py-16 sm:px-10 md:absolute md:sticky md:top-12 md:h-[95vh] md:overflow-hidden md:border-r md:border-b-0 md:px-12 md:py-24'>
           <div
             className='pointer-events-none absolute inset-0 z-0'
             style={{
@@ -72,7 +70,13 @@ export default async function ChangelogContent({ copy, locale }: ChangelogConten
               WebkitMaskComposite: 'destination-in',
             }}
           >
-            <BackgroundRippleEffect cellSize={60} rows={20} cols={15} maskClassName='' interactive />
+            <BackgroundRippleEffect
+              cellSize={60}
+              rows={20}
+              cols={15}
+              maskClassName=''
+              interactive
+            />
           </div>
 
           <div className='relative mx-auto h-full max-w-xl md:flex md:flex-col md:justify-center'>
@@ -91,7 +95,7 @@ export default async function ChangelogContent({ copy, locale }: ChangelogConten
                 href='https://github.com/tradinggoose/tradinggoose-studio/releases'
                 target='_blank'
                 rel='noopener noreferrer'
-                className='inline-flex bg-foreground text-background items-center gap-2 rounded-md border border-border px-3 py-1.5 hover:bg-muted-foreground'
+                className='inline-flex items-center gap-2 rounded-md border border-border bg-foreground px-3 py-1.5 text-background hover:bg-muted-foreground'
               >
                 <Github className='h-4 w-4' />
                 {copy.viewOnGitHub}
@@ -100,14 +104,14 @@ export default async function ChangelogContent({ copy, locale }: ChangelogConten
                 href={localizeDocsUrl(locale)}
                 target='_blank'
                 rel='noopener noreferrer'
-                className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-card hover:bg-muted'
+                className='inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 hover:bg-muted'
               >
                 <BookOpen className='h-4 w-4' />
                 {copy.documentation}
               </a>
               <a
                 href='/changelog.xml'
-                className='inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 bg-card hover:bg-muted'
+                className='inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 hover:bg-muted'
               >
                 <Rss className='h-4 w-4' />
                 {copy.rssFeed}

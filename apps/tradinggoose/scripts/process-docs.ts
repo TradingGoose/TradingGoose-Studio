@@ -166,10 +166,10 @@ async function processDocs(options: ProcessingOptions = {}) {
 
     logger.info(
       `\n✅ Processing complete!\n` +
-      `   📊 Total chunks: ${chunks.length}\n` +
-      `   ✅ Processed: ${processedChunks}\n` +
-      `   ❌ Failed: ${failedChunks}\n` +
-      `   💾 Total in DB: ${savedCount}`
+        `   📊 Total chunks: ${chunks.length}\n` +
+        `   ✅ Processed: ${processedChunks}\n` +
+        `   ❌ Failed: ${failedChunks}\n` +
+        `   💾 Total in DB: ${savedCount}`
     )
 
     return { success: failedChunks === 0, processedChunks, failedChunks }

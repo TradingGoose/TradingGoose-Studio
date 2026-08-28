@@ -1,5 +1,8 @@
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { CopilotTool } from '@/lib/copilot/registry'
+import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import { loadWorkflowSnapshotForCopilot } from '@/lib/copilot/tools/server/entities/workflow'
+import type { ReadBlockUpstreamReferencesResultType } from '@/lib/copilot/tools/shared/schemas'
 import {
   computeBlockOutputReferences,
   extractSubBlockValuesFromBlocks,
@@ -7,9 +10,6 @@ import {
   getSubflowOutsideOutputReferences,
   readWorkflowVariableOutputs,
 } from '@/lib/copilot/workflow/block-output-utils'
-import { loadWorkflowSnapshotForCopilot } from '@/lib/copilot/tools/server/entities/workflow'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
-import type { ReadBlockUpstreamReferencesResultType } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { Loop, Parallel } from '@/stores/workflows/workflow/types'
 

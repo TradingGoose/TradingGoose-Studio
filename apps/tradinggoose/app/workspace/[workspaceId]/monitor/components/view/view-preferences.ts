@@ -1,8 +1,8 @@
 import { BrowserStorage } from '@/lib/browser-storage'
 import {
   DEFAULT_MONITOR_SHELL_WORKING_STATE,
-  normalizeMonitorShellWorkingState,
   type MonitorShellWorkingState,
+  normalizeMonitorShellWorkingState,
 } from './view-config'
 
 const MONITOR_WORKING_STATE_PREFIX = 'monitor-working-state'
@@ -89,11 +89,7 @@ export const readMonitorWorkingState = (
   return normalizeMonitorShellWorkingState(rawValue)
 }
 
-export const writeMonitorWorkingState = (
-  workspaceId: string,
-  userId: string,
-  state: unknown
-) => {
+export const writeMonitorWorkingState = (workspaceId: string, userId: string, state: unknown) => {
   if (!workspaceId || !userId) return false
 
   return BrowserStorage.setItem(

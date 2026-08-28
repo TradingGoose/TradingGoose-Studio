@@ -20,7 +20,9 @@ describe('system managed oauth client credentials', () => {
 
     const { loadSystemOAuthClientCredentials } = await import('./system-managed-config')
 
-    await expect(loadSystemOAuthClientCredentials(['google-email', 'github-repo'])).resolves.toEqual({})
+    await expect(
+      loadSystemOAuthClientCredentials(['google-email', 'github-repo'])
+    ).resolves.toEqual({})
   })
 
   it('prefers system-managed credentials when the provider is present in the catalog', async () => {

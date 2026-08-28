@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
+import { Analytics } from '@vercel/analytics/next'
 import { defineI18nUI } from 'fumadocs-ui/i18n'
-import { DocsLayout } from '@/components/layout/docs'
 import { RootProvider } from 'fumadocs-ui/provider/next'
 import { Geist_Mono, Inter } from 'next/font/google'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import { Analytics } from '@vercel/analytics/next'
+import { DocsLayout } from '@/components/layout/docs'
 import '../global.css'
 import { i18n } from '@/lib/i18n'
 import { source } from '@/lib/source'
@@ -110,7 +110,7 @@ export default async function Layout({ children, params }: LayoutProps) {
               title: 'Documentations',
               url: `/${locale}`,
               logo: (
-                <div className='flex h-8 w-8 items-center justify-center bg-fd-primary rounded-md'>
+                <div className='flex h-8 w-8 items-center justify-center rounded-md bg-fd-primary'>
                   <Image
                     src='/static/logo.png'
                     alt='TradingGoose'

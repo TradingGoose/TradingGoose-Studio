@@ -172,7 +172,7 @@ export class PriceAxisLabelStackingManager<HorzScaleItem> {
 
     const activeLabels: LabelDataForStacking[] = []
     this._labels.forEach((label) => {
-      if (label.isVisible() && isFinite(label.originalCoordinate) && label.height > 0) {
+      if (label.isVisible() && Number.isFinite(label.originalCoordinate) && label.height > 0) {
         activeLabels.push(label)
       } else {
         // Ensure invisible/invalid labels have their fixed coord cleared

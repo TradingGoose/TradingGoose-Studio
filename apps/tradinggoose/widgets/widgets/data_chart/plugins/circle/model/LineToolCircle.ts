@@ -215,8 +215,8 @@ export class LineToolCircle<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
     chart: IChartApiBase<HorzScaleItem>,
     series: ISeriesApi<SeriesType, HorzScaleItem>,
     horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
-    options: DeepPartial<LineToolOptionsInternal<'Circle'>> = {},
-    points: LineToolPoint[] = [],
+    options: DeepPartial<LineToolOptionsInternal<'Circle'>> | undefined,
+    points: LineToolPoint[] | undefined,
     priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
   ) {
     const finalOptions = buildToolOptions(CircleOptionDefaults, options)
@@ -320,7 +320,7 @@ export class LineToolCircle<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
     const renderer = paneView.renderer()
 
     // The renderer is expected to be the CompositeRenderer which contains the CircleRenderer.
-    if (renderer && renderer.hitTest) {
+    if (renderer?.hitTest) {
       // Hit-test the main circle body and the 8 virtual anchors
       return renderer.hitTest(x, y)
     }

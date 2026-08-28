@@ -1,5 +1,5 @@
-import type { MarketBar, MarketSeries } from '@/providers/market/types'
 import type { BarMs } from '@/lib/indicators/types'
+import type { MarketBar, MarketSeries } from '@/providers/market/types'
 
 const recomputeCloseTimes = (bars: BarMs[], intervalMs?: number | null): BarMs[] => {
   if (bars.length === 0) return bars
@@ -65,8 +65,7 @@ export const normalizeBarsMs = (barsMs: BarMs[], intervalMs?: number | null): Ba
   barsMs.forEach((bar) => {
     if (!bar || !Number.isFinite(bar.openTime)) return
     const openTime = bar.openTime
-    const closeTime =
-      Number.isFinite(bar.closeTime) && bar.closeTime > 0 ? bar.closeTime : openTime
+    const closeTime = Number.isFinite(bar.closeTime) && bar.closeTime > 0 ? bar.closeTime : openTime
     map.set(openTime, {
       openTime,
       closeTime,
@@ -74,7 +73,7 @@ export const normalizeBarsMs = (barsMs: BarMs[], intervalMs?: number | null): Ba
       high: Number.isFinite(bar.high) ? bar.high : 0,
       low: Number.isFinite(bar.low) ? bar.low : 0,
       close: Number.isFinite(bar.close) ? bar.close : 0,
-      volume: Number.isFinite(bar.volume ?? NaN) ? bar.volume : undefined,
+      volume: Number.isFinite(bar.volume ?? Number.NaN) ? bar.volume : undefined,
     })
   })
   const merged = Array.from(map.values()).sort((a, b) => a.openTime - b.openTime)

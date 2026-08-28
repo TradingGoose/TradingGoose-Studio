@@ -3,8 +3,8 @@ import { userStats } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { getOrganizationBillingLedger } from '@/lib/billing/core/organization'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import { accrueUserUsageCost } from '@/lib/billing/usage-accrual'
 import {
   resolveWorkflowBillingContext,

@@ -6,4 +6,3 @@ export type HeroServiceIcon = {
   label: string
   style?: CSSProperties
 }
-

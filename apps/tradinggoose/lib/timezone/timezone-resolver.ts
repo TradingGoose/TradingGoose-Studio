@@ -1,10 +1,6 @@
 import { marketClient } from '@/lib/market/client'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
-import {
-  isUtcOffset,
-  normalizeUtcOffset,
-  parseUtcOffsetMinutes,
-} from '@/lib/time-format'
+import { isUtcOffset, normalizeUtcOffset, parseUtcOffsetMinutes } from '@/lib/time-format'
 
 export type TimeZoneResponse = {
   name: string
@@ -39,9 +35,7 @@ const fetchMarketTimeZones = async (
   }
 
   if ('error' in (payload as { error?: unknown })) {
-    throw new Error(
-      String((payload as { error?: unknown }).error || 'Market timezone error')
-    )
+    throw new Error(String((payload as { error?: unknown }).error || 'Market timezone error'))
   }
 
   return payload as TimeZoneResponse | TimeZoneResponse[]

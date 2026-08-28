@@ -1,4 +1,7 @@
-import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
+import {
+  LISTING_IDENTITY_VALUE_TYPE,
+  parseListingIdentityValueStrict,
+} from '@/lib/listing/identity'
 import type { VariableType } from '@/stores/variables/types'
 
 /**

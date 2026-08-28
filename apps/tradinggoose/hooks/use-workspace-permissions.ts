@@ -3,8 +3,8 @@
 import { useCallback, useEffect } from 'react'
 import type { permissionTypeEnum } from '@tradinggoose/db/schema'
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { handleAuthError, isAuthErrorStatus } from '@/lib/auth/auth-error-handler'
 import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
+import { handleAuthError, isAuthErrorStatus } from '@/lib/auth/auth-error-handler'
 import { createLogger } from '@/lib/logs/console/logger'
 import { usePathname } from '@/i18n/navigation'
 import { API_ENDPOINTS } from '@/stores/constants'
@@ -134,8 +134,7 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
           error: null,
         })
       } catch (err) {
-        const permissionLoadFailure =
-          err instanceof Error ? err.message : 'Unknown error occurred'
+        const permissionLoadFailure = err instanceof Error ? err.message : 'Unknown error occurred'
         logger.error('Failed to fetch workspace permissions', {
           workspaceId,
           error: permissionLoadFailure,

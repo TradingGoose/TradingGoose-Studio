@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import {
   createExecutionToolSchema,
   createLLMToolSchema,
@@ -13,7 +14,6 @@ import {
   type ValidationResult,
   validateToolParameters,
 } from '@/tools/params'
-import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import type { HttpMethod, ParameterVisibility, ToolConfig } from '@/tools/types'
 
 const mockToolConfig: ToolConfig = {

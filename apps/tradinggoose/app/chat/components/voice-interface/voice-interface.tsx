@@ -2,12 +2,13 @@
 
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { Mic, MicOff, Phone } from 'lucide-react'
+import type { Messages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import type { Messages } from 'next-intl'
 
 type ChatMessages = Messages['chat']
+
 import { ParticlesVisualization } from '@/app/chat/components/voice-interface/components/particles'
 
 const logger = createLogger('VoiceInterface')

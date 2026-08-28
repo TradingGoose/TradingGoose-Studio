@@ -1,8 +1,5 @@
 {
-  "commentTypes": [
-    "logic",
-    "syntax"
-  ],
+  "commentTypes": ["logic", "syntax"],
   "strictness": 2,
   "instructions": "Prioritize architectural regressions, data consistency bugs, billing entitlement mistakes, Yjs collaboration breakage, and provider-normalization drift. Ignore style-only nits unless they hide a correctness, maintainability, or contract issue.",
   "ignorePatterns": "**/migration/**\n**/migrations/**\nLICENSE*\nLICENSES/**\nNOTICE\nTHIRD-PARTY-LICENSES",

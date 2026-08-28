@@ -37,10 +37,7 @@ export function findToolDocSlugForTriggerProvider(
   return findNormalizedDocSlugMatch(provider, toolSlugs)
 }
 
-export function collectGeneratedToolSlugs(
-  blocksPath: string,
-  rootDir: string
-): Set<string> {
+export function collectGeneratedToolSlugs(blocksPath: string, rootDir: string): Set<string> {
   const toolSlugs = new Set<string>()
 
   for (const blockFile of globSync(`${blocksPath}/*.ts`)) {
@@ -79,10 +76,7 @@ export function shouldGenerateToolDoc(config: BlockConfig): boolean {
   return true
 }
 
-function findNormalizedDocSlugMatch(
-  source: string,
-  slugs: Set<string>
-): string | undefined {
+function findNormalizedDocSlugMatch(source: string, slugs: Set<string>): string | undefined {
   const normalizedSource = normalizeDocSlug(source)
   for (const slug of slugs) {
     if (normalizeDocSlug(slug) === normalizedSource) return slug

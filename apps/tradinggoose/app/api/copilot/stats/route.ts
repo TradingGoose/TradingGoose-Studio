@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     let agentJson: any = null
     try {
       agentJson = await agentRes.json()
-    } catch { }
+    } catch {}
 
     if (!agentRes.ok) {
       const message = (agentJson && (agentJson.error || agentJson.message)) || 'Upstream error'

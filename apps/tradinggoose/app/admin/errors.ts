@@ -1,5 +1,5 @@
-import { ADMIN_ERROR_CODES } from './constants'
 import type { Messages } from 'next-intl'
+import { ADMIN_ERROR_CODES } from './constants'
 
 type AdminMessages = Messages['admin']
 

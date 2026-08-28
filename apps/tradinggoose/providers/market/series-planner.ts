@@ -127,7 +127,7 @@ const normalizeWindow = (
     if (startMs >= endMs) return null
 
     let resolvedStart: number = startMs
-    let resolvedEnd = endMs
+    const resolvedEnd = endMs
 
     if (retention?.maxRangeDays && retention.maxRangeDays > 0) {
       const maxRangeMs = retention.maxRangeDays * DAY_MS
@@ -177,8 +177,7 @@ export const planMarketSeriesRequest = (
     capabilities?.windowModes && capabilities.windowModes.length > 0
       ? capabilities.windowModes
       : (['range'] as MarketSeriesWindowMode[])
-  const interval =
-    request.interval || (request.providerParams?.interval as string | undefined)
+  const interval = request.interval || (request.providerParams?.interval as string | undefined)
   const intervalMs = intervalToMs(interval)
   const retention = resolveRetention(providerId, interval)
   // Windows are priority-ordered by the caller; pick the first supported+valid mode.
@@ -189,7 +188,7 @@ export const planMarketSeriesRequest = (
   let reason: string | undefined
 
   const requestedPrimaryMode =
-    requestedWindows.length > 0 ? requestedWindows[0]?.mode ?? null : null
+    requestedWindows.length > 0 ? (requestedWindows[0]?.mode ?? null) : null
 
   for (const candidate of requestedWindows) {
     if (!candidate || !allowedModes.includes(candidate.mode)) continue
@@ -222,13 +221,12 @@ export const planMarketSeriesRequest = (
     planned.start = new Date(window.startMs).toISOString()
     planned.end = new Date(window.endMs).toISOString()
   } else {
-    delete planned.start
-    delete planned.end
+    Reflect.deleteProperty(planned, 'start')
+    Reflect.deleteProperty(planned, 'end')
   }
 
   // Range param preserves "latest available" semantics for providers that support range windows.
-  const rangeParam =
-    window.mode === 'range' ? rangeParamFromMs(window.rangeMs) : null
+  const rangeParam = window.mode === 'range' ? rangeParamFromMs(window.rangeMs) : null
   if (rangeParam && planned.providerParams?.range == null) {
     planned.providerParams = {
       ...(planned.providerParams ?? {}),
@@ -248,12 +246,7 @@ export const planMarketSeriesRequest = (
       limit: barCount,
     }
   }
-  if (
-    window.mode === 'bars' &&
-    intervalMs &&
-    !planned.start &&
-    !planned.end
-  ) {
+  if (window.mode === 'bars' && intervalMs && !planned.start && !planned.end) {
     const endMs = Date.now()
     const startMs = Math.max(0, endMs - window.barCount * intervalMs)
     planned.start = new Date(startMs).toISOString()

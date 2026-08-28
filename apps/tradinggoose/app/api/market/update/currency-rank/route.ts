@@ -13,12 +13,7 @@ const CurrencyRankSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
-  const params = buildQueryParams(request, [
-    'currency_id',
-    'currencyId',
-    'currency_code',
-    'code',
-  ])
+  const params = buildQueryParams(request, ['currency_id', 'currencyId', 'currency_code', 'code'])
   const parsed = CurrencyRankSchema.safeParse(params)
 
   if (!parsed.success) {
@@ -32,10 +27,7 @@ export async function POST(request: NextRequest) {
   const currencyCode = parsed.data.currency_code ?? parsed.data.code
 
   if (!currencyId && !currencyCode) {
-    return NextResponse.json(
-      { error: 'currency_id is required.' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'currency_id is required.' }, { status: 400 })
   }
 
   const searchParams = new URLSearchParams()

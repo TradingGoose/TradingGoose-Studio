@@ -1,8 +1,8 @@
+import type { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler } from '@/executor/types'
-import type { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('ResponseBlockHandler')
@@ -10,7 +10,14 @@ const logger = createLogger('ResponseBlockHandler')
 interface JSONProperty {
   id: string
   name: string
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'files' | typeof LISTING_IDENTITY_VALUE_TYPE
+  type:
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'object'
+    | 'array'
+    | 'files'
+    | typeof LISTING_IDENTITY_VALUE_TYPE
   value: any
   collapsed?: boolean
 }

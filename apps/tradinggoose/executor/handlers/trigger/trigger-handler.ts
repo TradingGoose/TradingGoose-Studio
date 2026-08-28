@@ -1,5 +1,5 @@
-import { getBlock } from '@/blocks'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getBlock } from '@/blocks'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 

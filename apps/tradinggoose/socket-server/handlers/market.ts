@@ -1,10 +1,10 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 import {
   type MarketSubscribePayload,
   type MarketUnsubscribePayload,
   marketStreamManager,
 } from '@/socket-server/market/manager'
+import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 
 const logger = createLogger('MarketHandlers')
 

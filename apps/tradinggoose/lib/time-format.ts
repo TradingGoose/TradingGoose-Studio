@@ -4,8 +4,7 @@ const OFFSET_RE = /^[+-]\d{2}:\d{2}$/
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/
-const DATETIME_RE =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/
+const DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/
 const SECONDS_RE = /^\d+$/
 
 const DATE_HINT_RE = /yyyy-mm-dd|\d{4}-\d{2}-\d{2}/i
@@ -53,9 +52,7 @@ const isValidDate = (year: number, month: number, day: number) => {
   if (day < 1 || day > 31) return false
   const date = new Date(Date.UTC(year, month - 1, day))
   return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
   )
 }
 
@@ -104,15 +101,7 @@ export const parseStoredTimeValue = (raw: string | null | undefined): Date => {
   const minute = Number.parseInt(minutes, 10)
   const second = Number.parseInt(seconds ?? '0', 10)
   if (Number.isNaN(hour) || Number.isNaN(minute) || Number.isNaN(second)) return now
-  return new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    hour,
-    minute,
-    second,
-    0
-  )
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, second, 0)
 }
 
 export const shouldSkipTimeValidation = (value: string): boolean => {
@@ -136,8 +125,7 @@ export const normalizeTimeInput = (
     }
     return {
       valid: false,
-      error:
-        'Use YYYY-MM-DD, HH:mm:ss, seconds (digits), or YYYY-MM-DDTHH:mm:ssZ',
+      error: 'Use YYYY-MM-DD, HH:mm:ss, seconds (digits), or YYYY-MM-DDTHH:mm:ssZ',
     }
   }
 
@@ -219,11 +207,7 @@ export const inferTimeFormatFromText = (rawText: string): TimeFormat | null => {
   if (!text || EXCLUDE_HINT_RE.test(text)) return null
   if (text.includes('cron')) return null
   if (RELATIVE_TIME_HINT_RE.test(text) || DURATION_STRING_HINT_RE.test(text)) return null
-  if (
-    text.includes('timezone') &&
-    !TIME_HINT_RE.test(text) &&
-    !DATE_HINT_RE.test(text)
-  ) {
+  if (text.includes('timezone') && !TIME_HINT_RE.test(text) && !DATE_HINT_RE.test(text)) {
     return null
   }
 

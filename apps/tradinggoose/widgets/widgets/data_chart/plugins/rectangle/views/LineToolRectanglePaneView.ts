@@ -8,7 +8,7 @@
  */
 
 // Import necessary types and classes from Lightweight Charts
-import type { Coordinate, IChartApiBase, ISeriesApi, SeriesType } from 'lightweight-charts'
+import type { Coordinate } from 'lightweight-charts'
 // Import core plugin types and classes
 import {
   AnchorPoint,
@@ -25,9 +25,6 @@ import {
   type RectangleRendererData,
   type TextRendererData,
 } from '../../core'
-// Import the specific tool model for strong typing (LineToolRectangle)
-import type { LineToolRectangle } from '../model/LineToolRectangle'
-
 /**
  * The specific Pane View for the Rectangle tool.
  *
@@ -47,34 +44,6 @@ export class LineToolRectanglePaneView<HorzScaleItem> extends LineToolPaneView<H
   // Rectangle and Text renderers are now declared and initialized in the BaseLineToolPaneView
   // protected _rectangleRenderer: RectangleRenderer; // No longer need to declare here if initialized in base
   // protected _labelRenderer: TextRenderer; // No longer need to declare here if initialized in base
-
-  /**
-   * Initializes the View instance.
-   *
-   * **Tutorial Note:**
-   * The constructor receives the specific `LineToolRectangle` instance.
-   * By passing this specific type (instead of the generic `BaseLineTool`), we gain type safety
-   * when accessing rectangle-specific options (like `options.rectangle.extend`) later in the render loop.
-   *
-   * We pass these references up to the `super()` constructor, which initializes the shared
-   * `CompositeRenderer`, `RectangleRenderer`, and `TextRenderer` instances automatically.
-   *
-   * @param source - The concrete Model instance for this rectangle.
-   * @param chart - The LWC Chart API (used for coordinate conversion).
-   * @param series - The LWC Series API (used for price conversion).
-   */
-  public constructor(
-    source: LineToolRectangle<HorzScaleItem>, // Specific tool instance
-    chart: IChartApiBase<any>, // Chart API
-    series: ISeriesApi<SeriesType, any> // Series API
-  ) {
-    // Call the super constructor (LineToolPaneView) to initialize common properties and renderers.
-    super(source, chart, series)
-
-    // The renderers (_rectangleRenderer, _labelRenderer, _renderer) are now initialized
-    // in the LineToolPaneView base class constructor.
-    // We can directly use them here.
-  }
 
   /**
    * The main rendering loop for this tool.
@@ -211,8 +180,6 @@ export class LineToolRectanglePaneView<HorzScaleItem> extends LineToolPaneView<H
           // Catch-all for disconnected tools
           shouldCull = true
           break
-
-        case OffScreenState.Visible:
         default:
           // Tool is visible or horizontally overlaps, proceed to render
           shouldCull = false

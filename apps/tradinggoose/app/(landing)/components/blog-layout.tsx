@@ -3,7 +3,7 @@ import Footer from '@/app/(landing)/components/footer/footer'
 import PublicNav from '@/app/(landing)/components/nav/public-nav'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { localizeSiteUrl, type LocaleCode } from '@/i18n/utils'
+import { type LocaleCode, localizeSiteUrl } from '@/i18n/utils'
 
 interface BlogLayoutProps {
   children: React.ReactNode
@@ -61,7 +61,7 @@ export default async function BlogLayout({ children, path, title }: BlogLayoutPr
       )}
       <PublicNav />
 
-      <div className='border-b border-border px-4 pt-10 pb-80 sm:px-12 md:px-20 lg:px-60'>
+      <div className='border-border border-b px-4 pt-10 pb-80 sm:px-12 md:px-20 lg:px-60'>
         {children}
       </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useMemo, useRef, useState, useEffect, useCallback } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 interface ShowcaseCardProps {
@@ -24,7 +24,7 @@ export function ShowcaseCard({ children, caption, className }: ShowcaseCardProps
         </div>
       </div>
       {caption && (
-        <figcaption className='mt-2 text-center text-xs text-fd-muted-foreground'>
+        <figcaption className='mt-2 text-center text-fd-muted-foreground text-xs'>
           {caption}
         </figcaption>
       )}
@@ -66,18 +66,21 @@ function RippleBg({ containerRef, rows: minRows = DEFAULT_ROWS }: RippleBgProps)
 
   const cells = useMemo(() => Array.from({ length: rows * COLS }, (_, i) => i), [rows])
 
-  const getCell = useCallback((e: PointerEvent) => {
-    const grid = gridRef.current
-    if (!grid) return null
-    const rect = grid.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return null
-    const col = Math.floor(x / CELL_SIZE)
-    const row = Math.floor(y / CELL_SIZE)
-    if (row < 0 || row >= rows || col < 0 || col >= COLS) return null
-    return { row, col }
-  }, [rows])
+  const getCell = useCallback(
+    (e: PointerEvent) => {
+      const grid = gridRef.current
+      if (!grid) return null
+      const rect = grid.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      if (x < 0 || y < 0 || x > rect.width || y > rect.height) return null
+      const col = Math.floor(x / CELL_SIZE)
+      const row = Math.floor(y / CELL_SIZE)
+      if (row < 0 || row >= rows || col < 0 || col >= COLS) return null
+      return { row, col }
+    },
+    [rows]
+  )
 
   useEffect(() => {
     const el = containerRef.current
@@ -85,9 +88,7 @@ function RippleBg({ containerRef, rows: minRows = DEFAULT_ROWS }: RippleBgProps)
 
     const onMove = (e: PointerEvent) => {
       const cell = getCell(e)
-      setHoveredCell((prev) =>
-        prev?.row === cell?.row && prev?.col === cell?.col ? prev : cell
-      )
+      setHoveredCell((prev) => (prev?.row === cell?.row && prev?.col === cell?.col ? prev : cell))
     }
     const onDown = (e: PointerEvent) => {
       const cell = getCell(e)
@@ -140,10 +141,10 @@ function RippleBg({ containerRef, rows: minRows = DEFAULT_ROWS }: RippleBgProps)
             <div
               key={idx}
               className={cn(
-                'border-[1px] opacity-50 transition-all duration-150 will-change-transform shadow-inner shadow-lg',
-                'bg-fd-primary/10 border-neutral-500',
+                'border-[1px] opacity-50 shadow-inner shadow-lg transition-all duration-150 will-change-transform',
+                'border-neutral-500 bg-fd-primary/10',
                 clickedCell && 'animate-cell-ripple [animation-fill-mode:none]',
-                isHovered && 'opacity-90 border-fd-primary brightness-95'
+                isHovered && 'border-fd-primary opacity-90 brightness-95'
               )}
               style={
                 clickedCell

@@ -1,8 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 import { glob } from 'glob'
-import type { GeneratorContext } from './types'
 import { extractBlockConfig } from './extract-blocks'
+import type { GeneratorContext } from './types'
 import { updateMetaJson } from './utils'
 
 /**

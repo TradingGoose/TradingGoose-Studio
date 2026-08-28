@@ -1,5 +1,4 @@
-import * as React from 'react'
-
+import type * as React from 'react'
 import { cn } from '@/lib/utils'
 
 interface MarqueeProps extends React.ComponentPropsWithoutRef<'div'> {
@@ -34,7 +33,7 @@ function Marquee(props: MarqueeProps) {
         'group flex overflow-hidden p-3',
         {
           'flex-row': !vertical,
-          'flex-col': vertical
+          'flex-col': vertical,
         },
         className
       )}
@@ -53,8 +52,8 @@ function Marquee(props: MarqueeProps) {
           <div
             key={i}
             className={cn('flex shrink-0 justify-around', {
-              'flex-row animate-marquee': !vertical,
-              'flex-col animate-marquee-vertical': vertical,
+              'animate-marquee flex-row': !vertical,
+              'animate-marquee-vertical flex-col': vertical,
               'group-hover:[animation-play-state:paused]': pauseOnHover,
               '[animation-direction:reverse]': reverse,
             })}

@@ -24,11 +24,7 @@ export function BlockInfoCard({ type, color }: BlockInfoCardProps): ReactNode {
       <div className='relative z-10 flex items-center justify-center p-8'>
         <div
           className='flex h-10 w-10 items-center justify-center rounded-md bg-fd-secondary'
-          style={
-            bgColor
-              ? { backgroundColor: `${bgColor}20`, color: bgColor }
-              : undefined
-          }
+          style={bgColor ? { backgroundColor: `${bgColor}20`, color: bgColor } : undefined}
         >
           <IconComponent className='h-6 w-6' />
         </div>

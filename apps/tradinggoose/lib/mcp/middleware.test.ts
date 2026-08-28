@@ -38,9 +38,7 @@ describe('MCP middleware', () => {
     })
     mockGetUserEntityPermissions.mockResolvedValue('write')
 
-    const handler = vi.fn(async (_request: NextRequest, context) =>
-      NextResponse.json({ context })
-    )
+    const handler = vi.fn(async (_request: NextRequest, context) => NextResponse.json({ context }))
 
     const wrapped = withMcpAuth('write')(handler)
     const response = await wrapped(
@@ -54,15 +52,10 @@ describe('MCP middleware', () => {
       userId: 'user-1',
       workspaceId: 'workspace-1',
     })
-    expect(mockCheckSessionOrInternalAuth).toHaveBeenCalledWith(
-      expect.any(NextRequest),
-      { requireWorkflowId: false }
-    )
-    expect(mockGetUserEntityPermissions).toHaveBeenCalledWith(
-      'user-1',
-      'workspace',
-      'workspace-1'
-    )
+    expect(mockCheckSessionOrInternalAuth).toHaveBeenCalledWith(expect.any(NextRequest), {
+      requireWorkflowId: false,
+    })
+    expect(mockGetUserEntityPermissions).toHaveBeenCalledWith('user-1', 'workspace', 'workspace-1')
   })
 
   it('allows internal-authenticated requests', async () => {
@@ -73,9 +66,7 @@ describe('MCP middleware', () => {
     })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
 
-    const handler = vi.fn(async (_request: NextRequest, context) =>
-      NextResponse.json({ context })
-    )
+    const handler = vi.fn(async (_request: NextRequest, context) => NextResponse.json({ context }))
 
     const wrapped = withMcpAuth('admin')(handler)
     const response = await wrapped(

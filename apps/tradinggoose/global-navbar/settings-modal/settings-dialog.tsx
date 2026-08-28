@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { AccountSettings } from './components/account/account-settings'
 import { ServiceSettings } from './components/service/service-settings'

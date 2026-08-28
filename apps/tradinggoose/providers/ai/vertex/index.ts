@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai'
+import { OAuth2Client } from 'google-auth-library'
 import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { OAuth2Client } from 'google-auth-library'
 import type { StreamingExecution } from '@/executor/types'
 import { executeGeminiRequest } from '@/providers/ai/gemini/core'
 import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'

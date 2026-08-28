@@ -144,8 +144,8 @@ export class LineToolText<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
     chart: IChartApiBase<HorzScaleItem>,
     series: ISeriesApi<SeriesType, HorzScaleItem>,
     horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
-    options: DeepPartial<LineToolOptionsInternal<'Text'>> = {},
-    points: LineToolPoint[] = [],
+    options: DeepPartial<LineToolOptionsInternal<'Text'>> | undefined,
+    points: LineToolPoint[] | undefined,
     priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
   ) {
     const finalOptions = buildToolOptions(TextToolDefaultOptions, options)

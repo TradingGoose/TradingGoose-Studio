@@ -28,8 +28,14 @@ const validateDomain = (domain: string | null) => {
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
   try {
-    const { domain, credentialId, workflowId, workspaceId, issueKeys = [], cloudId: providedCloudId } =
-      await request.json()
+    const {
+      domain,
+      credentialId,
+      workflowId,
+      workspaceId,
+      issueKeys = [],
+      cloudId: providedCloudId,
+    } = await request.json()
 
     const validationError = validateDomain(domain || null)
     if (validationError) return validationError

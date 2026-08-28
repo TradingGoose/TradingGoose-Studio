@@ -1,13 +1,10 @@
-import ReactMarkdown from 'react-markdown'
 import type { ComponentProps } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
 const legalMarkdownComponents = {
   h2: ({ children, ...props }: ComponentProps<'h2'>) => (
-    <h2
-      className={`${soehne.className} mb-4 font-semibold text-2xl`}
-      {...props}
-    >
+    <h2 className={`${soehne.className} mb-4 font-semibold text-2xl`} {...props}>
       {children}
     </h2>
   ),
@@ -31,9 +28,7 @@ const legalMarkdownComponents = {
       {children}
     </ol>
   ),
-  li: ({ children, ...props }: ComponentProps<'li'>) => (
-    <li {...props}>{children}</li>
-  ),
+  li: ({ children, ...props }: ComponentProps<'li'>) => <li {...props}>{children}</li>,
   a: ({ children, href, ...props }: ComponentProps<'a'>) => {
     const isExternal = typeof href === 'string' && /^https?:\/\//.test(href)
 

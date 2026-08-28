@@ -29,7 +29,9 @@ export function buildSystemIntegrationBundleDefinitionId(providerId: string) {
 }
 
 export function getSystemIntegrationCatalogDefinitionIds() {
-  return new Set(getSystemIntegrationCatalogSeedSnapshot().definitions.map((definition) => definition.id))
+  return new Set(
+    getSystemIntegrationCatalogSeedSnapshot().definitions.map((definition) => definition.id)
+  )
 }
 
 export function getSystemIntegrationCatalogCredentialFields(definitionId: string) {

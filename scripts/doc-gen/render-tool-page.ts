@@ -24,7 +24,7 @@ export function renderToolPage(
 
   // Detect operation-based blocks
   const { operationField, operationFieldId } = detectOperationField(subBlocks)
-  const isTabbed = operationField && operationField.options && operationField.options.length > 1
+  const isTabbed = operationField?.options && operationField.options.length > 1
 
   // Build operation label map
   const opLabelMap = new Map<string, string>()
@@ -291,7 +291,8 @@ function renderOutputTable(outputs: Record<string, any>): string {
 
   for (const [key, val] of Object.entries(outputs)) {
     const type = typeof val === 'object' ? val.type || 'string' : 'string'
-    const description = typeof val === 'object' ? val.description || `${key} output` : `${key} output`
+    const description =
+      typeof val === 'object' ? val.description || `${key} output` : `${key} output`
     result += `| \`${key}\` | ${type} | ${escapeMdx(description)} |\n`
   }
 

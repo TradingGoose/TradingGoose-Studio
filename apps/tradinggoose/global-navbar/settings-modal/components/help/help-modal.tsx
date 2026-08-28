@@ -1,13 +1,13 @@
 'use client'
 
-import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import imageCompression from 'browser-image-compression'
-import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import imageCompression from 'browser-image-compression'
 import { X } from 'lucide-react'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,8 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import { cn } from '@/lib/utils'
 import { SettingsModal } from '../../settings-modal'
 
 const helpLogger = createLogger('HelpModal')
@@ -463,7 +463,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
                   ? 'border border-red-500 bg-transparent text-red-500 hover:bg-red-500 hover:text-white dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500'
                   : submitStatus === 'success'
                     ? 'border border-green-500 bg-transparent text-green-500 hover:bg-green-500 hover:text-white dark:border-green-500 dark:text-green-500 dark:hover:bg-green-500'
-                    : 'bg-primary text-black  hover:bg-primary-hover disabled:opacity-50 disabled:hover:shadow-none'
+                    : 'bg-primary text-black hover:bg-primary-hover disabled:opacity-50 disabled:hover:shadow-none'
               )}
             >
               {isSubmitting

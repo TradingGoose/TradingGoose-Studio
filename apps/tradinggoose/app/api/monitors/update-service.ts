@@ -17,9 +17,9 @@ import {
   PORTFOLIO_MONITOR_PROVIDER,
 } from '@/lib/monitors/sources'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
 import { getTradingProviderOAuthServiceId } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
-import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
 import {
   ensureMonitorTriggerBlockInDeployedState,
   ensureTriggerCapableIndicator,
@@ -117,7 +117,9 @@ export async function updateMonitorForUser({
     )
   }
   const nextIsActive =
-    payload.isActive === undefined ? row.webhook.isActive : payload.isActive && workflowRow.isDeployed
+    payload.isActive === undefined
+      ? row.webhook.isActive
+      : payload.isActive && workflowRow.isDeployed
 
   const providerConfig = await buildProviderConfigForUpdate({
     source,

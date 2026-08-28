@@ -53,7 +53,10 @@ export function formatFileSize(
   })} ${FILE_SIZE_UNITS[unitIndex]}`
 }
 
-export function formatDurationMs(locale: LocaleCode | string, durationMs: number | null | undefined) {
+export function formatDurationMs(
+  locale: LocaleCode | string,
+  durationMs: number | null | undefined
+) {
   if (durationMs === null || durationMs === undefined || !Number.isFinite(durationMs)) {
     return null
   }

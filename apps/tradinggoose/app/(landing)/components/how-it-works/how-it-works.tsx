@@ -1,9 +1,8 @@
 import { BotMessageSquareIcon, ChartCandlestick, DatabaseIcon, Workflow } from 'lucide-react'
 import { getLocale } from 'next-intl/server'
-
-import ProcessFlow from '@/app/(landing)/components/how-it-works/process-flow'
-import type { Process } from '@/app/(landing)/components/how-it-works/process-flow'
 import { MotionPreset } from '@/components/ui/motion-preset'
+import type { Process } from '@/app/(landing)/components/how-it-works/process-flow'
+import ProcessFlow from '@/app/(landing)/components/how-it-works/process-flow'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { LocaleCode } from '@/i18n/utils'
 
@@ -24,7 +23,7 @@ export default async function HowItWorks() {
   })
 
   return (
-    <section className='py-8 mt-24 sm:mt-32 sm:py-16 lg:mt-60 lg:py-24'>
+    <section className='mt-24 py-8 sm:mt-32 sm:py-16 lg:mt-60 lg:py-24'>
       <div className='mx-auto px-4 sm:px-6 lg:px-24'>
         <div className='grid grid-cols-1 gap-12 lg:grid-cols-2 xl:gap-16'>
           {/* Left content */}
@@ -41,7 +40,7 @@ export default async function HowItWorks() {
             </MotionPreset>
             <MotionPreset
               component='h2'
-              className='text-2xl font-semibold md:text-3xl lg:text-4xl'
+              className='font-semibold text-2xl md:text-3xl lg:text-4xl'
               fade
               blur
               slide={{ direction: 'down', offset: 50 }}

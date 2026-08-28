@@ -2,6 +2,7 @@
 
 import { useId } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useTranslations } from 'next-intl'
 import {
   DEFAULT_ORDERS_FILTER_STATE,
   ORDER_ENVIRONMENT_FILTER_VALUES,

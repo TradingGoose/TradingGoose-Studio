@@ -6,6 +6,7 @@ import type {
   BlockMermaidOperationType,
   BlockMermaidProfileType,
 } from '@/lib/copilot/tools/shared/schemas'
+import { LISTING_IDENTITY_JSON_SCHEMA, LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { getOAuthProviderAvailability } from '@/lib/oauth/provider-availability.server'
 import {
   getProviderIdsForBlocks,
@@ -16,7 +17,6 @@ import {
   buildWorkflowBlockMermaidContract,
   buildWorkflowBlockMermaidShape,
 } from '@/lib/workflows/block-mermaid-contract'
-import { LISTING_IDENTITY_JSON_SCHEMA, LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { WORKFLOW_FIELD_TYPES } from '@/lib/workflows/value-types'
 import { registry as blockRegistry } from '@/blocks/registry'
 import { AuthMode, type BlockConfig } from '@/blocks/types'

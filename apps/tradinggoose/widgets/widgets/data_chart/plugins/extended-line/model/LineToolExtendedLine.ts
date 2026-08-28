@@ -88,8 +88,8 @@ export class LineToolExtendedLine<HorzScaleItem> extends LineToolTrendLine<HorzS
     chart: IChartApiBase<HorzScaleItem>,
     series: ISeriesApi<SeriesType, HorzScaleItem>,
     horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
-    options: DeepPartial<LineToolOptionsInternal<'ExtendedLine'>> = {},
-    points: LineToolPoint[] = [],
+    options: DeepPartial<LineToolOptionsInternal<'ExtendedLine'>> | undefined,
+    points: LineToolPoint[] | undefined,
     priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
   ) {
     const finalOptions = buildLineToolOptions<'ExtendedLine', 'TrendLine'>(

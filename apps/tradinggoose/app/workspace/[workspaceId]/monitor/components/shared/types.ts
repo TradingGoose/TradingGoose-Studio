@@ -2,11 +2,11 @@ import type { ComponentType } from 'react'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
-import {
+import type {
   INDICATOR_MONITOR_PROVIDER,
+  MonitorTriggerId,
+  MonitorWebhookProvider,
   PORTFOLIO_MONITOR_PROVIDER,
-  type MonitorTriggerId,
-  type MonitorWebhookProvider,
 } from '@/lib/monitors/sources'
 import type {
   MarketProviderOption,

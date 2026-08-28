@@ -1,8 +1,6 @@
 // /src/views/LineToolHorizontalRayPaneView.ts
 
-import type { IChartApiBase, ISeriesApi, SeriesType } from 'lightweight-charts'
 import { LineToolHorizontalLinePaneView } from '../../shared/lines/views/LineToolHorizontalLinePaneView'
-import type { LineToolHorizontalRay } from '../model/LineToolHorizontalRay'
 
 /**
  * Pane View for the Horizontal Ray tool.
@@ -17,22 +15,5 @@ import type { LineToolHorizontalRay } from '../model/LineToolHorizontalRay'
 export class LineToolHorizontalRayPaneView<
   HorzScaleItem,
 > extends LineToolHorizontalLinePaneView<HorzScaleItem> {
-  /**
-   * Initializes the Horizontal Ray View.
-   *
-   * @param source - The specific Horizontal Ray model instance.
-   * @param chart - The Chart API.
-   * @param series - The Series API.
-   */
-  public constructor(
-    source: LineToolHorizontalRay<HorzScaleItem>, // Use the specific model class for strong typing
-    chart: IChartApiBase<HorzScaleItem>,
-    series: ISeriesApi<SeriesType, HorzScaleItem>
-  ) {
-    // Call the parent constructor (LineToolHorizontalLinePaneView)
-    // The parent is designed to handle the core BaseLineTool<HorzScaleItem> type.
-    super(source, chart, series)
-  }
-
   // NOTE: No methods are overridden as the inherited logic is fully reusable.
 }

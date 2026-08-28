@@ -215,6 +215,52 @@
   }
 }
 
+/* ==========================================================================
+   BASE STYLES
+   ========================================================================== */
+@layer base {
+  * {
+    @apply border-border;
+    overscroll-behavior-x: none;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    overscroll-behavior-x: none;
+    overscroll-behavior-y: none;
+    min-height: 100vh;
+    /* Prevent layout shifts when scrollbar appears/disappears */
+    scrollbar-gutter: stable;
+    /* Improve animation performance */
+    text-rendering: optimizeSpeed;
+  }
+
+  /* Global Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: var(--radius);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  /* For Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+}
+
 @layer utilities {
   .schema-param-highlight {
     @apply text-green-600 font-medium;
@@ -266,52 +312,6 @@
   /* Ensure the context view wrapper doesn't intercept hover events. */
   .context-view:has(.monaco-hover) {
     pointer-events: none;
-  }
-}
-
-/* ==========================================================================
-   BASE STYLES
-   ========================================================================== */
-@layer base {
-  * {
-    @apply border-border;
-    overscroll-behavior-x: none;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    overscroll-behavior-x: none;
-    overscroll-behavior-y: none;
-    min-height: 100vh;
-    /* Prevent layout shifts when scrollbar appears/disappears */
-    scrollbar-gutter: stable;
-    /* Improve animation performance */
-    text-rendering: optimizeSpeed;
-  }
-
-  /* Global Scrollbar Styling */
-  ::-webkit-scrollbar {
-    width: var(--scrollbar-size);
-    height: var(--scrollbar-size);
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted-foreground) / 0.3);
-    border-radius: var(--radius);
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--muted-foreground) / 0.3);
-  }
-
-  /* For Firefox */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
   }
 }
 

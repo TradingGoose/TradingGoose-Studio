@@ -76,7 +76,11 @@ function applyEdgeConstraints(
   horizontalSpacing: number,
   verticalSpacing: number
 ): Map<string, LayoutAxis | 'mixed'> {
-  const nodesById = new Map(Array.from(layers.values()).flat().map((node) => [node.id, node]))
+  const nodesById = new Map(
+    Array.from(layers.values())
+      .flat()
+      .map((node) => [node.id, node])
+  )
   const incomingEdges = new Map<string, Edge[]>()
   const incomingAxes = new Map<string, LayoutAxis | 'mixed'>()
 
@@ -191,14 +195,10 @@ function resolveOverlaps(
         if (boxesOverlap(box1, box2, 30)) {
           hasOverlap = true
           const separateHorizontally =
-            incomingAxes.get(node1.id) === 'vertical' &&
-            incomingAxes.get(node2.id) === 'vertical'
+            incomingAxes.get(node1.id) === 'vertical' && incomingAxes.get(node2.id) === 'vertical'
 
           if (separateHorizontally) {
-            node2.position.x = Math.max(
-              node2.position.x,
-              box1.x + box1.width + horizontalSpacing
-            )
+            node2.position.x = Math.max(node2.position.x, box1.x + box1.width + horizontalSpacing)
           } else {
             node2.position.y = Math.max(node2.position.y, box1.y + box1.height + verticalSpacing)
           }

@@ -1,6 +1,12 @@
-'use client';
+'use client'
+import {
+  BaseEdge,
+  type Edge,
+  EdgeLabelRenderer,
+  type EdgeProps,
+  getBezierPath,
+} from '@xyflow/react'
 import { X } from 'lucide-react'
-import { BaseEdge, EdgeLabelRenderer, type Edge, type EdgeProps, getBezierPath } from '@xyflow/react'
 
 interface WorkflowEdgeData extends Record<string, unknown> {
   isSelected?: boolean
@@ -74,7 +80,7 @@ export const WorkflowEdge = ({
       {isSelected && (
         <EdgeLabelRenderer>
           <div
-            className='nodrag nopan flex bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 h-6 w-6 cursor-pointer items-center justify-center rounded-full  rounded-full shadow-sm '
+            className='nodrag nopan flex h-6 w-6 cursor-pointer items-center justify-center rounded-full rounded-full bg-red-100 shadow-sm hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 '
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               pointerEvents: 'all',

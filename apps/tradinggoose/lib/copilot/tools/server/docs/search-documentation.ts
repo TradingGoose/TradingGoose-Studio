@@ -55,8 +55,7 @@ export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any
             code: 'search_documentation_unavailable',
             error:
               'Documentation search is unavailable because no embedding provider is configured.',
-            hint:
-              'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
+            hint: 'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
             retryable: false,
           },
         })
@@ -68,8 +67,7 @@ export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any
           body: {
             code: 'search_documentation_backend_failed',
             error: 'Documentation search failed while generating the query embedding.',
-            hint:
-              'Check the configured OpenAI or Azure OpenAI embedding service and retry the search.',
+            hint: 'Check the configured OpenAI or Azure OpenAI embedding service and retry the search.',
             retryable: error.status === 429 || error.status >= 500,
           },
         })

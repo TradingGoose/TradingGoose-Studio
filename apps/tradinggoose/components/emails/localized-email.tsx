@@ -1,14 +1,13 @@
-import * as React from 'react'
 import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { baseStyles } from '@/components/emails/base-styles'
-import EmailFooter from '@/components/emails/footer'
-import EmailHeader from '@/components/emails/header'
-import { getBaseUrl } from '@/lib/urls/utils'
 import {
   type EmailLocale,
   getEmailCopy,
   normalizeEmailTemplateLocale,
 } from '@/components/emails/email-copy'
+import EmailFooter from '@/components/emails/footer'
+import EmailHeader from '@/components/emails/header'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 interface LocalizedEmailProps {
   locale?: EmailLocale
@@ -90,7 +89,13 @@ export function LocalizedEmail({
                     <tr>
                       <td align='center'>
                         <Link href={cta.href} style={{ textDecoration: 'none' }}>
-                          <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                          <Text
+                            style={{
+                              ...baseStyles.button,
+                              display: 'inline-block',
+                              margin: '22px 0',
+                            }}
+                          >
                             {cta.label}
                           </Text>
                         </Link>

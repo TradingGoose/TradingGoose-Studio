@@ -1,6 +1,5 @@
 import { getTradingPortfolioSupportedWindows } from '@/providers/trading/portfolio'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
-import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/contract'
 import {
   getTradingWidgetProviderAvailabilityIds,
   getTradingWidgetProviderOptions,
@@ -10,6 +9,7 @@ import {
   getSeriesMarketProviderOptions,
   resolveConfiguredSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
+import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/contract'
 
 const DEFAULT_PORTFOLIO_SNAPSHOT_PROVIDER_OPTIONS =
   getTradingWidgetProviderOptions('portfolioDetail')

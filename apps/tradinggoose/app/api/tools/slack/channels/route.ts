@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
 
       const channels = (data.channels || [])
         .filter(
-          (channel: SlackChannel) => !channel.is_archived && (channel.is_member || !channel.is_private)
+          (channel: SlackChannel) =>
+            !channel.is_archived && (channel.is_member || !channel.is_private)
         )
         .map((channel: SlackChannel) => ({
           id: channel.id,

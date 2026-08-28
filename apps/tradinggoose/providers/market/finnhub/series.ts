@@ -1,12 +1,12 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import type {
   MarketBar,
+  MarketInterval,
   MarketSeries,
   MarketSeriesRequest,
-  MarketInterval,
 } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 
 const logger = createLogger('MarketProvider:Finnhub')
 
@@ -60,9 +60,7 @@ function resolveResolution(interval?: string): string {
 
 type FinnhubEndpoint = 'stock' | 'forex' | 'crypto'
 
-function resolveTimeRange(
-  request: MarketSeriesRequest
-): { from?: number; to?: number } {
+function resolveTimeRange(request: MarketSeriesRequest): { from?: number; to?: number } {
   const to = toUnixSeconds(request.end)
   const from = toUnixSeconds(request.start)
 
@@ -73,10 +71,7 @@ function resolveTimeRange(
   return { from, to }
 }
 
-function resolveEndpoint(
-  request: MarketSeriesRequest,
-  assetClass?: string
-): FinnhubEndpoint {
+function resolveEndpoint(request: MarketSeriesRequest, assetClass?: string): FinnhubEndpoint {
   const override = request.providerParams?.endpoint as string | undefined
   if (override === 'forex' || override === 'crypto' || override === 'stock') {
     return override
@@ -101,14 +96,11 @@ function resolveSeriesEndpointUrl(
   return (
     finnhubProviderConfig.api_endpoints?.[
       mappedAssetClass as keyof typeof finnhubProviderConfig.api_endpoints
-    ] ||
-    finnhubProviderConfig.api_endpoints?.default
+    ] || finnhubProviderConfig.api_endpoints?.default
   )
 }
 
-export async function fetchFinnhubSeries(
-  request: MarketSeriesRequest
-): Promise<MarketSeries> {
+export async function fetchFinnhubSeries(request: MarketSeriesRequest): Promise<MarketSeries> {
   const context = await resolveListingContext(request.listing)
   const endpoint = resolveEndpoint(request, context.assetClass)
 

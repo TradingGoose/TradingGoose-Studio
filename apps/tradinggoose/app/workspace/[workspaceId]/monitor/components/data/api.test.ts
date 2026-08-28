@@ -36,7 +36,8 @@ const buildMonitorViewResponse = (overrides: Record<string, unknown> = {}) => ({
 const workflowTargetFallbackCopy = {
   workflowName: getPublicCopy('en').workspace.monitor.fields.workflow,
   triggerBlockNames: {
-    indicator_trigger: getPublicCopy('en').workspace.widgets.blockEditor.blockNames.indicator_trigger,
+    indicator_trigger:
+      getPublicCopy('en').workspace.widgets.blockEditor.blockNames.indicator_trigger,
     portfolio_state_trigger:
       getPublicCopy('en').workspace.widgets.blockEditor.blockNames.portfolio_state_trigger,
   },
@@ -146,7 +147,9 @@ describe('monitor data api', () => {
       }),
     } as unknown as Response)
 
-    await expect(loadWorkflowTargetOptions('workspace 1', workflowTargetFallbackCopy)).resolves.toEqual([
+    await expect(
+      loadWorkflowTargetOptions('workspace 1', workflowTargetFallbackCopy)
+    ).resolves.toEqual([
       {
         source: 'indicator',
         triggerId: 'indicator_trigger',

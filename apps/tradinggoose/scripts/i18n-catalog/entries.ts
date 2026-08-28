@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
+import { findBestMatchingRoutePattern, normalizeRoutePath } from './ownership'
 import { extractCallableInitializer, getLiteralPropertyName } from './scan/core/ast'
 import type { NamedFunctionNode } from './scan/core/types'
-import { findBestMatchingRoutePattern, normalizeRoutePath } from './ownership'
 
 export const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts'] as const
 
@@ -187,7 +187,11 @@ function collectImportBindings(
       return
     }
 
-    const resolvedFilePath = resolveImportPath(projectRoot, importerFilePath, node.moduleSpecifier.text)
+    const resolvedFilePath = resolveImportPath(
+      projectRoot,
+      importerFilePath,
+      node.moduleSpecifier.text
+    )
     if (!resolvedFilePath) {
       return
     }
@@ -220,12 +224,19 @@ function collectImportBindings(
   return importBindings
 }
 
-function collectMatchingNamedExports(filePath: string, matchesExportName: (name: string) => boolean) {
+function collectMatchingNamedExports(
+  filePath: string,
+  matchesExportName: (name: string) => boolean
+) {
   const sourceFile = createProjectSourceFile(filePath)
   const exportNames = new Set<string>()
 
   ts.forEachChild(sourceFile, (node) => {
-    if (ts.isFunctionDeclaration(node) && node.name && hasModifier(node, ts.SyntaxKind.ExportKeyword)) {
+    if (
+      ts.isFunctionDeclaration(node) &&
+      node.name &&
+      hasModifier(node, ts.SyntaxKind.ExportKeyword)
+    ) {
       if (matchesExportName(node.name.text)) {
         exportNames.add(node.name.text)
       }
@@ -577,7 +588,10 @@ function resolveWidgetRenderHeaderRouteRoot(
     return null
   }
 
-  const renderHeaderInitializer = getObjectLiteralPropertyInitializer(widgetInitializer, 'renderHeader')
+  const renderHeaderInitializer = getObjectLiteralPropertyInitializer(
+    widgetInitializer,
+    'renderHeader'
+  )
   if (!renderHeaderInitializer) {
     return null
   }
@@ -631,7 +645,10 @@ function collectWidgetRegistryEntryRoots(
 
   const sourceFile = createProjectSourceFile(registryFilePath)
   const importedBindings = collectImportBindings(context.projectRoot, registryFilePath, sourceFile)
-  const widgetRegistryInitializer = findObjectLiteralVariableInitializer(sourceFile, 'widgetRegistry')
+  const widgetRegistryInitializer = findObjectLiteralVariableInitializer(
+    sourceFile,
+    'widgetRegistry'
+  )
   if (!widgetRegistryInitializer) {
     return {
       entryExportNamesByFile,
@@ -640,12 +657,11 @@ function collectWidgetRegistryEntryRoots(
   }
 
   for (const property of widgetRegistryInitializer.properties) {
-    const initializer =
-      ts.isPropertyAssignment(property)
-        ? unwrapRegistryExpression(property.initializer)
-        : ts.isShorthandPropertyAssignment(property)
-          ? property.name
-          : null
+    const initializer = ts.isPropertyAssignment(property)
+      ? unwrapRegistryExpression(property.initializer)
+      : ts.isShorthandPropertyAssignment(property)
+        ? property.name
+        : null
     if (!initializer || !ts.isIdentifier(initializer)) {
       continue
     }
@@ -996,7 +1012,11 @@ export function resolveRouteEntries(
   }
 
   if (matchedRoutePath === DASHBOARD_ROUTE_PATH) {
-    const widgetRuntimeImportSkips = addWidgetRegistryEntryRoots(context, entryExportNamesByFile, 'route')
+    const widgetRuntimeImportSkips = addWidgetRegistryEntryRoots(
+      context,
+      entryExportNamesByFile,
+      'route'
+    )
     const result = {
       pageFilePath,
       routePath: matchedRoutePath,

@@ -2,12 +2,11 @@
 
 import type { ReactNode, WheelEvent } from 'react'
 import { useCallback } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { widgetHeaderControlClassName } from '@/components/widget-header-control'
-import { useMessages } from 'next-intl'
-import { type LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
+import type { LocaleCode } from '@/i18n/utils'
 import { getWidgetDefinition } from '@/widgets/registry'
 
 type LandingWidgetShellProps = {

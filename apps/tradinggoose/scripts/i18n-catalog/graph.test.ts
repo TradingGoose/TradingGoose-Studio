@@ -266,7 +266,9 @@ export const inlineWidget: DashboardWidgetDefinition = {
     })
 
     expect(getCoveragePathKeys(result)).toContain('workspace.widgets.inlineWidget.header.title')
-    expect(getCoveragePathKeys(result)).not.toContain('workspace.widgets.inlineWidget.body.bodyOnly')
+    expect(getCoveragePathKeys(result)).not.toContain(
+      'workspace.widgets.inlineWidget.body.bodyOnly'
+    )
   })
 })
 

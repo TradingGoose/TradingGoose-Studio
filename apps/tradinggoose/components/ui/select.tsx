@@ -74,7 +74,7 @@ const SelectContent = React.forwardRef<HTMLDivElement, SelectContentProps>(
         <SelectPrimitive.Popup
           ref={ref}
           className={cn(
-            'relative min-w-[8rem] origin-[var(--transform-origin)] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[starting-style]:fade-in-0 data-[starting-style]:zoom-in-95 data-[ending-style]:fade-out-0 data-[ending-style]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[ending-style]:animate-out data-[starting-style]:animate-in',
+            'data-[starting-style]:fade-in-0 data-[starting-style]:zoom-in-95 data-[ending-style]:fade-out-0 data-[ending-style]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative min-w-[8rem] origin-[var(--transform-origin)] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[ending-style]:animate-out data-[starting-style]:animate-in',
             className
           )}
           {...props}
@@ -82,7 +82,7 @@ const SelectContent = React.forwardRef<HTMLDivElement, SelectContentProps>(
           <SelectPrimitive.ScrollUpArrow className='absolute inset-x-0 top-0 z-10 flex cursor-default items-center justify-center bg-popover py-1'>
             <ChevronUp className='h-4 w-4 opacity-70 transition-opacity hover:opacity-100' />
           </SelectPrimitive.ScrollUpArrow>
-          <SelectPrimitive.List className='scrollbar-thin max-h-[min(24rem,var(--available-height))] min-w-[var(--anchor-width)] overscroll-contain overflow-y-auto p-1 scrollbar-track-transparent scrollbar-thumb-slate-200'>
+          <SelectPrimitive.List className='scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-200 max-h-[min(24rem,var(--available-height))] min-w-[var(--anchor-width)] overflow-y-auto overscroll-contain p-1'>
             {children}
           </SelectPrimitive.List>
           <SelectPrimitive.ScrollDownArrow className='absolute inset-x-0 bottom-0 z-10 flex cursor-default items-center justify-center bg-popover py-1'>

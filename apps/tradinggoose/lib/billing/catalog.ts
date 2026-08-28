@@ -8,9 +8,7 @@ import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { getHiddenEnterprisePlaceholderTier, getPublicBillingTiers } from '@/lib/billing/tiers'
 
-export function toBillingTierDisplay(
-  tier: BillingTierRecord,
-): PublicBillingTierDisplay {
+export function toBillingTierDisplay(tier: BillingTierRecord): PublicBillingTierDisplay {
   return {
     id: tier.id,
     displayName: tier.displayName,

@@ -1,6 +1,6 @@
 import { del, get, put } from '@vercel/blob'
-import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 import { VERCEL_BLOB_CONFIG, type VercelBlobAccess } from '@/lib/uploads/core/setup'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { createVercelDownloadToken } from './download-token'
@@ -86,7 +86,7 @@ export async function uploadToVercel(
         : file.length
   const config = typeof configOrSize === 'object' ? getConfig(configOrSize) : getConfig()
   const shouldPreserveKey =
-    typeof sizeOrPreserveKey === 'boolean' ? sizeOrPreserveKey : preserveKey ?? false
+    typeof sizeOrPreserveKey === 'boolean' ? sizeOrPreserveKey : (preserveKey ?? false)
   const safeFileName = fileName.replace(/\s+/g, '-')
   const pathname = shouldPreserveKey ? fileName : `${Date.now()}-${safeFileName}`
 
@@ -136,10 +136,7 @@ export async function downloadFromVercel(
 
 export async function deleteFromVercel(key: string): Promise<void>
 
-export async function deleteFromVercel(
-  key: string,
-  customConfig: CustomVercelConfig
-): Promise<void>
+export async function deleteFromVercel(key: string, customConfig: CustomVercelConfig): Promise<void>
 
 export async function deleteFromVercel(
   key: string,

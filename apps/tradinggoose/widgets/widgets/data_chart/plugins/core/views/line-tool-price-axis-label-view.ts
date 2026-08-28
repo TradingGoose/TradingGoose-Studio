@@ -119,7 +119,7 @@ export class LineToolPriceAxisLabelView<HorzScaleItem>
     const priceScaleApi = this._tool.priceScale()
     const series = this._tool.getSeries()
     const point = this._tool.getPoint(this._pointIndex)
-    const labelId = this._tool.id() + '-p' + this._pointIndex
+    const labelId = `${this._tool.id()}-p${this._pointIndex}`
 
     // 1. Calculate the tool's current interaction state
     const isToolActive =
@@ -137,7 +137,7 @@ export class LineToolPriceAxisLabelView<HorzScaleItem>
       toolOptions.showPriceAxisLabels &&
       isLabelVisuallyActive &&
       point &&
-      isFinite(point.price) &&
+      Number.isFinite(point.price) &&
       priceScaleApi &&
       series
 

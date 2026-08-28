@@ -65,7 +65,8 @@ export const getCommentsTool: ToolConfig<RedditCommentsParams, RedditCommentsRes
 
       return {
         Authorization: `Bearer ${params.accessToken}`,
-        'User-Agent': 'tradinggoose-studio/1.0 (https://github.com/TradingGoose/TradingGoose-Studio)',
+        'User-Agent':
+          'tradinggoose-studio/1.0 (https://github.com/TradingGoose/TradingGoose-Studio)',
         Accept: 'application/json',
       }
     },

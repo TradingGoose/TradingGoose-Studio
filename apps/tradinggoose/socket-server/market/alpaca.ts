@@ -20,7 +20,10 @@ export interface AlpacaStreamHandlers {
   onBar: (payload: { symbol: string; bar: MarketBar; raw: any }) => void
   onTrade?: (payload: { symbol: string; trade: AlpacaTrade; raw: any }) => void
   onQuote?: (payload: { symbol: string; quote: AlpacaQuote; raw: any }) => void
-  onStatus?: (payload: { state: 'connected' | 'authenticated' | 'disconnected'; info?: string }) => void
+  onStatus?: (payload: {
+    state: 'connected' | 'authenticated' | 'disconnected'
+    info?: string
+  }) => void
   onError?: (payload: { message: string; detail?: any }) => void
 }
 
@@ -107,8 +110,7 @@ export class AlpacaMarketStream {
 
     if (
       this.socket &&
-      (this.socket.readyState === WebSocket.OPEN ||
-        this.socket.readyState === WebSocket.CONNECTING)
+      (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)
     ) {
       try {
         this.socket.close()
@@ -129,7 +131,10 @@ export class AlpacaMarketStream {
   }
 
   private ensureConnection() {
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+    if (
+      this.socket &&
+      (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)
+    ) {
       return
     }
 
@@ -291,7 +296,7 @@ export class AlpacaMarketStream {
 
   private scheduleReconnect() {
     if (this.reconnectTimer) return
-    const delay = Math.min(30000, 1000 * Math.pow(2, this.reconnectAttempts))
+    const delay = Math.min(30000, 1000 * 2 ** this.reconnectAttempts)
     this.reconnectAttempts += 1
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
@@ -307,10 +312,7 @@ export class AlpacaMarketStream {
     this.reconnectTimer = null
   }
 
-  private getSymbolSet(
-    map: Map<AlpacaChannel, Set<string>>,
-    channel: AlpacaChannel
-  ): Set<string> {
+  private getSymbolSet(map: Map<AlpacaChannel, Set<string>>, channel: AlpacaChannel): Set<string> {
     let set = map.get(channel)
     if (!set) {
       set = new Set<string>()

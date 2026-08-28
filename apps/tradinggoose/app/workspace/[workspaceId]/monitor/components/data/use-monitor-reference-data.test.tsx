@@ -3,8 +3,8 @@
  */
 
 import { act } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
 import { NextIntlClientProvider } from 'next-intl'
+import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import type { MonitorReferenceData } from '../shared/types'
@@ -109,7 +109,8 @@ describe('useMonitorReferenceData', () => {
     expect(loadWorkflowTargetOptionsMock).toHaveBeenCalledWith('workspace-1', {
       workflowName: getPublicCopy('en').workspace.monitor.fields.workflow,
       triggerBlockNames: {
-        indicator_trigger: getPublicCopy('en').workspace.widgets.blockEditor.blockNames.indicator_trigger,
+        indicator_trigger:
+          getPublicCopy('en').workspace.widgets.blockEditor.blockNames.indicator_trigger,
         portfolio_state_trigger:
           getPublicCopy('en').workspace.widgets.blockEditor.blockNames.portfolio_state_trigger,
       },

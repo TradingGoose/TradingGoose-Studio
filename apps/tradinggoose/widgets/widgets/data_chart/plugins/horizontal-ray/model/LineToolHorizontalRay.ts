@@ -92,8 +92,8 @@ export class LineToolHorizontalRay<HorzScaleItem> extends LineToolHorizontalLine
     chart: IChartApiBase<HorzScaleItem>,
     series: ISeriesApi<SeriesType, HorzScaleItem>,
     horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
-    options: DeepPartial<LineToolOptionsInternal<'HorizontalRay'>> = {},
-    points: LineToolPoint[] = [],
+    options: DeepPartial<LineToolOptionsInternal<'HorizontalRay'>> | undefined,
+    points: LineToolPoint[] | undefined,
     priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
   ) {
     const finalOptions = buildLineToolOptions<'HorizontalRay', 'TrendLine'>(

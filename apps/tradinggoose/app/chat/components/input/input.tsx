@@ -4,11 +4,12 @@ import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, Paperclip, Send, Square, X } from 'lucide-react'
+import type { Messages } from 'next-intl'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatTemplate } from '@/i18n/utils'
-import type { Messages } from 'next-intl'
 
 type ChatMessages = Messages['chat']
+
 import { VoiceInput } from '@/app/chat/components/input/voice-input'
 
 const MAX_TEXTAREA_HEIGHT = 120 // Max height in pixels (e.g., for about 3-4 lines)

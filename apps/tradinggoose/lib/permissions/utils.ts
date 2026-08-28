@@ -1,7 +1,7 @@
+import { cache } from 'react'
 import { db } from '@tradinggoose/db'
 import { permissions, type permissionTypeEnum, user, workspace } from '@tradinggoose/db/schema'
 import { and, eq, or, type SQLWrapper } from 'drizzle-orm'
-import { cache } from 'react'
 
 export type PermissionType = (typeof permissionTypeEnum.enumValues)[number]
 

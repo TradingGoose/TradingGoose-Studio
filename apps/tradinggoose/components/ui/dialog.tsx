@@ -17,12 +17,12 @@ type DialogContentProps = StaticClassNameProps<DialogPrimitive.Popup.Props> & {
 const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
   ({ className, children, hideCloseButton = false, ...props }, ref) => (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Backdrop className='fixed inset-0 z-50 bg-black/50 backdrop-blur-[1.5px] data-[ending-style]:animate-out data-[ending-style]:fade-out-0 data-[starting-style]:animate-in data-[starting-style]:fade-in-0' />
+      <DialogPrimitive.Backdrop className='data-[ending-style]:fade-out-0 data-[starting-style]:fade-in-0 fixed inset-0 z-50 bg-black/50 backdrop-blur-[1.5px] data-[ending-style]:animate-out data-[starting-style]:animate-in' />
       <DialogPrimitive.Viewport className='pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4'>
         <DialogPrimitive.Popup
           ref={ref}
           className={cn(
-            'pointer-events-auto relative grid w-full max-w-3xl gap-4 rounded-lg border border-border bg-background p-6 shadow-lg duration-200 data-[ending-style]:animate-out data-[ending-style]:fade-out-0 data-[ending-style]:zoom-out-95 data-[starting-style]:animate-in data-[starting-style]:fade-in-0 data-[starting-style]:zoom-in-95',
+            'data-[ending-style]:fade-out-0 data-[ending-style]:zoom-out-95 data-[starting-style]:fade-in-0 data-[starting-style]:zoom-in-95 pointer-events-auto relative grid w-full max-w-3xl gap-4 rounded-lg border border-border bg-background p-6 shadow-lg duration-200 data-[ending-style]:animate-out data-[starting-style]:animate-in',
             className
           )}
           {...props}

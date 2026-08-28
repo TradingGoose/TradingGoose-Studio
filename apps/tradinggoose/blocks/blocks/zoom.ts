@@ -1,6 +1,6 @@
 import { ZoomIcon } from '@/components/icons/icons'
-import type { BlockConfig } from '@/blocks/types'
 import { fetchTimeZoneOptions } from '@/components/timezone-selector/fetchers'
+import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { ZoomResponse } from '@/tools/zoom/types'
 

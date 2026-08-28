@@ -1,5 +1,9 @@
 import { db } from '@tradinggoose/db'
-import { organizationBillingLedger, organizationMemberBillingLedger, userStats } from '@tradinggoose/db/schema'
+import {
+  organizationBillingLedger,
+  organizationMemberBillingLedger,
+  userStats,
+} from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
@@ -173,7 +177,9 @@ export async function checkAndBillOverageThreshold(params: {
         const records = await tx
           .select()
           .from(organizationBillingLedger)
-          .where(eq(organizationBillingLedger.organizationId, organizationId ?? billingContext.scopeId))
+          .where(
+            eq(organizationBillingLedger.organizationId, organizationId ?? billingContext.scopeId)
+          )
           .for('update')
           .limit(1)
 
@@ -192,7 +198,9 @@ export async function checkAndBillOverageThreshold(params: {
           const seededRecords = await tx
             .select()
             .from(organizationBillingLedger)
-            .where(eq(organizationBillingLedger.organizationId, organizationId ?? billingContext.scopeId))
+            .where(
+              eq(organizationBillingLedger.organizationId, organizationId ?? billingContext.scopeId)
+            )
             .for('update')
             .limit(1)
 
@@ -325,7 +333,9 @@ export async function checkAndBillOverageThreshold(params: {
             billedOverageThisPeriod: sql`${organizationBillingLedger.billedOverageThisPeriod} + ${amountToBill}`,
             updatedAt: new Date(),
           })
-          .where(eq(organizationBillingLedger.organizationId, organizationId ?? billingContext.scopeId))
+          .where(
+            eq(organizationBillingLedger.organizationId, organizationId ?? billingContext.scopeId)
+          )
       } else {
         await tx
           .update(userStats)

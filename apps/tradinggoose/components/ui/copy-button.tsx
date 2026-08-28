@@ -21,7 +21,7 @@ export function CopyButton({ text, className = '', showLabel = false }: CopyButt
   }
 
   return (
-    <div className='absolute top-1 right-1 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100'>
+    <div className='absolute top-1 right-1 flex items-center gap-1.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100'>
       {showLabel && (
         <div className='rounded-md bg-background/80 px-2 py-1 text-muted-foreground text-xs'>
           {copied ? 'Copied!' : 'Click to copy'}

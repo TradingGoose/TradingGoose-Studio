@@ -3,13 +3,13 @@
  */
 
 import { act, type ReactNode } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
 import { NextIntlClientProvider } from 'next-intl'
+import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { formatTemplate } from '@/i18n/utils'
-import { getPublicCopy } from '@/i18n/public-copy'
 import { TradingAccountSelector } from '@/components/trading-selector/account-selector'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { formatTemplate } from '@/i18n/utils'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 
 const mockUsePortfolioIdentities = vi.fn()

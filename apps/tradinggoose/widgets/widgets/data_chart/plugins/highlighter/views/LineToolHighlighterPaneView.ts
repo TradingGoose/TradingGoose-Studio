@@ -171,7 +171,7 @@ export class LineToolHighlighterPaneView<HorzScaleItem> extends LineToolPaneView
 
     // Determine final background data for the renderer
     let finalBackgroundData: { color: string } | undefined
-    if (options.background && options.background.color) {
+    if (options.background?.color) {
       finalBackgroundData = { color: options.background.color }
     }
 

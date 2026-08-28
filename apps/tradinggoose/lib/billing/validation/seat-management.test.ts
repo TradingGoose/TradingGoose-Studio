@@ -144,9 +144,7 @@ describe('validateSeatAvailability', () => {
     const organizationChain: any = {
       from: vi.fn(() => organizationChain),
       where: vi.fn(() => ({
-        limit: vi.fn(() =>
-          Promise.resolve([{ id: 'org-1', name: 'TradingGoose' }])
-        ),
+        limit: vi.fn(() => Promise.resolve([{ id: 'org-1', name: 'TradingGoose' }])),
       })),
     }
     const memberCountChain: any = {

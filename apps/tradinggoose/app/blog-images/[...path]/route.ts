@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import path from 'path'
+import { type NextRequest, NextResponse } from 'next/server'
 
 const CONTENT_DIR = path.join(process.cwd(), 'app/(landing)/blog/content')
 

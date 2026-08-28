@@ -1,9 +1,5 @@
 import type { MutableRefObject } from 'react'
 import type { ISeriesApi } from 'lightweight-charts'
-import {
-  type ManualOwnerSnapshot,
-  mergeManualOwnerSnapshots,
-} from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 import type {
   OwnerBinding,
   OwnerId,
@@ -13,6 +9,10 @@ import type {
   ToolCreateCapability,
 } from '@/widgets/widgets/data_chart/drawings/adapter-types'
 import { parseLineToolExports } from '@/widgets/widgets/data_chart/drawings/adapter-utils'
+import {
+  type ManualOwnerSnapshot,
+  mergeManualOwnerSnapshots,
+} from '@/widgets/widgets/data_chart/drawings/owner-snapshot'
 import type { ManualToolType } from '@/widgets/widgets/data_chart/drawings/tool-types'
 import type { IndicatorRuntimeEntry } from '@/widgets/widgets/data_chart/types'
 

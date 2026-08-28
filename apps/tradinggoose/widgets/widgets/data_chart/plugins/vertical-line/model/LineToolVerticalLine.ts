@@ -96,8 +96,8 @@ export class LineToolVerticalLine<HorzScaleItem> extends BaseLineTool<HorzScaleI
     chart: IChartApiBase<HorzScaleItem>,
     series: ISeriesApi<SeriesType, HorzScaleItem>,
     horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
-    options: DeepPartial<LineToolOptionsInternal<'VerticalLine'>> = {},
-    points: LineToolPoint[] = [],
+    options: DeepPartial<LineToolOptionsInternal<'VerticalLine'>> | undefined,
+    points: LineToolPoint[] | undefined,
     priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
   ) {
     const finalOptions = buildLineToolOptions<'VerticalLine', 'TrendLine'>(

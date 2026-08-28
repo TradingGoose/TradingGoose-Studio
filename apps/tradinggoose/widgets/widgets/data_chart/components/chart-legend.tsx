@@ -66,7 +66,7 @@ export const ChartLegend = ({
         </div>
       ) : null}
       {legend ? (
-        <div className='px-1 flex min-w-0 max-w-full flex-wrap items-center gap-3 overflow-hidden font-bold text-foreground text-xs'>
+        <div className='flex min-w-0 max-w-full flex-wrap items-center gap-3 overflow-hidden px-1 font-bold text-foreground text-xs'>
           <span className='text-muted-foreground'>{legend.time}</span>
           {isValueOnly ? (
             <span>

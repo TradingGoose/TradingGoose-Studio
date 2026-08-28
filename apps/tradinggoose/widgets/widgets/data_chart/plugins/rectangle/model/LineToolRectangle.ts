@@ -252,8 +252,8 @@ export class LineToolRectangle<HorzScaleItem> extends BaseLineTool<HorzScaleItem
     chart: IChartApiBase<HorzScaleItem>,
     series: ISeriesApi<SeriesType, HorzScaleItem>,
     horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
-    options: DeepPartial<LineToolOptionsInternal<'Rectangle'>> = {},
-    points: LineToolPoint[] = [],
+    options: DeepPartial<LineToolOptionsInternal<'Rectangle'>> | undefined,
+    points: LineToolPoint[] | undefined,
     priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
   ) {
     const finalOptions = buildToolOptions(RectangleOptionDefaults, options)
@@ -444,7 +444,7 @@ export class LineToolRectangle<HorzScaleItem> extends BaseLineTool<HorzScaleItem
 
     // Delegate the hit test to the renderer.
     // The renderer itself contains the geometric logic (e.g., checking perimeter).
-    if (renderer && renderer.hitTest) {
+    if (renderer?.hitTest) {
       return renderer.hitTest(x, y)
     }
 

@@ -1,14 +1,14 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import type {
   MarketBar,
+  MarketInterval,
   MarketRequestBase,
   MarketSeries,
   MarketSeriesRequest,
-  MarketInterval,
   NormalizationMode,
 } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 
 const logger = createLogger('MarketProvider:Alpaca')
 
@@ -52,7 +52,10 @@ function toIsoString(value?: string | number): string | undefined {
 
 function parseRangeMs(range?: string): number | null {
   if (!range) return null
-  const match = String(range).trim().toLowerCase().match(/^(\d+)(d|w|mo|y)$/)
+  const match = String(range)
+    .trim()
+    .toLowerCase()
+    .match(/^(\d+)(d|w|mo|y)$/)
   if (!match) return null
   const value = Number(match[1])
   if (!Number.isFinite(value) || value <= 0) return null
@@ -66,7 +69,10 @@ function parseRangeMs(range?: string): number | null {
 
 export function intervalToMs(interval?: string): number | null {
   if (!interval) return null
-  const match = String(interval).trim().toLowerCase().match(/^(\d+)(mo|m|h|d|w)$/)
+  const match = String(interval)
+    .trim()
+    .toLowerCase()
+    .match(/^(\d+)(mo|m|h|d|w)$/)
   if (!match) return null
   const value = Number(match[1])
   if (!Number.isFinite(value) || value <= 0) return null
@@ -160,9 +166,7 @@ async function fetchLatestBarTimestamp(
   const response = await fetch(url.toString(), { headers })
   if (!response.ok) {
     const errorText = await response.text().catch(() => '')
-    throw new Error(
-      errorText || `Alpaca latest bar request failed with status ${response.status}`
-    )
+    throw new Error(errorText || `Alpaca latest bar request failed with status ${response.status}`)
   }
 
   const payload = (await response.json()) as {
@@ -182,19 +186,15 @@ function resolveBars(payload: any, symbol: string): any[] {
   const bars = payload?.bars
   if (Array.isArray(bars)) return bars
   if (bars && typeof bars === 'object') {
-    return (
-      bars[symbol] ||
+    return (bars[symbol] ||
       bars[symbol.toUpperCase()] ||
       bars[symbol.toLowerCase()] ||
-      Object.values(bars)[0]
-    ) as any[]
+      Object.values(bars)[0]) as any[]
   }
   return []
 }
 
-export async function fetchAlpacaSeries(
-  request: MarketSeriesRequest
-): Promise<MarketSeries> {
+export async function fetchAlpacaSeries(request: MarketSeriesRequest): Promise<MarketSeries> {
   const context = await resolveListingContext(request.listing)
   const market = resolveMarket(request, context.assetClass)
 
@@ -248,9 +248,7 @@ export async function fetchAlpacaSeries(
     )
     const rangeMs =
       parseRangeMs(rangeParam) ||
-      (intervalMs && Number.isFinite(Number(limit))
-        ? Number(limit) * intervalMs
-        : null)
+      (intervalMs && Number.isFinite(Number(limit)) ? Number(limit) * intervalMs : null)
 
     if (latestEnd && rangeMs && Number.isFinite(rangeMs)) {
       const endMs = Date.parse(latestEnd)

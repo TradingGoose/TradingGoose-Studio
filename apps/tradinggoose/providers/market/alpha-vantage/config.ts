@@ -1,6 +1,6 @@
-import type { MarketProviderConfig } from '@/providers/market/providers'
 import { alphaVantageSymbolRules } from '@/providers/market/alpha-vantage/rules'
-import { AssetClass } from '@/providers/market/types'
+import type { MarketProviderConfig } from '@/providers/market/providers'
+import type { AssetClass } from '@/providers/market/types'
 
 const availableAssetClasses: AssetClass[] = ['stock', 'etf', 'currency', 'crypto']
 

@@ -27,7 +27,9 @@ interface EmbeddingConfig {
   modelName: string
 }
 
-async function getEmbeddingConfig(embeddingModel = 'text-embedding-3-small'): Promise<EmbeddingConfig> {
+async function getEmbeddingConfig(
+  embeddingModel = 'text-embedding-3-small'
+): Promise<EmbeddingConfig> {
   const [azureConfig, openaiConfig] = await Promise.all([
     resolveAzureOpenAIServiceConfig(),
     resolveOpenAIServiceConfig(),

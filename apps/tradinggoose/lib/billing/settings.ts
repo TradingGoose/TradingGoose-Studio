@@ -1,8 +1,8 @@
 import { db } from '@tradinggoose/db'
 import { systemBillingSettings } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import { hasStripeSecretKey } from '@/lib/system-services/stripe-runtime'
 import { getDefaultBillingTier } from '@/lib/billing/tiers'
+import { hasStripeSecretKey } from '@/lib/system-services/stripe-runtime'
 import { getSystemSettingsRecord, resolveSystemSettingsFlags } from '@/lib/system-settings/service'
 
 type BillingSettingsRecord = typeof systemBillingSettings.$inferSelect

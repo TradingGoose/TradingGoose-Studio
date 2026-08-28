@@ -198,7 +198,10 @@ vi.mock('@tradinggoose/db', () => {
 })
 
 import { generateEmbeddings } from '@/lib/embeddings/utils'
-import { markDocumentProcessingFailed, processDocumentAsync } from '@/lib/knowledge/documents/service'
+import {
+  markDocumentProcessingFailed,
+  processDocumentAsync,
+} from '@/lib/knowledge/documents/service'
 import {
   checkChunkAccess,
   checkDocumentAccess,

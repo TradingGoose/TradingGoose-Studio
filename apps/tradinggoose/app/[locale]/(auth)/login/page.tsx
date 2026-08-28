@@ -1,8 +1,8 @@
 import { getLocale } from 'next-intl/server'
-import { getOAuthProviderStatus } from '@/app/(auth)/components/oauth-provider-checker'
-import LoginForm from '@/app/(auth)/login/login-form'
 import { getSession } from '@/lib/auth'
 import { getRegistrationModeForRender } from '@/lib/registration/service'
+import { getOAuthProviderStatus } from '@/app/(auth)/components/oauth-provider-checker'
+import LoginForm from '@/app/(auth)/login/login-form'
 import { redirect } from '@/i18n/navigation'
 
 // Force dynamic rendering to avoid prerender errors with search params

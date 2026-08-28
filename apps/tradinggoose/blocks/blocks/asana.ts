@@ -221,9 +221,9 @@ Return ONLY the date string in YYYY-MM-DD format - no explanations, no quotes, n
 
         const projectsArray = params.projects
           ? params.projects
-            .split(',')
-            .map((p: string) => p.trim())
-            .filter((p: string) => p.length > 0)
+              .split(',')
+              .map((p: string) => p.trim())
+              .filter((p: string) => p.length > 0)
           : undefined
 
         const baseParams = {

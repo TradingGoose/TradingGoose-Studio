@@ -65,7 +65,10 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     logger.error(`[${requestId}] Error processing unsubscribe GET request:`, error)
-    return NextResponse.json({ error: 'internal_server_error', code: 'internal-error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'internal_server_error', code: 'internal-error' },
+      { status: 500 }
+    )
   }
 }
 
@@ -81,7 +84,11 @@ export async function POST(req: NextRequest) {
         errors: result.error.format(),
       })
       return NextResponse.json(
-        { error: 'invalid_request_data', code: 'invalid-request-data', details: result.error.format() },
+        {
+          error: 'invalid_request_data',
+          code: 'invalid-request-data',
+          details: result.error.format(),
+        },
         { status: 400 }
       )
     }
@@ -156,6 +163,9 @@ export async function POST(req: NextRequest) {
     )
   } catch (error) {
     logger.error(`[${requestId}] Error processing unsubscribe POST request:`, error)
-    return NextResponse.json({ error: 'internal_server_error', code: 'internal-error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'internal_server_error', code: 'internal-error' },
+      { status: 500 }
+    )
   }
 }

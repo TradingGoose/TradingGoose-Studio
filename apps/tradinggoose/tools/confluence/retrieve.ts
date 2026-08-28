@@ -1,6 +1,6 @@
 import type { ConfluenceRetrieveParams, ConfluenceRetrieveResponse } from '@/tools/confluence/types'
-import { getCredentialRouteParams } from '@/tools/credentials'
 import { transformPageData } from '@/tools/confluence/utils'
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { ToolConfig } from '@/tools/types'
 
 export const confluenceRetrieveTool: ToolConfig<

@@ -46,5 +46,4 @@ export const parseDateKey = (dateKey: string): Date | null => {
   return date
 }
 
-export const addDays = (date: Date, days: number) =>
-  new Date(date.getTime() + days * MARKET_DAY_MS)
+export const addDays = (date: Date, days: number) => new Date(date.getTime() + days * MARKET_DAY_MS)

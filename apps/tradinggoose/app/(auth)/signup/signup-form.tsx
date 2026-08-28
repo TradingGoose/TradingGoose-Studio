@@ -581,14 +581,14 @@ function SignupFormContent({
       </div>
 
       <div
-        className={`${inter.className} text-muted-foreground absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] leading-relaxed sm:px-8 md:px-[44px]`}
+        className={`${inter.className} absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] text-muted-foreground leading-relaxed sm:px-8 md:px-[44px]`}
       >
         {commonCopy.termsLeadCreatingAccount}{' '}
         <Link
           href='/terms'
           target='_blank'
           rel='noopener noreferrer'
-          className='hover:text-primary underline underline-offset-4'
+          className='underline underline-offset-4 hover:text-primary'
         >
           {commonCopy.termsOfService}
         </Link>{' '}
@@ -597,7 +597,7 @@ function SignupFormContent({
           href='/privacy'
           target='_blank'
           rel='noopener noreferrer'
-          className='hover:text-primary underline underline-offset-4'
+          className='underline underline-offset-4 hover:text-primary'
         >
           {commonCopy.privacyPolicy}
         </Link>

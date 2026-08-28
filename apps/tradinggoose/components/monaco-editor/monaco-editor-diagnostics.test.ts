@@ -12,13 +12,8 @@ describe('monaco-editor-diagnostics', () => {
       'await indicator.RSI(<historical.data>) + {{MARKET_API_KEY}}'
     )
 
-    expect(result.content).toBe(
-      'await indicator.RSI($historical$data$) + $$MARKET_API_KEY$$'
-    )
-    expect(result.placeholderIdentifiers).toEqual([
-      '$historical$data$',
-      '$$MARKET_API_KEY$$',
-    ])
+    expect(result.content).toBe('await indicator.RSI($historical$data$) + $$MARKET_API_KEY$$')
+    expect(result.placeholderIdentifiers).toEqual(['$historical$data$', '$$MARKET_API_KEY$$'])
   })
 
   it('wraps function-body diagnostics in an async module body', () => {
@@ -43,13 +38,10 @@ describe('monaco-editor-diagnostics', () => {
   })
 
   it('wraps indicator diagnostics in a scoped async body', () => {
-    const result = buildMonacoIndicatorDiagnosticSource(
-      "const length = input.int(20, 'Length')",
-      {
-        language: 'typescript',
-        path: 'inmemory://model/pine-indicator.ts',
-      }
-    )
+    const result = buildMonacoIndicatorDiagnosticSource("const length = input.int(20, 'Length')", {
+      language: 'typescript',
+      path: 'inmemory://model/pine-indicator.ts',
+    })
 
     expect(result).not.toBeNull()
     expect(result?.userCodeStartLine).toBe(3)

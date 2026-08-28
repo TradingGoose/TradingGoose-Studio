@@ -40,12 +40,9 @@ vi.mock('@/components/ui/button', () => ({
 vi.mock('@/lib/utils', () => ({
   cn: (...classes: Array<string | undefined | null | false>) => classes.filter(Boolean).join(' '),
 }))
-vi.mock(
-  '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge',
-  () => ({
-    WorkflowEdge: () => null,
-  })
-)
+vi.mock('@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge', () => ({
+  WorkflowEdge: () => null,
+}))
 vi.mock(
   '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-node',
   () => ({

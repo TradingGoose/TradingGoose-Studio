@@ -1,8 +1,8 @@
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import {
   extractFieldsFromSchema,
-  parseResponseFormatSafely,
   type Field,
+  parseResponseFormatSafely,
 } from '@/lib/response-format'
 import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
