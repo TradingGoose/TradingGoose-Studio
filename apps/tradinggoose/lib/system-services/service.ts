@@ -395,7 +395,6 @@ function normalizeSettingInputValue(
         throw new SystemServiceValidationError(`Setting "${field.key}" must be a valid URL`)
       }
     }
-    case 'text':
     default:
       return value
   }
@@ -412,8 +411,6 @@ function parseSettingValue(
       const parsed = Number(storedValue)
       return Number.isFinite(parsed) ? parsed : (field.defaultValue ?? 0)
     }
-    case 'text':
-    case 'url':
     default:
       return storedValue
   }

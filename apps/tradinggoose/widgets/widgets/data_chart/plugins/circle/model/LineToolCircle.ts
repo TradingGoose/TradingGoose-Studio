@@ -320,7 +320,7 @@ export class LineToolCircle<HorzScaleItem> extends BaseLineTool<HorzScaleItem> {
     const renderer = paneView.renderer()
 
     // The renderer is expected to be the CompositeRenderer which contains the CircleRenderer.
-    if (renderer && renderer.hitTest) {
+    if (renderer?.hitTest) {
       // Hit-test the main circle body and the 8 virtual anchors
       return renderer.hitTest(x, y)
     }

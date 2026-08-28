@@ -37,7 +37,7 @@ async function main() {
           Object.values(mod).find(
             (v: any) => v && typeof v === 'object' && 'id' in v && 'outputs' in v
           )
-        if (trigger && trigger.id && trigger.outputs) {
+        if (trigger?.id && trigger.outputs) {
           result[trigger.id] = serializeOutputs(trigger.outputs)
         }
       } catch {

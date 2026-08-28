@@ -11,7 +11,7 @@ type RunPineTSArgs = {
   inputsMap?: Record<string, unknown>
   listing?: ListingIdentity | null
   interval?: string
-  code: string | Function
+  code: string | ((...args: unknown[]) => unknown)
 }
 
 const toPineSymbol = (listing?: ListingIdentity | null) => {

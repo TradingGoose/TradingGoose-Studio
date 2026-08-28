@@ -176,7 +176,7 @@ export class LineToolBrushPaneView<HorzScaleItem> extends LineToolPaneView<HorzS
     // The background property of PolygonRendererData is an object { color: string } | undefined.
     // We can safely create this object only if options.background exists and has a color.
     let finalBackgroundData: { color: string } | undefined
-    if (options.background && options.background.color) {
+    if (options.background?.color) {
       finalBackgroundData = { color: options.background.color }
     }
 

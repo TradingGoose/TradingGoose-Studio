@@ -255,7 +255,7 @@ export function textWrap(
   // Split text by newlines first
   text += '' // Ensure text is a string
   const lines =
-    !Number.isInteger(wrapWidthNum) || !isFinite(wrapWidthNum) || wrapWidthNum <= 0
+    !Number.isInteger(wrapWidthNum) || !Number.isFinite(wrapWidthNum) || wrapWidthNum <= 0
       ? text.split(/\r\n|\r|\n|$/) // Split only by newlines if no wrap width
       : text.split(/[^\S\r\n]*(?:\r\n|\r|\n|$)/) // Split by newlines and spaces for wrapping
 
@@ -264,7 +264,7 @@ export function textWrap(
   } // Remove empty last line if exists
 
   // If no valid wrapWidth, return lines as-is
-  if (!Number.isInteger(wrapWidthNum) || !isFinite(wrapWidthNum) || wrapWidthNum <= 0) {
+  if (!Number.isInteger(wrapWidthNum) || !Number.isFinite(wrapWidthNum) || wrapWidthNum <= 0) {
     return lines
   }
 
@@ -364,7 +364,7 @@ export function isFullyTransparent(color: string): boolean {
   const alphaRegex = /(?:rgba|hsla)\((?:\s*\d+\s*,){3}\s*(\d*\.?\d+)\s*\)/
   const match = color.match(alphaRegex)
 
-  if (match && match[1]) {
+  if (match?.[1]) {
     const alpha = Number.parseFloat(match[1])
     return alpha === 0
   }

@@ -315,7 +315,7 @@ export class LineToolFibRetracementPaneView<HorzScaleItem> extends LineToolPaneV
       const levelPrice = levelData.price
       const levelCoord = levelData.coordinate
 
-      if (levelCoord === null || !isFinite(levelCoord)) continue
+      if (levelCoord === null || !Number.isFinite(levelCoord)) continue
 
       // If the user added more levels dynamically, create new renderers now.
       if (!this._levelRenderers[i]) {

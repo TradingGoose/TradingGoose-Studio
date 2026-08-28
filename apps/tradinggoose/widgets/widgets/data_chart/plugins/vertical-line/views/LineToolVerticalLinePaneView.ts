@@ -224,7 +224,6 @@ export class LineToolVerticalLinePaneView<HorzScaleItem> extends LineToolPaneVie
           // Shift the center UP by half the box's vertical span to prevent cut-off.
           textPivotY = (paneDrawingHeight - halfVerticalSpan) as Coordinate
           break
-        case BoxHorizontalAlignment.Center.toLowerCase():
         default:
           // Center -> Center Y-value (for vertical line)
           textPivotY = (paneDrawingHeight / 2) as Coordinate

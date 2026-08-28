@@ -233,7 +233,6 @@ export class LineToolHorizontalLinePaneView<HorzScaleItem> extends LineToolPaneV
           // Pivot is at the right edge of the segment
           textPivotX = maxXBound as Coordinate
           break
-        case BoxHorizontalAlignment.Center.toLowerCase():
         default:
           // Pivot is at the center of the segment
           textPivotX = (minXBound + segmentWidth / 2) as Coordinate
