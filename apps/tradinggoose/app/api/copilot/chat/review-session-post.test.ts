@@ -365,6 +365,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
           userId: 'collaborator-user',
           model: 'openai/gpt-5.6-terra',
           conversationId: 'conversation-1',
+          workspaceId: 'workspace-1',
           context: [],
           chatId: 'review-session-1',
           toolManifest: expect.objectContaining({
@@ -901,6 +902,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
           message: 'Start a fresh generic copilot chat',
           userId: 'collaborator-user',
           model: 'anthropic/claude-fable-5',
+          workspaceId: 'workspace-1',
           chatId: 'review-session-channel-1',
           toolManifest: expect.objectContaining({
             version: 'v1',
