@@ -36,7 +36,7 @@ export function SettingsModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          'flex flex-col max-h-[90%] gap-0 p-0 lg:max-w-[50%] md:max-w-[75%] sm:max-w-[90%] ',
+          'flex max-h-[90%] flex-col gap-0 p-0 sm:max-w-[90%] md:max-w-[75%] lg:max-w-[50%] ',
           dialogContentClassName
         )}
       >

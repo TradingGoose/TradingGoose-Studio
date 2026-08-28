@@ -154,8 +154,8 @@ export function SidebarContent(props: ComponentProps<'aside'>) {
       data-collapsed={collapsed}
       data-dragging={isDragging}
       className={cn(
-        'fixed left-0 rtl:left-auto rtl:right-(--removed-body-scroll-bar-size,0) top-0 bottom-0 z-20 max-md:hidden',
-        'flex flex-col border-r border-fd-border  text-sm text-fd-foreground transition-[width] duration-200',
+        'fixed top-0 bottom-0 left-0 z-20 max-md:hidden rtl:right-(--removed-body-scroll-bar-size,0) rtl:left-auto',
+        'flex flex-col border-fd-border border-r text-fd-foreground text-sm transition-[width] duration-200',
         'data-[collapsed=true]:items-center data-[collapsed=true]:overflow-hidden',
         isDragging && 'select-none transition-none',
         props.className
@@ -167,7 +167,7 @@ export function SidebarContent(props: ComponentProps<'aside'>) {
         } as object
       }
     >
-      <div className='bg-fd-background flex min-h-0 flex-1 flex-col gap-2 p-2 data-[collapsed=true]:px-1 data-[collapsed=true]:py-3'>
+      <div className='flex min-h-0 flex-1 flex-col gap-2 bg-fd-background p-2 data-[collapsed=true]:px-1 data-[collapsed=true]:py-3'>
         {props.children}
       </div>
       <button
@@ -192,7 +192,7 @@ export function SidebarContentMobile({ className, children, ...props }: Componen
       <Presence present={open}>
         <div
           data-state={state}
-          className='fixed z-40 inset-0 backdrop-blur-xs data-[state=open]:animate-fd-fade-in data-[state=closed]:animate-fd-fade-out'
+          className='fixed inset-0 z-40 backdrop-blur-xs data-[state=closed]:animate-fd-fade-out data-[state=open]:animate-fd-fade-in'
           onClick={() => setOpen(false)}
         />
       </Presence>
@@ -203,7 +203,7 @@ export function SidebarContentMobile({ className, children, ...props }: Componen
             {...props}
             data-state={state}
             className={cn(
-              'fixed text-[0.9375rem] flex flex-col border-l border-fd-border shadow-2xl end-0 inset-y-0 w-[85%] max-w-[380px] z-40 bg-fd-card data-[state=open]:animate-fd-sidebar-in data-[state=closed]:animate-fd-sidebar-out',
+              'fixed inset-y-0 end-0 z-40 flex w-[85%] max-w-[380px] flex-col border-fd-border border-l bg-fd-card text-[0.9375rem] shadow-2xl data-[state=closed]:animate-fd-sidebar-out data-[state=open]:animate-fd-sidebar-in',
               !present && 'invisible',
               className
             )}
@@ -230,7 +230,7 @@ export function SidebarHeader(props: ComponentProps<'div'>) {
     <div
       {...rest}
       className={cn(
-        'group flex flex-col gap-2 bg-fd-secondary rounded-md p-2 text-fd-foreground data-[collapsed=true]:items-center  data-[collapsed=true]:p-0',
+        'group flex flex-col gap-2 rounded-md bg-fd-secondary p-2 text-fd-foreground data-[collapsed=true]:items-center data-[collapsed=true]:p-0',
         className
       )}
       data-collapsed={collapsedState}
@@ -268,7 +268,7 @@ export function SidebarViewport(props: ScrollAreaProps) {
   return (
     <ScrollArea {...props} className={cn('h-full', props.className)}>
       <ScrollViewport
-        className='pt-2 overscroll-contain'
+        className='overscroll-contain pt-2'
         style={
           {
             '--sidebar-item-offset': 'calc(var(--spacing) * 2)',
@@ -288,7 +288,7 @@ export function SidebarSeparator(props: ComponentProps<'p'>) {
     <p
       {...props}
       className={cn(
-        'inline-flex items-center gap-2 mb-2 ps-(--sidebar-item-offset) text-[11px] font-semibold uppercase tracking-wide text-fd-muted-foreground/70 empty:mb-0 [&_svg]:size-4 [&_svg]:shrink-0',
+        'mb-2 inline-flex items-center gap-2 ps-(--sidebar-item-offset) font-semibold text-[11px] text-fd-muted-foreground/70 uppercase tracking-wide empty:mb-0 [&_svg]:size-4 [&_svg]:shrink-0',
         props.className
       )}
     >
@@ -379,7 +379,7 @@ export function SidebarFolderTrigger({
             <span className='h-1.5 w-1.5 rounded-full bg-fd-muted-foreground/70' />
           ) : null)}
       </span>
-      <span className={cn('truncate w-48', collapsed && 'sr-only')}>{label ?? children}</span>
+      <span className={cn('w-48 truncate', collapsed && 'sr-only')}>{label ?? children}</span>
       {!collapsed && (
         <ChevronDown
           data-icon
@@ -433,7 +433,7 @@ export function SidebarFolderLink({
       title={collapsed ? labelText : undefined}
     >
       <span className='inline-flex items-center justify-center'>
-        {icon ?? (collapsed ? <span className='h-1.5 w-1.5  bg-fd-muted-foreground/70' /> : null)}
+        {icon ?? (collapsed ? <span className='h-1.5 w-1.5 bg-fd-muted-foreground/70' /> : null)}
       </span>
       <span className={cn('truncate', collapsed && 'sr-only')}>{label ?? children}</span>
       {!collapsed && (
@@ -457,7 +457,7 @@ export function SidebarFolderContent(props: CollapsibleContentProps) {
     <CollapsibleContent
       {...props}
       className={cn(
-        'relative mx-3.5 flex min-w-0 flex-col gap-1 border-l border-fd-border px-2.5 py-1',
+        'relative mx-3.5 flex min-w-0 flex-col gap-1 border-fd-border border-l px-2.5 py-1',
         collapsed && 'hidden',
         props.className
       )}

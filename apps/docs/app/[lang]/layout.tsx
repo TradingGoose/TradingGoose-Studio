@@ -110,7 +110,7 @@ export default async function Layout({ children, params }: LayoutProps) {
               title: 'Documentations',
               url: `/${locale}`,
               logo: (
-                <div className='flex h-8 w-8 items-center justify-center bg-fd-primary rounded-md'>
+                <div className='flex h-8 w-8 items-center justify-center rounded-md bg-fd-primary'>
                   <Image
                     src='/static/logo.png'
                     alt='TradingGoose'

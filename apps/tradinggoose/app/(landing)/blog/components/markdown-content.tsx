@@ -24,7 +24,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
           h1: ({ children, ...props }) => (
             <h1
               id={getHeadingId(children)}
-              className='mt-2 scroll-m-20 text-4xl font-bold tracking-tight'
+              className='mt-2 scroll-m-20 font-bold text-4xl tracking-tight'
               {...props}
             >
               {children}
@@ -33,7 +33,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
           h2: ({ children, ...props }) => (
             <h2
               id={getHeadingId(children)}
-              className='mt-10 scroll-m-20 border-b pb-1 text-3xl font-semibold tracking-tight first:mt-0'
+              className='mt-10 scroll-m-20 border-b pb-1 font-semibold text-3xl tracking-tight first:mt-0'
               {...props}
             >
               {children}
@@ -42,7 +42,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
           h3: ({ children, ...props }) => (
             <h3
               id={getHeadingId(children)}
-              className='mt-8 scroll-m-20 text-2xl font-semibold tracking-tight'
+              className='mt-8 scroll-m-20 font-semibold text-2xl tracking-tight'
               {...props}
             >
               {children}
@@ -51,7 +51,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
           h4: ({ children, ...props }) => (
             <h4
               id={getHeadingId(children)}
-              className='mt-8 scroll-m-20 text-xl font-semibold tracking-tight'
+              className='mt-8 scroll-m-20 font-semibold text-xl tracking-tight'
               {...props}
             >
               {children}
@@ -139,7 +139,7 @@ export default function MarkdownContent({ content }: MarkdownContentProps) {
               )
             return (
               <code
-                className='relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold'
+                className='relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono font-semibold text-sm'
                 {...props}
               >
                 {children}

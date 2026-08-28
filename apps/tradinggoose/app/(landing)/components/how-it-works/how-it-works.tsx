@@ -23,7 +23,7 @@ export default async function HowItWorks() {
   })
 
   return (
-    <section className='py-8 mt-24 sm:mt-32 sm:py-16 lg:mt-60 lg:py-24'>
+    <section className='mt-24 py-8 sm:mt-32 sm:py-16 lg:mt-60 lg:py-24'>
       <div className='mx-auto px-4 sm:px-6 lg:px-24'>
         <div className='grid grid-cols-1 gap-12 lg:grid-cols-2 xl:gap-16'>
           {/* Left content */}
@@ -40,7 +40,7 @@ export default async function HowItWorks() {
             </MotionPreset>
             <MotionPreset
               component='h2'
-              className='text-2xl font-semibold md:text-3xl lg:text-4xl'
+              className='font-semibold text-2xl md:text-3xl lg:text-4xl'
               fade
               blur
               slide={{ direction: 'down', offset: 50 }}

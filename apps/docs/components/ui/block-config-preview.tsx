@@ -71,7 +71,7 @@ interface BlockConfigPreviewProps {
 
 function FieldLabel({ title, required }: { title: string; required?: boolean }) {
   return (
-    <div className='mb-1 flex items-center gap-1 text-xs font-medium text-fd-foreground/70'>
+    <div className='mb-1 flex items-center gap-1 font-medium text-fd-foreground/70 text-xs'>
       {title}
       {required && <span className='text-red-500'>*</span>}
     </div>
@@ -80,7 +80,7 @@ function FieldLabel({ title, required }: { title: string; required?: boolean }) 
 
 function ShortInput({ field }: { field: DocSubBlock }) {
   return (
-    <div className='flex h-8 items-center rounded-md border border-fd-border bg-fd-background px-3 text-xs text-fd-muted-foreground'>
+    <div className='flex h-8 items-center rounded-md border border-fd-border bg-fd-background px-3 text-fd-muted-foreground text-xs'>
       {field.password
         ? '••••••••'
         : field.placeholder ||
@@ -92,7 +92,7 @@ function ShortInput({ field }: { field: DocSubBlock }) {
 
 function LongInput({ field }: { field: DocSubBlock }) {
   return (
-    <div className='flex min-h-[60px] items-start rounded-md border border-fd-border bg-fd-background p-2 text-xs text-fd-muted-foreground'>
+    <div className='flex min-h-[60px] items-start rounded-md border border-fd-border bg-fd-background p-2 text-fd-muted-foreground text-xs'>
       {field.placeholder ||
         field.defaultValue ||
         `Enter ${field.title?.toLowerCase() || 'text'}...`}
@@ -133,7 +133,7 @@ function Switch({ field }: { field: DocSubBlock }) {
           className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`}
         />
       </div>
-      <span className='text-xs text-fd-muted-foreground'>{on ? 'Enabled' : 'Disabled'}</span>
+      <span className='text-fd-muted-foreground text-xs'>{on ? 'Enabled' : 'Disabled'}</span>
     </div>
   )
 }
@@ -141,12 +141,12 @@ function Switch({ field }: { field: DocSubBlock }) {
 function CodeEditor({ field }: { field: DocSubBlock }) {
   return (
     <div className='overflow-hidden rounded-md border border-fd-border'>
-      <div className='flex items-center justify-between border-b border-fd-border bg-fd-muted/50 px-3 py-1'>
-        <span className='text-[10px] font-medium text-fd-muted-foreground'>
+      <div className='flex items-center justify-between border-fd-border border-b bg-fd-muted/50 px-3 py-1'>
+        <span className='font-medium text-[10px] text-fd-muted-foreground'>
           {field.language || 'code'}
         </span>
       </div>
-      <div className='bg-fd-background p-3 font-mono text-xs text-fd-muted-foreground'>
+      <div className='bg-fd-background p-3 font-mono text-fd-muted-foreground text-xs'>
         {field.defaultValue || field.placeholder || '// Your code here...'}
       </div>
     </div>
@@ -162,22 +162,22 @@ function Slider({ field }: { field: DocSubBlock }) {
     <div className='flex items-center gap-3'>
       <div className='relative h-1.5 flex-1 rounded-full bg-fd-border'>
         <div
-          className='absolute left-0 top-0 h-full rounded-full bg-blue-500'
+          className='absolute top-0 left-0 h-full rounded-full bg-blue-500'
           style={{ width: `${pct}%` }}
         />
         <div
-          className='absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border-2 border-blue-500 bg-white'
+          className='-translate-y-1/2 absolute top-1/2 h-3.5 w-3.5 rounded-full border-2 border-blue-500 bg-white'
           style={{ left: `${pct}%`, marginLeft: '-7px' }}
         />
       </div>
-      <span className='min-w-[2rem] text-right text-xs text-fd-muted-foreground'>{val}</span>
+      <span className='min-w-[2rem] text-right text-fd-muted-foreground text-xs'>{val}</span>
     </div>
   )
 }
 
 function OAuthInput({ field }: { field: DocSubBlock }) {
   return (
-    <div className='flex h-8 items-center gap-2 rounded-md border border-fd-border bg-fd-background px-3 text-xs text-fd-muted-foreground'>
+    <div className='flex h-8 items-center gap-2 rounded-md border border-fd-border bg-fd-background px-3 text-fd-muted-foreground text-xs'>
       <svg
         width='12'
         height='12'
@@ -196,7 +196,7 @@ function OAuthInput({ field }: { field: DocSubBlock }) {
 
 function MarketSelector({ field }: { field: DocSubBlock }) {
   return (
-    <div className='flex h-8 items-center gap-2 rounded-md border border-fd-border bg-fd-background px-3 text-xs text-fd-muted-foreground'>
+    <div className='flex h-8 items-center gap-2 rounded-md border border-fd-border bg-fd-background px-3 text-fd-muted-foreground text-xs'>
       <svg
         width='12'
         height='12'
@@ -215,7 +215,7 @@ function MarketSelector({ field }: { field: DocSubBlock }) {
 
 function GenericField({ field }: { field: DocSubBlock }) {
   return (
-    <div className='flex h-8 items-center rounded-md border border-fd-border bg-fd-background px-3 text-xs text-fd-muted-foreground'>
+    <div className='flex h-8 items-center rounded-md border border-fd-border bg-fd-background px-3 text-fd-muted-foreground text-xs'>
       {field.placeholder || field.title || field.type}
     </div>
   )
@@ -287,7 +287,7 @@ export function BlockConfigPreview({
     <div className='w-full overflow-hidden rounded-lg border border-fd-border bg-fd-card shadow-sm sm:max-w-md'>
       {/* Header — hidden when BlockInfoCard is shown above */}
       {!hideHeader && (
-        <div className='flex items-center gap-3 border-b border-fd-border bg-fd-muted/30 px-4 py-3'>
+        <div className='flex items-center gap-3 border-fd-border border-b bg-fd-muted/30 px-4 py-3'>
           <div
             className={`flex h-8 w-8 items-center justify-center rounded-md ${!bgColor ? 'bg-fd-secondary/80' : ''}`}
             style={bgColor ? { backgroundColor: bgColor } : undefined}
@@ -295,7 +295,7 @@ export function BlockConfigPreview({
             <IconComponent className={`h-4 w-4 ${bgColor ? 'text-white' : 'text-fd-foreground'}`} />
           </div>
           <div>
-            <div className='text-sm font-semibold text-fd-foreground'>{name}</div>
+            <div className='font-semibold text-fd-foreground text-sm'>{name}</div>
             <div className='text-[10px] text-fd-muted-foreground'>{type}</div>
           </div>
         </div>
@@ -350,10 +350,10 @@ export function TriggerDeployPreview({
   return (
     <div className='my-4 w-full overflow-hidden rounded-lg border border-fd-border sm:max-w-md'>
       {/* Modal Header */}
-      <div className='flex items-center justify-between border-b border-fd-border bg-fd-muted/30 px-4 py-3'>
-        <div className='text-sm font-semibold text-fd-foreground'>Deploy: {name}</div>
+      <div className='flex items-center justify-between border-fd-border border-b bg-fd-muted/30 px-4 py-3'>
+        <div className='font-semibold text-fd-foreground text-sm'>Deploy: {name}</div>
         <div
-          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${active ? 'bg-green-500/10 text-green-600' : 'bg-fd-muted text-fd-muted-foreground'}`}
+          className={`rounded-full px-2 py-0.5 font-medium text-[10px] ${active ? 'bg-green-500/10 text-green-600' : 'bg-fd-muted text-fd-muted-foreground'}`}
         >
           {active ? 'Active' : 'Inactive'}
         </div>
@@ -363,7 +363,7 @@ export function TriggerDeployPreview({
       <div className='space-y-3 p-4'>
         {fields.map((field) => (
           <div key={field.id}>
-            <div className='mb-1 text-xs font-medium text-fd-foreground/70'>{field.title}</div>
+            <div className='mb-1 font-medium text-fd-foreground/70 text-xs'>{field.title}</div>
             {field.type === 'webhook-url' ? (
               <div className='flex h-8 items-center justify-between rounded-md border border-fd-border bg-fd-muted/50 px-3'>
                 <span className='truncate font-mono text-[10px] text-fd-muted-foreground'>
@@ -412,7 +412,7 @@ export function TriggerDeployPreview({
                 </div>
               </div>
             ) : (
-              <div className='flex h-8 items-center rounded-md border border-fd-border bg-fd-background px-3 text-xs text-fd-muted-foreground'>
+              <div className='flex h-8 items-center rounded-md border border-fd-border bg-fd-background px-3 text-fd-muted-foreground text-xs'>
                 {field.value || field.placeholder || '...'}
               </div>
             )}
@@ -421,8 +421,8 @@ export function TriggerDeployPreview({
       </div>
 
       {/* Footer */}
-      <div className='flex justify-end border-t border-fd-border px-4 py-3'>
-        <div className='rounded-md bg-blue-500 px-4 py-1.5 text-xs font-medium text-white'>
+      <div className='flex justify-end border-fd-border border-t px-4 py-3'>
+        <div className='rounded-md bg-blue-500 px-4 py-1.5 font-medium text-white text-xs'>
           Deploy
         </div>
       </div>

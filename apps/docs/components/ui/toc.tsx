@@ -33,7 +33,7 @@ export function TOCScrollArea({ ref, className, ...props }: ComponentProps<'div'
     <div
       ref={mergeRefs(viewRef, ref)}
       className={cn(
-        'relative min-h-0 text-sm ms-px overflow-auto [scrollbar-width:none] [mask-image:linear-gradient(to_bottom,transparent,white_16px,white_calc(100%-16px),transparent)] py-3',
+        'relative ms-px min-h-0 overflow-auto py-3 text-sm [mask-image:linear-gradient(to_bottom,transparent,white_16px,white_calc(100%-16px),transparent)] [scrollbar-width:none]',
         className
       )}
       {...props}
@@ -50,7 +50,7 @@ export function TOCItems({ ref, className, ...props }: ComponentProps<'div'>) {
 
   if (items.length === 0)
     return (
-      <div className='rounded-lg border bg-fd-card p-3 text-xs text-fd-muted-foreground'>
+      <div className='rounded-lg border bg-fd-card p-3 text-fd-muted-foreground text-xs'>
         {text.tocNoHeadings}
       </div>
     )
@@ -63,7 +63,7 @@ export function TOCItems({ ref, className, ...props }: ComponentProps<'div'>) {
       />
       <div
         ref={mergeRefs(ref, containerRef)}
-        className={cn('flex flex-col border-s border-fd-foreground/10', className)}
+        className={cn('flex flex-col border-fd-foreground/10 border-s', className)}
         {...props}
       >
         {items.map((item) => (
@@ -79,7 +79,7 @@ function TOCItem({ item }: { item: Primitive.TOCItemType }) {
     <Primitive.TOCItem
       href={item.url}
       className={cn(
-        'prose py-1.5 text-sm text-fd-muted-foreground transition-colors [overflow-wrap:anywhere] first:pt-0 last:pb-0 data-[active=true]:text-fd-primary',
+        'prose py-1.5 text-fd-muted-foreground text-sm transition-colors [overflow-wrap:anywhere] first:pt-0 last:pb-0 data-[active=true]:text-fd-primary',
         item.depth <= 2 && 'ps-3',
         item.depth === 3 && 'ps-6',
         item.depth >= 4 && 'ps-8'

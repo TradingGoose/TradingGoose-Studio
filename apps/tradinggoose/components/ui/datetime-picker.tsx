@@ -255,7 +255,7 @@ export function DateTimePicker({
         </PopoverTrigger>
         <PopoverContent className='w-auto p-2'>
           <div className='flex items-center justify-between'>
-            <div className='text-md font-bold ms-2 flex items-center cursor-pointer'>
+            <div className='ms-2 flex cursor-pointer items-center font-bold text-md'>
               <div>
                 <button
                   type='button'
@@ -351,7 +351,7 @@ export function DateTimePicker({
             />
             <div
               className={cn(
-                'absolute top-0 left-0 bottom-0 right-0',
+                'absolute top-0 right-0 bottom-0 left-0',
                 monthYearPicker ? 'bg-popover' : 'hidden'
               )}
             />
@@ -362,7 +362,7 @@ export function DateTimePicker({
               minDate={minDate}
               maxDate={maxDate}
               className={cn(
-                'absolute top-0 left-0 bottom-0 right-0',
+                'absolute top-0 right-0 bottom-0 left-0',
                 monthYearPicker ? '' : 'hidden'
               )}
             />
@@ -385,7 +385,7 @@ export function DateTimePicker({
               {timezone && (
                 <div className='text-sm'>
                   <span>Timezone:</span>
-                  <span className='font-semibold ms-1'>{timezone}</span>
+                  <span className='ms-1 font-semibold'>{timezone}</span>
                 </div>
               )}
             </div>
@@ -399,7 +399,7 @@ export function DateTimePicker({
           variant='ghost'
           size='sm'
           aria-label='Clear date'
-          className='absolute end-1 top-1/2 z-10 size-6 -translate-y-1/2 p-1'
+          className='-translate-y-1/2 absolute end-1 top-1/2 z-10 size-6 p-1'
           onClick={() => {
             onChange(undefined)
             setOpen(false)
@@ -875,7 +875,7 @@ const TimeItem = ({
   return (
     <Button
       variant='ghost'
-      className={cn('flex justify-center px-1 pe-2 ps-1 bg-transparent', className)}
+      className={cn('flex justify-center bg-transparent px-1 ps-1 pe-2', className)}
       onClick={() => onSelect(option)}
       disabled={disabled}
     >

@@ -37,7 +37,7 @@ export default function MarkdownTitle({ title, className, as: Tag = 'h1' }: Mark
                 </a>
               ),
               code: ({ children }) => (
-                <code className='relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-[0.85em] font-semibold'>
+                <code className='relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono font-semibold text-[0.85em]'>
                   {children}
                 </code>
               ),

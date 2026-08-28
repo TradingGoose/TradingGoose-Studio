@@ -52,7 +52,7 @@ export function WorkspaceApiKeysPage() {
   )
 
   const headerCenter = (
-    <div className='inline-flex h-9 items-center rounded-md border bg-muted p-1 gap-1 shadow-sm'>
+    <div className='inline-flex h-9 items-center gap-1 rounded-md border bg-muted p-1 shadow-sm'>
       <Button
         variant='ghost'
         size='sm'

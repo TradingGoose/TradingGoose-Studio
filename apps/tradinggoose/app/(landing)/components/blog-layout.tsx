@@ -61,7 +61,7 @@ export default async function BlogLayout({ children, path, title }: BlogLayoutPr
       )}
       <PublicNav />
 
-      <div className='border-b border-border px-4 pt-10 pb-80 sm:px-12 md:px-20 lg:px-60'>
+      <div className='border-border border-b px-4 pt-10 pb-80 sm:px-12 md:px-20 lg:px-60'>
         {children}
       </div>
 

@@ -60,7 +60,7 @@ export function SidebarDropdownMenuContent({
           >
             <div
               className={cn(
-                'allow-scroll flex h-56 min-w-0 flex-col gap-1 overflow-y-auto items-center [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+                'allow-scroll flex h-56 min-w-0 flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
               )}
             >
               {groups.map((group) => {

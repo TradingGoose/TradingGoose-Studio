@@ -25,8 +25,8 @@ export const DrawControl = ({
   const removeSelectedLabel = getDataChartDrawActionLabel(copy, 'removeSelected')
 
   return (
-    <div className='inline-flex min-w-0 max-w-full self-start items-center h-6 gap-1 rounded-sm border border-border/40 text-center text-xs shadow-xs bg-background/40 backdrop-blur-sm hover:bg-background'>
-      <div className='items-center gap-1 p-0.5 flex'>
+    <div className='inline-flex h-6 min-w-0 max-w-full items-center gap-1 self-start rounded-sm border border-border/40 bg-background/40 text-center text-xs shadow-xs backdrop-blur-sm hover:bg-background'>
+      <div className='flex items-center gap-1 p-0.5'>
         <Tooltip>
           <TooltipTrigger
             render={

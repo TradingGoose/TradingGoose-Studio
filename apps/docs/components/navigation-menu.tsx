@@ -39,7 +39,7 @@ const NavigationMenuContent = React.forwardRef<
   <Primitive.Content
     ref={ref}
     className={cn(
-      'absolute inset-x-0 top-0 overflow-auto fd-scroll-container max-h-[80svh] data-[motion=from-end]:animate-fd-enterFromRight data-[motion=from-start]:animate-fd-enterFromLeft data-[motion=to-end]:animate-fd-exitToRight data-[motion=to-start]:animate-fd-exitToLeft',
+      'fd-scroll-container absolute inset-x-0 top-0 max-h-[80svh] overflow-auto data-[motion=from-end]:animate-fd-enterFromRight data-[motion=from-start]:animate-fd-enterFromLeft data-[motion=to-end]:animate-fd-exitToRight data-[motion=to-start]:animate-fd-exitToLeft',
       className
     )}
     {...props}

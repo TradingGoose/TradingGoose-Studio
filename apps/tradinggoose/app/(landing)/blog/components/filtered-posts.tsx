@@ -51,7 +51,7 @@ export default function FilteredPosts({ posts }: FilteredPostProps) {
           id='search'
         />
         <Label htmlFor='search'>
-          <SearchIcon className='absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground' />
+          <SearchIcon className='-translate-y-1/2 absolute top-1/2 left-4 size-5 text-muted-foreground' />
         </Label>
       </div>
 

@@ -64,7 +64,7 @@ export default function ClerkTOCItems({ ref, className, ...props }: ComponentPro
 
   if (items.length === 0)
     return (
-      <div className='rounded-lg border bg-fd-card p-3 text-xs text-fd-muted-foreground'>
+      <div className='rounded-lg border bg-fd-card p-3 text-fd-muted-foreground text-xs'>
         {text.tocNoHeadings}
       </div>
     )
@@ -73,7 +73,7 @@ export default function ClerkTOCItems({ ref, className, ...props }: ComponentPro
     <>
       {svg ? (
         <div
-          className='absolute start-0 top-0 rtl:-scale-x-100'
+          className='rtl:-scale-x-100 absolute start-0 top-0'
           style={{
             width: svg.width,
             height: svg.height,
@@ -134,13 +134,13 @@ function TOCItem({
       style={{
         paddingInlineStart: getItemOffset(item.depth),
       }}
-      className='prose relative py-1.5 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground transition-colors [overflow-wrap:anywhere] first:pt-0 last:pb-0 data-[active=true]:text-fd-primary'
+      className='prose relative py-1.5 text-fd-muted-foreground text-sm transition-colors [overflow-wrap:anywhere] first:pt-0 last:pb-0 hover:text-fd-accent-foreground data-[active=true]:text-fd-primary'
     >
       {offset !== upperOffset ? (
         <svg
           xmlns='http://www.w3.org/2000/svg'
           viewBox='0 0 16 16'
-          className='absolute -top-1.5 start-0 size-4 rtl:-scale-x-100'
+          className='-top-1.5 rtl:-scale-x-100 absolute start-0 size-4'
         >
           <line
             x1={upperOffset}

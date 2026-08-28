@@ -25,7 +25,7 @@ export function Navbar(props: ComponentProps<'header'>) {
     <header
       {...props}
       className={cn(
-        'sticky top-0 z-20 flex flex-col border-b border-fd-border bg-fd-background/40 backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm',
+        'sticky top-0 z-20 flex flex-col border-fd-border border-b bg-fd-background/40 backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm',
         props.className
       )}
     >
@@ -87,7 +87,7 @@ export function LayoutTabs({ options, ...props }: ComponentProps<'div'> & { opti
     <div
       {...props}
       className={cn(
-        'flex flex-row items-center gap-3 overflow-auto px-4 text-sm text-fd-muted-foreground',
+        'flex flex-row items-center gap-3 overflow-auto px-4 text-fd-muted-foreground text-sm',
         props.className
       )}
     >
@@ -110,7 +110,7 @@ function LayoutTab({
       href={url}
       {...props}
       className={cn(
-        'inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 text-sm font-medium text-fd-muted-foreground transition-colors',
+        'inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 font-medium text-fd-muted-foreground text-sm transition-colors',
         unlisted && !selected && 'hidden',
         selected
           ? 'bg-fd-accent text-fd-accent-foreground shadow-sm'
@@ -152,11 +152,11 @@ export function DocsBreadcrumb({ icon, label, href = '/', className }: DocsBread
 
   return (
     <div
-      className={cn('flex min-w-0 items-center gap-1 text-xs text-fd-muted-foreground', className)}
+      className={cn('flex min-w-0 items-center gap-1 text-fd-muted-foreground text-xs', className)}
     >
       <Link
         href={href}
-        className='flex shrink-0 items-center gap-2 text-sm text-fd-foreground font-medium'
+        className='flex shrink-0 items-center gap-2 font-medium text-fd-foreground text-sm'
       >
         {icon}
         <span className='truncate'>{label}</span>
@@ -172,12 +172,12 @@ export function DocsBreadcrumb({ icon, label, href = '/', className }: DocsBread
             {href && !isLast ? (
               <Link
                 href={href}
-                className='truncate text-xs text-fd-muted-foreground transition-colors hover:text-fd-foreground'
+                className='truncate text-fd-muted-foreground text-xs transition-colors hover:text-fd-foreground'
               >
                 {label}
               </Link>
             ) : (
-              <span className='truncate text-xs text-fd-muted-foreground'>{label}</span>
+              <span className='truncate text-fd-muted-foreground text-xs'>{label}</span>
             )}
           </div>
         )

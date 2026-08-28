@@ -23,7 +23,7 @@ export function SchemaTree({ fields, title }: SchemaTreeProps) {
   return (
     <div className='my-4 overflow-hidden rounded-lg border border-fd-border bg-fd-card text-sm'>
       {title && (
-        <div className='border-b border-fd-border bg-fd-muted/30 px-4 py-2 text-xs font-semibold text-fd-muted-foreground uppercase tracking-wider'>
+        <div className='border-fd-border border-b bg-fd-muted/30 px-4 py-2 font-semibold text-fd-muted-foreground text-xs uppercase tracking-wider'>
           {title}
         </div>
       )}
@@ -70,18 +70,18 @@ function SchemaNode({ field, depth }: { field: SchemaField; depth: number }) {
         </div>
 
         {/* Field name */}
-        <code className='shrink-0 text-xs font-semibold text-fd-foreground'>{field.name}</code>
+        <code className='shrink-0 font-semibold text-fd-foreground text-xs'>{field.name}</code>
 
         {/* Type badge */}
         <span
-          className={cn('shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium', typeBadgeColor)}
+          className={cn('shrink-0 rounded px-1.5 py-0.5 font-medium text-[10px]', typeBadgeColor)}
         >
           {field.type}
         </span>
 
         {/* Description */}
         {field.description && field.description !== field.name && (
-          <span className='truncate text-xs text-fd-muted-foreground'>{field.description}</span>
+          <span className='truncate text-fd-muted-foreground text-xs'>{field.description}</span>
         )}
       </div>
 

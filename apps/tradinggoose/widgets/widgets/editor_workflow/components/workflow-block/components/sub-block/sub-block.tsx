@@ -165,7 +165,7 @@ function SubBlockSliderField({
           }
         }}
         disabled={disabled}
-        className='[&_[data-slot=slider-track]]:h-1 [&_[data-slot=slider-thumb]]:size-4'
+        className='[&_[data-slot=slider-thumb]]:size-4 [&_[data-slot=slider-track]]:h-1'
       />
       <div
         className='absolute text-muted-foreground text-sm'

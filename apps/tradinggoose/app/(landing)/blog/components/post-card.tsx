@@ -40,7 +40,7 @@ export default function PostCard({ post, index }: PostCardProps) {
         <MarkdownTitle
           title={post.title}
           as='h2'
-          className='line-clamp-2 text-2xl font-extrabold'
+          className='line-clamp-2 font-extrabold text-2xl'
         />
         {post.description && (
           <p className='line-clamp-3 text-muted-foreground sm:line-clamp-2 md:line-clamp-4'>
@@ -48,7 +48,7 @@ export default function PostCard({ post, index }: PostCardProps) {
           </p>
         )}
 
-        <div className='mt-auto flex items-center justify-between gap-2 pt-4 text-sm text-muted-foreground'>
+        <div className='mt-auto flex items-center justify-between gap-2 pt-4 text-muted-foreground text-sm'>
           <span>{formatBlogDate(post.date, 'short', locale)}</span>
 
           <div className='flex items-center gap-4'>

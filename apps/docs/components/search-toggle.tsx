@@ -56,7 +56,7 @@ export function LargeSearchToggle({
       data-search-full=''
       {...props}
       className={cn(
-        'inline-flex w-full flex-nowrap items-center gap-2 overflow-hidden rounded-md border p-1.5 ps-2 text-sm text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground',
+        'inline-flex w-full flex-nowrap items-center gap-2 overflow-hidden rounded-md border p-1.5 ps-2 text-fd-muted-foreground text-sm transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground',
         props.className
       )}
       onClick={() => {

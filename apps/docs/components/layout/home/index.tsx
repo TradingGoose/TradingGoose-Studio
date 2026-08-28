@@ -81,11 +81,11 @@ export function Header({
             <NavigationMenuLinkItem key={i} item={item} className='text-sm' />
           ))}
       </ul>
-      <div className='flex flex-row items-center justify-end gap-1.5 flex-1 max-lg:hidden'>
+      <div className='flex flex-1 flex-row items-center justify-end gap-1.5 max-lg:hidden'>
         {searchToggle.enabled !== false &&
           (searchToggle.components?.lg ?? (
             <LargeSearchToggle
-              className='w-full rounded-full ps-2.5 max-w-[240px]'
+              className='w-full max-w-[240px] rounded-full ps-2.5'
               hideIfDisabled
             />
           ))}
@@ -96,7 +96,7 @@ export function Header({
             <Languages className='size-5' />
           </LanguageToggle>
         )}
-        <ul className='flex flex-row gap-2 items-center empty:hidden'>
+        <ul className='flex flex-row items-center gap-2 empty:hidden'>
           {navItems.filter(isSecondary).map((item, i) => (
             <NavigationMenuLinkItem
               key={i}
@@ -106,7 +106,7 @@ export function Header({
           ))}
         </ul>
       </div>
-      <ul className='flex flex-row items-center ms-auto -me-1.5 lg:hidden'>
+      <ul className='-me-1.5 ms-auto flex flex-row items-center lg:hidden'>
         {searchToggle.enabled !== false &&
           (searchToggle.components?.sm ?? <SearchToggle className='p-2' hideIfDisabled />)}
         <NavigationMenuItem>

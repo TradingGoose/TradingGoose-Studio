@@ -123,10 +123,10 @@ export default async function PostPage({ params }: PostPageProps) {
         <MarkdownTitle
           title={title}
           as='h1'
-          className='mt-2 inline-block text-4xl font-bold leading-tight lg:text-5xl'
+          className='mt-2 inline-block font-bold text-4xl leading-tight lg:text-5xl'
         />
 
-        <div className='mt-4 flex flex-wrap items-center justify-between gap-y-3 text-sm text-muted-foreground'>
+        <div className='mt-4 flex flex-wrap items-center justify-between gap-y-3 text-muted-foreground text-sm'>
           <div className='flex items-center gap-3'>
             {authors?.length
               ? authors.map((author) => (

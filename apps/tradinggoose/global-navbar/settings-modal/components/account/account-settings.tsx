@@ -338,9 +338,9 @@ export function AccountSettings() {
   return (
     <div className='bg-background px-6 py-6'>
       <div className='grid gap-6 p-6 sm:grid-cols-[280px,1fr] '>
-        <Card className='border-none  shadow-none'>
+        <Card className='border-none shadow-none'>
           <CardHeader className='pb-4'>
-            <CardTitle className='text-base font-semibold'>{tAccount('profilePicture')}</CardTitle>
+            <CardTitle className='font-semibold text-base'>{tAccount('profilePicture')}</CardTitle>
           </CardHeader>
           <CardContent className='space-y-4'>
             <div
@@ -396,7 +396,7 @@ export function AccountSettings() {
         </Card>
         <Card className='border-none shadow-none'>
           <CardHeader className='space-y-1 pb-5'>
-            <CardTitle className='text-lg font-semibold'>{tAccount('profileDetails')}</CardTitle>
+            <CardTitle className='font-semibold text-lg'>{tAccount('profileDetails')}</CardTitle>
             <p className='text-muted-foreground text-sm'>{tAccount('profileDetailsDescription')}</p>
           </CardHeader>
           <CardContent className='space-y-5'>
@@ -405,7 +405,7 @@ export function AccountSettings() {
                 <Label htmlFor='accountName'>{tAccount('fullName')}</Label>
                 {isEditingName ? (
                   <div className='py-1.5'>
-                    <div className='flex items-center gap-2 max-w-md'>
+                    <div className='flex max-w-md items-center gap-2'>
                       <Input
                         id='accountName'
                         ref={editNameInputRef}
@@ -428,7 +428,7 @@ export function AccountSettings() {
                           }
                         }}
                         disabled={isUpdatingName}
-                        className='h-8 flex-1 min-w-0'
+                        className='h-8 min-w-0 flex-1'
                         autoComplete='off'
                       />
                       <button
@@ -478,7 +478,7 @@ export function AccountSettings() {
               </div>
               <div className='space-y-1'>
                 <Label>{tAccount('emailAddress')}</Label>
-                <div className='rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground'>
+                <div className='rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground text-sm'>
                   {email || '—'}
                 </div>
                 <p className='text-muted-foreground text-xs'>{tAccount('emailHint')}</p>
@@ -488,7 +488,7 @@ export function AccountSettings() {
             <div className='rounded-sm border bg-muted/30 px-4 py-4'>
               <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
                 <div>
-                  <Label className='text-sm font-semibold'>{tAccount('passwordReset')}</Label>
+                  <Label className='font-semibold text-sm'>{tAccount('passwordReset')}</Label>
                   <p className='text-muted-foreground text-sm'>
                     {tAccount('passwordResetDescription')}
                   </p>
@@ -526,7 +526,7 @@ export function AccountSettings() {
       <div className='px-6 pb-6'>
         <Card className='border-none shadow-none'>
           <CardHeader className='space-y-1 pb-5'>
-            <CardTitle className='text-lg font-semibold'>{tAccount('privacy')}</CardTitle>
+            <CardTitle className='font-semibold text-lg'>{tAccount('privacy')}</CardTitle>
             <p className='text-muted-foreground text-sm'>{tAccount('privacyDescription')}</p>
           </CardHeader>
           <CardContent>

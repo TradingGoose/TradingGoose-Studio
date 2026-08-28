@@ -74,7 +74,7 @@ const BackgroundRippleEffect = ({
   }, [cellSize, cols, rows, interactive])
 
   return (
-    <div ref={ref} className={cn('absolute z-[-1] inset-0 h-full w-full object-center')}>
+    <div ref={ref} className={cn('absolute inset-0 z-[-1] h-full w-full object-center')}>
       <div className='relative flex h-auto w-auto justify-center overflow-hidden'>
         <div className='pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-hidden' />
         <DivGrid
@@ -114,8 +114,8 @@ type DivGridProps = {
 }
 
 type CellStyle = React.CSSProperties & {
-  ['--delay']?: string
-  ['--duration']?: string
+  '--delay'?: string
+  '--duration'?: string
 }
 
 const DivGrid = ({
@@ -165,12 +165,12 @@ const DivGrid = ({
           <div
             key={idx}
             className={cn(
-              'cell relative border-[1px] opacity-50 transition-all duration-150 will-change-transform shadow-inner shadow-lg',
-              'bg-fd-primary/10 border-neutral-500',
+              'cell relative border-[1px] opacity-50 shadow-inner shadow-lg transition-all duration-150 will-change-transform',
+              'border-neutral-500 bg-fd-primary/10',
               '',
               clickedCell && 'animate-cell-ripple [animation-fill-mode:none]',
               !interactive && 'pointer-events-none',
-              isHovered && 'opacity-90 border-fd-primary brightness-95'
+              isHovered && 'border-fd-primary opacity-90 brightness-95'
             )}
             style={{
               ...style,

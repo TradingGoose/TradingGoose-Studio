@@ -38,7 +38,7 @@ export function MonitorControlBar({
       <div
         ref={scrollRef}
         onWheel={handleWheel}
-        className='w-full min-w-0 max-w-full overflow-x-auto rounded-lg border bg-muted p-1 shadow-sm overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+        className='w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border bg-muted p-1 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
       >
         <div
           role='toolbar'

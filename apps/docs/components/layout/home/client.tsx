@@ -45,8 +45,8 @@ export function Navbar(props: ComponentProps<'div'>) {
         id='nd-nav'
         {...props}
         className={cn(
-          'fixed top-(--fd-banner-height) z-40 left-0 right-(--removed-body-scroll-bar-size,0) backdrop-blur-lg border-b transition-colors *:mx-auto *:max-w-fd-container',
-          value.length > 0 && 'max-lg:shadow-lg max-lg:rounded-b-2xl',
+          'fixed top-(--fd-banner-height) right-(--removed-body-scroll-bar-size,0) left-0 z-40 border-b backdrop-blur-lg transition-colors *:mx-auto *:max-w-fd-container',
+          value.length > 0 && 'max-lg:rounded-b-2xl max-lg:shadow-lg',
           (!isTransparent || value.length > 0) && 'bg-fd-background',
           props.className
         )}
@@ -99,8 +99,8 @@ export function NavigationMenuLinkItem({
             {rest.children ?? (
               <>
                 {banner}
-                <p className='text-base font-medium'>{child.text}</p>
-                <p className='text-sm text-fd-muted-foreground empty:hidden'>{child.description}</p>
+                <p className='font-medium text-base'>{child.text}</p>
+                <p className='text-fd-muted-foreground text-sm empty:hidden'>{child.description}</p>
               </>
             )}
           </Link>
@@ -161,7 +161,7 @@ export function MobileNavigationMenuLinkItem({
 
     return (
       <div className={cn('mb-4 flex flex-col', props.className)}>
-        <p className='mb-1 text-sm text-fd-muted-foreground'>
+        <p className='mb-1 text-fd-muted-foreground text-sm'>
           {item.url ? (
             <NavigationMenuLink asChild>
               <Link href={item.url} external={item.external}>

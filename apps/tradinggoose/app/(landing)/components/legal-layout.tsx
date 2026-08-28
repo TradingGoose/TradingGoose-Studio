@@ -55,7 +55,7 @@ export default async function LegalLayout({ title, children, path }: LegalLayout
       {/* Content */}
       <div className='px-40 pt-[40px] pb-[40px]'>
         <h1 className='mb-12 text-center font-bold text-4xl md:text-5xl'>{title}</h1>
-        <div className='text-accent-foreground prose prose-gray mx-auto prose-h2:mt-12 prose-h3:mt-8 prose-h2:mb-6 prose-h3:mb-4 space-y-8 '>
+        <div className='prose prose-gray mx-auto prose-h2:mt-12 prose-h3:mt-8 prose-h2:mb-6 prose-h3:mb-4 space-y-8 text-accent-foreground '>
           {children}
         </div>
       </div>

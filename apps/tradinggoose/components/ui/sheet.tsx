@@ -34,7 +34,7 @@ interface SheetContentProps
 const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
   ({ side = 'right', className, children, ...props }, ref) => (
     <SheetPrimitive.Portal>
-      <SheetPrimitive.Backdrop className='fixed inset-0 z-50 bg-black/50 backdrop-blur-[4.8px] data-[ending-style]:animate-out data-[ending-style]:fade-out-0 data-[starting-style]:animate-in data-[starting-style]:fade-in-0' />
+      <SheetPrimitive.Backdrop className='data-[ending-style]:fade-out-0 data-[starting-style]:fade-in-0 fixed inset-0 z-50 bg-black/50 backdrop-blur-[4.8px] data-[ending-style]:animate-out data-[starting-style]:animate-in' />
       <SheetPrimitive.Viewport className='pointer-events-none fixed inset-0 z-50'>
         <SheetPrimitive.Popup
           ref={ref}

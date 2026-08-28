@@ -24,7 +24,7 @@ export function ShowcaseCard({ children, caption, className }: ShowcaseCardProps
         </div>
       </div>
       {caption && (
-        <figcaption className='mt-2 text-center text-xs text-fd-muted-foreground'>
+        <figcaption className='mt-2 text-center text-fd-muted-foreground text-xs'>
           {caption}
         </figcaption>
       )}
@@ -141,10 +141,10 @@ function RippleBg({ containerRef, rows: minRows = DEFAULT_ROWS }: RippleBgProps)
             <div
               key={idx}
               className={cn(
-                'border-[1px] opacity-50 transition-all duration-150 will-change-transform shadow-inner shadow-lg',
-                'bg-fd-primary/10 border-neutral-500',
+                'border-[1px] opacity-50 shadow-inner shadow-lg transition-all duration-150 will-change-transform',
+                'border-neutral-500 bg-fd-primary/10',
                 clickedCell && 'animate-cell-ripple [animation-fill-mode:none]',
-                isHovered && 'opacity-90 border-fd-primary brightness-95'
+                isHovered && 'border-fd-primary opacity-90 brightness-95'
               )}
               style={
                 clickedCell

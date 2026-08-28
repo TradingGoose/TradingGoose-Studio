@@ -87,12 +87,12 @@ export function InviteStatusCard({
         </div>
 
         <div
-          className={`${inter.className} text-muted-foreground fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
+          className={`${inter.className} fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] text-muted-foreground leading-relaxed`}
         >
           {copy.invite.needHelp}{' '}
           <a
             href='mailto:support@tradinggoose.ai'
-            className='hover:text-primary underline underline-offset-4'
+            className='underline underline-offset-4 hover:text-primary'
           >
             {copy.invite.contactSupport}
           </a>
@@ -161,12 +161,12 @@ export function InviteStatusCard({
       </div>
 
       <div
-        className={`${inter.className} text-muted-foreground fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
+        className={`${inter.className} fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] text-muted-foreground leading-relaxed`}
       >
         {copy.invite.needHelp}{' '}
         <a
           href={`mailto:${brandConfig.supportEmail}`}
-          className='hover:text-primary underline underline-offset-4'
+          className='underline underline-offset-4 hover:text-primary'
         >
           {copy.invite.contactSupport}
         </a>

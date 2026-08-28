@@ -185,7 +185,7 @@ export function EditOnGitHub(props: ComponentProps<'a'>) {
         buttonVariants({
           color: 'secondary',
           size: 'sm',
-          className: 'gap-1.5 not-prose',
+          className: 'not-prose gap-1.5',
         }),
         props.className
       )}
@@ -220,7 +220,7 @@ export const DocsDescription = forwardRef<HTMLParagraphElement, ComponentProps<'
       <p
         ref={ref}
         {...props}
-        className={cn('mb-8 text-lg text-fd-muted-foreground', props.className)}
+        className={cn('mb-8 text-fd-muted-foreground text-lg', props.className)}
       >
         {props.children}
       </p>
@@ -232,7 +232,7 @@ DocsDescription.displayName = 'DocsDescription'
 
 export const DocsTitle = forwardRef<HTMLHeadingElement, ComponentProps<'h1'>>((props, ref) => {
   return (
-    <h1 ref={ref} {...props} className={cn('text-[1.75em] font-semibold', props.className)}>
+    <h1 ref={ref} {...props} className={cn('font-semibold text-[1.75em]', props.className)}>
       {props.children}
     </h1>
   )

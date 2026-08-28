@@ -363,9 +363,9 @@ export function DocsLayout(props: DocsLayoutProps) {
                 <span className='inline-flex shrink-0 items-center justify-center'>
                   {navLogo ?? <div className='h-8 w-8 rounded-md bg-fd-primary' />}
                 </span>
-                <div className='group-data-[collapsed=true]:hidden grid flex-1 text-left text-sm leading-tight'>
+                <div className='grid flex-1 text-left text-sm leading-tight group-data-[collapsed=true]:hidden'>
                   <span className='truncate font-semibold'>TradingGoose</span>
-                  <span className='truncate text-xs font-light'>Docs</span>
+                  <span className='truncate font-light text-xs'>Docs</span>
                 </div>
               </Link>
             </div>
@@ -376,7 +376,7 @@ export function DocsLayout(props: DocsLayoutProps) {
         {viewport}
         <Footer
           className={cn(
-            'hidden flex-row text-fd-muted-foreground items-center',
+            'hidden flex-row items-center text-fd-muted-foreground',
             iconLinks.length > 0 && 'max-lg:flex'
           )}
         >
@@ -501,13 +501,13 @@ function DocsNavbar({
       <div className='flex h-14 items-center gap-3 border-b px-4 '>
         <div className='flex items-center gap-2'>
           {sidebarCollapsible && (
-            <SidebarCollapseTrigger className='hidden h-7 w-7 items-center justify-center rounded-full text-fd-muted-foreground transition-colors  hover:text-fd-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring md:inline-flex'>
+            <SidebarCollapseTrigger className='hidden h-7 w-7 items-center justify-center rounded-full text-fd-muted-foreground transition-colors hover:text-fd-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring md:inline-flex'>
               <SidebarIcon className='size-4' />
             </SidebarCollapseTrigger>
           )}
         </div>
         <span className='hidden h-6 w-px bg-fd-border md:block' />
-        <div className='flex w-full flex-nowrap gap-4 text-sm text-fd-muted-foreground'>
+        <div className='flex w-full flex-nowrap gap-4 text-fd-muted-foreground text-sm'>
           <div className='flex min-w-0 flex-grow basis-0 items-center gap-3'>
             <DocsBreadcrumb
               icon={<BookOpen className='size-4' />}
@@ -520,7 +520,7 @@ function DocsNavbar({
                 <NavbarLinkItem
                   key={i}
                   item={item}
-                  className='text-sm text-fd-muted-foreground transition-colors hover:text-fd-foreground'
+                  className='text-fd-muted-foreground text-sm transition-colors hover:text-fd-foreground'
                 />
               ))}
             </div>
@@ -565,13 +565,13 @@ function DocsNavbar({
         </div>
       </div>
       {navLinks.length > 0 && (
-        <div className='flex flex-wrap gap-3 border-b border-fd-border px-4 py-2 md:hidden'>
+        <div className='flex flex-wrap gap-3 border-fd-border border-b px-4 py-2 md:hidden'>
           {navLinks.map((item, i) => (
-            <NavbarLinkItem key={i} item={item} className='text-sm text-fd-muted-foreground' />
+            <NavbarLinkItem key={i} item={item} className='text-fd-muted-foreground text-sm' />
           ))}
         </div>
       )}
-      {tabs.length > 0 && <LayoutTabs className='border-t border-fd-border py-2' options={tabs} />}
+      {tabs.length > 0 && <LayoutTabs className='border-fd-border border-t py-2' options={tabs} />}
     </Navbar>
   )
 }

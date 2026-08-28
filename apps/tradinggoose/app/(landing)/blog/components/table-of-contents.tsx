@@ -64,7 +64,7 @@ export default function TableOfContents({ toc }: TableOfContentsProps) {
                 'inline-block border-l-2 py-1.5 pl-4 no-underline transition-all hover:text-primary hover:underline',
                 item.url === activeHeading
                   ? 'border-primary text-primary'
-                  : 'text-sm text-muted-foreground'
+                  : 'text-muted-foreground text-sm'
               )}
               style={{ paddingLeft: `${(item.depth - minDepth + 1) * 16}px` }}
             >

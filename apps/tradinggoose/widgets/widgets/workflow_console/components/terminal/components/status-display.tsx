@@ -20,8 +20,8 @@ export function StatusDisplay({ isRunning, isCanceled, formattedDuration }: Stat
   }
 
   if (isCanceled) {
-    return <span className='text-xs text-muted-foreground'>{copy.canceled}</span>
+    return <span className='text-muted-foreground text-xs'>{copy.canceled}</span>
   }
 
-  return <span className='text-xs text-muted-foreground'>{formattedDuration}</span>
+  return <span className='text-muted-foreground text-xs'>{formattedDuration}</span>
 }

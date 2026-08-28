@@ -36,7 +36,7 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
 
   return (
     <div className={cn(positionClass, 'z-10')}>
-      <div className='flex items-center gap-1 rounded-md border bg-card  p-1 shadow-xs'>
+      <div className='flex items-center gap-1 rounded-md border bg-card p-1 shadow-xs'>
         <Tooltip>
           <TooltipTrigger
             render={
