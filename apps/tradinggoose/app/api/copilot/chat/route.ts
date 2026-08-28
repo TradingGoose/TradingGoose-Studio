@@ -890,6 +890,7 @@ export async function POST(req: NextRequest) {
       messageId: userMessageIdToUse,
       ...(effectiveConversationId ? { conversationId: effectiveConversationId } : {}),
       ...(session?.user?.name && { userName: session.user.name }),
+      ...(activeWorkspaceId ? { workspaceId: activeWorkspaceId } : {}),
       context: agentContexts,
       ...(actualReviewSessionId ? { chatId: actualReviewSessionId } : {}),
       toolManifest: await getCopilotRuntimeToolManifest(),
