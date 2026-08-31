@@ -1,0 +1,491 @@
+---
+title: Google Drive
+description: Crea, carga y lista archivos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="google_drive"
+  color=""
+/>
+
+
+## Configuración
+
+### Crear Carpeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Drive"
+    type="google_drive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "create_folder"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Drive Cuenta",
+            "layout": "full",
+            "placeholder": "Selecciona Google Drive account",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "fileId",
+            "type": "short-input",
+            "title": "Or Introduce Archivo ID Manually",
+            "layout": "full",
+            "placeholder": "ID de el file un get content desde"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "Carpeta Nombre",
+            "layout": "full",
+            "placeholder": "Nombre para el nuevo folder",
+            "required": true
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Selecciona Parent Carpeta",
+            "layout": "full",
+            "placeholder": "Selecciona un parent folder",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "ID de carpeta principal",
+            "layout": "full",
+            "placeholder": "Introduce parent folder ID (leave vacío para root folder)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Carpeta (<code>google_drive_create_folder</code>)</div>
+
+Crear un nuevo folder en Google Drive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | cadena | Sí | Nombre de el folder un create |
+| `folderSelector` | cadena | No | Selecciona el parent folder un create el folder en |
+| `folderId` | cadena | No | ID de el parent folder \(internal use\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+
+
+---
+
+### Crear Archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Drive"
+    type="google_drive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "create_file"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Drive Cuenta",
+            "layout": "full",
+            "placeholder": "Selecciona Google Drive account",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "fileId",
+            "type": "short-input",
+            "title": "Or Introduce Archivo ID Manually",
+            "layout": "full",
+            "placeholder": "ID de el file un get content desde"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "Archivo Nombre",
+            "layout": "full",
+            "placeholder": "Nombre de el file (p. ej., document.txt)",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Texto Contenido",
+            "layout": "full",
+            "placeholder": "Texto content para el file",
+            "required": true
+        },
+        {
+            "id": "mimeType",
+            "type": "dropdown",
+            "title": "MIME Tipo",
+            "layout": "full",
+            "placeholder": "Selecciona file type",
+            "options": [
+                {
+                    "label": "Plain Text (text/plain)",
+                    "id": "text/plain"
+                },
+                {
+                    "label": "Google Doc",
+                    "id": "application/vnd.google-apps.document"
+                },
+                {
+                    "label": "Google Sheet",
+                    "id": "application/vnd.google-apps.spreadsheet"
+                },
+                {
+                    "label": "Google Slides",
+                    "id": "application/vnd.google-apps.presentation"
+                },
+                {
+                    "label": "HTML (text/html)",
+                    "id": "text/html"
+                },
+                {
+                    "label": "CSV (text/csv)",
+                    "id": "text/csv"
+                },
+                {
+                    "label": "PDF (application/pdf)",
+                    "id": "application/pdf"
+                }
+            ]
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Selecciona Parent Carpeta",
+            "layout": "full",
+            "placeholder": "Selecciona un parent folder",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "ID de carpeta principal",
+            "layout": "full",
+            "placeholder": "Introduce parent folder ID (leave vacío para root folder)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `file` | json | Archivo data |
+| `files` | json | Archivos lista |
+
+</div>
+
+
+
+---
+
+### Cargar Archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Drive"
+    type="google_drive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Drive Cuenta",
+            "layout": "full",
+            "placeholder": "Selecciona Google Drive account",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "fileId",
+            "type": "short-input",
+            "title": "Or Introduce Archivo ID Manually",
+            "layout": "full",
+            "placeholder": "ID de el file un get content desde"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "Archivo Nombre",
+            "layout": "full",
+            "placeholder": "Nombre de el file (p. ej., document.txt)",
+            "required": true
+        },
+        {
+            "id": "fileUpload",
+            "type": "file-upload",
+            "title": "Cargar Archivo",
+            "layout": "full",
+            "placeholder": "Cargar un file un Google Drive"
+        },
+        {
+            "id": "file",
+            "type": "short-input",
+            "title": "Archivo Reference",
+            "layout": "full",
+            "placeholder": "Reference file desde anterior block (p. ej., {{block_name.file}})"
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Selecciona Parent Carpeta",
+            "layout": "full",
+            "placeholder": "Selecciona un parent folder",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "ID de carpeta principal",
+            "layout": "full",
+            "placeholder": "Introduce parent folder ID (leave vacío para root folder)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cargar Archivo (<code>google_drive_upload</code>)</div>
+
+Cargar un file un Google Drive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | cadena | Sí | El name de el file un upload |
+| `file` | file | No | Binary file un upload \(UserFile object\) |
+| `content` | cadena | No | Contenido de texto que se cargará \(usa este campo O file, no ambos\) |
+| `mimeType` | cadena | No | Tipo MIME del archivo que se cargará \(se detecta automáticamente en el archivo si no se proporciona\) |
+| `folderSelector` | cadena | No | Selecciona el folder un upload el file un |
+| `folderId` | cadena | No | El ID de el folder un upload el file un \(internal use\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+
+
+---
+
+### Listar Archivos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Drive"
+    type="google_drive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Drive Cuenta",
+            "layout": "full",
+            "placeholder": "Selecciona Google Drive account",
+            "provider": "google-drive",
+            "required": true
+        },
+        {
+            "id": "fileId",
+            "type": "short-input",
+            "title": "Or Introduce Archivo ID Manually",
+            "layout": "full",
+            "placeholder": "ID de el file un get content desde"
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Selecciona Carpeta",
+            "layout": "full",
+            "placeholder": "Selecciona un folder un lista files desde",
+            "provider": "google-drive"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "Carpeta ID",
+            "layout": "full",
+            "placeholder": "Introduce folder ID (leave vacío para root folder)"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Buscar Consulta",
+            "layout": "full",
+            "placeholder": "Buscar para específico files (p. ej., name contiene \"report\")"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Results Per Página",
+            "layout": "full",
+            "placeholder": "Number de resultados (predeterminado: 100, max: 1000)",
+            "max": 1000
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Archivos (<code>google_drive_list</code>)</div>
+
+Listar files y folders en Google Drive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `folderSelector` | cadena | No | Selecciona el folder un lista files desde |
+| `folderId` | cadena | No | El ID de el folder un lista files desde \(internal use\) |
+| `query` | cadena | No | Un query un filter el files |
+| `pageSize` | número | No | El número de files un return |
+| `pageToken` | cadena | No | El página token un usar para pagination |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integra Google Drive en el workflow. Permite crear, cargar y listar archivos.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `google_drive`

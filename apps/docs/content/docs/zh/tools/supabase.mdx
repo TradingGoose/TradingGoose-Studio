@@ -1,0 +1,851 @@
+---
+title: Supabase
+description: 使用 Supabase 数据库
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="supabase"
+  color=""
+/>
+
+
+## 配置
+
+### 获取多个行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "query"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务 Role 密钥",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "筛选条件 (PostgREST syntax)",
+            "layout": "full",
+            "placeholder": "status=eq.active"
+        },
+        {
+            "id": "orderBy",
+            "type": "short-input",
+            "title": "订单按",
+            "layout": "full",
+            "placeholder": "column_name (add DESC for descending)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "layout": "full",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Many Rows (<code>supabase_query</code>)</div>
+
+查询数据，来源为一个 Supabase 表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | 字符串 | 是 | 你的Supabase 项目 ID \(例如： jdrkgepadsdopsntdlom\) |
+| `table` | 字符串 | 是 | 名称的Supabase 表到查询 |
+| `filter` | 字符串 | 否 | PostgREST 筛选条件 \(例如： "id=eq.123"\) |
+| `orderBy` | 字符串 | 否 | Column到订单由\(添加 DESC，用于降序\) |
+| `limit` | 数字 | 否 | 最大数量：行到返回 |
+| `apiKey` | 字符串 | 是 | 你的Supabase 服务 role 密钥键 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+
+</div>
+
+
+
+---
+
+### 获取一个行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "get_row"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务 Role 密钥",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "筛选条件 (PostgREST syntax)",
+            "layout": "full",
+            "placeholder": "id=eq.123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get a Row (<code>supabase_get_row</code>)</div>
+
+获取一个单个行，来源为一个 Supabase 表基于在 筛选条件 criteria
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | 字符串 | 是 | 你的Supabase 项目 ID \(例如： jdrkgepadsdopsntdlom\) |
+| `table` | 字符串 | 是 | 名称的Supabase 表到查询 |
+| `filter` | 字符串 | 是 | PostgREST 筛选条件到查找特定行 \(例如： "id=eq.123"\) |
+| `apiKey` | 字符串 | 是 | 你的Supabase 服务 role 密钥键 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+
+</div>
+
+
+
+---
+
+### 创建一个行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "insert"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务 Role 密钥",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "数据",
+            "layout": "full",
+            "placeholder": "{\\n  \"column1\": \"value1\",\\n  \"column2\": \"value2\"\\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create a Row (<code>supabase_insert</code>)</div>
+
+Insert 数据到 一个 Supabase 表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | 字符串 | 是 | 你的Supabase 项目 ID \(例如： jdrkgepadsdopsntdlom\) |
+| `table` | 字符串 | 是 | 名称的Supabase 表到insert 数据到 |
+| `data` | 数组 | 是 | 数据到insert \(数组的对象或一个单个对象\) |
+| `apiKey` | 字符串 | 是 | 你的Supabase 服务 role 密钥键 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+
+</div>
+
+
+
+---
+
+### 更新一个行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "update"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务 Role 密钥",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "数据",
+            "layout": "full",
+            "placeholder": "{\\n  \"column1\": \"value1\",\\n  \"column2\": \"value2\"\\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "筛选条件 (PostgREST syntax)",
+            "layout": "full",
+            "placeholder": "id=eq.123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update a Row (<code>supabase_update</code>)</div>
+
+更新行在一个 Supabase 表基于在 筛选条件 criteria
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | 字符串 | 是 | 你的Supabase 项目 ID \(例如： jdrkgepadsdopsntdlom\) |
+| `table` | 字符串 | 是 | 名称的Supabase 表到更新 |
+| `filter` | 字符串 | 是 | PostgREST 筛选条件到identify 行到更新 \(例如： "id=eq.123"\) |
+| `data` | 对象 | 是 | 数据到更新在匹配行 |
+| `apiKey` | 字符串 | 是 | 你的Supabase 服务 role 密钥键 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+
+</div>
+
+
+
+---
+
+### 删除行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "delete"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务 Role 密钥",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "筛选条件 (PostgREST syntax)",
+            "layout": "full",
+            "placeholder": "id=eq.123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete a Row (<code>supabase_delete</code>)</div>
+
+删除行，来源为一个 Supabase 表基于在 筛选条件 criteria
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | 字符串 | 是 | 你的Supabase 项目 ID \(例如： jdrkgepadsdopsntdlom\) |
+| `table` | 字符串 | 是 | 名称的Supabase 表到delete，来源为|
+| `filter` | 字符串 | 是 | PostgREST 筛选条件到identify 行到delete \(例如： "id=eq.123"\) |
+| `apiKey` | 字符串 | 是 | 你的Supabase 服务 role 密钥键 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+
+</div>
+
+
+
+---
+
+### Upsert 一个行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "upsert"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务 Role 密钥",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "数据",
+            "layout": "full",
+            "placeholder": "{\\n  \"column1\": \"value1\",\\n  \"column2\": \"value2\"\\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Upsert a Row (<code>supabase_upsert</code>)</div>
+
+Insert或更新数据在一个 Supabase 表 (upsert 操作)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | 字符串 | 是 | 你的Supabase 项目 ID \(例如： jdrkgepadsdopsntdlom\) |
+| `table` | 字符串 | 是 | 名称的Supabase 表到upsert 数据到 |
+| `data` | 数组 | 是 | 数据到upsert \(insert或更新\) - 数组的对象或一个单个对象 |
+| `apiKey` | 字符串 | 是 | 你的Supabase 服务 role 密钥键 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+
+</div>
+
+
+
+---
+
+### 向量搜索
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "vector_search"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务 Role 密钥",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "functionName",
+            "type": "short-input",
+            "title": "函数名称",
+            "layout": "full",
+            "placeholder": "match_documents",
+            "required": true
+        },
+        {
+            "id": "queryEmbedding",
+            "type": "code",
+            "title": "查询 Embedding",
+            "layout": "full",
+            "placeholder": "[0.1, 0.2, 0.3, ...]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "matchThreshold",
+            "type": "short-input",
+            "title": "Match Threshold (可选)",
+            "layout": "full",
+            "placeholder": "0.78"
+        },
+        {
+            "id": "matchCount",
+            "type": "short-input",
+            "title": "Match 数量 (可选)",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Vector Search (<code>supabase_vector_search</code>)</div>
+
+Perform similarity 搜索使用 pgvector在一个 Supabase 表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | 字符串 | 是 | 你的Supabase 项目 ID \(例如： jdrkgepadsdopsntdlom\) |
+| `functionName` | 字符串 | 是 | 名称的PostgreSQL function 该 performs 向量搜索 \(例如： match_documents\) |
+| `queryEmbedding` | 数组 | 是 | 查询向量/embedding到搜索，用于similar 项目 |
+| `matchThreshold` | 数字 | 否 | 最小 similarity threshold \(0-1\), 通常 0.7-0.9 |
+| `matchCount` | 数字 | 否 | 最大数量：结果到返回 \(默认值： 10\) |
+| `apiKey` | 字符串 | 是 | 你的Supabase 服务 role 密钥键 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将 Supabase 集成到工作流中。可以获取多行数据，以及获取、创建、更新、删除或更新插入单行数据。
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `supabase`

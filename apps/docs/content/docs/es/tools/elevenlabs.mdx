@@ -1,0 +1,114 @@
+---
+title: ElevenLabs
+description: Convert TTS mediante ElevenLabs
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="elevenlabs"
+  color=""
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ElevenLabs"
+    type="elevenlabs"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto",
+            "layout": "full",
+            "placeholder": "Introduce el text un convertir un speech",
+            "required": true
+        },
+        {
+            "id": "voiceId",
+            "type": "short-input",
+            "title": "Voice ID",
+            "layout": "full",
+            "placeholder": "Introduce el voice ID",
+            "required": true
+        },
+        {
+            "id": "modelId",
+            "type": "dropdown",
+            "title": "Model ID",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "eleven_monolingual_v1",
+                    "id": "eleven_monolingual_v1"
+                },
+                {
+                    "label": "eleven_multilingual_v2",
+                    "id": "eleven_multilingual_v2"
+                },
+                {
+                    "label": "eleven_turbo_v2",
+                    "id": "eleven_turbo_v2"
+                },
+                {
+                    "label": "eleven_turbo_v2_5",
+                    "id": "eleven_turbo_v2_5"
+                },
+                {
+                    "label": "eleven_flash_v2_5",
+                    "id": "eleven_flash_v2_5"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu ElevenLabs clave de API",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+### `elevenlabs_tts`
+
+Convert TTS mediante ElevenLabs voices
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `text` | cadena | Sí | El text un convertir un speech |
+| `voiceId` | cadena | Sí | El ID de el voice un usar |
+| `modelId` | cadena | No | El ID de el modelo un usar \(usa de forma predeterminada eleven_monolingual_v1\) |
+| `apiKey` | cadena | Sí | tu ElevenLabs clave de API |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `audioUrl` | cadena | El URL de el generated audio |
+
+
+## Usage Instructions
+
+Integrate ElevenLabs en el workflow. Can convertir text un speech.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `elevenlabs`

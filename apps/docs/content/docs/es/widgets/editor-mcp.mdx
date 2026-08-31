@@ -1,0 +1,58 @@
+---
+title: "Editor MCP"
+description: "Examina, edita, prueba y actualiza un servidor MCP seleccionado."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|---|---|
+| **Clave** | `editor_mcp` |
+| **Categoría** | Editor |
+
+MCP Editor permite examinar, configurar, probar y actualizar un servidor Model Context Protocol asociado al espacio de trabajo. Muestra el estado, transporte, tools detectados y errores recientes. Usa [MCP List](/utilities/mcp) para añadir o eliminar servidores.
+
+## Funciones
+
+- El encabezado muestra nombre, estado por color (Connected / Error / Disconnected) y transporte.
+- Las marcas de tiempo relativas indican la última actualización, detección de tools y conexión.
+- El formulario permite editar el tipo de transporte (streamable-http por defecto), la URL del endpoint, el tiempo de espera de la solicitud y los encabezados HTTP personalizados.
+- **Test connection** prueba los valores actuales y muestra el resultado.
+- **Refresh tools** vuelve a detectar los tools del servidor.
+- **Reset form** restaura la configuración guardada.
+- **Save** guarda; si aún no se probó, primero prueba y luego actualiza los tools.
+- **Clear selection** deselecciona el servidor.
+- La lista muestra nombre y descripción de cada tool; el panel de errores muestra `lastError`.
+- El selector de servidores se sincroniza con MCP List mediante el color de pareja.
+
+## Uso
+
+1. Añade el widget y selecciona un servidor, o añádelo desde [MCP List](/utilities/mcp).
+2. Revisa estado y marcas de tiempo; edita **URL**, **Timeout** o **Headers**.
+3. Pulsa **Test connection**, después **Refresh tools** y **Save**. Si no se probó, Save ejecuta la prueba automáticamente.
+
+### Acciones del encabezado
+
+| Botón | Icono | Acción |
+|---|---|---|
+| Refresh tools | Rotate | Vuelve a detectar tools. |
+| Test connection | Play | Prueba los valores actuales. |
+| Reset form | Undo | Restaura los valores guardados. |
+| Save server | Save | Guarda, prueba si es necesario y actualiza tools. |
+| Clear selection | X | Deselecciona el servidor. |
+
+<Callout>Asigna el mismo **pairColor** a MCP Editor y [MCP List](/utilities/mcp) para abrir automáticamente el servidor seleccionado.</Callout>
+
+## Configuración
+
+El servidor se guarda como `mcpServerId` y se sincroniza por color de pareja. Transporte, URL, tiempo de espera y encabezados son estado local hasta pulsar Save.
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="MCP Guide" href="/utilities/mcp">Conoce los servidores MCP, su conexión y el uso de sus tools.</Card>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">Crea y edita workflows en el lienzo.</Card>
+</Cards>

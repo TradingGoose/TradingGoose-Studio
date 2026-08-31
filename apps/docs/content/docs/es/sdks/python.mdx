@@ -1,0 +1,52 @@
+---
+title: SDK de Python
+description: Cliente de Python para los flujos de trabajo de TradingGoose
+---
+
+## Instalación
+
+```bash
+pip install tradinggoose-sdk
+```
+
+## Ejecutar un flujo de trabajo
+
+```python
+import os
+from tradinggoose import TradingGooseClient
+
+client = TradingGooseClient(
+    api_key=os.environ["TRADINGGOOSE_API_KEY"],
+    base_url="https://tradinggoose.ai",
+)
+
+result = client.execute_workflow(
+    "workflow-id",
+    input_data={"message": "Analyze this"},
+    timeout=30.0,
+    stream=True,
+    selected_outputs=["agent1.content"],
+)
+```
+
+`timeout` se mide en segundos y su valor predeterminado es `30.0`. `stream` y `selected_outputs` son controles de la solicitud; el SDK actual devuelve `WorkflowExecutionResult`, no un iterador de streaming.
+
+## Estado y validación
+
+- `get_workflow_status(workflow_id)` devuelve `WorkflowStatus`.
+- `validate_workflow(workflow_id)` indica si el flujo de trabajo está desplegado.
+- `set_api_key(api_key)`, `set_base_url(base_url)` y `close()` gestionan el cliente.
+- El cliente admite la gestión de contexto con `with TradingGooseClient(...) as client`.
+
+## Reintentos y límites
+
+`execute_with_retry` reintenta solo `RATE_LIMIT_EXCEEDED`. Sus valores predeterminados son `max_retries=3`, `initial_delay=1.0` segundos, `max_delay=30.0` segundos y `backoff_multiplier=2.0`. Respeta `Retry-After` y aplica una variación aleatoria de ±25 %. Python expone estos valores como argumentos de palabra clave, no como un tipo independiente de opciones de reintento.
+
+- `get_rate_limit_info()` devuelve `RateLimitInfo` o `None`, con `limit`, `remaining`, `reset` y el valor opcional `retry_after` almacenados en milisegundos.
+- `get_usage_limits()` devuelve `UsageLimits(success, rate_limit, usage)`; las cargas útiles de límite de frecuencia y uso son diccionarios que coinciden con la respuesta de la API.
+
+## Errores y resultados
+
+`TradingGooseError` conserva el `code` de la API y el `status` HTTP. El cliente usa `TIMEOUT`, `EXECUTION_ERROR`, `STATUS_ERROR`, `RATE_LIMIT_EXCEEDED` y `USAGE_ERROR` para sus propias rutas de error. `WorkflowExecutionResult` contiene `success` y, opcionalmente, salida, error, registros, metadatos, intervalos de traza y duración.
+
+Consulta el [README del paquete del SDK de Python](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/python-sdk/README.md) para ver ejemplos completos y el comportamiento de carga de archivos.

@@ -1,0 +1,424 @@
+---
+title: Stripe trigger
+description: trigger 当Stripe 事件 occur (付款, 订阅, 账单, etc.)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="stripe"
+  color=""
+/>
+
+trigger 当Stripe 事件 occur (付款, 订阅, 账单, etc.)
+
+<Callout type="info">
+  这是基于 webhook 的 trigger。请在外部服务中配置 webhook URL，以便向 TradingGoose 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="使用作为一个工具" href="/tools/stripe">
+    参阅workflow 操作, 操作,和工具输入，用于Stripe.
+  </Card>
+</Cards>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe webhook"
+    type="stripe_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "eventTypes",
+            "type": "dropdown",
+            "title": "事件类型到Listen 用于",
+            "placeholder": "Leave empty to receive all events",
+            "description": "选择特定 Stripe 事件到筛选条件. Leave 空到接收所有事件，来源为Stripe.",
+            "options": [
+                {
+                    "label": "payment_intent.succeeded",
+                    "id": "payment_intent.succeeded"
+                },
+                {
+                    "label": "payment_intent.created",
+                    "id": "payment_intent.created"
+                },
+                {
+                    "label": "payment_intent.payment_failed",
+                    "id": "payment_intent.payment_failed"
+                },
+                {
+                    "label": "payment_intent.canceled",
+                    "id": "payment_intent.canceled"
+                },
+                {
+                    "label": "payment_intent.amount_capturable_updated",
+                    "id": "payment_intent.amount_capturable_updated"
+                },
+                {
+                    "label": "payment_intent.processing",
+                    "id": "payment_intent.processing"
+                },
+                {
+                    "label": "payment_intent.requires_action",
+                    "id": "payment_intent.requires_action"
+                },
+                {
+                    "label": "charge.succeeded",
+                    "id": "charge.succeeded"
+                },
+                {
+                    "label": "charge.failed",
+                    "id": "charge.failed"
+                },
+                {
+                    "label": "charge.captured",
+                    "id": "charge.captured"
+                },
+                {
+                    "label": "charge.refunded",
+                    "id": "charge.refunded"
+                },
+                {
+                    "label": "charge.updated",
+                    "id": "charge.updated"
+                },
+                {
+                    "label": "charge.dispute.created",
+                    "id": "charge.dispute.created"
+                },
+                {
+                    "label": "charge.dispute.closed",
+                    "id": "charge.dispute.closed"
+                },
+                {
+                    "label": "charge.expired",
+                    "id": "charge.expired"
+                },
+                {
+                    "label": "charge.dispute.funds_withdrawn",
+                    "id": "charge.dispute.funds_withdrawn"
+                },
+                {
+                    "label": "charge.dispute.funds_reinstated",
+                    "id": "charge.dispute.funds_reinstated"
+                },
+                {
+                    "label": "customer.created",
+                    "id": "customer.created"
+                },
+                {
+                    "label": "customer.updated",
+                    "id": "customer.updated"
+                },
+                {
+                    "label": "customer.deleted",
+                    "id": "customer.deleted"
+                },
+                {
+                    "label": "customer.source.created",
+                    "id": "customer.source.created"
+                },
+                {
+                    "label": "customer.source.updated",
+                    "id": "customer.source.updated"
+                },
+                {
+                    "label": "customer.source.deleted",
+                    "id": "customer.source.deleted"
+                },
+                {
+                    "label": "customer.subscription.created",
+                    "id": "customer.subscription.created"
+                },
+                {
+                    "label": "customer.subscription.updated",
+                    "id": "customer.subscription.updated"
+                },
+                {
+                    "label": "customer.subscription.deleted",
+                    "id": "customer.subscription.deleted"
+                },
+                {
+                    "label": "customer.discount.created",
+                    "id": "customer.discount.created"
+                },
+                {
+                    "label": "customer.discount.deleted",
+                    "id": "customer.discount.deleted"
+                },
+                {
+                    "label": "customer.discount.updated",
+                    "id": "customer.discount.updated"
+                },
+                {
+                    "label": "customer.subscription.trial_will_end",
+                    "id": "customer.subscription.trial_will_end"
+                },
+                {
+                    "label": "customer.subscription.paused",
+                    "id": "customer.subscription.paused"
+                },
+                {
+                    "label": "customer.subscription.resumed",
+                    "id": "customer.subscription.resumed"
+                },
+                {
+                    "label": "invoice.created",
+                    "id": "invoice.created"
+                },
+                {
+                    "label": "invoice.finalized",
+                    "id": "invoice.finalized"
+                },
+                {
+                    "label": "invoice.finalization_failed",
+                    "id": "invoice.finalization_failed"
+                },
+                {
+                    "label": "invoice.paid",
+                    "id": "invoice.paid"
+                },
+                {
+                    "label": "invoice.payment_failed",
+                    "id": "invoice.payment_failed"
+                },
+                {
+                    "label": "invoice.payment_succeeded",
+                    "id": "invoice.payment_succeeded"
+                },
+                {
+                    "label": "invoice.payment_action_required",
+                    "id": "invoice.payment_action_required"
+                },
+                {
+                    "label": "invoice.sent",
+                    "id": "invoice.sent"
+                },
+                {
+                    "label": "invoice.upcoming",
+                    "id": "invoice.upcoming"
+                },
+                {
+                    "label": "invoice.updated",
+                    "id": "invoice.updated"
+                },
+                {
+                    "label": "invoice.voided",
+                    "id": "invoice.voided"
+                },
+                {
+                    "label": "invoice.marked_uncollectible",
+                    "id": "invoice.marked_uncollectible"
+                },
+                {
+                    "label": "invoice.overdue",
+                    "id": "invoice.overdue"
+                },
+                {
+                    "label": "product.created",
+                    "id": "product.created"
+                },
+                {
+                    "label": "product.updated",
+                    "id": "product.updated"
+                },
+                {
+                    "label": "product.deleted",
+                    "id": "product.deleted"
+                },
+                {
+                    "label": "price.created",
+                    "id": "price.created"
+                },
+                {
+                    "label": "price.updated",
+                    "id": "price.updated"
+                },
+                {
+                    "label": "price.deleted",
+                    "id": "price.deleted"
+                },
+                {
+                    "label": "payment_method.attached",
+                    "id": "payment_method.attached"
+                },
+                {
+                    "label": "payment_method.detached",
+                    "id": "payment_method.detached"
+                },
+                {
+                    "label": "payment_method.updated",
+                    "id": "payment_method.updated"
+                },
+                {
+                    "label": "payment_method.automatically_updated",
+                    "id": "payment_method.automatically_updated"
+                },
+                {
+                    "label": "setup_intent.succeeded",
+                    "id": "setup_intent.succeeded"
+                },
+                {
+                    "label": "setup_intent.setup_failed",
+                    "id": "setup_intent.setup_failed"
+                },
+                {
+                    "label": "setup_intent.canceled",
+                    "id": "setup_intent.canceled"
+                },
+                {
+                    "label": "refund.created",
+                    "id": "refund.created"
+                },
+                {
+                    "label": "refund.updated",
+                    "id": "refund.updated"
+                },
+                {
+                    "label": "refund.failed",
+                    "id": "refund.failed"
+                },
+                {
+                    "label": "checkout.session.completed",
+                    "id": "checkout.session.completed"
+                },
+                {
+                    "label": "checkout.session.expired",
+                    "id": "checkout.session.expired"
+                },
+                {
+                    "label": "checkout.session.async_payment_succeeded",
+                    "id": "checkout.session.async_payment_succeeded"
+                },
+                {
+                    "label": "checkout.session.async_payment_failed",
+                    "id": "checkout.session.async_payment_failed"
+                },
+                {
+                    "label": "payout.created",
+                    "id": "payout.created"
+                },
+                {
+                    "label": "payout.updated",
+                    "id": "payout.updated"
+                },
+                {
+                    "label": "payout.paid",
+                    "id": "payout.paid"
+                },
+                {
+                    "label": "payout.failed",
+                    "id": "payout.failed"
+                },
+                {
+                    "label": "payout.canceled",
+                    "id": "payout.canceled"
+                },
+                {
+                    "label": "coupon.created",
+                    "id": "coupon.created"
+                },
+                {
+                    "label": "coupon.updated",
+                    "id": "coupon.updated"
+                },
+                {
+                    "label": "coupon.deleted",
+                    "id": "coupon.deleted"
+                },
+                {
+                    "label": "credit_note.created",
+                    "id": "credit_note.created"
+                },
+                {
+                    "label": "credit_note.updated",
+                    "id": "credit_note.updated"
+                },
+                {
+                    "label": "credit_note.voided",
+                    "id": "credit_note.voided"
+                },
+                {
+                    "label": "account.updated",
+                    "id": "account.updated"
+                },
+                {
+                    "label": "account.application.deauthorized",
+                    "id": "account.application.deauthorized"
+                },
+                {
+                    "label": "balance.available",
+                    "id": "balance.available"
+                }
+            ]
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "webhook 签名密钥",
+            "placeholder": "whsec_...",
+            "description": "你的webhook 签名密钥，来源为Stripe 仪表板. 使用的到验证 webhook authenticity.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "id",
+          "type": "string",
+          "description": "唯一标识符，用于事件"
+      },
+      {
+          "name": "object",
+          "type": "string",
+          "description": "始终 "
+      },
+      {
+          "name": "api_version",
+          "type": "string",
+          "description": "Stripe API 版本使用的到render 事件"
+      },
+      {
+          "name": "created",
+          "type": "number",
+          "description": "Unix 时间戳当事件曾为已创建"
+      },
+      {
+          "name": "data",
+          "type": "json",
+          "description": "事件数据包含 affected Stripe 对象"
+      },
+      {
+          "name": "livemode",
+          "type": "boolean",
+          "description": "是否此事件 occurred在live 模式 (true)或test 模式 (false)"
+      },
+      {
+          "name": "pending_webhooks",
+          "type": "number",
+          "description": "数量：webhook yet到为 delivered，用于此事件"
+      },
+      {
+          "name": "request",
+          "type": "json",
+          "description": "信息关于请求该 triggered 此事件"
+      }
+  ]}
+/>
+
+

@@ -1,0 +1,52 @@
+---
+title: Descripción general
+description: Formas principales de iniciar flujos de trabajo de TradingGoose
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Disparadores principales
+
+Elige un disparador por flujo de trabajo para definir cómo comienza:
+
+<Cards>
+  <Card title="API" href="/triggers/api">
+    Punto final HTTP que mapea cuerpos JSON a entradas de flujo de trabajo
+  </Card>
+  <Card title="Chat" href="/triggers/chat">
+    Interfaz de chat implementada con respuestas en streaming
+  </Card>
+  <Card title="Input Form" href="/triggers/input-form">
+    Entrada manual tipada utilizada en ejecuciones del editor y flujos de trabajo secundarios
+  </Card>
+  <Card title="Manual" href="/triggers/manual">
+    Ejecuciones bajo demanda sin datos adicionales
+  </Card>
+  <Card title="Schedule" href="/triggers/schedule">
+    Ejecución basada en cron o intervalos
+  </Card>
+  <Card title="Webhook" href="/triggers/webhook">
+    Recibe cargas útiles de webhooks externos
+  </Card>
+</Cards>
+
+## Comparación rápida
+
+| Trigger | Condición de inicio |
+|---------|-----------------|
+| **API** | Authenticated HTTP POST |
+| **Chat** | Mensaje del despliegue de chat |
+| **Input Form** | Envío manual en el editor o workflow principal |
+| **Manual** | Botón Run del editor |
+| **Schedule** | Temporizador gestionado en el modal de programación |
+| **Webhook** | Solicitud HTTP entrante |
+
+## Uso de disparadores
+
+1. Coloca el bloque disparador en la ranura de inicio.
+2. Configura cualquier esquema o autenticación requerida.
+3. Conecta el bloque al resto del flujo de trabajo.
+
+> Las implementaciones potencian cada disparador. Actualiza el flujo de trabajo, vuelve a implementarlo, y todos los puntos de entrada de disparadores recogen la nueva instantánea. Aprende más en [Ejecución → Instantáneas de implementación](/execution).
+
+Los bloques de inicio heredados permanecen para flujos existentes pero ya no aparecen en nuevas compilaciones.

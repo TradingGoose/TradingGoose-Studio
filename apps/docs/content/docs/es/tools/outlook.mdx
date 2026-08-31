@@ -1,0 +1,512 @@
+---
+title: Outlook
+description: Accede a Outlook
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="outlook"
+  color=""
+/>
+
+<Cards>
+  <Card title="Usar como un Trigger" href="/triggers/outlook">
+    Consulta trigger eventos, setup, y evento payloads para Outlook.
+  </Card>
+</Cards>
+
+
+## Configuración
+
+### Enviar Correo electrónico
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Email",
+                    "id": "send_outlook"
+                },
+                {
+                    "label": "Draft Email",
+                    "id": "draft_outlook"
+                },
+                {
+                    "label": "Read Email",
+                    "id": "read_outlook"
+                },
+                {
+                    "label": "Forward Email",
+                    "id": "forward_outlook"
+                }
+            ],
+            "defaultValue": "send_outlook"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Cuenta",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "A",
+            "layout": "full",
+            "placeholder": "Recipient email address",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "layout": "full",
+            "placeholder": "Email subject",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Cuerpo",
+            "layout": "full",
+            "placeholder": "Email content",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Adjuntos",
+            "layout": "full",
+            "placeholder": "Upload files to attach"
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Adjuntos",
+            "layout": "full",
+            "placeholder": "Reference files from previous blocks"
+        },
+        {
+            "id": "replyToMessageId",
+            "type": "short-input",
+            "title": "Reply a Mensaje ID",
+            "layout": "full",
+            "placeholder": "Message ID to reply to (for threading)"
+        },
+        {
+            "id": "conversationId",
+            "type": "short-input",
+            "title": "Conversación ID",
+            "layout": "full",
+            "placeholder": "Conversation ID for threading"
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "layout": "full",
+            "placeholder": "CC recipients (comma-separated)"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "BCC",
+            "layout": "full",
+            "placeholder": "BCC recipients (comma-separated)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Email (<code>outlook_send</code>)</div>
+
+Envía correos electrónicos mediante Outlook
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `to` | cadena | Sí | Destinatario email dirección |
+| `subject` | cadena | Sí | Correo electrónico asunto |
+| `body` | cadena | Sí | Correo electrónico cuerpo contenido |
+| `contentType` | cadena | No | Contenido tipo para el email cuerpo \(texto o html\) |
+| `replyToMessageId` | cadena | No | Mensaje ID a reply a \(para threading\) |
+| `conversationId` | cadena | No | Conversación ID para threading |
+| `cc` | cadena | No | CC destinatarios \(comma-separated\) |
+| `bcc` | cadena | No | BCC destinatarios \(comma-separated\) |
+| `attachments` | file[] | No | Archivos a attach a el email |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Correo electrónico enviar éxito estado |
+| `status` | cadena | Delivery estado de el email |
+| `timestamp` | cadena | Marca de tiempo cuando email fue enviados |
+
+</div>
+
+
+
+---
+
+### Borrador Correo electrónico
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Email",
+                    "id": "send_outlook"
+                },
+                {
+                    "label": "Draft Email",
+                    "id": "draft_outlook"
+                },
+                {
+                    "label": "Read Email",
+                    "id": "read_outlook"
+                },
+                {
+                    "label": "Forward Email",
+                    "id": "forward_outlook"
+                }
+            ],
+            "defaultValue": "draft_outlook"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Cuenta",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "A",
+            "layout": "full",
+            "placeholder": "Recipient email address",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "layout": "full",
+            "placeholder": "Email subject",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Cuerpo",
+            "layout": "full",
+            "placeholder": "Email content",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Adjuntos",
+            "layout": "full",
+            "placeholder": "Upload files to attach"
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Adjuntos",
+            "layout": "full",
+            "placeholder": "Reference files from previous blocks"
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "layout": "full",
+            "placeholder": "CC recipients (comma-separated)"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "BCC",
+            "layout": "full",
+            "placeholder": "BCC recipients (comma-separated)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Draft Email (<code>outlook_draft</code>)</div>
+
+Borrador correos electrónicos mediante Outlook
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `to` | cadena | Sí | Destinatario email dirección |
+| `subject` | cadena | Sí | Correo electrónico asunto |
+| `body` | cadena | Sí | Correo electrónico cuerpo contenido |
+| `contentType` | cadena | No | Contenido tipo para el email cuerpo \(texto o html\) |
+| `cc` | cadena | No | CC destinatarios \(comma-separated\) |
+| `bcc` | cadena | No | BCC destinatarios \(comma-separated\) |
+| `attachments` | file[] | No | Archivos a attach a el email borrador |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Correo electrónico borrador creación éxito estado |
+| `messageId` | cadena | Único identificador para el drafted email |
+| `status` | cadena | Borrador estado de el email |
+| `subject` | cadena | Asunto de el drafted email |
+| `timestamp` | cadena | Marca de tiempo cuando borrador fue creado |
+
+</div>
+
+
+
+---
+
+### Leer Correo electrónico
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Email",
+                    "id": "send_outlook"
+                },
+                {
+                    "label": "Draft Email",
+                    "id": "draft_outlook"
+                },
+                {
+                    "label": "Read Email",
+                    "id": "read_outlook"
+                },
+                {
+                    "label": "Forward Email",
+                    "id": "forward_outlook"
+                }
+            ],
+            "defaultValue": "read_outlook"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Cuenta",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "folder",
+            "type": "folder-selector",
+            "title": "Carpeta",
+            "layout": "full",
+            "placeholder": "Select Outlook folder",
+            "provider": "outlook"
+        },
+        {
+            "id": "manualFolder",
+            "type": "short-input",
+            "title": "Carpeta",
+            "layout": "full",
+            "placeholder": "Enter Outlook folder name (e.g., INBOX, SENT, or custom folder)"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Número de Correos electrónicos",
+            "layout": "full",
+            "placeholder": "Number of emails to retrieve (default: 1, max: 10)",
+            "max": 10
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Incluir Adjuntos",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Email (<code>outlook_read</code>)</div>
+
+Leer correos electrónicos desde Outlook
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `folder` | cadena | No | Carpeta ID a leer correos electrónicos desde \(predeterminado: Inbox\) |
+| `maxResults` | número | No | Número máximo de correos electrónicos a recuperar \(predeterminado: 1, máximo: 10\) |
+| `includeAttachments` | booleano | No | Descargar y incluir email adjuntos |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Éxito o estado mensaje |
+| `results` | matriz | Matriz de email mensaje objetos |
+
+</div>
+
+
+
+---
+
+### Forward Correo electrónico
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook"
+    type="outlook"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Email",
+                    "id": "send_outlook"
+                },
+                {
+                    "label": "Draft Email",
+                    "id": "draft_outlook"
+                },
+                {
+                    "label": "Read Email",
+                    "id": "read_outlook"
+                },
+                {
+                    "label": "Forward Email",
+                    "id": "forward_outlook"
+                }
+            ],
+            "defaultValue": "forward_outlook"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Cuenta",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "A",
+            "layout": "full",
+            "placeholder": "Recipient email address",
+            "required": true
+        },
+        {
+            "id": "messageId",
+            "type": "short-input",
+            "title": "Mensaje ID",
+            "layout": "full",
+            "placeholder": "Message ID to forward",
+            "required": true
+        },
+        {
+            "id": "comment",
+            "type": "long-input",
+            "title": "Comentario",
+            "layout": "full",
+            "placeholder": "Optional comment to include when forwarding"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Forward Email (<code>outlook_forward</code>)</div>
+
+Forward un existente Outlook mensaje a especificado destinatarios
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `messageId` | cadena | Sí | El ID de el mensaje a forward |
+| `to` | cadena | Sí | Destinatario email dirección\(es\), comma-separated |
+| `comment` | cadena | No | Opcional comentario a incluir con el forwarded mensaje |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Éxito o error mensaje |
+| `status` | cadena | Delivery estado de el email |
+| `timestamp` | cadena | Marca de tiempo cuando email fue forwarded |
+
+</div>
+
+
+
+---
+
+
+## Uso Instrucciones
+
+Integra Outlook en el workflow. Permite leer, borrador, y enviar email mensajes. Permite ser usado en trigger modo a trigger un workflow cuando un nuevo email es received.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `outlook`

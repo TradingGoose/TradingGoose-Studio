@@ -1,0 +1,717 @@
+---
+title: Cursor
+description: 启动并管理 Cursor 云端代理以处理 GitHub 仓库
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="cursor"
+  color=""
+/>
+
+
+## 配置
+
+### 启动 Agent
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Launch Agent",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Add Follow-up",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Get Agent Status",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "List Agents",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Stop Agent",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Delete Agent",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_launch_agent"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Cursor API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "repository",
+            "type": "short-input",
+            "title": "仓库 URL",
+            "placeholder": "https://github.com/your-org/your-repo",
+            "required": true
+        },
+        {
+            "id": "ref",
+            "type": "short-input",
+            "title": "分支/Ref",
+            "placeholder": "main (可选)"
+        },
+        {
+            "id": "promptText",
+            "type": "long-input",
+            "title": "提示词",
+            "placeholder": "描述要交给该 Agent 的任务...",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "short-input",
+            "title": "模型",
+            "placeholder": "默认自动选择"
+        },
+        {
+            "id": "branchName",
+            "type": "short-input",
+            "title": "分支名称",
+            "placeholder": "自定义分支名称（可选）"
+        },
+        {
+            "id": "autoCreatePr",
+            "type": "switch",
+            "title": "自动创建 PR"
+        },
+        {
+            "id": "openAsCursorGithubApp",
+            "type": "switch",
+            "title": "打开作为 Cursor GitHub App"
+        },
+        {
+            "id": "skipReviewerRequest",
+            "type": "switch",
+            "title": "跳过审阅者请求"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">启动 Agent (<code>cursor_launch_agent</code>)</div>
+
+启动新的云端 Agent，并按照给定说明处理 GitHub 仓库。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Cursor API 密钥 |
+| `repository` | 字符串 | 是 | GitHub 仓库 URL \(例如, https://github.com/your-org/your-repo\) |
+| `ref` | 字符串 | 否 | 工作分支、标签或提交（默认为默认分支） |
+| `promptText` | 字符串 | 是 | 提供给 Agent 的任务说明 |
+| `promptImages` | 字符串 | 否 | 包含 base64 数据和尺寸的图像对象 JSON 数组 |
+| `model` | 字符串 | 否 | 使用的模型（留空时自动选择） |
+| `branchName` | 字符串 | 否 | Agent 使用的自定义分支名称 |
+| `autoCreatePr` | 布尔值 | 否 | Agent 完成任务后自动创建 PR |
+| `openAsCursorGithubApp` | 布尔值 | 否 | 以 Cursor GitHub App 身份打开 PR |
+| `skipReviewerRequest` | 布尔值 | 否 | 跳过为 PR 请求审阅者 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | 包含 Agent 详细信息的成功消息 |
+| `id` | 字符串 | Agent ID |
+
+</div>
+
+
+
+---
+
+### 添加跟进事项
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Launch Agent",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Add Follow-up",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Get Agent Status",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "List Agents",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Stop Agent",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Delete Agent",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_add_followup"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Cursor API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "Agent ID",
+            "placeholder": "例如, bc_abc123",
+            "required": true
+        },
+        {
+            "id": "followupPromptText",
+            "type": "long-input",
+            "title": "跟进事项提示词",
+            "placeholder": "其他说明用于该 agent...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加跟进事项 (<code>cursor_add_followup</code>)</div>
+
+添加一个跟进事项 instruction 到一个现有 cloud agent.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Cursor API 密钥 |
+| `agentId` | 字符串 | 是 | 唯一标识符用于该 cloud agent \(例如, bc_abc123\) |
+| `followupPromptText` | 字符串 | 是 | 该跟进事项 instruction text 用于该 agent |
+| `promptImages` | 字符串 | 否 | JSON 数组的图像 objects 使用 base64 data 和 dimensions \(max 5\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | 成功 message |
+
+</div>
+
+
+
+---
+
+### 获取 Agent 状态
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Launch Agent",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Add Follow-up",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Get Agent Status",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "List Agents",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Stop Agent",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Delete Agent",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_get_agent"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Cursor API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "Agent ID",
+            "placeholder": "例如, bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取 Agent 状态 (<code>cursor_get_agent</code>)</div>
+
+检索该当前 status 和结果的一个 cloud agent.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Cursor API 密钥 |
+| `agentId` | 字符串 | 是 | 唯一标识符用于该 cloud agent \(例如, bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | Human-readable agent 详细信息 |
+| `id` | 字符串 | Agent ID |
+| `name` | 字符串 | Agent 名称 |
+| `status` | 字符串 | Agent status |
+| `source` | 对象 | 来源仓库 info |
+| `target` | 对象 | 目标分支 info |
+| `summary` | 字符串 | Agent summary |
+
+</div>
+
+
+
+---
+
+### 获取对话
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Launch Agent",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Add Follow-up",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Get Agent Status",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "List Agents",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Stop Agent",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Delete Agent",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_get_conversation"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Cursor API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "Agent ID",
+            "placeholder": "例如, bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取对话 (<code>cursor_get_conversation</code>)</div>
+
+检索该对话 history 的一个 cloud agent, 包括全部 用户 prompts 和 assistant responses.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Cursor API 密钥 |
+| `agentId` | 字符串 | 是 | 唯一标识符用于该 cloud agent \(例如, bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | Human-readable 对话 history |
+| `id` | 字符串 | Agent ID |
+
+</div>
+
+
+
+---
+
+### 列出 Agents
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Launch Agent",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Add Follow-up",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Get Agent Status",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "List Agents",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Stop Agent",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Delete Agent",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_list_agents"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Cursor API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "20 (默认, max 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "分页 Cursor",
+            "placeholder": "Cursor 从上一个 response"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出 Agents (<code>cursor_list_agents</code>)</div>
+
+列出全部 cloud agents 用于该 authenticated 用户 使用可选分页.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Cursor API 密钥 |
+| `limit` | 数字 | 否 | 数字的 agents 到 return \(默认: 20, max: 100\) |
+| `cursor` | 字符串 | 否 | 分页 cursor 从上一个 response |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | Human-readable 列表的 agents |
+| `agents` | 数组 | 数组的 agent objects |
+
+</div>
+
+
+
+---
+
+### 停止 Agent
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Launch Agent",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Add Follow-up",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Get Agent Status",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "List Agents",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Stop Agent",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Delete Agent",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_stop_agent"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Cursor API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "Agent ID",
+            "placeholder": "例如, bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">停止 Agent (<code>cursor_stop_agent</code>)</div>
+
+停止一个运行中 cloud agent. 此 pauses 该 agent 不含 deleting it.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Cursor API 密钥 |
+| `agentId` | 字符串 | 是 | 唯一标识符用于该 cloud agent \(例如, bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | 成功 message |
+
+</div>
+
+
+
+---
+
+### 删除 Agent
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cursor"
+    type="cursor"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Launch Agent",
+                    "id": "cursor_launch_agent"
+                },
+                {
+                    "label": "Add Follow-up",
+                    "id": "cursor_add_followup"
+                },
+                {
+                    "label": "Get Agent Status",
+                    "id": "cursor_get_agent"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "cursor_get_conversation"
+                },
+                {
+                    "label": "List Agents",
+                    "id": "cursor_list_agents"
+                },
+                {
+                    "label": "Stop Agent",
+                    "id": "cursor_stop_agent"
+                },
+                {
+                    "label": "Delete Agent",
+                    "id": "cursor_delete_agent"
+                }
+            ],
+            "defaultValue": "cursor_delete_agent"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Cursor API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "agentId",
+            "type": "short-input",
+            "title": "Agent ID",
+            "placeholder": "例如, bc_abc123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除 Agent (<code>cursor_delete_agent</code>)</div>
+
+永久删除云代理。此操作无法撤销。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Cursor API 密钥 |
+| `agentId` | 字符串 | 是 | 唯一标识符用于该 cloud agent \(例如, bc_abc123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | 成功 message |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+Interact 使用 Cursor Cloud Agents API 到 launch AI agents 该可以 work 在你的 GitHub repositories. Supports launching agents, adding 跟进事项说明, checking status, viewing 对话, 和 managing agent lifecycle.
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `cursor`

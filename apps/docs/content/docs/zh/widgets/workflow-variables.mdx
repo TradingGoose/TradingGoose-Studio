@@ -1,0 +1,55 @@
+---
+title: "工作流变量"
+description: "检查和编辑所选工作流的变量。"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|---|---|
+| **键** | `workflow_variables` |
+| **类别** | 实用工具 |
+
+Workflow Variables 提供专用面板，用于查看和编辑工作流变量。它通过实时 socket 连接协作工作流存储，因此此处和编辑器中的更改会相互同步。
+
+## 功能
+
+- 实时显示活动工作流的所有变量。
+- 行内编辑名称、类型和值，并立即传播到其他客户端。
+- 标题栏中的 **+** 按钮发送 `WORKFLOW_VARIABLES_ADD_EVENT`，仅在正确面板和通道中创建新的空字符串变量。
+- 底层使用 `useCollaborativeWorkflow`，向查看同一工作流的用户广播更改。
+- 工作流选择器支持与编辑器的配对颜色同步。
+
+## 使用方法
+
+### 添加 widget
+
+选择 **Workflow Variables**，加载当前工作区活动工作流的变量列表。
+
+### 标题布局
+
+- **中间**：工作流选择器。
+- **右侧**：添加变量按钮 **+**。
+
+### 主要操作
+
+1. 查看变量名称、类型和当前值。
+2. 点击变量进行行内编辑。
+3. 点击 **+** 添加默认空值的 `string` 变量。
+4. 更改自动保存并实时共享。
+
+### 配对颜色同步
+
+指定配对颜色后跟随编辑器工作流；`gray` 时可独立选择。
+
+<Callout>参阅[变量功能指南](/variables)，了解作用域、支持类型和运行时引用方式。</Callout>
+
+## 相关内容
+
+<Cards>
+  <Card title="Variables Guide" href="/variables">了解变量作用域和类型。</Card>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">构建和编辑工作流。</Card>
+</Cards>

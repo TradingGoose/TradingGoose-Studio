@@ -1,0 +1,116 @@
+---
+title: Google Formularios Trigger
+description: Activar el workflow desde Google Formulario envíos (via Apps Script forwarder)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="google_forms"
+  color=""
+/>
+
+Activar el workflow desde Google Formulario envíos (via Apps Script forwarder)
+
+<Callout type="info">
+  Este trigger se basa en webhooks. Configura la URL del webhook en el servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+<Cards>
+  <Card title="Usar como un Herramienta" href="/tools/google_forms">
+    Consulta workflow acciones, operaciones, y herramienta entradas para Google Formularios.
+  </Card>
+</Cards>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Formularios Webhook"
+    type="google_forms_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "token",
+            "type": "short-input",
+            "title": "Shared Secreto",
+            "placeholder": "Enter a secret used by your Apps Script forwarder",
+            "description": "We validar solicitudes mediante este secreto. Enviar it como Authorization: Bearer &lt;token&gt; o un personalizado header.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "secretHeaderName",
+            "type": "short-input",
+            "title": "Personalizado Secreto Header",
+            "placeholder": "X-GForms-Secret",
+            "description": "Si establecer, el webhook se validar este header equals tu Shared Secreto instead de Authorization."
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "Formulario ID",
+            "placeholder": "1FAIpQLSd... (Google Form ID)",
+            "description": "Opcional, para clarity y coincidentes en workflows. No obligatorio para webhook a work."
+        },
+        {
+            "id": "includeRawPayload",
+            "type": "switch",
+            "title": "Incluir Sin procesar Payload",
+            "description": "Incluir el original payload desde Apps Script en el workflow entrada."
+        },
+        {
+            "id": "setupScript",
+            "type": "code",
+            "title": "Apps Script Código",
+            "description": "Copiar este código y paste it en tu Google Formularios Apps Script editor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "responseId",
+          "type": "string",
+          "description": "Único respuesta identificador (si disponible)"
+      },
+      {
+          "name": "createTime",
+          "type": "string",
+          "description": "Respuesta creación marca de tiempo"
+      },
+      {
+          "name": "lastSubmittedTime",
+          "type": "string",
+          "description": "Último enviado marca de tiempo"
+      },
+      {
+          "name": "formId",
+          "type": "string",
+          "description": "Google Formulario ID"
+      },
+      {
+          "name": "answers",
+          "type": "object",
+          "description": "Normalized map de pregunta -&gt; respuesta"
+      },
+      {
+          "name": "raw",
+          "type": "object",
+          "description": "Original payload (cuando activado)"
+      }
+  ]}
+/>
+
+

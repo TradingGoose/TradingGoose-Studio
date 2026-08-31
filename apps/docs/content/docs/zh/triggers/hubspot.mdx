@@ -1,0 +1,2336 @@
+---
+title: Hubspot trigger
+description: 当一个新建公司为 已创建在HubSpot时触发 workflow
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="hubspot"
+  color=""
+/>
+
+当一个新建公司为 已创建在HubSpot时触发 workflow
+
+<Callout type="info">
+  这是基于 webhook 的 trigger。请在外部服务中配置 webhook URL，以便向 TradingGoose 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="使用作为一个工具" href="/tools/hubspot">
+    参阅workflow 操作, 操作,和工具输入，用于Hubspot.
+  </Card>
+</Cards>
+
+
+## 事件
+
+### HubSpot 公司已创建
+
+当一个新建公司为 已创建在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 公司已创建"
+    type="hubspot_company_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 对话 Deletion
+
+当一个对话为 已删除在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 对话 Deletion"
+    type="hubspot_conversation_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 对话属性 Changed
+
+当任何属性的一个对话为 已更新在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 对话属性 Changed"
+    type="hubspot_conversation_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称 (可选)",
+            "placeholder": "e.g., status, assignedTo",
+            "description": "可选: 筛选条件到仅 trigger 当一个特定属性 changes. Leave 空到trigger 在任何属性更改."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 工单已创建
+
+当一个新建工单为 已创建在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 工单已创建"
+    type="hubspot_ticket_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 交易已创建
+
+当一个新建交易为 已创建在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 交易已创建"
+    type="hubspot_deal_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 公司属性 Changed
+
+当任何属性的一个公司为 已更新在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 公司属性 Changed"
+    type="hubspot_company_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称 (可选)",
+            "placeholder": "e.g., name, domain, industry",
+            "description": "可选: 筛选条件到仅 trigger 当一个特定属性 changes. Leave 空到trigger 在任何属性更改."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 联系人已删除
+
+当一个联系人为 已删除在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 联系人已删除"
+    type="hubspot_contact_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 联系人 Privacy 已删除
+
+当一个联系人为 已删除，用于privacy compliance (GDPR, CCPA, etc.)在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 联系人 Privacy 已删除"
+    type="hubspot_contact_privacy_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 工单已删除
+
+当一个工单为 已删除在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 工单已删除"
+    type="hubspot_ticket_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 对话 Privacy Deletion
+
+当一个对话为 已删除，用于privacy compliance (GDPR, CCPA, etc.)在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 对话 Privacy Deletion"
+    type="hubspot_conversation_privacy_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 对话新建消息
+
+当一个新建消息为 added到一个对话在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 对话新建消息"
+    type="hubspot_conversation_new_message"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 公司已删除
+
+当一个公司为 已删除在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 公司已删除"
+    type="hubspot_company_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 工单属性 Changed
+
+当任何属性的一个工单为 已更新在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 工单属性 Changed"
+    type="hubspot_ticket_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称 (可选)",
+            "placeholder": "e.g., hs_pipeline_stage, hs_ticket_priority",
+            "description": "可选: 筛选条件到仅 trigger 当一个特定属性 changes. Leave 空到trigger 在任何属性更改."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 联系人属性 Changed
+
+当任何属性的一个联系人为 已更新在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 联系人属性 Changed"
+    type="hubspot_contact_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称 (可选)",
+            "placeholder": "e.g., email, firstname, lifecyclestage",
+            "description": "可选: 筛选条件到仅 trigger 当一个特定属性 changes. Leave 空到trigger 在任何属性更改."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 对话创建
+
+当一个新建对话为 已创建在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 对话创建"
+    type="hubspot_conversation_creation"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 交易属性 Changed
+
+当任何属性的一个交易为 已更新在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 交易属性 Changed"
+    type="hubspot_deal_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "属性名称 (可选)",
+            "placeholder": "e.g., dealstage, amount, closedate",
+            "description": "可选: 筛选条件到仅 trigger 当一个特定属性 changes. Leave 空到trigger 在任何属性更改."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 交易已删除
+
+当一个交易为 已删除在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 交易已删除"
+    type="hubspot_deal_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### HubSpot 联系人已创建
+
+当一个新建联系人为 已创建在HubSpot时触发 workflow
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot 联系人已创建"
+    type="hubspot_contact_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "trigger 类型",
+            "required": true
+        },
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "客户端 ID",
+            "placeholder": "Enter your HubSpot app Client ID",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "客户端密钥",
+            "placeholder": "Enter your HubSpot app Client Secret",
+            "description": "找到在你的 HubSpot app 设置下 身份验证标签页",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "App ID",
+            "placeholder": "Enter your HubSpot App ID",
+            "description": "找到在你的 HubSpot app 设置. 使用的到identify 你的 app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "开发者 API 键",
+            "placeholder": "Enter your HubSpot Developer API Key",
+            "description": "使用的，用于making API 调用到HubSpot. 找到在你的 HubSpot app 设置.",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "完整 webhook payload 数组，来源为HubSpot 包含事件详细信息"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "提供商名称 (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "description": "providerConfig",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "HubSpot App ID"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "HubSpot 客户端 ID"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "trigger ID (例如： hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "HubSpot 客户端密钥"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "HubSpot 开发者 API 键"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "curl 命令到设置 webhook URL"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "curl 命令到创建订阅"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "webhook URL 显示值"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "可选属性名称筛选条件 (用于属性更改 trigger)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+

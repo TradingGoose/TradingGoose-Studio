@@ -1,0 +1,55 @@
+---
+title: "Variables del workflow"
+description: "Examina y edita las variables de un workflow seleccionado."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|---|---|
+| **Clave** | `workflow_variables` |
+| **Categoría** | Utilidad |
+
+Workflow Variables ofrece un panel para consultar y editar las variables definidas en un workflow. Se conecta por socket al almacén colaborativo; los cambios se reflejan también en el editor.
+
+## Funciones
+
+- Lista en vivo de variables del workflow activo.
+- Edición en línea de nombres, tipos y valores, propagada a otros clientes.
+- El botón **+** envía `WORKFLOW_VARIABLES_ADD_EVENT` y crea una nueva variable de cadena vacía solo en el panel y canal correspondientes.
+- `useCollaborativeWorkflow` transmite adiciones y cambios a todos los usuarios.
+- El selector de workflow respeta la sincronización por color.
+
+## Uso
+
+### Añadir el widget
+
+Selecciona **Workflow Variables** para cargar las variables del workflow activo.
+
+### Diseño del encabezado
+
+- **Centro**: selector de workflow.
+- **Derecha**: botón **+**.
+
+### Interacciones principales
+
+1. Consulta nombres, tipos y valores.
+2. Haz clic para editar en línea.
+3. Pulsa **+** para añadir una variable `string` vacía.
+4. Los cambios se guardan y comparten automáticamente.
+
+### Sincronización por color
+
+Con un color de pareja sigue el workflow del editor; con `gray` permite seleccionar de forma independiente.
+
+<Callout>Consulta la [guía de variables](/variables) para conocer el alcance, los tipos y las referencias durante la ejecución.</Callout>
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="Variables Guide" href="/variables">Conoce el alcance y los tipos de variables.</Card>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">Crea y edita workflows.</Card>
+</Cards>

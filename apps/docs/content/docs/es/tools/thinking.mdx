@@ -1,0 +1,45 @@
+---
+title: Thinking
+description: Obliga al modelo a describir su proceso de razonamiento.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="thinking"
+  color="#909090"
+/>
+
+
+## Herramientas
+
+### `thinking_tool`
+
+Processes un proporcionado thought/instruction, making it disponible para subsequent steps.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `thought` | cadena | Sí | Tu internal reasoning, analysis, o thought process. Usar este a think mediante el problem step por step antes responding. |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `acknowledgedThought` | cadena | Acknowledged thought process |
+
+
+## Uso Instrucciones
+
+Añade un step donde la model explicitly outlines su thought process antes proceeding. Este puede mejorar reasoning quality por encouraging step-by-step analysis.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `thinking`

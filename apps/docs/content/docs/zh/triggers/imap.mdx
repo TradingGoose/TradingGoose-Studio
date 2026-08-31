@@ -1,0 +1,181 @@
+---
+title: Imap trigger
+description: trigger 当新建电子邮件为 received via IMAP (works 使用任何 email 提供商)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+
+<BlockInfoCard
+  type="imap"
+  color=""
+/>
+
+trigger 当新建电子邮件为 received via IMAP (works 使用任何 email 提供商)
+
+<Callout type="info">
+这是一个**轮询触发器**。TradingGoose 会按固定间隔自动检查新数据。
+</Callout>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="IMAP 电子邮件 trigger"
+    type="imap_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "IMAP 服务器",
+            "placeholder": "imap.example.com",
+            "description": "IMAP 服务器主机名 (例如： imap.gmail.com, outlook.office365.com)",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "993",
+            "description": "IMAP 端口 (993，用于SSL/TLS, 143，用于STARTTLS)",
+            "required": true
+        },
+        {
+            "id": "secure",
+            "type": "switch",
+            "title": "使用 SSL/TLS",
+            "description": "启用SSL/TLS 加密 (recommended，用于端口 993)"
+        },
+        {
+            "id": "rejectUnauthorized",
+            "type": "switch",
+            "title": "验证 TLS Certificate",
+            "description": "验证服务器 TLS certificate. 禁用用于 self-signed certificates."
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "user@example.com",
+            "description": "电子邮件地址或用户名，用于身份验证",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "App password or email password",
+            "description": "密码或应用专用密码（使用 Gmail 时，请使用 App Password）",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "mailbox",
+            "type": "dropdown",
+            "title": "Mailboxes到监控",
+            "placeholder": "Select mailboxes to monitor",
+            "description": "选择该 mailbox/文件夹(s)到监控，用于新建电子邮件. Leave 空到监控 INBOX."
+        },
+        {
+            "id": "searchCriteria",
+            "type": "code",
+            "title": "搜索Criteria",
+            "placeholder": "{ \"unseen\": true }",
+            "description": "ImapFlow 搜索 criteria 作为 JSON 对象. 默认: unseen 消息仅."
+        },
+        {
+            "id": "markAsRead",
+            "type": "switch",
+            "title": "标记作为读取",
+            "description": "Automatically 标记电子邮件作为读取 (SEEN) 之后处理"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "包括附件",
+            "description": "下载和包括 email 附件在trigger payload"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "email",
+          "type": "object",
+          "description": "email",
+          "children": [
+              {
+                  "name": "messageId",
+                  "type": "string",
+                  "description": "RFC 消息-ID header"
+              },
+              {
+                  "name": "subject",
+                  "type": "string",
+                  "description": "电子邮件主题 line"
+              },
+              {
+                  "name": "from",
+                  "type": "string",
+                  "description": "发件人 email 地址"
+              },
+              {
+                  "name": "to",
+                  "type": "string",
+                  "description": "收件人 email 地址"
+              },
+              {
+                  "name": "cc",
+                  "type": "string",
+                  "description": "CC 收件人"
+              },
+              {
+                  "name": "date",
+                  "type": "string",
+                  "description": "电子邮件日期在ISO 格式"
+              },
+              {
+                  "name": "bodyText",
+                  "type": "string",
+                  "description": "Plain 文本 email 正文"
+              },
+              {
+                  "name": "bodyHtml",
+                  "type": "string",
+                  "description": "HTML email 正文"
+              },
+              {
+                  "name": "mailbox",
+                  "type": "string",
+                  "description": "Mailbox/文件夹其中 email 曾为 received"
+              },
+              {
+                  "name": "hasAttachments",
+                  "type": "boolean",
+                  "description": "是否email 有附件"
+              },
+              {
+                  "name": "attachments",
+                  "type": "file[]",
+                  "description": "以下内容的数组：email 附件作为文件 (如果 includeAttachments 为已启用)"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "事件时间戳"
+      }
+  ]}
+/>

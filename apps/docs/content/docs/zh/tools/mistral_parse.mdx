@@ -1,0 +1,242 @@
+---
+title: Mistral Parser
+description: 从 PDF 文档中提取文本
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="mistral_parse"
+  color=""
+/>
+
+
+## 配置
+
+### PDF 文档 URL
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mistral Parser"
+    type="mistral_parse"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "选择输入方法",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "PDF Document URL",
+                    "id": "url"
+                },
+                {
+                    "label": "Upload PDF Document",
+                    "id": "upload"
+                }
+            ],
+            "defaultValue": "url"
+        },
+        {
+            "id": "resultType",
+            "type": "dropdown",
+            "title": "输出格式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Markdown (Formatted)",
+                    "id": "markdown"
+                },
+                {
+                    "label": "Plain Text",
+                    "id": "text"
+                },
+                {
+                    "label": "JSON (Raw)",
+                    "id": "json"
+                }
+            ]
+        },
+        {
+            "id": "pages",
+            "type": "short-input",
+            "title": "指定页面",
+            "layout": "full",
+            "placeholder": "例如 0,1,2 (leave 空用于全部 pages)"
+        },
+        {
+            "id": "includeImageBase64",
+            "type": "switch",
+            "title": "包含 PDF 图像",
+            "layout": "half"
+        },
+        {
+            "id": "imageLimit",
+            "type": "short-input",
+            "title": "Max 图像",
+            "layout": "half",
+            "placeholder": "最大数字的图像到提取"
+        },
+        {
+            "id": "imageMinSize",
+            "type": "short-input",
+            "title": "Min 图像大小 (px)",
+            "layout": "half",
+            "placeholder": "Min 宽度/高度在 pixels"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Mistral API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filePath",
+            "type": "short-input",
+            "title": "PDF 文档 URL",
+            "layout": "full",
+            "placeholder": "输入完整 URL 到一个 PDF document (https://example.com/document.pdf)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | Extracted content |
+| `metadata` | json | Processing metadata |
+
+</div>
+
+
+
+---
+
+### 上传 PDF 文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mistral Parser"
+    type="mistral_parse"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "选择输入方法",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "PDF Document URL",
+                    "id": "url"
+                },
+                {
+                    "label": "Upload PDF Document",
+                    "id": "upload"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "resultType",
+            "type": "dropdown",
+            "title": "输出格式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Markdown (Formatted)",
+                    "id": "markdown"
+                },
+                {
+                    "label": "Plain Text",
+                    "id": "text"
+                },
+                {
+                    "label": "JSON (Raw)",
+                    "id": "json"
+                }
+            ]
+        },
+        {
+            "id": "pages",
+            "type": "short-input",
+            "title": "指定页面",
+            "layout": "full",
+            "placeholder": "例如 0,1,2 (leave 空用于全部 pages)"
+        },
+        {
+            "id": "includeImageBase64",
+            "type": "switch",
+            "title": "包含 PDF 图像",
+            "layout": "half"
+        },
+        {
+            "id": "imageLimit",
+            "type": "short-input",
+            "title": "Max 图像",
+            "layout": "half",
+            "placeholder": "最大数字的图像到提取"
+        },
+        {
+            "id": "imageMinSize",
+            "type": "short-input",
+            "title": "Min 图像大小 (px)",
+            "layout": "half",
+            "placeholder": "Min 宽度/高度在 pixels"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Mistral API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "fileUpload",
+            "type": "file-upload",
+            "title": "上传 PDF",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | Extracted content |
+| `metadata` | json | Processing metadata |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+集成 Mistral 解析到该 workflow. 可以提取 text 从 uploaded PDF documents, 或从一个 URL.
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `mistral_parse`

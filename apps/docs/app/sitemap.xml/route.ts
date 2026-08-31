@@ -6,7 +6,7 @@ export const revalidate = false
 export async function GET() {
   const baseUrl = 'https://docs.tradinggoose.ai'
 
-  const allPages = source.getPages()
+  const englishPages = source.getPages('en')
 
   const getPriority = (url: string): string => {
     if (url === '/en' || url === '/') return '1.0'
@@ -16,9 +16,9 @@ export async function GET() {
     return '0.6'
   }
 
-  const urls = allPages
+  const urls = englishPages
     .flatMap((page) => {
-      const urlWithoutLang = page.url.replace(/^\/[a-z]{2}\//, '/')
+      const urlWithoutLang = page.url.replace(/^\/en(?:\/|$)/, '/')
 
       return i18n.languages.map((lang) => {
         const url =
@@ -51,13 +51,15 @@ ${urls}
 }
 
 function generateAlternateLinks(baseUrl: string, urlWithoutLang: string): string {
-  return i18n.languages
-    .map((lang) => {
+  return [
+    ...i18n.languages.map((lang) => {
       const url =
         lang === i18n.defaultLanguage
           ? `${baseUrl}${urlWithoutLang}`
           : `${baseUrl}/${lang}${urlWithoutLang}`
       return `    <xhtml:link rel="alternate" hreflang="${lang}" href="${url}" />`
-    })
+    }),
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${baseUrl}${urlWithoutLang}" />`,
+  ]
     .join('\n')
 }

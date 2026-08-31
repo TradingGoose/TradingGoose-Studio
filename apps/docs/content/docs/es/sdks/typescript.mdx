@@ -1,0 +1,49 @@
+---
+title: SDK de TypeScript
+description: Cliente de TypeScript y JavaScript para los flujos de trabajo de TradingGoose
+---
+
+## Instalación
+
+```bash
+npm install tradinggoose-ts-sdk
+```
+
+## Ejecutar un flujo de trabajo
+
+```typescript
+import { TradingGooseClient } from 'tradinggoose-ts-sdk'
+
+const client = new TradingGooseClient({
+  apiKey: process.env.TRADINGGOOSE_API_KEY!,
+  baseUrl: 'https://tradinggoose.ai',
+})
+
+const result = await client.executeWorkflow('workflow-id', {
+  input: { message: 'Analyze this' },
+  timeout: 30000,
+  stream: true,
+  selectedOutputs: ['agent1.content'],
+})
+```
+
+`ExecutionOptions` contiene `input`, `timeout` (milisegundos, valor predeterminado `30000`), `stream` y `selectedOutputs`. Los campos de streaming son controles de la solicitud; el SDK actual devuelve `WorkflowExecutionResult`, no un iterador SSE.
+
+## Estado y validación
+
+- `getWorkflowStatus(workflowId)` devuelve `WorkflowStatus`.
+- `validateWorkflow(workflowId)` indica si el flujo de trabajo está desplegado.
+- `setApiKey(apiKey)` y `setBaseUrl(baseUrl)` actualizan la configuración del cliente.
+
+## Reintentos y límites
+
+`executeWithRetry(workflowId, options, retryOptions)` reintenta solo `RATE_LIMIT_EXCEEDED`. Los valores predeterminados de `RetryOptions` son `maxRetries: 3`, `initialDelay: 1000` ms, `maxDelay: 30000` ms y `backoffMultiplier: 2`. El cliente respeta `Retry-After` y aplica una variación aleatoria de ±25 %.
+
+- `getRateLimitInfo(): RateLimitInfo | null` expone `limit`, `remaining`, `reset` y el valor opcional `retryAfter` en milisegundos.
+- `getUsageLimits(): Promise<UsageLimits>` expone `isLimited`, `limit`, `remaining` y `resetAt` síncronos y asíncronos, además de `authType` y los valores de uso `currentPeriodCost`, `limit` y `plan`.
+
+## Errores y resultados
+
+`TradingGooseError` conserva el `code` de la API y el `status` HTTP. El cliente usa `TIMEOUT`, `EXECUTION_ERROR`, `STATUS_ERROR`, `RATE_LIMIT_EXCEEDED` y `USAGE_ERROR` para sus propias rutas de error. Una ejecución correcta devuelve `WorkflowExecutionResult` con `success` y, opcionalmente, salida, error, registros, metadatos, intervalos de traza y duración.
+
+Consulta el [README del paquete del SDK de TypeScript](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/ts-sdk/README.md) para ver ejemplos completos y el comportamiento de carga de archivos.

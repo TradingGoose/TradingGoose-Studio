@@ -1,0 +1,425 @@
+---
+title: Slack
+description: Envía mensajes a Slack o activa workflows desde eventos de Slack
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="slack"
+  color=""
+/>
+
+<Cards>
+  <Card title="Usar como un Trigger" href="/triggers/slack">
+    Consulta trigger eventos, setup, y evento payloads para Slack.
+  </Card>
+</Cards>
+
+
+## Configuración
+
+### Enviar Mensaje
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack"
+    type="slack"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send"
+                },
+                {
+                    "label": "Create Canvas",
+                    "id": "canvas"
+                },
+                {
+                    "label": "Read Messages",
+                    "id": "read"
+                }
+            ],
+            "defaultValue": "send"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Autenticación Método",
+            "layout": "full",
+            "required": true,
+            "options": [
+                {
+                    "label": "TradingGoose Bot",
+                    "id": "oauth"
+                },
+                {
+                    "label": "Custom Bot",
+                    "id": "bot_token"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Slack Cuenta",
+            "layout": "full",
+            "placeholder": "Select Slack workspace",
+            "provider": "slack"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Enter your Slack bot token (xoxb-...)",
+            "password": true
+        },
+        {
+            "id": "channel",
+            "type": "channel-selector",
+            "title": "Canal",
+            "layout": "full",
+            "placeholder": "Select Slack channel",
+            "provider": "slack"
+        },
+        {
+            "id": "manualChannel",
+            "type": "short-input",
+            "title": "Canal ID",
+            "layout": "full",
+            "placeholder": "Enter Slack channel ID (e.g., C1234567890)"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Mensaje",
+            "layout": "full",
+            "placeholder": "Enter your message (supports Slack mrkdwn)",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Adjuntos",
+            "layout": "full",
+            "placeholder": "Upload files to attach"
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "Archivo Adjuntos",
+            "layout": "full",
+            "placeholder": "Reference files from previous blocks"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Message (<code>slack_message</code>)</div>
+
+Enviar mensajes a Slack canales o direct mensajes. Supports Slack mrkdwn formatting.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `authMethod` | cadena | No | Autenticación método: oauth o bot_token |
+| `destinationType` | cadena | No | Destination tipo: canal o dm |
+| `botToken` | cadena | No | Bot token para Personalizado Bot |
+| `channel` | cadena | No | Destino Slack canal \(p. ej., #general\) |
+| `dmUserId` | cadena | No | Destino Slack usuario para direct mensajes |
+| `text` | cadena | Sí | Mensaje texto a enviar \(supports Slack mrkdwn formatting\) |
+| `thread_ts` | cadena | No | Hilo marca de tiempo a reply a \(crea hilo reply\) |
+| `files` | file[] | No | Archivos a attach a el mensaje |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | objeto | Complete mensaje objeto con todos propiedades devuelto por Slack |
+| `ts` | cadena | Mensaje marca de tiempo |
+| `channel` | cadena | Canal ID donde mensaje fue enviados |
+
+</div>
+
+
+
+---
+
+### Crear Canvas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack"
+    type="slack"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send"
+                },
+                {
+                    "label": "Create Canvas",
+                    "id": "canvas"
+                },
+                {
+                    "label": "Read Messages",
+                    "id": "read"
+                }
+            ],
+            "defaultValue": "canvas"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Autenticación Método",
+            "layout": "full",
+            "required": true,
+            "options": [
+                {
+                    "label": "TradingGoose Bot",
+                    "id": "oauth"
+                },
+                {
+                    "label": "Custom Bot",
+                    "id": "bot_token"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Slack Cuenta",
+            "layout": "full",
+            "placeholder": "Select Slack workspace",
+            "provider": "slack"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Enter your Slack bot token (xoxb-...)",
+            "password": true
+        },
+        {
+            "id": "channel",
+            "type": "channel-selector",
+            "title": "Canal",
+            "layout": "full",
+            "placeholder": "Select Slack channel",
+            "provider": "slack"
+        },
+        {
+            "id": "manualChannel",
+            "type": "short-input",
+            "title": "Canal ID",
+            "layout": "full",
+            "placeholder": "Enter Slack channel ID (e.g., C1234567890)"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Canvas Título",
+            "layout": "full",
+            "placeholder": "Enter canvas title",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Canvas Contenido",
+            "layout": "full",
+            "placeholder": "Enter canvas content (markdown supported)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Canvas (<code>slack_canvas</code>)</div>
+
+Crear y share Slack lienzos en canales. Lienzos son colaborativos documentos dentro de Slack.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `authMethod` | cadena | No | Autenticación método: oauth o bot_token |
+| `botToken` | cadena | No | Bot token para Personalizado Bot |
+| `channel` | cadena | Sí | Destino Slack canal \(p. ej., #general\) |
+| `title` | cadena | Sí | Título de el canvas |
+| `content` | cadena | Sí | Canvas contenido en markdown formato |
+| `document_content` | objeto | No | Structured canvas documento contenido |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `canvas_id` | cadena | ID de creado canvas |
+| `channel` | cadena | Canal donde canvas fue creado |
+
+</div>
+
+
+
+---
+
+### Leer Mensajes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack"
+    type="slack"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send"
+                },
+                {
+                    "label": "Create Canvas",
+                    "id": "canvas"
+                },
+                {
+                    "label": "Read Messages",
+                    "id": "read"
+                }
+            ],
+            "defaultValue": "read"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "Autenticación Método",
+            "layout": "full",
+            "required": true,
+            "options": [
+                {
+                    "label": "TradingGoose Bot",
+                    "id": "oauth"
+                },
+                {
+                    "label": "Custom Bot",
+                    "id": "bot_token"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Slack Cuenta",
+            "layout": "full",
+            "placeholder": "Select Slack workspace",
+            "provider": "slack"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Enter your Slack bot token (xoxb-...)",
+            "password": true
+        },
+        {
+            "id": "channel",
+            "type": "channel-selector",
+            "title": "Canal",
+            "layout": "full",
+            "placeholder": "Select Slack channel",
+            "provider": "slack"
+        },
+        {
+            "id": "manualChannel",
+            "type": "short-input",
+            "title": "Canal ID",
+            "layout": "full",
+            "placeholder": "Enter Slack channel ID (e.g., C1234567890)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Mensaje Límite",
+            "layout": "half",
+            "placeholder": "15"
+        },
+        {
+            "id": "oldest",
+            "type": "datetime-input",
+            "title": "Oldest Marca de tiempo",
+            "layout": "half",
+            "placeholder": "ISO 8601 timestamp"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Messages (<code>slack_message_reader</code>)</div>
+
+Leer el últimos mensajes desde Slack canales. Recuperar conversación historial con filtering opciones.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `authMethod` | cadena | No | Autenticación método: oauth o bot_token |
+| `botToken` | cadena | No | Bot token para Personalizado Bot |
+| `channel` | cadena | Sí | Slack canal a leer mensajes desde \(p. ej., #general\) |
+| `limit` | número | No | Número de mensajes a recuperar \(predeterminado: 10, máximo: 100\) |
+| `oldest` | cadena | No | Iniciar de time intervalo \(marca de tiempo\) |
+| `latest` | cadena | No | Fin de time intervalo \(marca de tiempo\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | ts salida |
+| `text` | cadena | texto salida |
+| `user` | cadena | usuario salida |
+| `type` | cadena | tipo salida |
+
+</div>
+
+
+
+---
+
+
+## Uso Instrucciones
+
+Integra Slack en el workflow. Permite enviar mensajes, crear lienzos, y leer mensajes. Requiere Token del bot instead de OAuth en advanced modo. Permite ser usado en trigger modo a trigger un workflow cuando un mensaje es enviados a un canal.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `slack`

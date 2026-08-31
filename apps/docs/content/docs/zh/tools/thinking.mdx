@@ -1,0 +1,45 @@
+---
+title: Thinking
+description: 强制模型列出其推理过程。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="thinking"
+  color="#909090"
+/>
+
+
+## 工具
+
+### `thinking_tool`
+
+Processes 一个提供的 thought/instruction, making it 可用，用于subsequent steps.
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `thought` | 字符串 | 是 | 你的internal reasoning, analysis,或thought process. 使用此到think 通过 problem step由step 之前 responding. |
+
+#### 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `acknowledgedThought` | 字符串 | Acknowledged thought process |
+
+
+## 用法说明
+
+添加一个 step 其中model explicitly outlines 其 thought process 之前 proceeding. 此可 提高 reasoning quality由encouraging step-by-step analysis.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `thinking`

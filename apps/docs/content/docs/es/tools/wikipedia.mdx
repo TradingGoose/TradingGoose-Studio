@@ -1,0 +1,315 @@
+---
+title: Wikipedia
+description: Busca y recupera contenido de Wikipedia
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="wikipedia"
+  color=""
+/>
+
+
+## Configuración
+
+### Obtener Página Resumen
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wikipedia"
+    type="wikipedia"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Page Summary",
+                    "id": "wikipedia_summary"
+                },
+                {
+                    "label": "Search Pages",
+                    "id": "wikipedia_search"
+                },
+                {
+                    "label": "Get Page Content",
+                    "id": "wikipedia_content"
+                },
+                {
+                    "label": "Random Page",
+                    "id": "wikipedia_random"
+                }
+            ],
+            "defaultValue": "wikipedia_summary"
+        },
+        {
+            "id": "pageTitle",
+            "type": "long-input",
+            "title": "Página Título",
+            "layout": "full",
+            "placeholder": "Enter Wikipedia page title (e.g., \"Python programming language\")...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Page Summary (<code>wikipedia_summary</code>)</div>
+
+Obtener un resumen y metadatos para un específico Wikipedia página.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `pageTitle` | cadena | Sí | Título de el Wikipedia página a get resumen para |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `title` | cadena | Página título |
+| `extract` | cadena | Página extract/resumen texto |
+| `description` | cadena | Short página descripción |
+| `thumbnail` | objeto | Thumbnail imagen datos |
+| `content_urls` | objeto | URLs a acceder el página |
+
+</div>
+
+
+
+---
+
+### Buscar Páginas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wikipedia"
+    type="wikipedia"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Page Summary",
+                    "id": "wikipedia_summary"
+                },
+                {
+                    "label": "Search Pages",
+                    "id": "wikipedia_search"
+                },
+                {
+                    "label": "Get Page Content",
+                    "id": "wikipedia_content"
+                },
+                {
+                    "label": "Random Page",
+                    "id": "wikipedia_random"
+                }
+            ],
+            "defaultValue": "wikipedia_search"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Buscar Consulta",
+            "layout": "full",
+            "placeholder": "Enter search terms...",
+            "required": true
+        },
+        {
+            "id": "searchLimit",
+            "type": "short-input",
+            "title": "Máximo Resultados",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Pages (<code>wikipedia_search</code>)</div>
+
+Buscar para Wikipedia páginas por título o contenido.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | cadena | Sí | Buscar consulta a buscar Wikipedia páginas |
+| `searchLimit` | número | No | Número máximo de resultados a devolver \(predeterminado: 10, máximo: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `title` | cadena | título salida |
+| `excerpt` | cadena | excerpt salida |
+
+</div>
+
+
+
+---
+
+### Obtener Página Contenido
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wikipedia"
+    type="wikipedia"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Page Summary",
+                    "id": "wikipedia_summary"
+                },
+                {
+                    "label": "Search Pages",
+                    "id": "wikipedia_search"
+                },
+                {
+                    "label": "Get Page Content",
+                    "id": "wikipedia_content"
+                },
+                {
+                    "label": "Random Page",
+                    "id": "wikipedia_random"
+                }
+            ],
+            "defaultValue": "wikipedia_content"
+        },
+        {
+            "id": "pageTitle",
+            "type": "long-input",
+            "title": "Página Título",
+            "layout": "full",
+            "placeholder": "Enter Wikipedia page title...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Page Content (<code>wikipedia_content</code>)</div>
+
+Obtener el completo HTML contenido de un Wikipedia página.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `pageTitle` | cadena | Sí | Título de el Wikipedia página a get contenido para |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `title` | cadena | Página título |
+| `pageid` | número | Wikipedia página ID |
+| `html` | cadena | Completo HTML contenido de el página |
+| `revision` | número | Página revision número |
+
+</div>
+
+
+
+---
+
+### Random Página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wikipedia"
+    type="wikipedia"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Page Summary",
+                    "id": "wikipedia_summary"
+                },
+                {
+                    "label": "Search Pages",
+                    "id": "wikipedia_search"
+                },
+                {
+                    "label": "Get Page Content",
+                    "id": "wikipedia_content"
+                },
+                {
+                    "label": "Random Page",
+                    "id": "wikipedia_random"
+                }
+            ],
+            "defaultValue": "wikipedia_random"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Random Page (<code>wikipedia_random</code>)</div>
+
+Obtener un random Wikipedia página.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `title` | cadena | Página título |
+| `extract` | cadena | Página extract/resumen |
+| `description` | cadena | Página descripción |
+| `thumbnail` | objeto | Thumbnail imagen datos |
+
+</div>
+
+
+
+---
+
+
+## Uso Instrucciones
+
+Integra Wikipedia en el flujo de trabajo. Permite obtener el resumen de una página, buscar páginas, consultar su contenido y obtener una página aleatoria.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `wikipedia`

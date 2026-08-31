@@ -1,0 +1,121 @@
+---
+title: 数据序列
+description: 内置价格数据、时间序列、K 线状态和交易品种信息
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+PineTS 提供内置数据序列，无需导入即可在每个指标中使用。这些序列表示当前交易品种的 OHLCV 数据、时间信息和 K 线状态。
+
+## 价格数据（OHLCV）
+
+| 序列 | 类型 | 说明 |
+|--------|------|-------------|
+| `open` | `series<number>` | 每根 K 线的开盘价 |
+| `high` | `series<number>` | 每根 K 线的最高价 |
+| `low` | `series<number>` | 每根 K 线的最低价 |
+| `close` | `series<number>` | 每根 K 线的收盘价 |
+| `volume` | `series<number>` | 每根 K 线的成交量 |
+
+### 计算得出的价格序列
+
+| 序列 | 公式 | 说明 |
+|--------|---------|-------------|
+| `hl2` | `(high + low) / 2` | 中间价 |
+| `hlc3` | `(high + low + close) / 3` | 典型价格 |
+| `ohlc4` | `(open + high + low + close) / 4` | 平均价格 |
+
+```javascript
+// Use any price series in calculations
+const typicalPrice = hlc3;
+const sma = ta.sma(typicalPrice, 20);
+plot(sma, 'SMA of Typical Price');
+```
+
+## 时间序列
+
+| 序列 | 类型 | 说明 |
+|--------|------|-------------|
+| `openTime` | `series<number>` | K 线开盘时间，以毫秒为单位 |
+| `closeTime` | `series<number>` | K 线收盘时间，以毫秒为单位 |
+
+## K 线信息
+
+| 变量 | 类型 | 说明 |
+|----------|------|-------------|
+| `bar_index` | `series<number>` | 当前 K 线的索引（从 0 开始） |
+| `last_bar_index` | `series<number>` | 数据集中最后一根 K 线的索引 |
+| `last_bar_time` | `series<number>` | 最后一根 K 线的时间戳 |
+
+```javascript
+// Only plot on the last 100 bars
+if (bar_index > last_bar_index - 100) {
+  plot(close, 'Recent Close');
+}
+```
+
+## K 线状态
+
+`barstate` 对象提供用于表示当前 K 线在数据集中所处位置的标志：
+
+| 属性 | 类型 | 说明 |
+|----------|------|-------------|
+| `barstate.isfirst` | `boolean` | 第一根 K 线时为真 |
+| `barstate.islast` | `boolean` | 最后一根 K 线时为真 |
+| `barstate.ishistory` | `boolean` | 历史 K 线时为真 |
+| `barstate.isrealtime` | `boolean` | 实时或流式 K 线时为真 |
+| `barstate.isnew` | `boolean` | 新 K 线的第一个 tick 时为真 |
+| `barstate.isconfirmed` | `boolean` | K 线已确认（已收盘）时为真 |
+| `barstate.islastconfirmedhistory` | `boolean` | 最后一根已确认历史 K 线时为真 |
+
+## 交易品种信息
+
+`syminfo` 对象提供当前交易品种的详细信息：
+
+| 属性 | 说明 |
+|----------|-------------|
+| `syminfo.ticker` | 交易品种名称（例如 `"BTCUSDT"`） |
+| `syminfo.tickerid` | 完整的 ticker ID |
+| `syminfo.description` | 交易品种说明 |
+| `syminfo.type` | 资产类型（例如 `"crypto"`、`"stock"`） |
+| `syminfo.currency` | 报价货币 |
+| `syminfo.basecurrency` | 基础货币 |
+| `syminfo.mintick` | 最小价格变动 |
+| `syminfo.timezone` | 交易所时区 |
+
+## 特殊值
+
+| 值 | 说明 |
+|-------|-------------|
+| `na` | 表示“不可用”，类似于 `null`。用于检查值是否存在 |
+| `nz(value, replacement?)` | 返回 `replacement`（默认为 `0`）；当 `value` 为 `na` 时使用该值 |
+
+```javascript
+const prev = close[1];
+// na check
+if (!na(prev)) {
+  const change = close - prev;
+  plot(change, 'Change');
+}
+
+// nz shorthand — default to 0 if na
+const safeChange = nz(close - close[1], 0);
+```
+
+## 全局常量
+
+| 命名空间 | 说明 |
+|-----------|-------------|
+| `timeframe` | 当前时间周期信息（`timeframe.period`、`timeframe.multiplier`） |
+| `order` | 排序顺序常量（`order.ascending`、`order.descending`） |
+| `currency` | 货币代码常量（59 种货币，包括 `currency.BTC`、`currency.USD`） |
+| `display` | 显示模式常量 |
+| `shape` | `plotshape()` 的形状类型常量 |
+| `location` | 位置常量（`location.abovebar`、`location.belowbar` 等） |
+| `size` | 大小常量（`size.tiny`、`size.small`、`size.normal`、`size.large`、`size.huge`） |
+| `format` | 格式常量（`format.price`、`format.volume`、`format.percent`） |
+| `dayofweek` | 星期常量 |
+
+<Callout type="info">
+  所有数据序列都支持使用方括号表示法访问历史数据：`close[1]` 返回前一根 K 线的收盘价，`close[10]` 返回 10 根 K 线之前的收盘价。
+</Callout>

@@ -1,0 +1,180 @@
+---
+title: Outlook Trigger
+description: Triggers cuando nuevo correos electrónicos son received en Outlook (requiere Microsoft credentials)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="outlook"
+  color=""
+/>
+
+Triggers cuando nuevo correos electrónicos son received en Outlook (requiere Microsoft credentials)
+
+<Callout type="info">
+Este disparador se basa en sondeo. TradingGoose comprueba automáticamente si hay datos nuevos en un intervalo regular.
+</Callout>
+
+<Cards>
+  <Card title="Usar como un Herramienta" href="/tools/outlook">
+    Consulta workflow acciones, operaciones, y herramienta entradas para Outlook.
+  </Card>
+</Cards>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Outlook Correo electrónico Trigger"
+    type="outlook_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este trigger requiere outlook credentials a acceder tu cuenta.",
+            "required": true
+        },
+        {
+            "id": "folderIds",
+            "type": "dropdown",
+            "title": "Outlook Folders a Supervisar",
+            "placeholder": "Select Outlook folders to monitor for new emails",
+            "description": "Elegir que Outlook folders a supervisar. Leave vacío a supervisar todos correos electrónicos."
+        },
+        {
+            "id": "folderFilterBehavior",
+            "type": "dropdown",
+            "title": "Carpeta Filtro Behavior",
+            "description": "Incluir solo correos electrónicos desde seleccionado folders, o exclude correos electrónicos desde seleccionado folders",
+            "required": true,
+            "options": [
+                {
+                    "label": "INCLUDE",
+                    "id": "INCLUDE"
+                },
+                {
+                    "label": "EXCLUDE",
+                    "id": "EXCLUDE"
+                }
+            ]
+        },
+        {
+            "id": "markAsRead",
+            "type": "switch",
+            "title": "Marcar como Leer",
+            "description": "Automatically marcar correos electrónicos como leer después procesamiento"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Incluir Adjuntos",
+            "description": "Descargar y incluir email adjuntos en el trigger payload"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "email",
+          "type": "object",
+          "description": "email",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Outlook mensaje ID"
+              },
+              {
+                  "name": "conversationId",
+                  "type": "string",
+                  "description": "Outlook conversación ID"
+              },
+              {
+                  "name": "subject",
+                  "type": "string",
+                  "description": "Correo electrónico asunto line"
+              },
+              {
+                  "name": "from",
+                  "type": "string",
+                  "description": "Remitente email dirección"
+              },
+              {
+                  "name": "to",
+                  "type": "string",
+                  "description": "Destinatario email dirección"
+              },
+              {
+                  "name": "cc",
+                  "type": "string",
+                  "description": "CC destinatarios"
+              },
+              {
+                  "name": "date",
+                  "type": "string",
+                  "description": "Correo electrónico fecha en ISO formato"
+              },
+              {
+                  "name": "bodyText",
+                  "type": "string",
+                  "description": "Plain texto email cuerpo"
+              },
+              {
+                  "name": "bodyHtml",
+                  "type": "string",
+                  "description": "HTML email cuerpo"
+              },
+              {
+                  "name": "hasAttachments",
+                  "type": "boolean",
+                  "description": "Indica si email tiene adjuntos"
+              },
+              {
+                  "name": "attachments",
+                  "type": "file[]",
+                  "description": "Matriz de email adjuntos como archivos (si includeAttachments es activado)"
+              },
+              {
+                  "name": "isRead",
+                  "type": "boolean",
+                  "description": "Indica si email es leer"
+              },
+              {
+                  "name": "folderId",
+                  "type": "string",
+                  "description": "Outlook carpeta ID donde email es located"
+              },
+              {
+                  "name": "messageId",
+                  "type": "string",
+                  "description": "Mensaje ID para threading"
+              },
+              {
+                  "name": "threadId",
+                  "type": "string",
+                  "description": "Hilo ID para conversación threading"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Evento marca de tiempo"
+      }
+  ]}
+/>
+

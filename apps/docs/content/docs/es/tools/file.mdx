@@ -1,0 +1,130 @@
+---
+title: File
+description: Lee y analiza varios archivos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="file"
+  color="#40916C"
+/>
+
+
+## Configuración
+
+### Archivo URL
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="File"
+    type="file"
+    color="#40916C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "Selecciona Entrada Method",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "File URL",
+                    "id": "url"
+                },
+                {
+                    "label": "Uploaded Files",
+                    "id": "upload"
+                }
+            ],
+            "defaultValue": "url"
+        },
+        {
+            "id": "filePath",
+            "type": "short-input",
+            "title": "Archivo URL",
+            "layout": "full",
+            "placeholder": "Introduce URL un un file (https://example.com/document.pdf)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `files` | json | Array de parsed file objects con content, metadata, y file propiedades |
+| `combinedContent` | cadena | Todos file contents merged en un único text cadena |
+
+</div>
+
+
+
+---
+
+### Uploaded Archivos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="File"
+    type="file"
+    color="#40916C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "Selecciona Entrada Method",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "File URL",
+                    "id": "url"
+                },
+                {
+                    "label": "Uploaded Files",
+                    "id": "upload"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "file",
+            "type": "file-upload",
+            "title": "Process Archivos",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `files` | json | Array de parsed file objects con content, metadata, y file propiedades |
+| `combinedContent` | cadena | Todos file contents merged en un único text cadena |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Archivo en el workflow. Can upload un file manually o insert un file url.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `file`

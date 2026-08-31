@@ -1,0 +1,52 @@
+---
+title: 概述
+description: 启动 TradingGoose workflow 的主要方式
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 核心 trigger
+
+每个 workflow 选择一个 trigger，以定义其启动方式：
+
+<Cards>
+  <Card title="API" href="/triggers/api">
+    将 JSON 请求正文映射到 workflow 输入的 HTTP 端点
+  </Card>
+  <Card title="Chat" href="/triggers/chat">
+    支持流式响应的已部署聊天界面
+  </Card>
+  <Card title="Input Form" href="/triggers/input-form">
+    用于编辑器运行和子 workflow 的类型化手动输入
+  </Card>
+  <Card title="Manual" href="/triggers/manual">
+    无额外数据的按需运行
+  </Card>
+  <Card title="Schedule" href="/triggers/schedule">
+    基于 cron 或时间间隔执行
+  </Card>
+  <Card title="Webhook" href="/triggers/webhook">
+    接收外部 webhook payload
+  </Card>
+</Cards>
+
+## Quick Comparison
+
+| Trigger | 启动条件 |
+|---------|-----------------|
+| **API** | Authenticated HTTP POST |
+| **Chat** | 聊天部署消息 |
+| **Input Form** | 在编辑器或父 workflow 中手动提交 |
+| **Manual** | 编辑器中的 Run 按钮 |
+| **Schedule** | 在计划模态框中管理的计时器 |
+| **Webhook** | 入站 HTTP 请求 |
+
+## 使用 trigger
+
+1. 将 trigger 块放入起始插槽。
+2. 配置所有必需的架构或身份验证。
+3. 将该块连接到 workflow 的其余部分。
+
+> 每个 trigger 都由部署提供支持。更新并重新部署 workflow 后，所有 trigger 入口点都会使用新 snapshot。详细信息请参阅 [Execution → Deployment Snapshots](/execution)。
+
+旧版 Starter 块会保留在现有流程中，但不会再出现在新构建中。

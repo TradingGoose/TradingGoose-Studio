@@ -1,0 +1,116 @@
+---
+title: Google 表单 trigger
+description: 触发 workflow，来源为Google 表单提交 (via Apps Script forwarder)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="google_forms"
+  color=""
+/>
+
+触发 workflow，来源为Google 表单提交 (via Apps Script forwarder)
+
+<Callout type="info">
+  这是基于 webhook 的 trigger。请在外部服务中配置 webhook URL，以便向 TradingGoose 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="使用作为一个工具" href="/tools/google_forms">
+    参阅workflow 操作, 操作,和工具输入，用于Google 表单.
+  </Card>
+</Cards>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google 表单 webhook"
+    type="google_forms_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "token",
+            "type": "short-input",
+            "title": "Shared 密钥",
+            "placeholder": "Enter a secret used by your Apps Script forwarder",
+            "description": "We 验证请求使用此 密钥. 发送it 作为 Authorization: Bearer &lt;token&gt;或一个自定义 header.",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "secretHeaderName",
+            "type": "short-input",
+            "title": "自定义密钥 Header",
+            "placeholder": "X-GForms-Secret",
+            "description": "如果设置, webhook 将验证此 header equals 你的 Shared 密钥 instead的Authorization."
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "表单 ID",
+            "placeholder": "1FAIpQLSd... (Google Form ID)",
+            "description": "可选,，用于clarity和匹配在workflow. 不必填，用于webhook到work."
+        },
+        {
+            "id": "includeRawPayload",
+            "type": "switch",
+            "title": "包括原始 payload",
+            "description": "包括 original payload，来源为Apps Script在workflow 输入."
+        },
+        {
+            "id": "setupScript",
+            "type": "code",
+            "title": "Apps Script 代码",
+            "description": "复制此 代码和paste it 到你的 Google 表单 Apps Script editor"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "responseId",
+          "type": "string",
+          "description": "唯一 response 标识符 (如果可用)"
+      },
+      {
+          "name": "createTime",
+          "type": "string",
+          "description": "响应创建时间戳"
+      },
+      {
+          "name": "lastSubmittedTime",
+          "type": "string",
+          "description": "最后一个已提交时间戳"
+      },
+      {
+          "name": "formId",
+          "type": "string",
+          "description": "Google 表单 ID"
+      },
+      {
+          "name": "answers",
+          "type": "object",
+          "description": "Normalized map的问题 -&gt; 回答"
+      },
+      {
+          "name": "raw",
+          "type": "object",
+          "description": "Original payload (当已启用)"
+      }
+  ]}
+/>
+
+

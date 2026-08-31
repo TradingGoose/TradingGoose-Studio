@@ -1,0 +1,144 @@
+---
+title: 关注列表
+description: 读取工作区的关注列表及其中的项目。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="watchlist"
+  color="#0f766e"
+/>
+
+
+## 配置
+
+### 读取列出
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="关注列表"
+    type="watchlist"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "required": true,
+            "options": [
+                {
+                    "label": "Read Lists",
+                    "id": "readLists"
+                },
+                {
+                    "label": "Read List Items",
+                    "id": "readListItems"
+                }
+            ],
+            "defaultValue": "readLists"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Lists (<code>watchlist_read_lists</code>)</div>
+
+读取 root watchlists 可用在当前 workspace.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+此操作有 否 direct 参数.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `watchlists` | 数组 | 关注列表记录包括项目, 设置,和元数据. |
+
+</div>
+
+
+
+---
+
+### 读取列出项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="关注列表"
+    type="watchlist"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "required": true,
+            "options": [
+                {
+                    "label": "Read Lists",
+                    "id": "readLists"
+                },
+                {
+                    "label": "Read List Items",
+                    "id": "readListItems"
+                }
+            ],
+            "defaultValue": "readListItems"
+        },
+        {
+            "id": "watchlistId",
+            "type": "dropdown",
+            "title": "关注列表",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read List Items (<code>watchlist_read_list_items</code>)</div>
+
+读取一个 watchlist 使用ordered listings和section/类别项目.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `watchlistId` | 字符串 | 是 | Root watchlist id到读取. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `watchlist` | json | 关注列表 record. |
+| `items` | 数组 | 关注列表项目在显示订单, 包括 listings和sections. |
+| `listings` | 数组 | Listing 项目在watchlist. |
+| `sections` | 数组 | Section/类别项目在watchlist. |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+读取 root workspace watchlists, inspect ordered listing 项目,和inspect section/类别项目.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `watchlist`

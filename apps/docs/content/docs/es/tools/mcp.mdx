@@ -1,0 +1,63 @@
+---
+title: MCP Tool
+description: Ejecutar tools desde Model Context Protocol (MCP) servers
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="mcp"
+  color=""
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MCP Tool"
+    type="mcp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "server",
+            "type": "mcp-server-selector",
+            "title": "MCP Server",
+            "layout": "full",
+            "placeholder": "Selecciona un MCP servidor",
+            "description": "Elige desde configured MCP servers en tu workspace",
+            "required": true
+        },
+        {
+            "id": "tool",
+            "type": "mcp-tool-selector",
+            "title": "Tool",
+            "layout": "full",
+            "placeholder": "Selecciona un tool",
+            "description": "Available tools desde el seleccionado MCP servidor",
+            "required": true
+        },
+        {
+            "id": "arguments",
+            "type": "mcp-dynamic-args",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+
+## Usage Instructions
+
+Integrate MCP en el workflow. Can execute tools desde MCP servers configured en el workspace dashboard widgets.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `mcp`

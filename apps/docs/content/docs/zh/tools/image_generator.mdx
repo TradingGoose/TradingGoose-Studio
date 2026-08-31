@@ -1,0 +1,249 @@
+---
+title: Image Generator
+description: 生成图像
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="image_generator"
+  color="#4D5FFF"
+/>
+
+
+## 配置
+
+### DALL-E 3
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Image Generator"
+    type="image_generator"
+    color="#4D5FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "DALL-E 3",
+                    "id": "dall-e-3"
+                },
+                {
+                    "label": "GPT Image",
+                    "id": "gpt-image-1"
+                }
+            ],
+            "defaultValue": "dall-e-3"
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "提示词",
+            "layout": "full",
+            "placeholder": "Describe 该图像 you want 到 generate...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 OpenAI API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "size",
+            "type": "dropdown",
+            "title": "大小",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "1024x1024",
+                    "id": "1024x1024"
+                },
+                {
+                    "label": "1024x1792",
+                    "id": "1024x1792"
+                },
+                {
+                    "label": "1792x1024",
+                    "id": "1792x1024"
+                }
+            ]
+        },
+        {
+            "id": "quality",
+            "type": "dropdown",
+            "title": "Quality",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "Standard",
+                    "id": "standard"
+                },
+                {
+                    "label": "HD",
+                    "id": "hd"
+                }
+            ]
+        },
+        {
+            "id": "style",
+            "type": "dropdown",
+            "title": "样式",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "Vivid",
+                    "id": "vivid"
+                },
+                {
+                    "label": "Natural",
+                    "id": "natural"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | Generation response |
+| `image` | 字符串 | Generated 图像 URL |
+| `metadata` | json | Generation metadata |
+
+</div>
+
+
+
+---
+
+### GPT 图像
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Image Generator"
+    type="image_generator"
+    color="#4D5FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "DALL-E 3",
+                    "id": "dall-e-3"
+                },
+                {
+                    "label": "GPT Image",
+                    "id": "gpt-image-1"
+                }
+            ],
+            "defaultValue": "gpt-image-1"
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "提示词",
+            "layout": "full",
+            "placeholder": "Describe 该图像 you want 到 generate...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 OpenAI API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "size",
+            "type": "dropdown",
+            "title": "大小",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "Auto",
+                    "id": "auto"
+                },
+                {
+                    "label": "1024x1024",
+                    "id": "1024x1024"
+                },
+                {
+                    "label": "1536x1024",
+                    "id": "1536x1024"
+                },
+                {
+                    "label": "1024x1536",
+                    "id": "1024x1536"
+                }
+            ]
+        },
+        {
+            "id": "background",
+            "type": "dropdown",
+            "title": "Background",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "Auto",
+                    "id": "auto"
+                },
+                {
+                    "label": "Transparent",
+                    "id": "transparent"
+                },
+                {
+                    "label": "Opaque",
+                    "id": "opaque"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | Generation response |
+| `image` | 字符串 | Generated 图像 URL |
+| `metadata` | json | Generation metadata |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+将图像生成器集成到工作流中。你可以使用 DALL-E 3 或 GPT Image 生成图像。
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `image_generator`

@@ -1,0 +1,86 @@
+---
+title: Historical Data
+description: 从已注册的提供商获取历史市场序列。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="historical_data"
+  color="#0EA5E9"
+/>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Historical Data"
+    type="historical_data"
+    color="#0EA5E9"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "数据提供商",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "listing",
+            "type": "market-selector",
+            "title": "Listing",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "interval",
+            "type": "dropdown",
+            "title": "间隔",
+            "layout": "full",
+            "placeholder": "选择间隔"
+        },
+        {
+            "id": "normalizationMode",
+            "type": "dropdown",
+            "title": "Normalization",
+            "layout": "full",
+            "placeholder": "可选 normalization 模式"
+        },
+        {
+            "id": "start",
+            "type": "datetime-input",
+            "title": "启动",
+            "layout": "full",
+            "placeholder": "开始时间",
+            "required": true
+        },
+        {
+            "id": "end",
+            "type": "datetime-input",
+            "title": "End",
+            "layout": "full",
+            "placeholder": "结束时间",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+
+## 用量说明
+
+选择市场数据提供商和标准上市标的，然后获取包含开盘价、最高价、最低价、收盘价、成交量和时间戳的系列 K 线。开始和结束时间可以是 ISO 字符串或 UNIX 时间戳。
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `historical_data`

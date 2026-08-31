@@ -1,0 +1,74 @@
+---
+title: Fireflies trigger
+description: 当一个 Fireflies 会议 transcription 为 complete时触发 workflow
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="fireflies"
+  color=""
+/>
+
+当一个 Fireflies 会议 transcription 为 complete时触发 workflow
+
+<Callout type="info">
+  这是基于 webhook 的 trigger。请在外部服务中配置 webhook URL，以便向 TradingGoose 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="使用作为一个工具" href="/tools/fireflies">
+    参阅workflow 操作, 操作,和工具输入，用于Fireflies.
+  </Card>
+</Cards>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Fireflies Transcription Complete"
+    type="fireflies_transcription_complete"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "webhook 密钥",
+            "placeholder": "Enter your 16-32 character secret",
+            "description": "密钥键，用于HMAC signature 验证 (设置在Fireflies 仪表板)",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "meetingId",
+          "type": "string",
+          "description": "以下对象的 ID：transcribed 会议"
+      },
+      {
+          "name": "eventType",
+          "type": "string",
+          "description": "类型的事件 (Transcription 已完成)"
+      },
+      {
+          "name": "clientReferenceId",
+          "type": "string",
+          "description": "自定义 reference ID 如果设置期间 upload"
+      }
+  ]}
+/>
+
+

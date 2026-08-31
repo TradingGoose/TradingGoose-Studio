@@ -1,0 +1,208 @@
+---
+title: Linear
+description: Lee y crea incidencias en Linear
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="linear"
+  color=""
+/>
+
+
+## Configuración
+
+### Leer Incidencias
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Linear"
+    type="linear"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Issues",
+                    "id": "read"
+                },
+                {
+                    "label": "Create Issue",
+                    "id": "write"
+                }
+            ],
+            "defaultValue": "read"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Linear Cuenta",
+            "layout": "full",
+            "placeholder": "Selecciona Linear account",
+            "provider": "linear",
+            "required": true
+        },
+        {
+            "id": "teamId",
+            "type": "project-selector",
+            "title": "Team",
+            "layout": "full",
+            "placeholder": "Selecciona un equipo",
+            "provider": "linear"
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "Proyecto",
+            "layout": "full",
+            "placeholder": "Selecciona un project",
+            "provider": "linear"
+        },
+        {
+            "id": "manualTeamId",
+            "type": "short-input",
+            "title": "Team ID",
+            "layout": "full",
+            "placeholder": "Introduce Linear equipo ID"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "Proyecto ID",
+            "layout": "full",
+            "placeholder": "Introduce Linear project ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `issues` | json | Incidencias lista |
+| `issue` | json | Single issue data |
+
+</div>
+
+
+
+---
+
+### Crear Incidencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Linear"
+    type="linear"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Issues",
+                    "id": "read"
+                },
+                {
+                    "label": "Create Issue",
+                    "id": "write"
+                }
+            ],
+            "defaultValue": "write"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Linear Cuenta",
+            "layout": "full",
+            "placeholder": "Selecciona Linear account",
+            "provider": "linear",
+            "required": true
+        },
+        {
+            "id": "teamId",
+            "type": "project-selector",
+            "title": "Team",
+            "layout": "full",
+            "placeholder": "Selecciona un equipo",
+            "provider": "linear"
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "Proyecto",
+            "layout": "full",
+            "placeholder": "Selecciona un project",
+            "provider": "linear"
+        },
+        {
+            "id": "manualTeamId",
+            "type": "short-input",
+            "title": "Team ID",
+            "layout": "full",
+            "placeholder": "Introduce Linear equipo ID"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "Proyecto ID",
+            "layout": "full",
+            "placeholder": "Introduce Linear project ID"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `issues` | json | Incidencias lista |
+| `issue` | json | Single issue data |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integra Linear en el workflow. Permite leer y crear incidencias.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `linear`

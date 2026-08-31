@@ -1,0 +1,653 @@
+---
+title: Wealthbox
+description: Interactúa con Wealthbox
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="wealthbox"
+  color=""
+/>
+
+
+## Configuración
+
+### Leer Nota
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Note",
+                    "id": "read_note"
+                },
+                {
+                    "label": "Write Note",
+                    "id": "write_note"
+                },
+                {
+                    "label": "Read Contact",
+                    "id": "read_contact"
+                },
+                {
+                    "label": "Write Contact",
+                    "id": "write_contact"
+                },
+                {
+                    "label": "Read Task",
+                    "id": "read_task"
+                },
+                {
+                    "label": "Write Task",
+                    "id": "write_task"
+                }
+            ],
+            "defaultValue": "read_note"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox Cuenta",
+            "layout": "full",
+            "placeholder": "Select Wealthbox account",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "noteId",
+            "type": "short-input",
+            "title": "Nota ID",
+            "layout": "full",
+            "placeholder": "Enter Note ID (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Note (<code>wealthbox_read_note</code>)</div>
+
+Leer contenido desde un Wealthbox nota
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `noteId` | cadena | No | El ID de el nota a leer |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Operación éxito estado |
+| `content` | cadena | Formatted nota información |
+| `note` | objeto | Sin procesar nota datos desde Wealthbox |
+| `operation` | cadena | El operación performed |
+| `noteId` | cadena | ID de nota |
+
+</div>
+
+
+
+---
+
+### Escribir Nota
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Note",
+                    "id": "read_note"
+                },
+                {
+                    "label": "Write Note",
+                    "id": "write_note"
+                },
+                {
+                    "label": "Read Contact",
+                    "id": "read_contact"
+                },
+                {
+                    "label": "Write Contact",
+                    "id": "write_contact"
+                },
+                {
+                    "label": "Read Task",
+                    "id": "read_task"
+                },
+                {
+                    "label": "Write Task",
+                    "id": "write_task"
+                }
+            ],
+            "defaultValue": "write_note"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox Cuenta",
+            "layout": "full",
+            "placeholder": "Select Wealthbox account",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "file-selector",
+            "title": "Seleccionar Contacto",
+            "layout": "full",
+            "placeholder": "Enter Contact ID",
+            "provider": "wealthbox"
+        },
+        {
+            "id": "manualContactId",
+            "type": "short-input",
+            "title": "Contacto ID",
+            "layout": "full",
+            "placeholder": "Enter Contact ID"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "layout": "full",
+            "placeholder": "Enter Content",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Write Note (<code>wealthbox_write_note</code>)</div>
+
+Crear o actualizar un Wealthbox nota
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `content` | cadena | Sí | El main cuerpo de el nota |
+| `contactId` | cadena | No | ID de contacto a enlace a este nota |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Operación éxito indicator |
+| `note` | objeto | Sin procesar nota datos desde Wealthbox |
+| `operation` | cadena | El operación performed |
+| `itemId` | cadena | ID de creado/actualizado nota |
+
+</div>
+
+
+
+---
+
+### Leer Contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Note",
+                    "id": "read_note"
+                },
+                {
+                    "label": "Write Note",
+                    "id": "write_note"
+                },
+                {
+                    "label": "Read Contact",
+                    "id": "read_contact"
+                },
+                {
+                    "label": "Write Contact",
+                    "id": "write_contact"
+                },
+                {
+                    "label": "Read Task",
+                    "id": "read_task"
+                },
+                {
+                    "label": "Write Task",
+                    "id": "write_task"
+                }
+            ],
+            "defaultValue": "read_contact"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox Cuenta",
+            "layout": "full",
+            "placeholder": "Select Wealthbox account",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "file-selector",
+            "title": "Seleccionar Contacto",
+            "layout": "full",
+            "placeholder": "Enter Contact ID",
+            "provider": "wealthbox"
+        },
+        {
+            "id": "manualContactId",
+            "type": "short-input",
+            "title": "Contacto ID",
+            "layout": "full",
+            "placeholder": "Enter Contact ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Contact (<code>wealthbox_read_contact</code>)</div>
+
+Leer contenido desde un Wealthbox contacto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | cadena | No | El ID de el contacto a leer |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Operación éxito estado |
+| `content` | cadena | Formatted contacto información |
+| `contact` | objeto | Sin procesar contacto datos desde Wealthbox |
+| `operation` | cadena | El operación performed |
+| `contactId` | cadena | ID de contacto |
+
+</div>
+
+
+
+---
+
+### Escribir Contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Note",
+                    "id": "read_note"
+                },
+                {
+                    "label": "Write Note",
+                    "id": "write_note"
+                },
+                {
+                    "label": "Read Contact",
+                    "id": "read_contact"
+                },
+                {
+                    "label": "Write Contact",
+                    "id": "write_contact"
+                },
+                {
+                    "label": "Read Task",
+                    "id": "read_task"
+                },
+                {
+                    "label": "Write Task",
+                    "id": "write_task"
+                }
+            ],
+            "defaultValue": "write_contact"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox Cuenta",
+            "layout": "full",
+            "placeholder": "Select Wealthbox account",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "Primero Nombre",
+            "layout": "full",
+            "placeholder": "Enter First Name",
+            "required": true
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "Último Nombre",
+            "layout": "full",
+            "placeholder": "Enter Last Name",
+            "required": true
+        },
+        {
+            "id": "emailAddress",
+            "type": "short-input",
+            "title": "Correo electrónico Dirección",
+            "layout": "full",
+            "placeholder": "Enter Email Address"
+        },
+        {
+            "id": "backgroundInformation",
+            "type": "long-input",
+            "title": "Background Información",
+            "layout": "full",
+            "placeholder": "Enter Background Information"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Write Contact (<code>wealthbox_write_contact</code>)</div>
+
+Crea Wealthbox contacto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `firstName` | cadena | Sí | El primero nombre de el contacto |
+| `lastName` | cadena | Sí | El último nombre de el contacto |
+| `emailAddress` | cadena | No | El email dirección de el contacto |
+| `backgroundInformation` | cadena | No | Background información sobre el contacto |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Operación éxito indicator |
+| `contact` | objeto | Sin procesar contacto datos desde Wealthbox |
+| `operation` | cadena | El operación performed |
+| `itemId` | cadena | ID de creado/actualizado contacto |
+
+</div>
+
+
+
+---
+
+### Leer Tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Note",
+                    "id": "read_note"
+                },
+                {
+                    "label": "Write Note",
+                    "id": "write_note"
+                },
+                {
+                    "label": "Read Contact",
+                    "id": "read_contact"
+                },
+                {
+                    "label": "Write Contact",
+                    "id": "write_contact"
+                },
+                {
+                    "label": "Read Task",
+                    "id": "read_task"
+                },
+                {
+                    "label": "Write Task",
+                    "id": "write_task"
+                }
+            ],
+            "defaultValue": "read_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox Cuenta",
+            "layout": "full",
+            "placeholder": "Select Wealthbox account",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "taskId",
+            "type": "short-input",
+            "title": "Tarea ID",
+            "layout": "full",
+            "placeholder": "Enter Task ID"
+        },
+        {
+            "id": "manualTaskId",
+            "type": "short-input",
+            "title": "Tarea ID",
+            "layout": "full",
+            "placeholder": "Enter Task ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Task (<code>wealthbox_read_task</code>)</div>
+
+Leer contenido desde un Wealthbox tarea
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `taskId` | cadena | No | El ID de el tarea a leer |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Operación éxito estado |
+| `content` | cadena | Formatted tarea información |
+| `task` | objeto | Sin procesar tarea datos desde Wealthbox |
+| `operation` | cadena | El operación performed |
+| `taskId` | cadena | ID de tarea |
+
+</div>
+
+
+
+---
+
+### Escribir Tarea
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Note",
+                    "id": "read_note"
+                },
+                {
+                    "label": "Write Note",
+                    "id": "write_note"
+                },
+                {
+                    "label": "Read Contact",
+                    "id": "read_contact"
+                },
+                {
+                    "label": "Write Contact",
+                    "id": "write_contact"
+                },
+                {
+                    "label": "Read Task",
+                    "id": "read_task"
+                },
+                {
+                    "label": "Write Task",
+                    "id": "write_task"
+                }
+            ],
+            "defaultValue": "write_task"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox Cuenta",
+            "layout": "full",
+            "placeholder": "Select Wealthbox account",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "file-selector",
+            "title": "Seleccionar Contacto",
+            "layout": "full",
+            "placeholder": "Enter Contact ID",
+            "provider": "wealthbox"
+        },
+        {
+            "id": "manualContactId",
+            "type": "short-input",
+            "title": "Contacto ID",
+            "layout": "full",
+            "placeholder": "Enter Contact ID"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título",
+            "layout": "full",
+            "placeholder": "Enter Title",
+            "required": true
+        },
+        {
+            "id": "dueDate",
+            "type": "datetime-input",
+            "title": "Due Fecha",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ (e.g., 2015-05-24T11:00:00Z)",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "layout": "full",
+            "placeholder": "Enter Content",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Write Task (<code>wealthbox_write_task</code>)</div>
+
+Crear o actualizar un Wealthbox tarea
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `title` | cadena | Sí | El nombre/título de el tarea |
+| `dueDate` | cadena | Sí | El due fecha y time de el tarea \(formato: "YYYY-MM-DDTHH:mm:ssZ", p. ej., "2015-05-24T11:00:00Z"\) |
+| `contactId` | cadena | No | ID de contacto a enlace a este tarea |
+| `description` | cadena | No | Descripción o notas sobre el tarea |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Operación éxito indicator |
+| `task` | objeto | Sin procesar tarea datos desde Wealthbox |
+| `operation` | cadena | El operación performed |
+| `itemId` | cadena | ID de creado/actualizado tarea |
+
+</div>
+
+
+
+---
+
+
+## Uso Instrucciones
+
+Integra Wealthbox en el workflow. Permite leer y escribir notas, leer y escribir contactos, y leer y escribir tareas.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `wealthbox`

@@ -1,0 +1,75 @@
+---
+title: Overview
+description: 用于增强代理工作流的工具
+---
+
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+工具是 TradingGoose 中功能强大的组件，可让工作流与外部服务交互、处理数据并执行专门任务。工具通过提供对各种 API 和服务的访问，扩展代理和工作流的能力。
+
+## 内容 is 一个 Tool?
+
+工具是一种提供特定功能或外部服务集成的专用组件。你可以使用工具搜索 Web、操作数据库、处理图像、生成文本或图像、通过消息平台通信，以及执行更多任务。
+
+## 在工作流中使用工具
+
+在 TradingGoose 工作流中使用工具主要有两种方式：
+
+<Steps>
+  <Step>
+    <strong>作为独立块</strong>：当你需要以确定性方式直接使用工具功能时，
+    可以将工具作为单独的块添加到画布中。
+    这样可以精确控制何时以及如何调用工具。
+  </Step>
+  <Step>
+    <strong>作为 Agent 工具</strong>：点击 "Add tools" 并配置必需参数，
+    即可将工具添加到 Agent 块。代理会根据任务的上下文和要求，
+    动态选择要使用的工具。
+  </Step>
+</Steps>
+
+## Tool 配置
+
+每个 tool requires 指定 configuration 到 function properly. Common configuration elements 包含:
+
+- **API Keys**: Many 工具 require authentication through API keys
+- **Connection Parameters**: Endpoints, database identifiers, etc.
+- **输入格式**: 方式 data 应 be structured 用于该 tool
+- **输出 Handling**: 方式到处理该结果从该 tool
+
+## 可用工具
+
+TradingGoose provides 一个 diverse 集合的工具用于 various purposes, 包括:
+
+- **AI 和语言 Processing**: OpenAI, ElevenLabs, Translation services
+- **搜索和研究**: Google 搜索, Tavily, Exa, Perplexity
+- **文档 Manipulation**: Google Docs, Google Sheets, Notion, Confluence
+- **Media Processing**: Vision, 图像 Generator
+- **Communication**: Slack, WhatsApp, Twilio SMS, Gmail
+- **数据 Storage**: Pinecone, Supabase, Airtable
+- **Development**: GitHub
+
+每个 tool has its own dedicated documentation 页面使用 detailed 说明在 configuration 和用量.
+
+## 工具输出
+
+工具通常返回结构化数据，供工作流中的后续模块处理。数据格式因工具和操作而异，但通常包括：
+
+- 该 main content 或结果
+- 元数据 关于 该 operation
+- 状态信息
+
+Refer 到每个 tool's 指定 documentation 到 understand its 准确 output 格式.
+
+## YAML 配置
+
+用于 detailed YAML workflow configuration 和 syntax, see 该 [YAML 工作流 Reference](/yaml) documentation. 此包含 comprehensive guides 用于:
+
+- **Block Reference Syntax**: 方式到 connect 和 reference data 之间 blocks
+- **Tool 配置**: 使用工具在 both standalone blocks 和 agent configurations
+- **环境变量**: Secure handling 的 API keys 和凭据
+- **Complete Examples**: Real-world workflow patterns 和 configurations
+
+用于指定 tool parameters 和 configuration 选项, refer 到每个 tool's individual documentation 页面.

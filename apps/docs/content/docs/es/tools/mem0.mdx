@@ -1,0 +1,286 @@
+---
+title: Mem0
+description: Gestión de memoria de agentes
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="mem0"
+  color=""
+/>
+
+
+## Configuración
+
+### Agregar Memories
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona un operation",
+            "options": [
+                {
+                    "label": "Add Memories",
+                    "id": "add"
+                },
+                {
+                    "label": "Search Memories",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Memories",
+                    "id": "get"
+                }
+            ],
+            "defaultValue": "add"
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "layout": "full",
+            "placeholder": "Introduce user identificador",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu Mem0 clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "messages",
+            "type": "code",
+            "title": "Mensajes",
+            "layout": "full",
+            "placeholder": "JSON matriz, p. ej. [{\"role\": \"user\", \"content\": \"I love TradingGoose!\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ids` | json | Memory identifiers |
+| `memories` | json | Memory data |
+| `searchResults` | json | Buscar resultados |
+
+</div>
+
+
+
+---
+
+### Buscar Memories
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona un operation",
+            "options": [
+                {
+                    "label": "Add Memories",
+                    "id": "add"
+                },
+                {
+                    "label": "Search Memories",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Memories",
+                    "id": "get"
+                }
+            ],
+            "defaultValue": "search"
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "layout": "full",
+            "placeholder": "Introduce user identificador",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu Mem0 clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Buscar Consulta",
+            "layout": "full",
+            "placeholder": "Introduce search query un find relevant memories",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "Result Límite",
+            "layout": "full",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ids` | json | Memory identifiers |
+| `memories` | json | Memory data |
+| `searchResults` | json | Buscar resultados |
+
+</div>
+
+
+
+---
+
+### Obtener Memories
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "half",
+            "placeholder": "Selecciona un operation",
+            "options": [
+                {
+                    "label": "Add Memories",
+                    "id": "add"
+                },
+                {
+                    "label": "Search Memories",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Memories",
+                    "id": "get"
+                }
+            ],
+            "defaultValue": "get"
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "layout": "full",
+            "placeholder": "Introduce user identificador",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu Mem0 clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "memoryId",
+            "type": "short-input",
+            "title": "Memory ID",
+            "layout": "full",
+            "placeholder": "Specific memory ID un retrieve"
+        },
+        {
+            "id": "startDate",
+            "type": "datetime-input",
+            "title": "Fecha de inicio",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "endDate",
+            "type": "datetime-input",
+            "title": "Fecha de finalización",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "Result Límite",
+            "layout": "full",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ids` | json | Memory identifiers |
+| `memories` | json | Memory data |
+| `searchResults` | json | Buscar resultados |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integra Mem0 en el workflow. Permite añadir, buscar y recuperar memorias.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `mem0`

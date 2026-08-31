@@ -1,0 +1,53 @@
+---
+title: "Mapa de calor"
+description: "Compara cotizaciones del mercado o de una cartera en un mapa de calor codificado por colores."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `heatmap` |
+| **Categoría** | Trading |
+
+El widget Mapa de calor es una vista de solo lectura que dimensiona y colorea las cotizaciones con datos actuales del mercado o de la cartera.
+
+## Funciones
+
+- **Dos fuentes** -- `sourceMode` selecciona datos de `watchlist` o `portfolio`.
+- **Tamaño de la watchlist** -- `watchlistSizeMetric` usa `volumeUsd` para el volumen negociado en USD o `volume` para el volumen en unidades.
+- **Contexto de cartera** -- El modo Portfolio lee la cuenta de bróker seleccionada mediante `tradingProvider`, `serviceId` y `portfolioIdentity`.
+- **Selección vinculada** -- Seleccionar una celda actualiza el `listing` vinculado en los widgets con el mismo color de pareja.
+- **Actualizar** -- Cambiar `runtime.refreshAt` solicita datos nuevos sin modificar la configuración guardada.
+
+## Uso
+
+Elige el proveedor de mercado y sus parámetros o credenciales. En modo Watchlist, selecciona cotizaciones y elige `volumeUsd` o `volume` para el tamaño. En modo Portfolio, selecciona un bróker y una cuenta para que `portfolioIdentity` identifique las posiciones. Haz clic en una celda para enviar su cotización a los widgets vinculados. El mapa de calor no crea ni modifica órdenes.
+
+<Callout type="info">El modo Portfolio requiere una cuenta de bróker configurada; el enriquecimiento de precios también puede depender del proveedor de mercado seleccionado.</Callout>
+
+## Configuración
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `listing` | Cotización compartida actualmente con los widgets vinculados. |
+| `sourceMode` | `watchlist` o `portfolio`. |
+| `watchlistSizeMetric` | `volumeUsd` o `volume` en modo Watchlist. |
+| `marketProvider` | Proveedor de cotizaciones y precios. |
+| `marketProviderParams` | Parámetros específicos del proveedor de mercado. |
+| `marketAuth` | Credenciales opcionales del proveedor de mercado. |
+| `tradingProvider` | Proveedor de bróker del modo Portfolio. |
+| `serviceId` | Identificador del servicio de bróker. |
+| `portfolioIdentity` | Identidad canónica de la cuenta de bróker seleccionada. |
+| `runtime.refreshAt` | Marca de tiempo utilizada para solicitar una actualización. |
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="Watchlist" href="/widgets/watchlist">Gestiona y selecciona las cotizaciones de las vistas de mercado.</Card>
+  <Card title="Data Chart" href="/widgets/data-chart">Examina la cotización seleccionada en el mapa de calor.</Card>
+  <Card title="Portfolio Snapshot" href="/widgets/portfolio-snapshot">Consulta la misma cuenta de bróker en forma de resumen.</Card>
+</Cards>

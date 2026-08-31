@@ -1,0 +1,182 @@
+---
+title: Imap Trigger
+description: Triggers cuando nuevo correos electrónicos son received via IMAP (works con cualquier email proveedor)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+
+<BlockInfoCard
+  type="imap"
+  color=""
+/>
+
+Triggers cuando nuevo correos electrónicos son received via IMAP (works con cualquier email proveedor)
+
+<Callout type="info">
+Este disparador se basa en sondeo. TradingGoose comprueba automáticamente si hay datos nuevos en un intervalo regular.
+</Callout>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="IMAP Correo electrónico Trigger"
+    type="imap_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "IMAP Servidor",
+            "placeholder": "imap.example.com",
+            "description": "IMAP servidor nombre de host (p. ej., imap.gmail.com, outlook.office365.com)",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Puerto",
+            "placeholder": "993",
+            "description": "IMAP puerto (993 para SSL/TLS, 143 para STARTTLS)",
+            "required": true
+        },
+        {
+            "id": "secure",
+            "type": "switch",
+            "title": "Usar SSL/TLS",
+            "description": "Activar SSL/TLS cifrado (recommended para puerto 993)"
+        },
+        {
+            "id": "rejectUnauthorized",
+            "type": "switch",
+            "title": "Verificar TLS Certificate",
+            "description": "Verificar servidor TLS certificate. Desactivar para self-signed certificates."
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "user@example.com",
+            "description": "Correo electrónico dirección o nombre de usuario para autenticación",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "App password or email password",
+            "description": "Contraseña o app-específico contraseña (para Gmail, usar un App Contraseña)",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "mailbox",
+            "type": "dropdown",
+            "title": "Mailboxes a Supervisar",
+            "placeholder": "Select mailboxes to monitor",
+            "description": "Elegir que mailbox/carpeta(s) a supervisar para nuevo correos electrónicos. Leave vacío a supervisar INBOX."
+        },
+        {
+            "id": "searchCriteria",
+            "type": "code",
+            "title": "Buscar Criteria",
+            "placeholder": "{ \"unseen\": true }",
+            "description": "ImapFlow buscar criteria como objeto JSON. Predeterminado: unseen mensajes solo."
+        },
+        {
+            "id": "markAsRead",
+            "type": "switch",
+            "title": "Marcar como Leer",
+            "description": "Automatically marcar correos electrónicos como leer (SEEN) después procesamiento"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Incluir Adjuntos",
+            "description": "Descargar y incluir email adjuntos en el trigger payload"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "email",
+          "type": "object",
+          "description": "email",
+          "children": [
+              {
+                  "name": "messageId",
+                  "type": "string",
+                  "description": "RFC Mensaje-ID header"
+              },
+              {
+                  "name": "subject",
+                  "type": "string",
+                  "description": "Correo electrónico asunto line"
+              },
+              {
+                  "name": "from",
+                  "type": "string",
+                  "description": "Remitente email dirección"
+              },
+              {
+                  "name": "to",
+                  "type": "string",
+                  "description": "Destinatario email dirección"
+              },
+              {
+                  "name": "cc",
+                  "type": "string",
+                  "description": "CC destinatarios"
+              },
+              {
+                  "name": "date",
+                  "type": "string",
+                  "description": "Correo electrónico fecha en ISO formato"
+              },
+              {
+                  "name": "bodyText",
+                  "type": "string",
+                  "description": "Plain texto email cuerpo"
+              },
+              {
+                  "name": "bodyHtml",
+                  "type": "string",
+                  "description": "HTML email cuerpo"
+              },
+              {
+                  "name": "mailbox",
+                  "type": "string",
+                  "description": "Mailbox/carpeta donde email fue received"
+              },
+              {
+                  "name": "hasAttachments",
+                  "type": "boolean",
+                  "description": "Indica si email tiene adjuntos"
+              },
+              {
+                  "name": "attachments",
+                  "type": "file[]",
+                  "description": "Matriz de email adjuntos como archivos (si includeAttachments es activado)"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Evento marca de tiempo"
+      }
+  ]}
+/>
+

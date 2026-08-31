@@ -1,0 +1,425 @@
+---
+title: Slack
+description: 向 Slack 发送消息，或通过 Slack 事件触发 workflow
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="slack"
+  color=""
+/>
+
+<Cards>
+  <Card title="使用作为一个 trigger" href="/triggers/slack">
+    参阅trigger 事件, setup,和事件 payloads，用于Slack.
+  </Card>
+</Cards>
+
+
+## 配置
+
+### 发送消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack"
+    type="slack"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send"
+                },
+                {
+                    "label": "Create Canvas",
+                    "id": "canvas"
+                },
+                {
+                    "label": "Read Messages",
+                    "id": "read"
+                }
+            ],
+            "defaultValue": "send"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方法",
+            "layout": "full",
+            "required": true,
+            "options": [
+                {
+                    "label": "TradingGoose Bot",
+                    "id": "oauth"
+                },
+                {
+                    "label": "Custom Bot",
+                    "id": "bot_token"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Slack 账户",
+            "layout": "full",
+            "placeholder": "Select Slack workspace",
+            "provider": "slack"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "机器人 token",
+            "layout": "full",
+            "placeholder": "Enter your Slack bot token (xoxb-...)",
+            "password": true
+        },
+        {
+            "id": "channel",
+            "type": "channel-selector",
+            "title": "频道",
+            "layout": "full",
+            "placeholder": "Select Slack channel",
+            "provider": "slack"
+        },
+        {
+            "id": "manualChannel",
+            "type": "short-input",
+            "title": "频道 ID",
+            "layout": "full",
+            "placeholder": "Enter Slack channel ID (e.g., C1234567890)"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "消息",
+            "layout": "full",
+            "placeholder": "Enter your message (supports Slack mrkdwn)",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "附件",
+            "layout": "full",
+            "placeholder": "Upload files to attach"
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "文件附件",
+            "layout": "full",
+            "placeholder": "Reference files from previous blocks"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Send Message (<code>slack_message</code>)</div>
+
+发送消息到Slack 频道或direct 消息. Supports Slack mrkdwn formatting.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `authMethod` | 字符串 | 否 | 身份验证方法: oauth或bot_token |
+| `destinationType` | 字符串 | 否 | Destination 类型: 频道或dm |
+| `botToken` | 字符串 | 否 | 机器人 token，用于自定义机器人 |
+| `channel` | 字符串 | 否 | 目标 Slack 频道 \(例如： #general\) |
+| `dmUserId` | 字符串 | 否 | 目标 Slack user，用于direct 消息 |
+| `text` | 字符串 | 是 | 消息文本到发送 \(supports Slack mrkdwn formatting\) |
+| `thread_ts` | 字符串 | 否 | 线程时间戳到reply到\(创建线程 reply\) |
+| `files` | file[] | 否 | 文件到attach到消息 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 对象 | Complete 消息对象使用所有属性已返回由Slack |
+| `ts` | 字符串 | 消息时间戳 |
+| `channel` | 字符串 | 频道 ID 其中消息曾为已发送 |
+
+</div>
+
+
+
+---
+
+### 创建Canvas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack"
+    type="slack"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send"
+                },
+                {
+                    "label": "Create Canvas",
+                    "id": "canvas"
+                },
+                {
+                    "label": "Read Messages",
+                    "id": "read"
+                }
+            ],
+            "defaultValue": "canvas"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方法",
+            "layout": "full",
+            "required": true,
+            "options": [
+                {
+                    "label": "TradingGoose Bot",
+                    "id": "oauth"
+                },
+                {
+                    "label": "Custom Bot",
+                    "id": "bot_token"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Slack 账户",
+            "layout": "full",
+            "placeholder": "Select Slack workspace",
+            "provider": "slack"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "机器人 token",
+            "layout": "full",
+            "placeholder": "Enter your Slack bot token (xoxb-...)",
+            "password": true
+        },
+        {
+            "id": "channel",
+            "type": "channel-selector",
+            "title": "频道",
+            "layout": "full",
+            "placeholder": "Select Slack channel",
+            "provider": "slack"
+        },
+        {
+            "id": "manualChannel",
+            "type": "short-input",
+            "title": "频道 ID",
+            "layout": "full",
+            "placeholder": "Enter Slack channel ID (e.g., C1234567890)"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Canvas 标题",
+            "layout": "full",
+            "placeholder": "Enter canvas title",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Canvas 内容",
+            "layout": "full",
+            "placeholder": "Enter canvas content (markdown supported)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Canvas (<code>slack_canvas</code>)</div>
+
+创建和 share Slack 画布在频道. 画布为 协作文档范围内 Slack.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `authMethod` | 字符串 | 否 | 身份验证方法: oauth或bot_token |
+| `botToken` | 字符串 | 否 | 机器人 token，用于自定义机器人 |
+| `channel` | 字符串 | 是 | 目标 Slack 频道 \(例如： #general\) |
+| `title` | 字符串 | 是 | 标题的canvas |
+| `content` | 字符串 | 是 | Canvas 内容在markdown 格式 |
+| `document_content` | 对象 | 否 | Structured canvas 文档内容 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `canvas_id` | 字符串 | ID：已创建 canvas |
+| `channel` | 字符串 | 频道其中 canvas 曾为已创建 |
+
+</div>
+
+
+
+---
+
+### 读取消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Slack"
+    type="slack"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "send"
+                },
+                {
+                    "label": "Create Canvas",
+                    "id": "canvas"
+                },
+                {
+                    "label": "Read Messages",
+                    "id": "read"
+                }
+            ],
+            "defaultValue": "read"
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方法",
+            "layout": "full",
+            "required": true,
+            "options": [
+                {
+                    "label": "TradingGoose Bot",
+                    "id": "oauth"
+                },
+                {
+                    "label": "Custom Bot",
+                    "id": "bot_token"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Slack 账户",
+            "layout": "full",
+            "placeholder": "Select Slack workspace",
+            "provider": "slack"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "机器人 token",
+            "layout": "full",
+            "placeholder": "Enter your Slack bot token (xoxb-...)",
+            "password": true
+        },
+        {
+            "id": "channel",
+            "type": "channel-selector",
+            "title": "频道",
+            "layout": "full",
+            "placeholder": "Select Slack channel",
+            "provider": "slack"
+        },
+        {
+            "id": "manualChannel",
+            "type": "short-input",
+            "title": "频道 ID",
+            "layout": "full",
+            "placeholder": "Enter Slack channel ID (e.g., C1234567890)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "消息限制",
+            "layout": "half",
+            "placeholder": "15"
+        },
+        {
+            "id": "oldest",
+            "type": "datetime-input",
+            "title": "Oldest 时间戳",
+            "layout": "half",
+            "placeholder": "ISO 8601 timestamp"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Read Messages (<code>slack_message_reader</code>)</div>
+
+读取最新消息，来源为Slack 频道. 检索对话历史记录使用filtering 选项.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `authMethod` | 字符串 | 否 | 身份验证方法: oauth或bot_token |
+| `botToken` | 字符串 | 否 | 机器人 token，用于自定义机器人 |
+| `channel` | 字符串 | 是 | Slack 频道到读取消息，来源为\(例如： #general\) |
+| `limit` | 数字 | 否 | 数量：消息到检索 \(默认值： 10, 最大: 100\) |
+| `oldest` | 字符串 | 否 | 启动的 time 范围 \(时间戳\) |
+| `latest` | 字符串 | 否 | 结束的time 范围 \(时间戳\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | 字符串 | ts 输出 |
+| `text` | 字符串 | 文本输出 |
+| `user` | 字符串 | user 输出 |
+| `type` | 字符串 | 类型输出 |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将Slack集成到 workflow 中。可以发送消息, 创建画布,和读取消息. 需要机器人 token instead的OAuth在advanced 模式. 可为使用的在trigger 模式到trigger 一个 workflow 当一个消息为 已发送到一个频道.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `slack`

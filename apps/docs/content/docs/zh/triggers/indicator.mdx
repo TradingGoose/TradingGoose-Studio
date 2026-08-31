@@ -1,0 +1,113 @@
+---
+title: Indicator trigger
+description: 触发 workflow，来源为indicator 监控事件
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+
+<BlockInfoCard
+  type="indicator"
+  color=""
+/>
+
+触发 workflow，来源为indicator 监控事件
+
+<Callout type="info">
+这是一个**轮询触发器**。TradingGoose 会按固定间隔自动检查新数据。
+</Callout>
+
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "input",
+          "type": "string",
+          "description": "Primary workflow 文本输入."
+      },
+      {
+          "name": "event",
+          "type": "string",
+          "description": "事件键 passed到trigger(...)."
+      },
+      {
+          "name": "time",
+          "type": "number",
+          "description": "Bar time在unix 秒."
+      },
+      {
+          "name": "signal",
+          "type": "string",
+          "description": "Signal: long, short, flat."
+      },
+      {
+          "name": "listingBase",
+          "type": "string",
+          "description": "Listing base 值，来源为市场系列."
+      },
+      {
+          "name": "listingQuote",
+          "type": "string",
+          "description": "Listing quote 值，来源为市场系列."
+      },
+      {
+          "name": "marketSeries",
+          "type": "json",
+          "description": "市场历史系列数据."
+      },
+      {
+          "name": "listing",
+          "type": "json",
+          "description": "Listing 信息."
+      },
+      {
+          "name": "indicator",
+          "type": "object",
+          "description": "indicator",
+          "children": [
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Indicator 名称."
+              },
+              {
+                  "name": "settings",
+                  "type": "object",
+                  "description": "设置",
+                  "children": [
+                      {
+                          "name": "options",
+                          "type": "object",
+                          "description": "已解决 indicator 选项."
+                      },
+                      {
+                          "name": "interval",
+                          "type": "string",
+                          "description": "执行 interval."
+                      }
+                  ]
+              },
+              {
+                  "name": "output",
+                  "type": "object",
+                  "description": "输出",
+                  "children": [
+                      {
+                          "name": "series",
+                          "type": "array",
+                          "description": "Normalized 系列输出."
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>
+

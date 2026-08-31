@@ -1,0 +1,532 @@
+---
+title: YouTube
+description: Interactúa con videos, canales y listas de reproducción de YouTube
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="youtube"
+  color=""
+/>
+
+
+## Configuración
+
+### Buscar Videos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Videos",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "Get Video Details",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "Get Channel Info",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "Get Playlist Items",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "Get Video Comments",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API Clave",
+            "layout": "full",
+            "placeholder": "Enter YouTube API Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Buscar Consulta",
+            "layout": "full",
+            "placeholder": "Enter search query",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "slider",
+            "title": "Máximo Resultados",
+            "layout": "half",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search Videos (<code>youtube_search</code>)</div>
+
+Buscar para videos en YouTube mediante YouTube Datos API.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | cadena | Sí | Buscar consulta para YouTube videos |
+| `maxResults` | número | No | Número máximo de videos a devolver |
+| `apiKey` | cadena | Sí | YouTube API Clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `videoId` | cadena | YouTube video ID |
+| `title` | cadena | Video título |
+| `description` | cadena | Video descripción |
+
+</div>
+
+
+
+---
+
+### Obtener Video Detalles
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Videos",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "Get Video Details",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "Get Channel Info",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "Get Playlist Items",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "Get Video Comments",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_video_details"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API Clave",
+            "layout": "full",
+            "placeholder": "Enter YouTube API Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "videoId",
+            "type": "short-input",
+            "title": "Video ID",
+            "layout": "full",
+            "placeholder": "Enter YouTube video ID (e.g., dQw4w9WgXcQ)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Video Details (<code>youtube_video_details</code>)</div>
+
+Obtén información detallada sobre YouTube video.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `videoId` | cadena | Sí | YouTube video ID |
+| `apiKey` | cadena | Sí | YouTube API Clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `videoId` | cadena | YouTube video ID |
+| `title` | cadena | Video título |
+| `description` | cadena | Video descripción |
+| `channelId` | cadena | Canal ID |
+| `channelTitle` | cadena | Canal nombre |
+| `publishedAt` | cadena | Publicado fecha y time |
+| `duration` | cadena | Video duración en ISO 8601 formato |
+| `viewCount` | número | Número de vistas |
+| `likeCount` | número | Número de likes |
+| `commentCount` | número | Número de comentarios |
+| `thumbnail` | cadena | Video thumbnail URL |
+| `items` | cadena | elementos salida |
+
+</div>
+
+
+
+---
+
+### Obtener Canal Info
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Videos",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "Get Video Details",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "Get Channel Info",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "Get Playlist Items",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "Get Video Comments",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_channel_info"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API Clave",
+            "layout": "full",
+            "placeholder": "Enter YouTube API Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "channelId",
+            "type": "short-input",
+            "title": "Canal ID",
+            "layout": "full",
+            "placeholder": "Enter channel ID (or leave blank to use username)"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Canal Nombre de usuario",
+            "layout": "full",
+            "placeholder": "Enter channel username (if not using channel ID)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Channel Info (<code>youtube_channel_info</code>)</div>
+
+Obtener detallado información sobre un YouTube canal.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `channelId` | cadena | No | YouTube canal ID \(usar cualquiera channelId o nombre de usuario\) |
+| `username` | cadena | No | YouTube canal nombre de usuario \(usar cualquiera channelId o nombre de usuario\) |
+| `apiKey` | cadena | Sí | YouTube API Clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `channelId` | cadena | YouTube canal ID |
+| `title` | cadena | Canal nombre |
+| `description` | cadena | Canal descripción |
+| `subscriberCount` | número | Número de subscribers |
+| `videoCount` | número | Número de videos |
+| `viewCount` | número | Total canal vistas |
+| `publishedAt` | cadena | Canal creación fecha |
+| `thumbnail` | cadena | Canal thumbnail URL |
+
+</div>
+
+
+
+---
+
+### Obtener Lista de reproducción Elementos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Videos",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "Get Video Details",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "Get Channel Info",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "Get Playlist Items",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "Get Video Comments",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_playlist_items"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API Clave",
+            "layout": "full",
+            "placeholder": "Enter YouTube API Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "playlistId",
+            "type": "short-input",
+            "title": "Lista de reproducción ID",
+            "layout": "full",
+            "placeholder": "Enter YouTube playlist ID",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "slider",
+            "title": "Máximo Resultados",
+            "layout": "half",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Playlist Items (<code>youtube_playlist_items</code>)</div>
+
+Obtener videos desde un YouTube lista de reproducción.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `playlistId` | cadena | Sí | YouTube lista de reproducción ID |
+| `maxResults` | número | No | Número máximo de videos a devolver |
+| `pageToken` | cadena | No | Página token para paginación |
+| `apiKey` | cadena | Sí | YouTube API Clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `videoId` | cadena | YouTube video ID |
+| `title` | cadena | Video título |
+| `description` | cadena | Video descripción |
+| `thumbnail` | cadena | Video thumbnail URL |
+| `publishedAt` | cadena | Fecha added a lista de reproducción |
+| `channelTitle` | cadena | Canal nombre |
+
+</div>
+
+
+
+---
+
+### Obtener Video Comentarios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="YouTube"
+    type="youtube"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Videos",
+                    "id": "youtube_search"
+                },
+                {
+                    "label": "Get Video Details",
+                    "id": "youtube_video_details"
+                },
+                {
+                    "label": "Get Channel Info",
+                    "id": "youtube_channel_info"
+                },
+                {
+                    "label": "Get Playlist Items",
+                    "id": "youtube_playlist_items"
+                },
+                {
+                    "label": "Get Video Comments",
+                    "id": "youtube_comments"
+                }
+            ],
+            "defaultValue": "youtube_comments"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "YouTube API Clave",
+            "layout": "full",
+            "placeholder": "Enter YouTube API Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "videoId",
+            "type": "short-input",
+            "title": "Video ID",
+            "layout": "full",
+            "placeholder": "Enter YouTube video ID",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "slider",
+            "title": "Máximo Resultados",
+            "layout": "half",
+            "min": 1,
+            "max": 100,
+            "step": 1
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Ordenar Orden",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Most Relevant",
+                    "id": "relevance"
+                },
+                {
+                    "label": "Most Recent",
+                    "id": "time"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Video Comments (<code>youtube_comments</code>)</div>
+
+Obtener comentarios desde un YouTube video.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `videoId` | cadena | Sí | YouTube video ID |
+| `maxResults` | número | No | Número máximo de comentarios a devolver |
+| `order` | cadena | No | Orden de comentarios: time o relevance |
+| `pageToken` | cadena | No | Página token para paginación |
+| `apiKey` | cadena | Sí | YouTube API Clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `commentId` | cadena | Comentario ID |
+| `authorDisplayName` | cadena | Comentario autor nombre |
+| `authorChannelUrl` | cadena | Comentario autor canal URL |
+| `textDisplay` | cadena | Comentario texto \(HTML formatted\) |
+| `textOriginal` | cadena | Comentario texto \(plain texto\) |
+| `likeCount` | número | Número de likes |
+| `publishedAt` | cadena | Comentario publicar fecha |
+| `updatedAt` | cadena | Comentario último actualizado fecha |
+
+</div>
+
+
+
+---
+
+
+## Uso Instrucciones
+
+Integra YouTube en el flujo de trabajo. Permite buscar videos, obtener sus detalles, consultar información de canales, obtener elementos de listas de reproducción y consultar comentarios.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `youtube`

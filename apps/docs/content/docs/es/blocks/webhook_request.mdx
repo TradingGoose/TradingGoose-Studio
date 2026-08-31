@@ -1,0 +1,67 @@
+---
+title: Solicitud Webhook
+description: Envía solicitudes webhook HTTP POST salientes con firma HMAC opcional
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard type="webhook_request" color="#10B981" icon={true} />
+
+El bloque Webhook Request envía una solicitud HTTP POST **saliente** a una URL de webhook externa. Úsalo para enviar resultados del workflow a servicios como Zapier, Make o n8n, o a cualquier endpoint personalizado que acepte cargas de webhook.
+
+<Callout type="warning">Este bloque envía webhooks **salientes**: el workflow llama a una URL externa. Es diferente de **Webhook Trigger**, que escucha solicitudes **entrantes** que inician un workflow.</Callout>
+
+## Descripción general
+
+<Steps>
+  <Step><strong>Define la URL de destino</strong>: indica cualquier endpoint que acepte HTTP POST.</Step>
+  <Step><strong>Crea la carga JSON</strong>: incluye datos de bloques anteriores con referencias como `<agent.content>`.</Step>
+  <Step><strong>Firma la solicitud si es necesario</strong>: proporciona un secreto HMAC-SHA256 para que el receptor verifique su autenticidad.</Step>
+  <Step><strong>Añade encabezados personalizados</strong>: incluye claves API, tipos de contenido u otros encabezados que requiera el receptor.</Step>
+</Steps>
+
+## Funcionamiento
+
+Cuando se ejecuta, el bloque:
+
+1. Resuelve referencias exactas con origen, como `<agent.content>`, y variables del workflow, como `<variable.userId>`, en la URL, la carga y los encabezados. No inventes marcadores genéricos con prefijo de bloque.
+2. Serializa la carga como JSON.
+3. Si se proporciona **Signing Secret**, calcula una firma HMAC-SHA256 sobre la carga y la adjunta como encabezado para que el servidor receptor pueda comprobar que no se modificó.
+4. Envía la solicitud POST con `Content-Type: application/json` y los encabezados adicionales configurados.
+5. Devuelve los datos, el código de estado y los encabezados de la respuesta como salidas del bloque.
+
+## Configuración
+
+<ShowcaseCard><BlockConfigPreview name="Webhook" type="webhook_request" color="#10B981" hideHeader subBlocks={[
+  { "id": "url", "type": "short-input", "title": "Webhook URL", "placeholder": "https://example.com/webhook", "required": true },
+  { "id": "body", "type": "code", "title": "Payload", "placeholder": "Enter JSON payload...", "language": "json" },
+  { "id": "secret", "type": "short-input", "title": "Signing Secret", "placeholder": "Optional: Secret for HMAC signature", "password": true },
+      { "id": "headers", "type": "table", "title": "Encabezados adicionales", "description": "Encabezados personalizados opcionales que se incluirán con la solicitud del webhook" }
+]} /></ShowcaseCard>
+
+### Campos
+
+| Campo | Obligatorio | Descripción |
+|---|---|---|
+| **Webhook URL** | Sí | Endpoint de destino. Debe aceptar HTTP POST. |
+| **Payload** | No | Cuerpo JSON. Usa una etiqueta exacta como `<agent.content>` o una variable como `<variable.userId>`. |
+| **Signing Secret** | No | Secreto compartido para generar un encabezado de firma HMAC-SHA256. |
+| **Additional Headers** | No | Pares clave-valor añadidos a la solicitud, por ejemplo `Authorization: Bearer ...`. |
+
+## Salidas
+
+| Salida | Tipo | Descripción |
+|---|---|---|
+| `data` | json | Cuerpo de respuesta analizado del endpoint externo. |
+| `status` | number | Código de estado HTTP devuelto. |
+| `headers` | json | Encabezados de respuesta. |
+
+## Prácticas recomendadas
+
+- **Guarda los secretos en variables de entorno** -- referencia el secreto como `{{WEBHOOK_SECRET}}` en lugar de pegarlo.
+- **Comprueba la salida de estado** -- usa un bloque Condition o Router después del webhook para gestionar respuestas que no sean 2xx.
+- **Mantén las cargas pequeñas** -- envía solo los datos necesarios. Las cargas grandes aumentan la latencia y algunos endpoints pueden rechazarlas.

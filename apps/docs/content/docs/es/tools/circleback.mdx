@@ -1,0 +1,257 @@
+---
+title: Circleback
+description: Notas de reuniones y elementos de acción generados con IA
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="circleback"
+  color=""
+/>
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/circleback">
+    See trigger events, setup, y event payloads para Circleback.
+  </Card>
+</Cards>
+
+
+## Configuración
+
+### General Webhook
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback"
+    type="circleback"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Tipo",
+            "required": true,
+            "options": [
+                {
+                    "label": "General Webhook",
+                    "id": "circleback_webhook"
+                },
+                {
+                    "label": "Meeting Completed",
+                    "id": "circleback_meeting_completed"
+                },
+                {
+                    "label": "Meeting Notes Ready",
+                    "id": "circleback_meeting_notes"
+                }
+            ],
+            "defaultValue": "circleback_webhook"
+        },
+        {
+            "id": "webhookUrlDisplay",
+            "type": "short-input",
+            "title": "Webhook URL",
+            "placeholder": "Webhook URL se be generated"
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Signing Secret",
+            "placeholder": "Paste signing secret desde Circleback (opcional)",
+            "description": "Validates que webhook deliveries originate desde Circleback mediante HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | número | Circleback reunión ID |
+| `name` | cadena | Meeting title |
+| `url` | cadena | Virtual reunión URL \(Zoom, Meet, Teams\) |
+| `createdAt` | cadena | Meeting creation marca de tiempo |
+| `duration` | número | Duration en seconds |
+| `recordingUrl` | cadena | Recording URL \(valid 24 hours\) |
+| `tags` | json | Array de etiquetas |
+| `icalUid` | cadena | Calendar event ID |
+| `attendees` | json | Array de attendee objects |
+| `notes` | cadena | Meeting notas en Markdown |
+| `actionItems` | json | Array de action elementos |
+| `transcript` | json | Array de transcripción segments |
+| `insights` | json | Usuario-created insights |
+| `meeting` | json | Full reunión carga útil |
+
+</div>
+
+
+
+---
+
+### Meeting Completed
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback"
+    type="circleback"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Tipo",
+            "required": true,
+            "options": [
+                {
+                    "label": "General Webhook",
+                    "id": "circleback_webhook"
+                },
+                {
+                    "label": "Meeting Completed",
+                    "id": "circleback_meeting_completed"
+                },
+                {
+                    "label": "Meeting Notes Ready",
+                    "id": "circleback_meeting_notes"
+                }
+            ],
+            "defaultValue": "circleback_meeting_completed"
+        },
+        {
+            "id": "webhookUrlDisplay",
+            "type": "short-input",
+            "title": "Webhook URL",
+            "placeholder": "Webhook URL se be generated"
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Signing Secret",
+            "placeholder": "Paste signing secret desde Circleback (opcional)",
+            "description": "Validates que webhook deliveries originate desde Circleback mediante HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | número | Circleback reunión ID |
+| `name` | cadena | Meeting title |
+| `url` | cadena | Virtual reunión URL \(Zoom, Meet, Teams\) |
+| `createdAt` | cadena | Meeting creation marca de tiempo |
+| `duration` | número | Duration en seconds |
+| `recordingUrl` | cadena | Recording URL \(valid 24 hours\) |
+| `tags` | json | Array de etiquetas |
+| `icalUid` | cadena | Calendar event ID |
+| `attendees` | json | Array de attendee objects |
+| `notes` | cadena | Meeting notas en Markdown |
+| `actionItems` | json | Array de action elementos |
+| `transcript` | json | Array de transcripción segments |
+| `insights` | json | Usuario-created insights |
+| `meeting` | json | Full reunión carga útil |
+
+</div>
+
+
+
+---
+
+### Meeting Notes Ready
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback"
+    type="circleback"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Tipo",
+            "required": true,
+            "options": [
+                {
+                    "label": "General Webhook",
+                    "id": "circleback_webhook"
+                },
+                {
+                    "label": "Meeting Completed",
+                    "id": "circleback_meeting_completed"
+                },
+                {
+                    "label": "Meeting Notes Ready",
+                    "id": "circleback_meeting_notes"
+                }
+            ],
+            "defaultValue": "circleback_meeting_notes"
+        },
+        {
+            "id": "webhookUrlDisplay",
+            "type": "short-input",
+            "title": "Webhook URL",
+            "placeholder": "Webhook URL se be generated"
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Signing Secret",
+            "placeholder": "Paste signing secret desde Circleback (opcional)",
+            "description": "Validates que webhook deliveries originate desde Circleback mediante HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | número | Circleback reunión ID |
+| `name` | cadena | Meeting title |
+| `url` | cadena | Virtual reunión URL \(Zoom, Meet, Teams\) |
+| `createdAt` | cadena | Meeting creation marca de tiempo |
+| `duration` | número | Duration en seconds |
+| `recordingUrl` | cadena | Recording URL \(valid 24 hours\) |
+| `tags` | json | Array de etiquetas |
+| `icalUid` | cadena | Calendar event ID |
+| `attendees` | json | Array de attendee objects |
+| `notes` | cadena | Meeting notas en Markdown |
+| `actionItems` | json | Array de action elementos |
+| `transcript` | json | Array de transcripción segments |
+| `insights` | json | Usuario-created insights |
+| `meeting` | json | Full reunión carga útil |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Recibe notas de reuniones, elementos de acción, transcripciones y grabaciones cuando se procesen las reuniones. Circleback usa webhooks para enviar datos a tus workflows.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `circleback`

@@ -9,22 +9,24 @@ import { StructuredData } from '@/components/structured-data'
 import { AccordionHashSync } from '@/components/ui/accordion-hash-sync'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
-import { i18n } from '@/lib/i18n'
+import {
+  docsLocaleCopy,
+  i18n,
+  isDocsLocale,
+  toOpenGraphLocale,
+  type DocsLocale,
+} from '@/lib/i18n'
 import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
 import { source } from '@/lib/source'
 
-function toOpenGraphLocale(lang: string) {
-  return lang === 'en' ? 'en_US' : `${lang}_${lang.toUpperCase()}`
-}
-
 export default async function Page(props: { params: Promise<{ slug?: string[]; lang: string }> }) {
   const params = await props.params
+  if (!isDocsLocale(params.lang)) notFound()
   const slugSegments = params.slug ?? []
   const baseUrl = 'https://docs.tradinggoose.ai'
 
-  const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
-  const pageTree =
-    pageTreeRecord[params.lang] ?? pageTreeRecord.en ?? Object.values(pageTreeRecord)[0]
+  const pageTreeRecord = source.pageTree as Record<DocsLocale, PageTree.Root>
+  const pageTree = pageTreeRecord[params.lang]
   const page =
     source.getPage(slugSegments, params.lang) ??
     (slugSegments.length === 0 ? source.getPage(['index'], params.lang) : null)
@@ -34,7 +36,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
   const MDX = page.data.body
   const neighbours = pageTree ? findNeighbour(pageTree, page.url) : null
 
-  const breadcrumbs = generateBreadcrumbs(page.url, page.data.title, baseUrl)
+  const breadcrumbs = generateBreadcrumbs(page.url, page.data.title, baseUrl, params.lang)
 
   const CustomFooter = () => (
     <div className='mt-12'>
@@ -168,10 +170,15 @@ ${page.data.description || ''}`}
   )
 }
 
-function generateBreadcrumbs(targetUrl: string, pageTitle: string, baseUrl: string) {
+function generateBreadcrumbs(
+  targetUrl: string,
+  pageTitle: string,
+  baseUrl: string,
+  locale: DocsLocale
+) {
   const breadcrumbs: Array<{ name: string; url: string }> = [
     {
-      name: 'Home',
+      name: docsLocaleCopy[locale].home,
       url: baseUrl,
     },
   ]
@@ -211,14 +218,10 @@ export async function generateMetadata(props: {
   params: Promise<{ slug?: string[]; lang: string }>
 }) {
   const params = await props.params
+  if (!isDocsLocale(params.lang)) notFound()
   const slugSegments = params.slug ?? []
   const baseUrl = 'https://docs.tradinggoose.ai'
-  const defaultDescription =
-    'TradingGoose visual workflow builder for AI applications documentation'
-
-  const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
-  const pageTree =
-    pageTreeRecord[params.lang] ?? pageTreeRecord.en ?? Object.values(pageTreeRecord)[0]
+  const defaultDescription = docsLocaleCopy[params.lang].description
 
   const page =
     source.getPage(slugSegments, params.lang) ??
@@ -254,13 +257,13 @@ export async function generateMetadata(props: {
     ]
       .flat()
       .filter(Boolean),
-    authors: [{ name: 'TradingGoose Team' }],
-    category: 'Developer Tools',
+    authors: [{ name: docsLocaleCopy[params.lang].team }],
+    category: docsLocaleCopy[params.lang].category,
     openGraph: {
       title: page.data.title,
       description: page.data.description || defaultDescription,
       url: fullUrl,
-      siteName: 'TradingGoose Documentation',
+      siteName: docsLocaleCopy[params.lang].siteName,
       type: 'article',
       locale: toOpenGraphLocale(params.lang),
       ...(alternateLocales.length > 0

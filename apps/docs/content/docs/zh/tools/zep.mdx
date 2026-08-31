@@ -1,0 +1,1083 @@
+---
+title: Zep
+description: AI 代理的长期记忆
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="zep"
+  color=""
+/>
+
+
+## 配置
+
+### 创建线程
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "Select an operation",
+            "options": [
+                {
+                    "label": "Create Thread",
+                    "id": "create_thread"
+                },
+                {
+                    "label": "Add Messages",
+                    "id": "add_messages"
+                },
+                {
+                    "label": "Get Context",
+                    "id": "get_context"
+                },
+                {
+                    "label": "Get Messages",
+                    "id": "get_messages"
+                },
+                {
+                    "label": "Get Threads",
+                    "id": "get_threads"
+                },
+                {
+                    "label": "Delete Thread",
+                    "id": "delete_thread"
+                },
+                {
+                    "label": "Add User",
+                    "id": "add_user"
+                },
+                {
+                    "label": "Get User",
+                    "id": "get_user"
+                },
+                {
+                    "label": "Get User Threads",
+                    "id": "get_user_threads"
+                }
+            ],
+            "defaultValue": "create_thread"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Zep API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "线程 ID",
+            "layout": "full",
+            "placeholder": "Enter unique thread identifier",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "Enter user identifier",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `threadId` | 字符串 | 线程标识符 |
+| `userId` | 字符串 | 用户标识符 |
+| `uuid` | 字符串 | Internal UUID |
+| `createdAt` | 字符串 | 创建时间戳 |
+| `updatedAt` | 字符串 | 更新时间戳 |
+| `threads` | json | 以下内容的数组：线程 |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `messages` | json | 消息数据 |
+| `messageIds` | json | 消息 identifiers |
+| `context` | 字符串 | 用户上下文字符串 |
+| `facts` | json | Extracted facts |
+| `entities` | json | Extracted entities |
+| `summary` | 字符串 | 对话摘要 |
+| `batchId` | 字符串 | 批次操作 ID |
+| `email` | 字符串 | 用户 email |
+| `firstName` | 字符串 | 用户第一个名称 |
+| `lastName` | 字符串 | 用户最后一个名称 |
+| `metadata` | json | 用户元数据 |
+| `responseCount` | 数字 | 数量：项目在response |
+| `totalCount` | 数字 | 总计数字的项目可用 |
+| `rowCount` | 数字 | 数量：行在response |
+
+</div>
+
+
+
+---
+
+### 添加消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "Select an operation",
+            "options": [
+                {
+                    "label": "Create Thread",
+                    "id": "create_thread"
+                },
+                {
+                    "label": "Add Messages",
+                    "id": "add_messages"
+                },
+                {
+                    "label": "Get Context",
+                    "id": "get_context"
+                },
+                {
+                    "label": "Get Messages",
+                    "id": "get_messages"
+                },
+                {
+                    "label": "Get Threads",
+                    "id": "get_threads"
+                },
+                {
+                    "label": "Delete Thread",
+                    "id": "delete_thread"
+                },
+                {
+                    "label": "Add User",
+                    "id": "add_user"
+                },
+                {
+                    "label": "Get User",
+                    "id": "get_user"
+                },
+                {
+                    "label": "Get User Threads",
+                    "id": "get_user_threads"
+                }
+            ],
+            "defaultValue": "add_messages"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Zep API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "线程 ID",
+            "layout": "full",
+            "placeholder": "Enter unique thread identifier",
+            "required": true
+        },
+        {
+            "id": "messages",
+            "type": "code",
+            "title": "消息",
+            "layout": "full",
+            "placeholder": "[{\"role\": \"user\", \"content\": \"Hello!\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `threadId` | 字符串 | 线程标识符 |
+| `userId` | 字符串 | 用户标识符 |
+| `uuid` | 字符串 | Internal UUID |
+| `createdAt` | 字符串 | 创建时间戳 |
+| `updatedAt` | 字符串 | 更新时间戳 |
+| `threads` | json | 以下内容的数组：线程 |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `messages` | json | 消息数据 |
+| `messageIds` | json | 消息 identifiers |
+| `context` | 字符串 | 用户上下文字符串 |
+| `facts` | json | Extracted facts |
+| `entities` | json | Extracted entities |
+| `summary` | 字符串 | 对话摘要 |
+| `batchId` | 字符串 | 批次操作 ID |
+| `email` | 字符串 | 用户 email |
+| `firstName` | 字符串 | 用户第一个名称 |
+| `lastName` | 字符串 | 用户最后一个名称 |
+| `metadata` | json | 用户元数据 |
+| `responseCount` | 数字 | 数量：项目在response |
+| `totalCount` | 数字 | 总计数字的项目可用 |
+| `rowCount` | 数字 | 数量：行在response |
+
+</div>
+
+
+
+---
+
+### 获取上下文
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "Select an operation",
+            "options": [
+                {
+                    "label": "Create Thread",
+                    "id": "create_thread"
+                },
+                {
+                    "label": "Add Messages",
+                    "id": "add_messages"
+                },
+                {
+                    "label": "Get Context",
+                    "id": "get_context"
+                },
+                {
+                    "label": "Get Messages",
+                    "id": "get_messages"
+                },
+                {
+                    "label": "Get Threads",
+                    "id": "get_threads"
+                },
+                {
+                    "label": "Delete Thread",
+                    "id": "delete_thread"
+                },
+                {
+                    "label": "Add User",
+                    "id": "add_user"
+                },
+                {
+                    "label": "Get User",
+                    "id": "get_user"
+                },
+                {
+                    "label": "Get User Threads",
+                    "id": "get_user_threads"
+                }
+            ],
+            "defaultValue": "get_context"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Zep API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "线程 ID",
+            "layout": "full",
+            "placeholder": "Enter unique thread identifier",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "上下文模式",
+            "layout": "half",
+            "placeholder": "Select context mode",
+            "options": [
+                {
+                    "label": "Summary (Natural Language)",
+                    "id": "summary"
+                },
+                {
+                    "label": "Basic (Raw Facts)",
+                    "id": "basic"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `threadId` | 字符串 | 线程标识符 |
+| `userId` | 字符串 | 用户标识符 |
+| `uuid` | 字符串 | Internal UUID |
+| `createdAt` | 字符串 | 创建时间戳 |
+| `updatedAt` | 字符串 | 更新时间戳 |
+| `threads` | json | 以下内容的数组：线程 |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `messages` | json | 消息数据 |
+| `messageIds` | json | 消息 identifiers |
+| `context` | 字符串 | 用户上下文字符串 |
+| `facts` | json | Extracted facts |
+| `entities` | json | Extracted entities |
+| `summary` | 字符串 | 对话摘要 |
+| `batchId` | 字符串 | 批次操作 ID |
+| `email` | 字符串 | 用户 email |
+| `firstName` | 字符串 | 用户第一个名称 |
+| `lastName` | 字符串 | 用户最后一个名称 |
+| `metadata` | json | 用户元数据 |
+| `responseCount` | 数字 | 数量：项目在response |
+| `totalCount` | 数字 | 总计数字的项目可用 |
+| `rowCount` | 数字 | 数量：行在response |
+
+</div>
+
+
+
+---
+
+### 获取消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "Select an operation",
+            "options": [
+                {
+                    "label": "Create Thread",
+                    "id": "create_thread"
+                },
+                {
+                    "label": "Add Messages",
+                    "id": "add_messages"
+                },
+                {
+                    "label": "Get Context",
+                    "id": "get_context"
+                },
+                {
+                    "label": "Get Messages",
+                    "id": "get_messages"
+                },
+                {
+                    "label": "Get Threads",
+                    "id": "get_threads"
+                },
+                {
+                    "label": "Delete Thread",
+                    "id": "delete_thread"
+                },
+                {
+                    "label": "Add User",
+                    "id": "add_user"
+                },
+                {
+                    "label": "Get User",
+                    "id": "get_user"
+                },
+                {
+                    "label": "Get User Threads",
+                    "id": "get_user_threads"
+                }
+            ],
+            "defaultValue": "get_messages"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Zep API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "线程 ID",
+            "layout": "full",
+            "placeholder": "Enter unique thread identifier",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "结果限制",
+            "layout": "full",
+            "min": 1,
+            "max": 100,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `threadId` | 字符串 | 线程标识符 |
+| `userId` | 字符串 | 用户标识符 |
+| `uuid` | 字符串 | Internal UUID |
+| `createdAt` | 字符串 | 创建时间戳 |
+| `updatedAt` | 字符串 | 更新时间戳 |
+| `threads` | json | 以下内容的数组：线程 |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `messages` | json | 消息数据 |
+| `messageIds` | json | 消息 identifiers |
+| `context` | 字符串 | 用户上下文字符串 |
+| `facts` | json | Extracted facts |
+| `entities` | json | Extracted entities |
+| `summary` | 字符串 | 对话摘要 |
+| `batchId` | 字符串 | 批次操作 ID |
+| `email` | 字符串 | 用户 email |
+| `firstName` | 字符串 | 用户第一个名称 |
+| `lastName` | 字符串 | 用户最后一个名称 |
+| `metadata` | json | 用户元数据 |
+| `responseCount` | 数字 | 数量：项目在response |
+| `totalCount` | 数字 | 总计数字的项目可用 |
+| `rowCount` | 数字 | 数量：行在response |
+
+</div>
+
+
+
+---
+
+### 获取线程
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "Select an operation",
+            "options": [
+                {
+                    "label": "Create Thread",
+                    "id": "create_thread"
+                },
+                {
+                    "label": "Add Messages",
+                    "id": "add_messages"
+                },
+                {
+                    "label": "Get Context",
+                    "id": "get_context"
+                },
+                {
+                    "label": "Get Messages",
+                    "id": "get_messages"
+                },
+                {
+                    "label": "Get Threads",
+                    "id": "get_threads"
+                },
+                {
+                    "label": "Delete Thread",
+                    "id": "delete_thread"
+                },
+                {
+                    "label": "Add User",
+                    "id": "add_user"
+                },
+                {
+                    "label": "Get User",
+                    "id": "get_user"
+                },
+                {
+                    "label": "Get User Threads",
+                    "id": "get_user_threads"
+                }
+            ],
+            "defaultValue": "get_threads"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Zep API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "结果限制",
+            "layout": "full",
+            "min": 1,
+            "max": 100,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `threadId` | 字符串 | 线程标识符 |
+| `userId` | 字符串 | 用户标识符 |
+| `uuid` | 字符串 | Internal UUID |
+| `createdAt` | 字符串 | 创建时间戳 |
+| `updatedAt` | 字符串 | 更新时间戳 |
+| `threads` | json | 以下内容的数组：线程 |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `messages` | json | 消息数据 |
+| `messageIds` | json | 消息 identifiers |
+| `context` | 字符串 | 用户上下文字符串 |
+| `facts` | json | Extracted facts |
+| `entities` | json | Extracted entities |
+| `summary` | 字符串 | 对话摘要 |
+| `batchId` | 字符串 | 批次操作 ID |
+| `email` | 字符串 | 用户 email |
+| `firstName` | 字符串 | 用户第一个名称 |
+| `lastName` | 字符串 | 用户最后一个名称 |
+| `metadata` | json | 用户元数据 |
+| `responseCount` | 数字 | 数量：项目在response |
+| `totalCount` | 数字 | 总计数字的项目可用 |
+| `rowCount` | 数字 | 数量：行在response |
+
+</div>
+
+
+
+---
+
+### 删除线程
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "Select an operation",
+            "options": [
+                {
+                    "label": "Create Thread",
+                    "id": "create_thread"
+                },
+                {
+                    "label": "Add Messages",
+                    "id": "add_messages"
+                },
+                {
+                    "label": "Get Context",
+                    "id": "get_context"
+                },
+                {
+                    "label": "Get Messages",
+                    "id": "get_messages"
+                },
+                {
+                    "label": "Get Threads",
+                    "id": "get_threads"
+                },
+                {
+                    "label": "Delete Thread",
+                    "id": "delete_thread"
+                },
+                {
+                    "label": "Add User",
+                    "id": "add_user"
+                },
+                {
+                    "label": "Get User",
+                    "id": "get_user"
+                },
+                {
+                    "label": "Get User Threads",
+                    "id": "get_user_threads"
+                }
+            ],
+            "defaultValue": "delete_thread"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Zep API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "threadId",
+            "type": "short-input",
+            "title": "线程 ID",
+            "layout": "full",
+            "placeholder": "Enter unique thread identifier",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `threadId` | 字符串 | 线程标识符 |
+| `userId` | 字符串 | 用户标识符 |
+| `uuid` | 字符串 | Internal UUID |
+| `createdAt` | 字符串 | 创建时间戳 |
+| `updatedAt` | 字符串 | 更新时间戳 |
+| `threads` | json | 以下内容的数组：线程 |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `messages` | json | 消息数据 |
+| `messageIds` | json | 消息 identifiers |
+| `context` | 字符串 | 用户上下文字符串 |
+| `facts` | json | Extracted facts |
+| `entities` | json | Extracted entities |
+| `summary` | 字符串 | 对话摘要 |
+| `batchId` | 字符串 | 批次操作 ID |
+| `email` | 字符串 | 用户 email |
+| `firstName` | 字符串 | 用户第一个名称 |
+| `lastName` | 字符串 | 用户最后一个名称 |
+| `metadata` | json | 用户元数据 |
+| `responseCount` | 数字 | 数量：项目在response |
+| `totalCount` | 数字 | 总计数字的项目可用 |
+| `rowCount` | 数字 | 数量：行在response |
+
+</div>
+
+
+
+---
+
+### 添加用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "Select an operation",
+            "options": [
+                {
+                    "label": "Create Thread",
+                    "id": "create_thread"
+                },
+                {
+                    "label": "Add Messages",
+                    "id": "add_messages"
+                },
+                {
+                    "label": "Get Context",
+                    "id": "get_context"
+                },
+                {
+                    "label": "Get Messages",
+                    "id": "get_messages"
+                },
+                {
+                    "label": "Get Threads",
+                    "id": "get_threads"
+                },
+                {
+                    "label": "Delete Thread",
+                    "id": "delete_thread"
+                },
+                {
+                    "label": "Add User",
+                    "id": "add_user"
+                },
+                {
+                    "label": "Get User",
+                    "id": "get_user"
+                },
+                {
+                    "label": "Get User Threads",
+                    "id": "get_user_threads"
+                }
+            ],
+            "defaultValue": "add_user"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Zep API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "Enter user identifier",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "电子邮件",
+            "layout": "half",
+            "placeholder": "user@example.com"
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "第一个名称",
+            "layout": "half",
+            "placeholder": "John"
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "最后一个名称",
+            "layout": "half",
+            "placeholder": "Doe"
+        },
+        {
+            "id": "metadata",
+            "type": "code",
+            "title": "元数据",
+            "layout": "full",
+            "placeholder": "{\"key\": \"value\"}",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `threadId` | 字符串 | 线程标识符 |
+| `userId` | 字符串 | 用户标识符 |
+| `uuid` | 字符串 | Internal UUID |
+| `createdAt` | 字符串 | 创建时间戳 |
+| `updatedAt` | 字符串 | 更新时间戳 |
+| `threads` | json | 以下内容的数组：线程 |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `messages` | json | 消息数据 |
+| `messageIds` | json | 消息 identifiers |
+| `context` | 字符串 | 用户上下文字符串 |
+| `facts` | json | Extracted facts |
+| `entities` | json | Extracted entities |
+| `summary` | 字符串 | 对话摘要 |
+| `batchId` | 字符串 | 批次操作 ID |
+| `email` | 字符串 | 用户 email |
+| `firstName` | 字符串 | 用户第一个名称 |
+| `lastName` | 字符串 | 用户最后一个名称 |
+| `metadata` | json | 用户元数据 |
+| `responseCount` | 数字 | 数量：项目在response |
+| `totalCount` | 数字 | 总计数字的项目可用 |
+| `rowCount` | 数字 | 数量：行在response |
+
+</div>
+
+
+
+---
+
+### 获取用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "Select an operation",
+            "options": [
+                {
+                    "label": "Create Thread",
+                    "id": "create_thread"
+                },
+                {
+                    "label": "Add Messages",
+                    "id": "add_messages"
+                },
+                {
+                    "label": "Get Context",
+                    "id": "get_context"
+                },
+                {
+                    "label": "Get Messages",
+                    "id": "get_messages"
+                },
+                {
+                    "label": "Get Threads",
+                    "id": "get_threads"
+                },
+                {
+                    "label": "Delete Thread",
+                    "id": "delete_thread"
+                },
+                {
+                    "label": "Add User",
+                    "id": "add_user"
+                },
+                {
+                    "label": "Get User",
+                    "id": "get_user"
+                },
+                {
+                    "label": "Get User Threads",
+                    "id": "get_user_threads"
+                }
+            ],
+            "defaultValue": "get_user"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Zep API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "Enter user identifier",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `threadId` | 字符串 | 线程标识符 |
+| `userId` | 字符串 | 用户标识符 |
+| `uuid` | 字符串 | Internal UUID |
+| `createdAt` | 字符串 | 创建时间戳 |
+| `updatedAt` | 字符串 | 更新时间戳 |
+| `threads` | json | 以下内容的数组：线程 |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `messages` | json | 消息数据 |
+| `messageIds` | json | 消息 identifiers |
+| `context` | 字符串 | 用户上下文字符串 |
+| `facts` | json | Extracted facts |
+| `entities` | json | Extracted entities |
+| `summary` | 字符串 | 对话摘要 |
+| `batchId` | 字符串 | 批次操作 ID |
+| `email` | 字符串 | 用户 email |
+| `firstName` | 字符串 | 用户第一个名称 |
+| `lastName` | 字符串 | 用户最后一个名称 |
+| `metadata` | json | 用户元数据 |
+| `responseCount` | 数字 | 数量：项目在response |
+| `totalCount` | 数字 | 总计数字的项目可用 |
+| `rowCount` | 数字 | 数量：行在response |
+
+</div>
+
+
+
+---
+
+### 获取用户线程
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zep"
+    type="zep"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "Select an operation",
+            "options": [
+                {
+                    "label": "Create Thread",
+                    "id": "create_thread"
+                },
+                {
+                    "label": "Add Messages",
+                    "id": "add_messages"
+                },
+                {
+                    "label": "Get Context",
+                    "id": "get_context"
+                },
+                {
+                    "label": "Get Messages",
+                    "id": "get_messages"
+                },
+                {
+                    "label": "Get Threads",
+                    "id": "get_threads"
+                },
+                {
+                    "label": "Delete Thread",
+                    "id": "delete_thread"
+                },
+                {
+                    "label": "Add User",
+                    "id": "add_user"
+                },
+                {
+                    "label": "Get User",
+                    "id": "get_user"
+                },
+                {
+                    "label": "Get User Threads",
+                    "id": "get_user_threads"
+                }
+            ],
+            "defaultValue": "get_user_threads"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Zep API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "Enter user identifier",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `threadId` | 字符串 | 线程标识符 |
+| `userId` | 字符串 | 用户标识符 |
+| `uuid` | 字符串 | Internal UUID |
+| `createdAt` | 字符串 | 创建时间戳 |
+| `updatedAt` | 字符串 | 更新时间戳 |
+| `threads` | json | 以下内容的数组：线程 |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `messages` | json | 消息数据 |
+| `messageIds` | json | 消息 identifiers |
+| `context` | 字符串 | 用户上下文字符串 |
+| `facts` | json | Extracted facts |
+| `entities` | json | Extracted entities |
+| `summary` | 字符串 | 对话摘要 |
+| `batchId` | 字符串 | 批次操作 ID |
+| `email` | 字符串 | 用户 email |
+| `firstName` | 字符串 | 用户第一个名称 |
+| `lastName` | 字符串 | 用户最后一个名称 |
+| `metadata` | json | 用户元数据 |
+| `responseCount` | 数字 | 数量：项目在response |
+| `totalCount` | 数字 | 总计数字的项目可用 |
+| `rowCount` | 数字 | 数量：行在response |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将 Zep，用于long-term 记忆 management. 创建线程, 添加消息, 检索上下文使用AI-powered summaries和facts 提取.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `zep`

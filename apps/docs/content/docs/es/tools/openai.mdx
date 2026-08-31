@@ -1,0 +1,101 @@
+---
+title: Embeddings
+description: Genera embeddings de OpenAI
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="openai"
+  color=""
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Embeddings"
+    type="openai"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "input",
+            "type": "long-input",
+            "title": "Texto de entrada",
+            "layout": "full",
+            "placeholder": "Introduce el texto para generar embeddings",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "text-embedding-3-small",
+                    "id": "text-embedding-3-small"
+                },
+                {
+                    "label": "text-embedding-3-large",
+                    "id": "text-embedding-3-large"
+                },
+                {
+                    "label": "text-embedding-ada-002",
+                    "id": "text-embedding-ada-002"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave API de OpenAI",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `openai_embeddings`
+
+Genera embeddings de texto mediante OpenAI.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `input` | string | Sí | Texto del que se generarán los embeddings |
+| `model` | string | No | Modelo que se utilizará para los embeddings |
+| `encodingFormat` | string | No | Formato en el que se devolverán los embeddings |
+| `apiKey` | string | Sí | Clave API de OpenAI |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `embeddings` | array | Matriz de vectores de embedding |
+| `model` | string | Modelo utilizado para generar los embeddings |
+| `prompt_tokens` | number | Número de tokens del prompt |
+
+
+## Instrucciones de uso
+
+Integra Embeddings en el workflow para generar embeddings a partir de texto.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `openai`

@@ -1,0 +1,130 @@
+---
+title: File
+description: 读取并解析多个文件
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="file"
+  color="#40916C"
+/>
+
+
+## 配置
+
+### 文件 URL
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="File"
+    type="file"
+    color="#40916C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "选择输入方法",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "File URL",
+                    "id": "url"
+                },
+                {
+                    "label": "Uploaded Files",
+                    "id": "upload"
+                }
+            ],
+            "defaultValue": "url"
+        },
+        {
+            "id": "filePath",
+            "type": "short-input",
+            "title": "文件 URL",
+            "layout": "full",
+            "placeholder": "输入 URL 到一个 file (https://example.com/document.pdf)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `files` | json | 数组的 parsed file objects 使用 content, metadata, 和 file 属性 |
+| `combinedContent` | 字符串 | 全部 file contents merged 到一个单个 text 字符串 |
+
+</div>
+
+
+
+---
+
+### Uploaded 文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="File"
+    type="file"
+    color="#40916C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "选择输入方法",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "File URL",
+                    "id": "url"
+                },
+                {
+                    "label": "Uploaded Files",
+                    "id": "upload"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "file",
+            "type": "file-upload",
+            "title": "处理文件",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `files` | json | 数组的 parsed file objects 使用 content, metadata, 和 file 属性 |
+| `combinedContent` | 字符串 | 全部 file contents merged 到一个单个 text 字符串 |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+集成文件到该 workflow. 可以 upload 一个 file manually 或 insert 一个 file url.
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `file`

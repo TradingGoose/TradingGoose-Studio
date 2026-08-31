@@ -1,0 +1,620 @@
+---
+title: S3
+description: 上传、下载、列出和管理 S3 文件
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="s3"
+  color=""
+/>
+
+
+## 配置
+
+### 下载文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="S3"
+    type="s3"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Download File",
+                    "id": "get_object"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "put_object"
+                },
+                {
+                    "label": "List Objects",
+                    "id": "list_objects"
+                },
+                {
+                    "label": "Delete Object",
+                    "id": "delete_object"
+                },
+                {
+                    "label": "Copy Object",
+                    "id": "copy_object"
+                }
+            ],
+            "defaultValue": "get_object"
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "访问键 ID",
+            "layout": "full",
+            "placeholder": "Enter your AWS Access Key ID",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "密钥访问键",
+            "layout": "full",
+            "placeholder": "Enter your AWS Secret Access Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "s3Uri",
+            "type": "short-input",
+            "title": "S3 对象 URL",
+            "layout": "full",
+            "placeholder": "e.g., https://bucket-name.s3.region.amazonaws.com/path/to/file",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `url` | 字符串 | URL的S3 对象 |
+| `objects` | json | 列出的对象 \(用于列出操作\) |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `metadata` | json | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 上传文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="S3"
+    type="s3"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Download File",
+                    "id": "get_object"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "put_object"
+                },
+                {
+                    "label": "List Objects",
+                    "id": "list_objects"
+                },
+                {
+                    "label": "Delete Object",
+                    "id": "delete_object"
+                },
+                {
+                    "label": "Copy Object",
+                    "id": "copy_object"
+                }
+            ],
+            "defaultValue": "put_object"
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "访问键 ID",
+            "layout": "full",
+            "placeholder": "Enter your AWS Access Key ID",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "密钥访问键",
+            "layout": "full",
+            "placeholder": "Enter your AWS Secret Access Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "layout": "full",
+            "placeholder": "e.g., us-east-1, us-west-2",
+            "required": true
+        },
+        {
+            "id": "bucketName",
+            "type": "short-input",
+            "title": "存储桶名称",
+            "layout": "full",
+            "placeholder": "Enter S3 bucket name",
+            "required": true
+        },
+        {
+            "id": "objectKey",
+            "type": "short-input",
+            "title": "对象键/路径",
+            "layout": "full",
+            "placeholder": "e.g., myfile.pdf or documents/report.pdf",
+            "required": true
+        },
+        {
+            "id": "uploadFile",
+            "type": "file-upload",
+            "title": "文件到Upload",
+            "layout": "full",
+            "placeholder": "Upload a file"
+        },
+        {
+            "id": "file",
+            "type": "short-input",
+            "title": "文件 Reference",
+            "layout": "full",
+            "placeholder": "Reference a file from previous blocks"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "文本内容",
+            "layout": "full",
+            "placeholder": "Or enter text content to upload"
+        },
+        {
+            "id": "contentType",
+            "type": "short-input",
+            "title": "内容类型",
+            "layout": "full",
+            "placeholder": "e.g., text/plain, application/json (auto-detected if not provided)"
+        },
+        {
+            "id": "acl",
+            "type": "dropdown",
+            "title": "访问控制",
+            "layout": "full",
+            "placeholder": "Select ACL (default: private)",
+            "options": [
+                {
+                    "label": "Private",
+                    "id": "private"
+                },
+                {
+                    "label": "Public Read",
+                    "id": "public-read"
+                },
+                {
+                    "label": "Public Read/Write",
+                    "id": "public-read-write"
+                },
+                {
+                    "label": "Authenticated Read",
+                    "id": "authenticated-read"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `url` | 字符串 | URL的S3 对象 |
+| `objects` | json | 列出的对象 \(用于列出操作\) |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `metadata` | json | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 列出对象
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="S3"
+    type="s3"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Download File",
+                    "id": "get_object"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "put_object"
+                },
+                {
+                    "label": "List Objects",
+                    "id": "list_objects"
+                },
+                {
+                    "label": "Delete Object",
+                    "id": "delete_object"
+                },
+                {
+                    "label": "Copy Object",
+                    "id": "copy_object"
+                }
+            ],
+            "defaultValue": "list_objects"
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "访问键 ID",
+            "layout": "full",
+            "placeholder": "Enter your AWS Access Key ID",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "密钥访问键",
+            "layout": "full",
+            "placeholder": "Enter your AWS Secret Access Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "layout": "full",
+            "placeholder": "e.g., us-east-1, us-west-2",
+            "required": true
+        },
+        {
+            "id": "bucketName",
+            "type": "short-input",
+            "title": "存储桶名称",
+            "layout": "full",
+            "placeholder": "Enter S3 bucket name",
+            "required": true
+        },
+        {
+            "id": "prefix",
+            "type": "short-input",
+            "title": "Prefix/文件夹",
+            "layout": "full",
+            "placeholder": "Filter by prefix (e.g., folder/ or leave empty for all)"
+        },
+        {
+            "id": "maxKeys",
+            "type": "short-input",
+            "title": "最大结果",
+            "layout": "full",
+            "placeholder": "Maximum number of objects to return (default: 1000)"
+        },
+        {
+            "id": "continuationToken",
+            "type": "short-input",
+            "title": "Continuation token",
+            "layout": "full",
+            "placeholder": "Token for pagination (from previous response)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `url` | 字符串 | URL的S3 对象 |
+| `objects` | json | 列出的对象 \(用于列出操作\) |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `metadata` | json | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 删除对象
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="S3"
+    type="s3"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Download File",
+                    "id": "get_object"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "put_object"
+                },
+                {
+                    "label": "List Objects",
+                    "id": "list_objects"
+                },
+                {
+                    "label": "Delete Object",
+                    "id": "delete_object"
+                },
+                {
+                    "label": "Copy Object",
+                    "id": "copy_object"
+                }
+            ],
+            "defaultValue": "delete_object"
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "访问键 ID",
+            "layout": "full",
+            "placeholder": "Enter your AWS Access Key ID",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "密钥访问键",
+            "layout": "full",
+            "placeholder": "Enter your AWS Secret Access Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "layout": "full",
+            "placeholder": "e.g., us-east-1, us-west-2",
+            "required": true
+        },
+        {
+            "id": "bucketName",
+            "type": "short-input",
+            "title": "存储桶名称",
+            "layout": "full",
+            "placeholder": "Enter S3 bucket name",
+            "required": true
+        },
+        {
+            "id": "objectKey",
+            "type": "short-input",
+            "title": "对象键/路径",
+            "layout": "full",
+            "placeholder": "e.g., myfile.pdf or documents/report.pdf",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `url` | 字符串 | URL的S3 对象 |
+| `objects` | json | 列出的对象 \(用于列出操作\) |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `metadata` | json | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 复制对象
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="S3"
+    type="s3"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Download File",
+                    "id": "get_object"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "put_object"
+                },
+                {
+                    "label": "List Objects",
+                    "id": "list_objects"
+                },
+                {
+                    "label": "Delete Object",
+                    "id": "delete_object"
+                },
+                {
+                    "label": "Copy Object",
+                    "id": "copy_object"
+                }
+            ],
+            "defaultValue": "copy_object"
+        },
+        {
+            "id": "accessKeyId",
+            "type": "short-input",
+            "title": "访问键 ID",
+            "layout": "full",
+            "placeholder": "Enter your AWS Access Key ID",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretAccessKey",
+            "type": "short-input",
+            "title": "密钥访问键",
+            "layout": "full",
+            "placeholder": "Enter your AWS Secret Access Key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "region",
+            "type": "short-input",
+            "title": "AWS 区域",
+            "layout": "full",
+            "placeholder": "e.g., us-east-1, us-west-2",
+            "required": true
+        },
+        {
+            "id": "sourceBucket",
+            "type": "short-input",
+            "title": "来源存储桶",
+            "layout": "full",
+            "placeholder": "Source bucket name",
+            "required": true
+        },
+        {
+            "id": "sourceKey",
+            "type": "short-input",
+            "title": "来源对象键",
+            "layout": "full",
+            "placeholder": "e.g., oldfile.pdf or folder/file.pdf",
+            "required": true
+        },
+        {
+            "id": "destinationBucket",
+            "type": "short-input",
+            "title": "Destination 存储桶",
+            "layout": "full",
+            "placeholder": "Destination bucket name (can be same as source)",
+            "required": true
+        },
+        {
+            "id": "destinationKey",
+            "type": "short-input",
+            "title": "Destination 对象键",
+            "layout": "full",
+            "placeholder": "e.g., newfile.pdf or backup/file.pdf",
+            "required": true
+        },
+        {
+            "id": "copyAcl",
+            "type": "dropdown",
+            "title": "访问控制",
+            "layout": "full",
+            "placeholder": "Select ACL for copied object (default: private)",
+            "options": [
+                {
+                    "label": "Private",
+                    "id": "private"
+                },
+                {
+                    "label": "Public Read",
+                    "id": "public-read"
+                },
+                {
+                    "label": "Public Read/Write",
+                    "id": "public-read-write"
+                },
+                {
+                    "label": "Authenticated Read",
+                    "id": "authenticated-read"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `url` | 字符串 | URL的S3 对象 |
+| `objects` | json | 列出的对象 \(用于列出操作\) |
+| `deleted` | 布尔值 | Deletion 状态 |
+| `metadata` | json | 操作元数据 |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将 S3 集成到 workflow 中. 上传文件, download 对象, 列出存储桶 contents, delete 对象,和复制对象之间存储桶. 需要 AWS 访问键和密钥访问键.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `s3`

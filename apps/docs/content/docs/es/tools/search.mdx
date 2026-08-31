@@ -1,0 +1,69 @@
+---
+title: Buscar
+description: Buscar en la web ($0.01 por buscar)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="search"
+  color="#3B82F6"
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Buscar"
+    type="search"
+    color="#3B82F6"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Buscar Consulta",
+            "placeholder": "Enter your search query...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `search_tool`
+
+Buscar en la web. Devuelve el más relevantes web resultados, incluidos título, enlace, snippet, y fecha para cada resultado.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | cadena | Sí | El buscar consulta |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `results` | json | Buscar resultados |
+| `query` | cadena | El buscar consulta |
+| `totalResults` | número | Total número de resultados |
+| `source` | cadena | Buscar origen \(exa\) |
+| `cost` | json | Cost información \($0.01\) |
+
+
+## Uso Instrucciones
+
+Buscar en la web mediante Buscar herramienta. Cada buscar costs $0.01 por consulta.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `search`

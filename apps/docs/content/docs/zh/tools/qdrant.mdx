@@ -1,0 +1,340 @@
+---
+title: Qdrant
+description: 使用 Qdrant 向量数据库
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="qdrant"
+  color=""
+/>
+
+
+## 配置
+
+### Upsert
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Qdrant"
+    type="qdrant"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Upsert",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Fetch",
+                    "id": "fetch"
+                }
+            ],
+            "defaultValue": "upsert"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Your Qdrant API key (optional)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "Qdrant URL",
+            "layout": "full",
+            "placeholder": "http://localhost:6333",
+            "required": true
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合",
+            "layout": "full",
+            "placeholder": "my-collection",
+            "required": true
+        },
+        {
+            "id": "points",
+            "type": "long-input",
+            "title": "点",
+            "layout": "full",
+            "placeholder": "[{\"id\": 1, \"vector\": [0.1, 0.2], \"payload\": {\"category\": \"a\"}}]",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `matches` | json | 搜索matches |
+| `upsertedCount` | 数字 | Upserted 数量 |
+| `data` | json | 响应数据 |
+| `status` | 字符串 | 操作状态 |
+
+</div>
+
+
+
+---
+
+### 搜索
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Qdrant"
+    type="qdrant"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Upsert",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Fetch",
+                    "id": "fetch"
+                }
+            ],
+            "defaultValue": "search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Your Qdrant API key (optional)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "Qdrant URL",
+            "layout": "full",
+            "placeholder": "http://localhost:6333",
+            "required": true
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合",
+            "layout": "full",
+            "placeholder": "my-collection",
+            "required": true
+        },
+        {
+            "id": "vector",
+            "type": "long-input",
+            "title": "查询向量",
+            "layout": "full",
+            "placeholder": "[0.1, 0.2]",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "filter",
+            "type": "long-input",
+            "title": "筛选条件",
+            "layout": "full",
+            "placeholder": "{\"must\":[{\"key\":\"city\",\"match\":{\"value\":\"London\"}}]}"
+        },
+        {
+            "id": "search_return_data",
+            "type": "dropdown",
+            "title": "返回数据",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Payload Only",
+                    "id": "payload_only"
+                },
+                {
+                    "label": "Vector Only",
+                    "id": "vector_only"
+                },
+                {
+                    "label": "Both Payload and Vector",
+                    "id": "both"
+                },
+                {
+                    "label": "None (IDs and scores only)",
+                    "id": "none"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `matches` | json | 搜索matches |
+| `upsertedCount` | 数字 | Upserted 数量 |
+| `data` | json | 响应数据 |
+| `status` | 字符串 | 操作状态 |
+
+</div>
+
+
+
+---
+
+### Fetch
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Qdrant"
+    type="qdrant"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Upsert",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Fetch",
+                    "id": "fetch"
+                }
+            ],
+            "defaultValue": "fetch"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Your Qdrant API key (optional)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "Qdrant URL",
+            "layout": "full",
+            "placeholder": "http://localhost:6333",
+            "required": true
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合",
+            "layout": "full",
+            "placeholder": "my-collection",
+            "required": true
+        },
+        {
+            "id": "ids",
+            "type": "long-input",
+            "title": "ID",
+            "layout": "full",
+            "placeholder": "[\"370446a3-310f-58db-8ce7-31db947c6c1e\"]",
+            "required": true
+        },
+        {
+            "id": "fetch_return_data",
+            "type": "dropdown",
+            "title": "返回数据",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Payload Only",
+                    "id": "payload_only"
+                },
+                {
+                    "label": "Vector Only",
+                    "id": "vector_only"
+                },
+                {
+                    "label": "Both Payload and Vector",
+                    "id": "both"
+                },
+                {
+                    "label": "None (IDs only)",
+                    "id": "none"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `matches` | json | 搜索matches |
+| `upsertedCount` | 数字 | Upserted 数量 |
+| `data` | json | 响应数据 |
+| `status` | 字符串 | 操作状态 |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将Qdrant集成到 workflow 中。可以upsert, 搜索,和fetch 点.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `qdrant`

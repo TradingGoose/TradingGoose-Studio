@@ -1,0 +1,904 @@
+---
+title: MongoDB
+description: 连接 MongoDB 数据库
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="mongodb"
+  color=""
+/>
+
+
+## 配置
+
+### 查找文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Find Documents",
+                    "id": "query"
+                },
+                {
+                    "label": "Insert Documents",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update Documents",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Documents",
+                    "id": "delete"
+                },
+                {
+                    "label": "Aggregate Pipeline",
+                    "id": "execute"
+                }
+            ],
+            "defaultValue": "query"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost 或你的.mongodb.主机",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "mongodb_user",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "你的 database 密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "Auth 来源",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                },
+                {
+                    "label": "Required",
+                    "id": "required"
+                },
+                {
+                    "label": "Preferred",
+                    "id": "preferred"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合名称",
+            "layout": "full",
+            "placeholder": "用户",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "查询筛选条件 (JSON)",
+            "layout": "full",
+            "placeholder": "{\"status\": \"active\"}",
+            "language": "json"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "layout": "full",
+            "placeholder": "100"
+        },
+        {
+            "id": "sort",
+            "type": "code",
+            "title": "排序 (JSON)",
+            "layout": "full",
+            "placeholder": "{\"createdAt\": -1}",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">查找文档 (<code>mongodb_query</code>)</div>
+
+执行 find operation 在 MongoDB 集合
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | MongoDB 服务器 hostname 或 IP address |
+| `port` | 数字 | 是 | MongoDB 服务器 port \(默认: 27017\) |
+| `database` | 字符串 | 是 | 数据库 名称 到 connect 到 |
+| `username` | 字符串 | 否 | MongoDB 用户名 |
+| `password` | 字符串 | 否 | MongoDB 密码 |
+| `authSource` | 字符串 | 否 | Authentication database |
+| `ssl` | 字符串 | 否 | SSL connection 模式 \(已禁用, required, preferred\) |
+| `collection` | 字符串 | 是 | 集合 名称 到 query |
+| `query` | 字符串 | 否 | MongoDB query filter 作为 JSON 字符串 |
+| `limit` | 数字 | 否 | 最大数字的 documents 到 return |
+| `sort` | 字符串 | 否 | 排序 criteria 作为 JSON 字符串 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作 status message |
+| `documents` | 数组 | 数组的 documents returned 从该 query |
+
+</div>
+
+
+
+---
+
+### 插入文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Find Documents",
+                    "id": "query"
+                },
+                {
+                    "label": "Insert Documents",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update Documents",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Documents",
+                    "id": "delete"
+                },
+                {
+                    "label": "Aggregate Pipeline",
+                    "id": "execute"
+                }
+            ],
+            "defaultValue": "insert"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost 或你的.mongodb.主机",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "mongodb_user",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "你的 database 密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "Auth 来源",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                },
+                {
+                    "label": "Required",
+                    "id": "required"
+                },
+                {
+                    "label": "Preferred",
+                    "id": "preferred"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合名称",
+            "layout": "full",
+            "placeholder": "用户",
+            "required": true
+        },
+        {
+            "id": "documents",
+            "type": "code",
+            "title": "文档 (JSON 数组)",
+            "layout": "full",
+            "placeholder": "[{\"name\": \"John Doe\", \"email\": \"john@example.com\", \"status\": \"active\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">插入文档 (<code>mongodb_insert</code>)</div>
+
+插入 documents 到 MongoDB 集合
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | MongoDB 服务器 hostname 或 IP address |
+| `port` | 数字 | 是 | MongoDB 服务器 port \(默认: 27017\) |
+| `database` | 字符串 | 是 | 数据库 名称 到 connect 到 |
+| `username` | 字符串 | 否 | MongoDB 用户名 |
+| `password` | 字符串 | 否 | MongoDB 密码 |
+| `authSource` | 字符串 | 否 | Authentication database |
+| `ssl` | 字符串 | 否 | SSL connection 模式 \(已禁用, required, preferred\) |
+| `collection` | 字符串 | 是 | 集合 名称 到 insert 到 |
+| `documents` | 数组 | 是 | 数组的 documents 到 insert |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作 status message |
+| `documentCount` | 数字 | 数字的 documents inserted |
+| `insertedId` | 字符串 | ID 的 inserted document \(单个 insert\) |
+
+</div>
+
+
+
+---
+
+### 更新文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Find Documents",
+                    "id": "query"
+                },
+                {
+                    "label": "Insert Documents",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update Documents",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Documents",
+                    "id": "delete"
+                },
+                {
+                    "label": "Aggregate Pipeline",
+                    "id": "execute"
+                }
+            ],
+            "defaultValue": "update"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost 或你的.mongodb.主机",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "mongodb_user",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "你的 database 密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "Auth 来源",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                },
+                {
+                    "label": "Required",
+                    "id": "required"
+                },
+                {
+                    "label": "Preferred",
+                    "id": "preferred"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合名称",
+            "layout": "full",
+            "placeholder": "用户",
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "code",
+            "title": "筛选条件 (JSON)",
+            "layout": "full",
+            "placeholder": "{\"name\": \"Alice Test\"}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "update",
+            "type": "code",
+            "title": "更新 (JSON)",
+            "layout": "full",
+            "placeholder": "{\"$set\": {\"name\": \"Jane Doe\", \"email\": \"jane@example.com\"}}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "upsert",
+            "type": "dropdown",
+            "title": "更新或插入",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "False",
+                    "id": "false"
+                },
+                {
+                    "label": "True",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "multi",
+            "type": "dropdown",
+            "title": "更新多个",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "False",
+                    "id": "false"
+                },
+                {
+                    "label": "True",
+                    "id": "true"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新文档 (<code>mongodb_update</code>)</div>
+
+更新 documents 在 MongoDB 集合
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | MongoDB 服务器 hostname 或 IP address |
+| `port` | 数字 | 是 | MongoDB 服务器 port \(默认: 27017\) |
+| `database` | 字符串 | 是 | 数据库 名称 到 connect 到 |
+| `username` | 字符串 | 否 | MongoDB 用户名 |
+| `password` | 字符串 | 否 | MongoDB 密码 |
+| `authSource` | 字符串 | 否 | Authentication database |
+| `ssl` | 字符串 | 否 | SSL connection 模式 \(已禁用, required, preferred\) |
+| `collection` | 字符串 | 是 | 集合 名称 到 update |
+| `filter` | 字符串 | 是 | 筛选条件 criteria 作为 JSON 字符串 |
+| `update` | 字符串 | 是 | 更新操作作为 JSON 字符串 |
+| `upsert` | 布尔值 | 否 | 创建 document if 未找到 |
+| `multi` | 布尔值 | 否 | 更新多个 documents |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作 status message |
+| `matchedCount` | 数字 | 数字的 documents matched 按 filter |
+| `modifiedCount` | 数字 | 数字的 documents modified |
+| `documentCount` | 数字 | 总计数字的 documents affected |
+
+</div>
+
+
+
+---
+
+### 删除文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Find Documents",
+                    "id": "query"
+                },
+                {
+                    "label": "Insert Documents",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update Documents",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Documents",
+                    "id": "delete"
+                },
+                {
+                    "label": "Aggregate Pipeline",
+                    "id": "execute"
+                }
+            ],
+            "defaultValue": "delete"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost 或你的.mongodb.主机",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "mongodb_user",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "你的 database 密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "Auth 来源",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                },
+                {
+                    "label": "Required",
+                    "id": "required"
+                },
+                {
+                    "label": "Preferred",
+                    "id": "preferred"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合名称",
+            "layout": "full",
+            "placeholder": "用户",
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "code",
+            "title": "筛选条件 (JSON)",
+            "layout": "full",
+            "placeholder": "{\"status\": \"inactive\"}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "multi",
+            "type": "dropdown",
+            "title": "删除多个",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "False",
+                    "id": "false"
+                },
+                {
+                    "label": "True",
+                    "id": "true"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除文档 (<code>mongodb_delete</code>)</div>
+
+删除 documents 从 MongoDB 集合
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | MongoDB 服务器 hostname 或 IP address |
+| `port` | 数字 | 是 | MongoDB 服务器 port \(默认: 27017\) |
+| `database` | 字符串 | 是 | 数据库 名称 到 connect 到 |
+| `username` | 字符串 | 否 | MongoDB 用户名 |
+| `password` | 字符串 | 否 | MongoDB 密码 |
+| `authSource` | 字符串 | 否 | Authentication database |
+| `ssl` | 字符串 | 否 | SSL connection 模式 \(已禁用, required, preferred\) |
+| `collection` | 字符串 | 是 | 集合 名称 到 delete 从 |
+| `filter` | 字符串 | 是 | 筛选条件 criteria 作为 JSON 字符串 |
+| `multi` | 布尔值 | 否 | 删除多个 documents |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作 status message |
+| `deletedCount` | 数字 | 数字的 documents deleted |
+
+</div>
+
+
+
+---
+
+### Aggregate 流水线
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MongoDB"
+    type="mongodb"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Find Documents",
+                    "id": "query"
+                },
+                {
+                    "label": "Insert Documents",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update Documents",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Documents",
+                    "id": "delete"
+                },
+                {
+                    "label": "Aggregate Pipeline",
+                    "id": "execute"
+                }
+            ],
+            "defaultValue": "execute"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost 或你的.mongodb.主机",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "Port",
+            "layout": "full",
+            "placeholder": "27017",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "mongodb_user",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "你的 database 密码",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "authSource",
+            "type": "short-input",
+            "title": "Auth 来源",
+            "layout": "full",
+            "placeholder": "admin"
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                },
+                {
+                    "label": "Required",
+                    "id": "required"
+                },
+                {
+                    "label": "Preferred",
+                    "id": "preferred"
+                }
+            ]
+        },
+        {
+            "id": "collection",
+            "type": "short-input",
+            "title": "集合名称",
+            "layout": "full",
+            "placeholder": "用户",
+            "required": true
+        },
+        {
+            "id": "pipeline",
+            "type": "code",
+            "title": "Aggregation 流水线 (JSON 数组)",
+            "layout": "full",
+            "placeholder": "[{\"$group\": {\"_id\": \"$status\", \"count\": {\"$sum\": 1}}}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Aggregate 流水线 (<code>mongodb_execute</code>)</div>
+
+执行 MongoDB aggregation 流水线
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | MongoDB 服务器 hostname 或 IP address |
+| `port` | 数字 | 是 | MongoDB 服务器 port \(默认: 27017\) |
+| `database` | 字符串 | 是 | 数据库 名称 到 connect 到 |
+| `username` | 字符串 | 否 | MongoDB 用户名 |
+| `password` | 字符串 | 否 | MongoDB 密码 |
+| `authSource` | 字符串 | 否 | Authentication database |
+| `ssl` | 字符串 | 否 | SSL connection 模式 \(已禁用, required, preferred\) |
+| `collection` | 字符串 | 是 | 集合 名称 到 execute 流水线在 |
+| `pipeline` | 字符串 | 是 | Aggregation 流水线作为 JSON 字符串 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作 status message |
+| `documents` | 数组 | 数组的 documents returned 从 aggregation |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+将 MongoDB 集成到工作流中。你可以查找、插入、更新、删除和聚合数据。
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `mongodb`

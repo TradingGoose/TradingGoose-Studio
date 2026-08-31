@@ -1,0 +1,345 @@
+---
+title: Circleback Trigger
+description: Activa el workflow cuando reunión notas y acción elementos son listos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="circleback"
+  color=""
+/>
+
+Activa el workflow cuando reunión notas y acción elementos son listos
+
+<Callout type="info">
+  Este trigger se basa en webhooks. Configura la URL del webhook en el servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+<Cards>
+  <Card title="Usar como un Herramienta" href="/tools/circleback">
+    Consulta las acciones, operaciones y entradas de la herramienta Circleback.
+  </Card>
+</Cards>
+
+
+## Eventos
+
+### Circleback Notas de la reunión listas
+
+Activa el workflow cuando reunión notas y acción elementos son listos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Notas de la reunión listas"
+    type="circleback_meeting_notes"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Firma Secreto",
+            "placeholder": "Paste signing secret from Circleback (optional)",
+            "description": "Valida ese webhook entregas proceden desde Circleback mediante HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "id",
+          "type": "number",
+          "description": "Circleback reunión ID"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "Reunión título/nombre"
+      },
+      {
+          "name": "url",
+          "type": "string",
+          "description": "URL de el virtual reunión (Zoom, Google Meet, Teams, etc.)"
+      },
+      {
+          "name": "createdAt",
+          "type": "string",
+          "description": "ISO8601 marca de tiempo cuando reunión fue creado"
+      },
+      {
+          "name": "duration",
+          "type": "number",
+          "description": "Reunión duración en segundos"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "Grabación URL (válido para 24 horas, si activado)"
+      },
+      {
+          "name": "tags",
+          "type": "array",
+          "description": "Matriz de etiqueta strings"
+      },
+      {
+          "name": "icalUid",
+          "type": "string",
+          "description": "Calendario evento identificador"
+      },
+      {
+          "name": "attendees",
+          "type": "array",
+          "description": "Matriz de asistente objetos con nombre y email"
+      },
+      {
+          "name": "notes",
+          "type": "string",
+          "description": "Reunión notas en Markdown formato"
+      },
+      {
+          "name": "actionItems",
+          "type": "array",
+          "description": "Matriz de acción elemento objetos con id, título, descripción, assignee, estado"
+      },
+      {
+          "name": "transcript",
+          "type": "array",
+          "description": "Matriz de transcripción segmentos con orador, texto, y marca de tiempo (en segundos)"
+      },
+      {
+          "name": "insights",
+          "type": "object",
+          "description": "Usuario-creado estadísticas keyed por dato nombre, cada que contiene matriz de dato resultados"
+      },
+      {
+          "name": "meeting",
+          "type": "object",
+          "description": "Completo reunión payload objeto"
+      }
+  ]}
+/>
+
+---
+
+### Circleback Webhook
+
+Generic webhook trigger para todos Circleback eventos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Webhook"
+    type="circleback_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Tipo",
+            "required": true
+        },
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Firma Secreto",
+            "placeholder": "Paste signing secret from Circleback (optional)",
+            "description": "Valida ese webhook entregas proceden desde Circleback mediante HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "id",
+          "type": "number",
+          "description": "Circleback reunión ID"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "Reunión título/nombre"
+      },
+      {
+          "name": "url",
+          "type": "string",
+          "description": "URL de el virtual reunión (Zoom, Google Meet, Teams, etc.)"
+      },
+      {
+          "name": "createdAt",
+          "type": "string",
+          "description": "ISO8601 marca de tiempo cuando reunión fue creado"
+      },
+      {
+          "name": "duration",
+          "type": "number",
+          "description": "Reunión duración en segundos"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "Grabación URL (válido para 24 horas, si activado)"
+      },
+      {
+          "name": "tags",
+          "type": "array",
+          "description": "Matriz de etiqueta strings"
+      },
+      {
+          "name": "icalUid",
+          "type": "string",
+          "description": "Calendario evento identificador"
+      },
+      {
+          "name": "attendees",
+          "type": "array",
+          "description": "Matriz de asistente objetos con nombre y email"
+      },
+      {
+          "name": "notes",
+          "type": "string",
+          "description": "Reunión notas en Markdown formato"
+      },
+      {
+          "name": "actionItems",
+          "type": "array",
+          "description": "Matriz de acción elemento objetos con id, título, descripción, assignee, estado"
+      },
+      {
+          "name": "transcript",
+          "type": "array",
+          "description": "Matriz de transcripción segmentos con orador, texto, y marca de tiempo (en segundos)"
+      },
+      {
+          "name": "insights",
+          "type": "object",
+          "description": "Usuario-creado estadísticas keyed por dato nombre, cada que contiene matriz de dato resultados"
+      },
+      {
+          "name": "meeting",
+          "type": "object",
+          "description": "Completo reunión payload objeto"
+      }
+  ]}
+/>
+
+---
+
+### Circleback Reunión Completado
+
+Activa el workflow cuando un reunión es procesada y listos en Circleback
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Circleback Reunión Completado"
+    type="circleback_meeting_completed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Firma Secreto",
+            "placeholder": "Paste signing secret from Circleback (optional)",
+            "description": "Valida ese webhook entregas proceden desde Circleback mediante HMAC-SHA256.",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "id",
+          "type": "number",
+          "description": "Circleback reunión ID"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "Reunión título/nombre"
+      },
+      {
+          "name": "url",
+          "type": "string",
+          "description": "URL de el virtual reunión (Zoom, Google Meet, Teams, etc.)"
+      },
+      {
+          "name": "createdAt",
+          "type": "string",
+          "description": "ISO8601 marca de tiempo cuando reunión fue creado"
+      },
+      {
+          "name": "duration",
+          "type": "number",
+          "description": "Reunión duración en segundos"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "Grabación URL (válido para 24 horas, si activado)"
+      },
+      {
+          "name": "tags",
+          "type": "array",
+          "description": "Matriz de etiqueta strings"
+      },
+      {
+          "name": "icalUid",
+          "type": "string",
+          "description": "Calendario evento identificador"
+      },
+      {
+          "name": "attendees",
+          "type": "array",
+          "description": "Matriz de asistente objetos con nombre y email"
+      },
+      {
+          "name": "notes",
+          "type": "string",
+          "description": "Reunión notas en Markdown formato"
+      },
+      {
+          "name": "actionItems",
+          "type": "array",
+          "description": "Matriz de acción elemento objetos con id, título, descripción, assignee, estado"
+      },
+      {
+          "name": "transcript",
+          "type": "array",
+          "description": "Matriz de transcripción segmentos con orador, texto, y marca de tiempo (en segundos)"
+      },
+      {
+          "name": "insights",
+          "type": "object",
+          "description": "Usuario-creado estadísticas keyed por dato nombre, cada que contiene matriz de dato resultados"
+      },
+      {
+          "name": "meeting",
+          "type": "object",
+          "description": "Completo reunión payload objeto"
+      }
+  ]}
+/>
+
+---
+
+

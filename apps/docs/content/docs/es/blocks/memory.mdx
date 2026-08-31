@@ -1,0 +1,152 @@
+---
+title: Memoria
+description: Conserva mensajes de conversación entre ejecuciones del workflow
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="memory"
+  color="#F64F9E"
+  icon={true}
+/>
+
+El bloque Memory almacena y recupera mensajes de conversación que persisten entre ejecuciones del workflow. Está diseñado para funcionar junto con bloques Agent y proporcionar a los agentes contexto conversacional a largo plazo entre distintas ejecuciones.
+
+## Descripción general
+
+<Steps>
+  <Step>
+    <strong>Add Memory</strong>: almacena un mensaje con un rol (user, assistant o system) bajo un ID de memoria
+  </Step>
+  <Step>
+    <strong>Get Memory</strong>: recupera una entrada de memoria mediante su ID
+  </Step>
+  <Step>
+<strong>Obtener todas las memorias</strong>: obtiene todas las memorias almacenadas del flujo de trabajo actual
+  </Step>
+  <Step>
+    <strong>Delete Memory</strong>: elimina una entrada de memoria mediante su ID
+  </Step>
+</Steps>
+
+## Funcionamiento
+
+Las entradas de memoria se almacenan como mensajes de chat con tres campos obligatorios: un **ID** que delimita la memoria, un **Role** (`user`, `assistant` o `system`) y el texto **Content**. Cuando recuperas memorias y las pasas a la entrada Memories de un bloque Agent, el agente las interpreta como turnos anteriores de la conversación. Esto permite mantener diálogos entre ejecuciones independientes.
+
+Un workflow de conversación típico utiliza tres bloques Memory alrededor de un Agent:
+
+1. **Memory (Add, role: user)** -- guarda el mensaje entrante antes de ejecutar el Agent
+2. **Agent** -- procesa el mensaje y utiliza las memorias recuperadas como contexto
+3. **Memory (Add, role: assistant)** -- guarda la respuesta del Agent después de ejecutarlo
+
+<Callout type="info">
+  Los ID de memoria delimitan la conversación. Usa el mismo ID entre ejecuciones para crear un historial continuo o utiliza ID distintos para mantener hilos separados.
+</Callout>
+
+## Operaciones
+
+<Tabs items={['Add Memory', 'Get Memory', 'Get All Memories', 'Delete Memory']}>
+  <Tab>
+    Almacena un mensaje nuevo.
+
+    | Campo | Obligatorio | Descripción |
+    |---|---|---|
+    | **ID** | Sí | Identificador de memoria que agrupa mensajes en una conversación |
+    | **Role** | Sí | `user`, `assistant` o `system` |
+    | **Content** | Sí | Texto del mensaje que se almacenará |
+  </Tab>
+  <Tab>
+    Recupera todos los mensajes almacenados bajo un ID de memoria específico.
+
+    | Campo | Obligatorio | Descripción |
+    |---|---|---|
+    | **ID** | Sí | Identificador de memoria que se recuperará |
+  </Tab>
+  <Tab>
+    Devuelve todas las entradas de memoria del workflow actual. No requiere campos adicionales.
+  </Tab>
+  <Tab>
+    Elimina una entrada de memoria mediante su ID.
+
+    | Campo | Obligatorio | Descripción |
+    |---|---|---|
+    | **ID** | Sí | Identificador de memoria que se eliminará |
+  </Tab>
+</Tabs>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Memory"
+    type="memory"
+    color="#F64F9E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "layout": "full",
+            "placeholder": "Select operation",
+            "options": [
+                { "label": "Add Memory", "id": "add" },
+                { "label": "Get All Memories", "id": "getAll" },
+                { "label": "Get Memory", "id": "get" },
+                { "label": "Delete Memory", "id": "delete" }
+            ]
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "layout": "full",
+            "placeholder": "Enter memory identifier",
+            "required": true,
+            "condition": { "field": "operation", "value": "add" }
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "Role",
+            "layout": "full",
+            "placeholder": "Select agent role",
+            "required": true,
+            "options": [
+                { "label": "User", "id": "user" },
+                { "label": "Assistant", "id": "assistant" },
+                { "label": "System", "id": "system" }
+            ],
+            "condition": { "field": "operation", "value": "add" }
+        },
+        {
+            "id": "content",
+            "type": "short-input",
+            "title": "Content",
+            "layout": "full",
+            "placeholder": "Enter message content",
+            "required": true,
+            "condition": { "field": "operation", "value": "add" }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Salidas
+
+| Salida | Tipo | Descripción |
+|---|---|---|
+| `memories` | json | Datos de memoria recuperados (matriz de mensajes) |
+| `id` | string | Identificador de memoria sobre el que se realizó la operación |
+
+## Prácticas recomendadas
+
+- **Usa ID coherentes** -- el ID de memoria es la clave que agrupa mensajes en una conversación. Usa un identificador estable, como un ID de usuario o sesión, para acumular correctamente las memorias entre ejecuciones.
+- **Guarda ambos lados de la conversación** -- añade un mensaje con el rol `user` antes del Agent y un mensaje con el rol `assistant` después para conservar el diálogo completo.
+- **Limpia cuando sea necesario** -- usa la operación Delete para eliminar conversaciones obsoletas y evitar un crecimiento ilimitado de la memoria.

@@ -1,0 +1,46 @@
+---
+title: "Lista de skills"
+description: "Explora, crea e importa skills del espacio de trabajo."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `list_skill` |
+| **Categoría** | Lista |
+
+El widget Lista de skills permite explorar las skills reutilizables del espacio de trabajo. Úsalo para buscar skills, crear nuevas, importar JSON exportado por TradingGoose y abrir la skill seleccionada en el editor.
+
+## Funciones
+
+- **Explorar y buscar** skills del espacio de trabajo actual.
+- **Crear** skills desde el menú Create.
+- **Importar** skills con la acción **Import skills** del menú Create.
+- **Abrir en el editor** al seleccionar una skill de la lista.
+- **Vincular por color de pareja** mantiene sincronizados la lista y el editor de skills cuando comparten el mismo color.
+
+## Uso
+
+1. Añade el widget a un panel del espacio de trabajo.
+2. Usa el menú Create para añadir una skill o importar un archivo JSON exportado por TradingGoose.
+3. Selecciona una skill para abrirla en el widget Skill Editor vinculado.
+4. Asigna un color de pareja para sincronizar los cambios de selección entre la lista y el editor.
+
+<Callout type="info">
+  Crear e importar requiere permiso de edición en el espacio de trabajo. Para explorar las skills existentes solo se necesita acceso al espacio de trabajo.
+</Callout>
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="Skill Editor" href="/widgets/editor-skill">
+    Escribe y exporta skills reutilizables del espacio de trabajo.
+  </Card>
+  <Card title="Skills Guide" href="/utilities/skills">
+    Conoce cómo se estructuran, cargan y usan las skills durante la ejecución.
+  </Card>
+</Cards>

@@ -1,0 +1,240 @@
+---
+title: Twilio 语音 trigger
+description: 当phone 调用为 received via Twilio 语音时触发 workflow
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="twilio_voice"
+  color=""
+/>
+
+当phone 调用为 received via Twilio 语音时触发 workflow
+
+<Callout type="info">
+  这是基于 webhook 的 trigger。请在外部服务中配置 webhook URL，以便向 TradingGoose 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="使用作为一个工具" href="/tools/twilio_voice">
+    参阅workflow 操作, 操作,和工具输入，用于Twilio 语音.
+  </Card>
+</Cards>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Twilio 语音 webhook"
+    type="twilio_voice_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "accountSid",
+            "type": "short-input",
+            "title": "Twilio 账户 SID",
+            "placeholder": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "description": "你的Twilio 账户 SID，来源为Twilio Console",
+            "required": true
+        },
+        {
+            "id": "authToken",
+            "type": "short-input",
+            "title": "身份验证 token",
+            "placeholder": "Your Twilio Auth Token",
+            "description": "你的Twilio 身份验证 token，用于webhook signature 验证",
+            "required": true,
+            "password": true
+        },
+        {
+            "id": "twimlResponse",
+            "type": "long-input",
+            "title": "TwiML 响应",
+            "placeholder": "[Response][Say]Please hold.[/Say][/Response]",
+            "description": "TwiML 说明到返回 immediately到Twilio. 使用 square brackets instead的angle brackets (例如： [响应] instead的&lt;响应&gt;). 此 controls 内容 happens 当通话 comes在(例如： 播放一个消息, record, gather 输入). 你的workflow 将执行在background."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "callSid",
+          "type": "string",
+          "description": "唯一标识符，用于此通话"
+      },
+      {
+          "name": "accountSid",
+          "type": "string",
+          "description": "Twilio 账户 SID"
+      },
+      {
+          "name": "from",
+          "type": "string",
+          "description": "Caller"
+      },
+      {
+          "name": "to",
+          "type": "string",
+          "description": "收件人 phone 数字 (你的 Twilio 数字)"
+      },
+      {
+          "name": "callStatus",
+          "type": "string",
+          "description": "状态的通话 (queued, ringing, in-progress, 已完成, etc.)"
+      },
+      {
+          "name": "direction",
+          "type": "string",
+          "description": "通话 direction: 入站或outbound"
+      },
+      {
+          "name": "apiVersion",
+          "type": "string",
+          "description": "Twilio API 版本"
+      },
+      {
+          "name": "callerName",
+          "type": "string",
+          "description": "Caller ID 名称如果可用"
+      },
+      {
+          "name": "forwardedFrom",
+          "type": "string",
+          "description": "电话数字该 forwarded 此通话"
+      },
+      {
+          "name": "digits",
+          "type": "string",
+          "description": "DTMF digits entered由caller (来自 &lt;Gather&gt;)"
+      },
+      {
+          "name": "speechResult",
+          "type": "string",
+          "description": "语音 recognition 结果 (如果使用 &lt;Gather&gt; 使用语音)"
+      },
+      {
+          "name": "recordingUrl",
+          "type": "string",
+          "description": "URL的通话录制内容如果可用"
+      },
+      {
+          "name": "recordingSid",
+          "type": "string",
+          "description": "录制内容 SID 如果可用"
+      },
+      {
+          "name": "called",
+          "type": "string",
+          "description": "电话数字该 曾为 called (相同作为 "
+      },
+      {
+          "name": "caller",
+          "type": "string",
+          "description": "电话数字的caller (相同作为 "
+      },
+      {
+          "name": "toCity",
+          "type": "string",
+          "description": "City的called 数字"
+      },
+      {
+          "name": "toState",
+          "type": "string",
+          "description": "状态/province的called 数字"
+      },
+      {
+          "name": "toZip",
+          "type": "string",
+          "description": "Zip/postal 代码的called 数字"
+      },
+      {
+          "name": "toCountry",
+          "type": "string",
+          "description": "国家的called 数字"
+      },
+      {
+          "name": "fromCity",
+          "type": "string",
+          "description": "City的caller"
+      },
+      {
+          "name": "fromState",
+          "type": "string",
+          "description": "状态/province的caller"
+      },
+      {
+          "name": "fromZip",
+          "type": "string",
+          "description": "Zip/postal 代码的caller"
+      },
+      {
+          "name": "fromCountry",
+          "type": "string",
+          "description": "国家的caller"
+      },
+      {
+          "name": "calledCity",
+          "type": "string",
+          "description": "City的called 数字 (相同作为 toCity)"
+      },
+      {
+          "name": "calledState",
+          "type": "string",
+          "description": "状态的called 数字 (相同作为 toState)"
+      },
+      {
+          "name": "calledZip",
+          "type": "string",
+          "description": "Zip 代码的called 数字 (相同作为 toZip)"
+      },
+      {
+          "name": "calledCountry",
+          "type": "string",
+          "description": "国家的called 数字 (相同作为 toCountry)"
+      },
+      {
+          "name": "callerCity",
+          "type": "string",
+          "description": "City的caller (相同作为 fromCity)"
+      },
+      {
+          "name": "callerState",
+          "type": "string",
+          "description": "状态的caller (相同作为 fromState)"
+      },
+      {
+          "name": "callerZip",
+          "type": "string",
+          "description": "Zip 代码的caller (相同作为 fromZip)"
+      },
+      {
+          "name": "callerCountry",
+          "type": "string",
+          "description": "国家的caller (相同作为 fromCountry)"
+      },
+      {
+          "name": "callToken",
+          "type": "string",
+          "description": "Twilio 通话 token，用于身份验证"
+      },
+      {
+          "name": "raw",
+          "type": "string",
+          "description": "Complete 原始 webhook payload，来源为Twilio 作为 JSON 字符串"
+      }
+  ]}
+/>
+
+

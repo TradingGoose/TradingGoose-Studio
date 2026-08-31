@@ -1,0 +1,286 @@
+---
+title: Mem0
+description: 代理记忆管理
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="mem0"
+  color=""
+/>
+
+
+## 配置
+
+### 添加 Memories
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择一个 operation",
+            "options": [
+                {
+                    "label": "Add Memories",
+                    "id": "add"
+                },
+                {
+                    "label": "Search Memories",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Memories",
+                    "id": "get"
+                }
+            ],
+            "defaultValue": "add"
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "输入 用户 标识符",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Mem0 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "messages",
+            "type": "code",
+            "title": "消息",
+            "layout": "full",
+            "placeholder": "JSON 数组, 例如 [{\"role\": \"用户\", \"content\": \"I love TradingGoose!\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ids` | json | Memory identifiers |
+| `memories` | json | Memory data |
+| `searchResults` | json | 搜索结果 |
+
+</div>
+
+
+
+---
+
+### 搜索 Memories
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择一个 operation",
+            "options": [
+                {
+                    "label": "Add Memories",
+                    "id": "add"
+                },
+                {
+                    "label": "Search Memories",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Memories",
+                    "id": "get"
+                }
+            ],
+            "defaultValue": "search"
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "输入 用户 标识符",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Mem0 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入 search query 到 find relevant memories",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "结果限制",
+            "layout": "full",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ids` | json | Memory identifiers |
+| `memories` | json | Memory data |
+| `searchResults` | json | 搜索结果 |
+
+</div>
+
+
+
+---
+
+### 获取 Memories
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mem0"
+    type="mem0"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "half",
+            "placeholder": "选择一个 operation",
+            "options": [
+                {
+                    "label": "Add Memories",
+                    "id": "add"
+                },
+                {
+                    "label": "Search Memories",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Memories",
+                    "id": "get"
+                }
+            ],
+            "defaultValue": "get"
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "用户 ID",
+            "layout": "full",
+            "placeholder": "输入 用户 标识符",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Mem0 API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "memoryId",
+            "type": "short-input",
+            "title": "Memory ID",
+            "layout": "full",
+            "placeholder": "指定 memory ID 到 retrieve"
+        },
+        {
+            "id": "startDate",
+            "type": "datetime-input",
+            "title": "开始日期",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "endDate",
+            "type": "datetime-input",
+            "title": "结束日期",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "limit",
+            "type": "slider",
+            "title": "结果限制",
+            "layout": "full",
+            "min": 1,
+            "max": 50,
+            "step": 1
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ids` | json | Memory identifiers |
+| `memories` | json | Memory data |
+| `searchResults` | json | 搜索结果 |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+集成 Mem0 到该 workflow. 可以 add, search, 和 retrieve memories.
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `mem0`

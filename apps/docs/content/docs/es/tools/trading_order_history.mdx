@@ -1,0 +1,85 @@
+---
+title: Trading Orden Historial
+description: Recupera los envíos de órdenes de trading registrados en un intervalo de fechas.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="trading_order_history"
+  color="#0f766e"
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trading Orden Historial"
+    type="trading_order_history"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "startDate",
+            "type": "datetime-input",
+            "title": "Iniciar Fecha",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ",
+            "required": true
+        },
+        {
+            "id": "endDate",
+            "type": "datetime-input",
+            "title": "Fin Fecha",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ",
+            "required": true
+        },
+        {
+            "id": "workflowId",
+            "type": "short-input",
+            "title": "Workflow ID",
+            "layout": "full",
+            "placeholder": "Defaults to current workflow"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `trading_order_history`
+
+Recuperar workspace orden envíos dentro de un datetime intervalo.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `startDate` | cadena | Sí | Iniciar datetime \(ISO 8601\). |
+| `endDate` | cadena | Sí | Fin datetime \(ISO 8601\). |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Orden historial record ID |
+| `provider` | cadena | Trading proveedor |
+| `recordedAt` | cadena | Registrado marca de tiempo |
+| `logId` | cadena | Linked workflow log ID |
+
+
+## Uso Instrucciones
+
+Fetches orden submission historial registrado por el Trading Acción herramienta para el workspace y fecha intervalo.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `trading_order_history`

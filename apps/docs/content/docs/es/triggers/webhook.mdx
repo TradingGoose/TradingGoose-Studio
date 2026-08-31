@@ -1,0 +1,67 @@
+---
+title: Webhooks
+description: Activa workflows mediante solicitudes HTTP externas a un webhook
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="generic_webhook"
+  color=""
+  icon={true}
+/>
+
+Webhooks permitir externo services a trigger workflow ejecución por sending HTTP solicitudes. TradingGoose supports two approaches para webhook-based triggers.
+
+<Callout type="info">
+  Este trigger se basa en webhooks. Configura la URL del webhook en el servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generic Webhook"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+      { "id": "webhookUrl", "title": "URL del webhook", "type": "short-input", "placeholder": "Auto-generated webhook URL", "description": "Copia esta URL y configúrala en el servicio externo" },
+      { "id": "secret", "title": "Webhook Secret", "type": "short-input", "password": true, "placeholder": "Optional secret for request validation" }
+    ]}
+  />
+</ShowcaseCard>
+
+### Cómo funciona
+
+1. **Añade el bloque Generic Webhook** — Arrastra el bloque Generic Webhook para iniciar el workflow
+2. **Obtén la URL del webhook** — Copia el endpoint único generado automáticamente
+3. **Integración externa** — Configura el servicio externo para que envíe solicitudes POST a esta URL
+4. **Ejecución del workflow** — Cada solicitud a la URL del webhook activa el workflow
+
+### Características
+
+- **Flexible Payload** — Accepts cualquier JSON payload structure
+- **Automatic Parsing** — Webhook datos es automatically parsed y disponible a subsequent blocks
+- **Autenticación** — Opcional bearer token o personalizado header autenticación
+- **Rate Limiting** — Built-in protection contra abuse
+
+## Modo de disparador para bloques de servicio
+
+Alternatively, tú puede usar específico servicio blocks (como Slack, GitHub, etc.) en "trigger modo" a crear más specialized webhook endpoints.
+
+**Usa webhook genérico cuando:**
+- Integres con aplicaciones o servicios personalizados
+- Necesites máxima flexibilidad en la estructura de la carga útil
+- Trabajes con servicios que no tienen bloques dedicados
+
+**Usa el modo de activación cuando:**
+- Trabajes con servicios compatibles (Slack, GitHub, etc.)
+- Quieras filtrado de eventos específico del servicio
+- Necesites registro automático de webhooks
+
+<Callout>
+El disparador de webhook genérico se activa cada vez que la URL del webhook recibe una solicitud, lo que lo hace perfecto para integraciones en tiempo real.
+</Callout>

@@ -1,0 +1,61 @@
+---
+title: "Consola del workflow"
+description: "Consola de ejecución en vivo con registros y salida transmitida."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|---|---|
+| **Clave** | `workflow_console` |
+| **Categoría** | Utilidad |
+
+Workflow Console muestra en tiempo real lo que sucede durante la ejecución. Cada entrada indica bloque, estado y hora; el diseño se adapta al ancho del panel.
+
+## Funciones
+
+- Registros en tiempo real con nombre, tipo, estado y salida.
+- Filtro por `error`, `info` y bloques; los filtros activos se resaltan.
+- Orden temporal ascendente o descendente.
+- Vista estructurada para objetos JSON.
+- Ajuste de texto o desplazamiento horizontal.
+- Exportación CSV de las entradas filtradas.
+- Borrado de todas las entradas del workflow activo.
+- Selector de workflow compatible con el color de pareja.
+
+## Uso
+
+### Añadir el widget
+
+Selecciona **Workflow Console** para cargar las entradas del workflow activo.
+
+### Diseño del encabezado
+
+- **Centro**: selector de workflow.
+- **Derecha**: filtro, orden, vista estructurada, ajuste, CSV y borrado.
+
+### Interacciones principales
+
+1. Ejecuta un workflow y observa las entradas.
+2. Filtra por bloques o errores.
+3. Activa la vista estructurada para JSON.
+4. Ajusta las líneas largas.
+5. Descarga las entradas filtradas como CSV.
+6. Borra la consola actual.
+
+### Sincronización por color
+
+Con un color de pareja sigue el workflow del editor; con `gray` puedes elegirlo de forma independiente.
+
+<Callout>Vincula este widget con **Workflow Editor** para ver los registros del workflow que construyes.</Callout>
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">Crea y edita workflows.</Card>
+  <Card title="Execution Guide" href="/execution">Conoce la ejecución.</Card>
+  <Card title="Workflow Chat" href="/widgets/workflow-chat">Ejecuta workflows mediante conversación.</Card>
+</Cards>

@@ -1,0 +1,46 @@
+---
+title: "指标列表"
+description: "浏览、创建和导入工作区指标。"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|----------|-------|
+| **键** | `list_indicator` |
+| **类别** | 列表 |
+
+指标列表 widget 用于浏览工作区中的自定义 PineTS 指标。可用它搜索现有指标、创建新指标、导入 TradingGoose 导出 JSON，并在 Indicator Editor 中打开所选指标。
+
+## 功能
+
+- **浏览和搜索**当前工作区中的指标。
+- 从 Create 菜单**新建**指标。
+- 使用 Create 菜单中的 **Import indicator** 操作**导入**指标。
+- 从列表中选择指标，**在编辑器中打开**。
+- 当列表与 Indicator Editor 使用相同配对颜色时，**配对颜色链接**会使它们保持同步。
+
+## 使用方法
+
+1. 将 widget 添加到工作区面板。
+2. 使用 Create 菜单新建指标或导入 TradingGoose 导出 JSON 文件。
+3. 在列表中选择指标，在配对的 Indicator Editor widget 中打开。
+4. 如果需要同步列表和编辑器之间的选择，请指定配对颜色。
+
+<Callout type="info">
+  创建和导入操作需要工作区编辑权限。浏览现有指标只需工作区访问权限。
+</Callout>
+
+## 相关内容
+
+<Cards>
+  <Card title="Indicator Editor" href="/widgets/editor-indicator">
+    编写 PineTS 代码、验证脚本，并将指标导出为 JSON。
+  </Card>
+  <Card title="Indicators Guide" href="/indicators">
+    了解 PineTS 脚本模型和内置指标。
+  </Card>
+</Cards>

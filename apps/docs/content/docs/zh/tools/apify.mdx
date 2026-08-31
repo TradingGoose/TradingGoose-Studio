@@ -1,0 +1,228 @@
+---
+title: Apify
+description: 运行 Apify Actor 并获取结果
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="apify"
+  color="#E0E0E0"
+/>
+
+
+## 配置
+
+### 运行 Actor
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apify"
+    type="apify"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Run Actor",
+                    "id": "apify_run_actor_sync"
+                },
+                {
+                    "label": "Run Actor (Async)",
+                    "id": "apify_run_actor_async"
+                }
+            ],
+            "defaultValue": "apify_run_actor_sync"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apify API 令牌",
+            "placeholder": "输入你的 Apify API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "actorId",
+            "type": "short-input",
+            "title": "Actor ID",
+            "placeholder": "例如, janedoe/my-actor 或 actor ID",
+            "required": true
+        },
+        {
+            "id": "input",
+            "type": "code",
+            "title": "Actor 输入",
+            "placeholder": "{\\n  \"startUrl\": \"https://example.com\",\\n  \"maxPages\": 10\\n}",
+            "language": "json"
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "Timeout",
+            "placeholder": "Actor timeout 在 seconds"
+        },
+        {
+            "id": "build",
+            "type": "short-input",
+            "title": "Build",
+            "placeholder": "Actor build (例如, \"latest\", \"beta\", 或 build 标签)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">运行 Actor (<code>apify_run_actor_sync</code>)</div>
+
+运行一个 APIFY actor synchronously 和 get 结果 (max 5 minutes)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | APIFY API 令牌从 console.apify.com/account#/集成 |
+| `actorId` | 字符串 | 是 | Actor ID 或用户名/actor-名称 \(例如, "janedoe/my-actor" 或 actor ID\) |
+| `input` | 字符串 | 否 | Actor input 作为 JSON 字符串. See actor documentation 用于 required 字段. |
+| `timeout` | 数字 | 否 | Timeout 在 seconds \(默认: actor 默认\) |
+| `build` | 字符串 | 否 | Actor build 到 run \(例如, "latest", "beta", 或 build 标签/数字\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | 布尔值 | 是否该 actor run succeeded |
+| `runId` | 字符串 | APIFY run ID |
+| `status` | 字符串 | 运行 status \(SUCCEEDED, FAILED, etc.\) |
+
+</div>
+
+
+
+---
+
+### 运行 Actor (Async)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apify"
+    type="apify"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Run Actor",
+                    "id": "apify_run_actor_sync"
+                },
+                {
+                    "label": "Run Actor (Async)",
+                    "id": "apify_run_actor_async"
+                }
+            ],
+            "defaultValue": "apify_run_actor_async"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apify API 令牌",
+            "placeholder": "输入你的 Apify API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "actorId",
+            "type": "short-input",
+            "title": "Actor ID",
+            "placeholder": "例如, janedoe/my-actor 或 actor ID",
+            "required": true
+        },
+        {
+            "id": "input",
+            "type": "code",
+            "title": "Actor 输入",
+            "placeholder": "{\\n  \"startUrl\": \"https://example.com\",\\n  \"maxPages\": 10\\n}",
+            "language": "json"
+        },
+        {
+            "id": "timeout",
+            "type": "short-input",
+            "title": "Timeout",
+            "placeholder": "Actor timeout 在 seconds"
+        },
+        {
+            "id": "build",
+            "type": "short-input",
+            "title": "Build",
+            "placeholder": "Actor build (例如, \"latest\", \"beta\", 或 build 标签)"
+        },
+        {
+            "id": "waitForFinish",
+            "type": "short-input",
+            "title": "等待用于 Finish",
+            "placeholder": "Initial 等待 time 在 seconds (0-60)"
+        },
+        {
+            "id": "itemLimit",
+            "type": "short-input",
+            "title": "项目限制",
+            "placeholder": "Max dataset 项目到 fetch (1-250000)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">运行 Actor (Async) (<code>apify_run_actor_async</code>)</div>
+
+运行一个 APIFY actor asynchronously 使用 polling 用于 long-运行中 tasks
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | APIFY API 令牌从 console.apify.com/account#/集成 |
+| `actorId` | 字符串 | 是 | Actor ID 或用户名/actor-名称 \(例如, "janedoe/my-actor" 或 actor ID\) |
+| `input` | 字符串 | 否 | Actor input 作为 JSON 字符串 |
+| `waitForFinish` | 数字 | 否 | Initial 等待 time 在 seconds \(0-60\) 之前 polling starts |
+| `itemLimit` | 数字 | 否 | Max dataset 项目到 fetch \(1-250000, 默认 100\) |
+| `timeout` | 数字 | 否 | Timeout 在 seconds \(默认: actor 默认\) |
+| `build` | 字符串 | 否 | Actor build 到 run \(例如, "latest", "beta", 或 build 标签/数字\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | 布尔值 | 是否该 actor run succeeded |
+| `runId` | 字符串 | APIFY run ID |
+| `status` | 字符串 | 运行 status \(SUCCEEDED, FAILED, etc.\) |
+| `datasetId` | 字符串 | Dataset ID containing 结果 |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+集成 Apify 到你的 workflow. 运行任何 Apify actor 使用自定义 input 和 retrieve 结果. Supports both synchronous 和 asynchronous execution 使用自动 dataset fetching.
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `apify`

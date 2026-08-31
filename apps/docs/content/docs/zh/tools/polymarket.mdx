@@ -1,0 +1,2307 @@
+---
+title: Polymarket
+description: 访问 Polymarket 的预测市场数据
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="polymarket"
+  color="#4C82FB"
+/>
+
+
+## 配置
+
+### 获取市场
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_markets"
+        },
+        {
+            "id": "closed",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "Active Only",
+                    "id": "false"
+                },
+                {
+                    "label": "Closed Only",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "排序按",
+            "options": [
+                {
+                    "label": "Volume",
+                    "id": "volumeNum"
+                },
+                {
+                    "label": "Liquidity",
+                    "id": "liquidityNum"
+                },
+                {
+                    "label": "Start Date",
+                    "id": "startDate"
+                },
+                {
+                    "label": "End Date",
+                    "id": "endDate"
+                },
+                {
+                    "label": "Created At",
+                    "id": "createdAt"
+                },
+                {
+                    "label": "Updated At",
+                    "id": "updatedAt"
+                }
+            ]
+        },
+        {
+            "id": "ascending",
+            "type": "dropdown",
+            "title": "排序订单",
+            "options": [
+                {
+                    "label": "Descending",
+                    "id": "false"
+                },
+                {
+                    "label": "Ascending",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "tagId",
+            "type": "short-input",
+            "title": "标签 ID",
+            "placeholder": "Filter by tag ID"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Markets (<code>polymarket_get_markets</code>)</div>
+
+检索一个列出的prediction 市场，来源为Polymarket 使用可选 filtering
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `closed` | 字符串 | 否 | 筛选条件由已关闭状态 \(true/false\). 使用 false，用于有效市场仅. |
+| `order` | 字符串 | 否 | 排序字段 \(例如： volumeNum, liquidityNum, startDate, endDate, createdAt\) |
+| `ascending` | 字符串 | 否 | 排序 direction \(true，用于升序, false，用于降序\) |
+| `tagId` | 字符串 | 否 | 筛选条件由标签 ID |
+| `limit` | 字符串 | 否 | 数量：结果每个页面 \(最大 50\) |
+| `offset` | 字符串 | 否 | 分页 offset \(跳过此 多个结果\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取市场
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_market"
+        },
+        {
+            "id": "marketId",
+            "type": "short-input",
+            "title": "市场 ID",
+            "placeholder": "Market ID (required if no slug)"
+        },
+        {
+            "id": "marketSlug",
+            "type": "short-input",
+            "title": "市场 slug",
+            "placeholder": "Market slug (required if no ID)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Market (<code>polymarket_get_market</code>)</div>
+
+获取prediction 市场由ID或slug的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `marketId` | 字符串 | 否 | 市场 ID. 必填如果 slug 为不 提供的. |
+| `slug` | 字符串 | 否 | 市场 slug \(例如： "will-trump-win"\). 必填如果 marketId 为不 提供的. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_events"
+        },
+        {
+            "id": "closed",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "Active Only",
+                    "id": "false"
+                },
+                {
+                    "label": "Closed Only",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "orderEvents",
+            "type": "dropdown",
+            "title": "排序按",
+            "options": [
+                {
+                    "label": "Volume",
+                    "id": "volume"
+                },
+                {
+                    "label": "Liquidity",
+                    "id": "liquidity"
+                },
+                {
+                    "label": "Start Date",
+                    "id": "startDate"
+                },
+                {
+                    "label": "End Date",
+                    "id": "endDate"
+                },
+                {
+                    "label": "Created At",
+                    "id": "createdAt"
+                },
+                {
+                    "label": "Updated At",
+                    "id": "updatedAt"
+                }
+            ]
+        },
+        {
+            "id": "ascending",
+            "type": "dropdown",
+            "title": "排序订单",
+            "options": [
+                {
+                    "label": "Descending",
+                    "id": "false"
+                },
+                {
+                    "label": "Ascending",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "tagId",
+            "type": "short-input",
+            "title": "标签 ID",
+            "placeholder": "Filter by tag ID"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Events (<code>polymarket_get_events</code>)</div>
+
+检索一个列出的事件，来源为Polymarket 使用可选 filtering
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `closed` | 字符串 | 否 | 筛选条件由已关闭状态 \(true/false\). 使用 false，用于有效事件仅. |
+| `order` | 字符串 | 否 | 排序字段 \(例如： 音量, liquidity, startDate, endDate, createdAt\) |
+| `ascending` | 字符串 | 否 | 排序 direction \(true，用于升序, false，用于降序\) |
+| `tagId` | 字符串 | 否 | 筛选条件由标签 ID |
+| `limit` | 字符串 | 否 | 数量：结果每个页面 \(最大 50\) |
+| `offset` | 字符串 | 否 | 分页 offset \(跳过此 多个结果\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_event"
+        },
+        {
+            "id": "eventId",
+            "type": "short-input",
+            "title": "事件 ID",
+            "placeholder": "Event ID (required if no slug)"
+        },
+        {
+            "id": "eventSlug",
+            "type": "short-input",
+            "title": "事件 slug",
+            "placeholder": "Event slug (required if no ID)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Event (<code>polymarket_get_event</code>)</div>
+
+获取事件由ID或slug的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `eventId` | 字符串 | 否 | 事件 ID. 必填如果 slug 为不 提供的. |
+| `slug` | 字符串 | 否 | 事件 slug \(例如： "2024-presidential-election"\). 必填如果 eventId 为不 提供的. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取标签
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_tags"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Tags (<code>polymarket_get_tags</code>)</div>
+
+检索可用标签，用于filtering 市场，来源为Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `limit` | 字符串 | 否 | 数量：结果每个页面 \(最大 50\) |
+| `offset` | 字符串 | 否 | 分页 offset \(跳过此 多个结果\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 搜索
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "search"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "placeholder": "Search term",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search (<code>polymarket_search</code>)</div>
+
+搜索用于市场, 事件,和个人资料在 Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `query` | 字符串 | 是 | 搜索查询 term |
+| `limit` | 字符串 | 否 | 数量：结果每个页面 \(最大 50\) |
+| `offset` | 字符串 | 否 | 分页 offset |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取系列
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_series"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Series (<code>polymarket_get_series</code>)</div>
+
+检索系列 (相关市场组)，来源为Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `limit` | 字符串 | 否 | 数量：结果每个页面 \(最大 50\) |
+| `offset` | 字符串 | 否 | 分页 offset \(跳过此 多个结果\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取系列由ID
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_series_by_id"
+        },
+        {
+            "id": "seriesId",
+            "type": "short-input",
+            "title": "系列 ID",
+            "placeholder": "Series ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Series by ID (<code>polymarket_get_series_by_id</code>)</div>
+
+检索一个特定系列 (相关市场组)由ID，来源为Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `seriesId` | 字符串 | 是 | 系列 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取Orderbook
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_orderbook"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Orderbook (<code>polymarket_get_orderbook</code>)</div>
+
+检索订单 book 摘要，用于一个特定 token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | 字符串 | 是 | CLOB token ID \(来自市场 clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取价格
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_price"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "Side",
+            "required": true,
+            "options": [
+                {
+                    "label": "Buy",
+                    "id": "buy"
+                },
+                {
+                    "label": "Sell",
+                    "id": "sell"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Price (<code>polymarket_get_price</code>)</div>
+
+检索市场价格，用于一个特定 token和side
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | 字符串 | 是 | CLOB token ID \(来自市场 clobTokenIds\) |
+| `side` | 字符串 | 是 | 订单 side: buy或sell |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取Midpoint
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_midpoint"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Midpoint (<code>polymarket_get_midpoint</code>)</div>
+
+检索midpoint 价格，用于一个特定 token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | 字符串 | 是 | CLOB token ID \(来自市场 clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取价格历史记录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_price_history"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        },
+        {
+            "id": "interval",
+            "type": "dropdown",
+            "title": "Interval",
+            "options": [
+                {
+                    "label": "1 Minute",
+                    "id": "1m"
+                },
+                {
+                    "label": "1 Hour",
+                    "id": "1h"
+                },
+                {
+                    "label": "6 Hours",
+                    "id": "6h"
+                },
+                {
+                    "label": "1 Day",
+                    "id": "1d"
+                },
+                {
+                    "label": "1 Week",
+                    "id": "1w"
+                },
+                {
+                    "label": "Max",
+                    "id": "max"
+                }
+            ]
+        },
+        {
+            "id": "fidelity",
+            "type": "short-input",
+            "title": "Fidelity (minutes)",
+            "placeholder": "Data resolution in minutes (e.g., 60)"
+        },
+        {
+            "id": "startTs",
+            "type": "short-input",
+            "title": "启动时间戳",
+            "placeholder": "Unix timestamp UTC (if no interval)"
+        },
+        {
+            "id": "endTs",
+            "type": "short-input",
+            "title": "结束时间戳",
+            "placeholder": "Unix timestamp UTC (if no interval)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Price History (<code>polymarket_get_price_history</code>)</div>
+
+检索历史价格数据，用于一个特定市场 token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | 字符串 | 是 | CLOB token ID \(来自市场 clobTokenIds\) |
+| `interval` | 字符串 | 否 | 时长 ending 在当前 time \(1m, 1h, 6h, 1d, 1w, 最大\). Mutually exclusive 使用startTs/endTs. |
+| `fidelity` | 数字 | 否 | 数据 resolution在minutes \(例如： 60，用于hourly\) |
+| `startTs` | 数字 | 否 | 启动时间戳 \(Unix 秒 UTC\) |
+| `endTs` | 数字 | 否 | 结束时间戳 \(Unix 秒 UTC\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取最后一个 Trade 价格
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_last_trade_price"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Last Trade Price (<code>polymarket_get_last_trade_price</code>)</div>
+
+检索最后一个 trade 价格，用于一个特定 token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | 字符串 | 是 | CLOB token ID \(来自市场 clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取Spread
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_spread"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Spread (<code>polymarket_get_spread</code>)</div>
+
+检索bid-ask spread，用于一个特定 token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | 字符串 | 是 | CLOB token ID \(来自市场 clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取Tick 大小
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_tick_size"
+        },
+        {
+            "id": "tokenId",
+            "type": "short-input",
+            "title": "token ID",
+            "placeholder": "CLOB Token ID from market",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Tick Size (<code>polymarket_get_tick_size</code>)</div>
+
+检索最小 tick 大小，用于一个特定 token
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `tokenId` | 字符串 | 是 | CLOB token ID \(来自市场 clobTokenIds\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取持仓
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_positions"
+        },
+        {
+            "id": "user",
+            "type": "short-input",
+            "title": "用户 Wallet 地址",
+            "placeholder": "Wallet address",
+            "required": true
+        },
+        {
+            "id": "market",
+            "type": "short-input",
+            "title": "市场 ID",
+            "placeholder": "Market ID (optional filter)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Positions (<code>polymarket_get_positions</code>)</div>
+
+检索user 持仓，来源为Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `user` | 字符串 | 是 | 用户 wallet 地址 |
+| `market` | 字符串 | 否 | 可选市场 ID到筛选条件持仓 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+### 获取交易
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Polymarket"
+    type="polymarket"
+    color="#4C82FB"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get Markets",
+                    "id": "get_markets"
+                },
+                {
+                    "label": "Get Market",
+                    "id": "get_market"
+                },
+                {
+                    "label": "Get Events",
+                    "id": "get_events"
+                },
+                {
+                    "label": "Get Event",
+                    "id": "get_event"
+                },
+                {
+                    "label": "Get Tags",
+                    "id": "get_tags"
+                },
+                {
+                    "label": "Search",
+                    "id": "search"
+                },
+                {
+                    "label": "Get Series",
+                    "id": "get_series"
+                },
+                {
+                    "label": "Get Series by ID",
+                    "id": "get_series_by_id"
+                },
+                {
+                    "label": "Get Orderbook",
+                    "id": "get_orderbook"
+                },
+                {
+                    "label": "Get Price",
+                    "id": "get_price"
+                },
+                {
+                    "label": "Get Midpoint",
+                    "id": "get_midpoint"
+                },
+                {
+                    "label": "Get Price History",
+                    "id": "get_price_history"
+                },
+                {
+                    "label": "Get Last Trade Price",
+                    "id": "get_last_trade_price"
+                },
+                {
+                    "label": "Get Spread",
+                    "id": "get_spread"
+                },
+                {
+                    "label": "Get Tick Size",
+                    "id": "get_tick_size"
+                },
+                {
+                    "label": "Get Positions",
+                    "id": "get_positions"
+                },
+                {
+                    "label": "Get Trades",
+                    "id": "get_trades"
+                }
+            ],
+            "defaultValue": "get_trades"
+        },
+        {
+            "id": "user",
+            "type": "short-input",
+            "title": "用户 Wallet 地址",
+            "placeholder": "Wallet address (optional filter)"
+        },
+        {
+            "id": "market",
+            "type": "short-input",
+            "title": "市场 ID",
+            "placeholder": "Market ID (optional filter)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (max 50)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "Pagination offset"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Trades (<code>polymarket_get_trades</code>)</div>
+
+检索trade 历史记录，来源为Polymarket
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `user` | 字符串 | 否 | 用户 wallet 地址到筛选条件交易 |
+| `market` | 字符串 | 否 | 市场 ID到筛选条件交易 |
+| `limit` | 字符串 | 否 | 数量：结果每个页面 \(最大 50\) |
+| `offset` | 字符串 | 否 | 分页 offset \(跳过此 多个结果\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+参阅到块输出，用于此操作.
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将Polymarket prediction 市场集成到 workflow 中。可以get 市场, 市场, 事件, 事件, 标签, 系列, orderbook, 价格, midpoint, 价格历史记录, 最后一个 trade 价格, spread, tick 大小, 持仓, 交易,和搜索.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `polymarket`

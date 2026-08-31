@@ -1,0 +1,452 @@
+---
+title: OneDrive
+description: 创建、上传和列出文件
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="onedrive"
+  color=""
+/>
+
+
+## 配置
+
+### 创建文件夹
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "create_folder"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "onedrive"
+        },
+        {
+            "id": "folderName",
+            "type": "short-input",
+            "title": "文件夹名称",
+            "layout": "full",
+            "placeholder": "Name for the new folder"
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "选择父级文件夹",
+            "layout": "full",
+            "placeholder": "Select a parent folder",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "父级文件夹 ID",
+            "layout": "full",
+            "placeholder": "Enter parent folder ID (leave empty for root folder)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Folder (<code>onedrive_create_folder</code>)</div>
+
+创建文件夹在OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `folderName` | 字符串 | 是 | 名称的文件夹到创建 |
+| `folderSelector` | 字符串 | 否 | 选择父级文件夹到创建文件夹在|
+| `manualFolderId` | 字符串 | 否 | Manually entered 父级文件夹 ID \(advanced 模式\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | 布尔值 | 是否文件夹曾为已创建 successfully |
+
+</div>
+
+
+
+---
+
+### 创建文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "create_file"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "onedrive"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "文件名称",
+            "layout": "full",
+            "placeholder": "Name of the file",
+            "required": true
+        },
+        {
+            "id": "mimeType",
+            "type": "dropdown",
+            "title": "文件类型",
+            "layout": "full",
+            "placeholder": "Select file type",
+            "required": true,
+            "options": [
+                {
+                    "label": "Text File (.txt)",
+                    "id": "text/plain"
+                },
+                {
+                    "label": "Excel File (.xlsx)",
+                    "id": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                }
+            ]
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "值",
+            "layout": "full",
+            "placeholder": "Enter values as JSON array of arrays (e.g., [[\"A1\",\"B1\"],[\"A2\",\"B2\"]]) or an array of objects"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "文本内容",
+            "layout": "full",
+            "placeholder": "Text content for the file",
+            "required": true
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "选择父级文件夹",
+            "layout": "full",
+            "placeholder": "Select a parent folder",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "父级文件夹 ID",
+            "layout": "full",
+            "placeholder": "Enter parent folder ID (leave empty for root folder)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `file` | json | OneDrive file 对象, 包括详细信息例如作为 id, 名称, 大小,和更多. |
+| `files` | json | 一个数组的OneDrive file 对象, 每个包含详细信息例如作为 id, 名称, 大小,和更多. |
+
+</div>
+
+
+
+---
+
+### 上传文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "onedrive"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "文件名称",
+            "layout": "full",
+            "placeholder": "Name of the file",
+            "required": true
+        },
+        {
+            "id": "file",
+            "type": "file-upload",
+            "title": "文件",
+            "layout": "full",
+            "placeholder": "Upload a file"
+        },
+        {
+            "id": "fileReference",
+            "type": "short-input",
+            "title": "文件",
+            "layout": "full",
+            "placeholder": "Reference file from previous block (e.g., {{block_1.file}})"
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "选择父级文件夹",
+            "layout": "full",
+            "placeholder": "Select a parent folder",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "父级文件夹 ID",
+            "layout": "full",
+            "placeholder": "Enter parent folder ID (leave empty for root folder)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Upload File (<code>onedrive_upload</code>)</div>
+
+上传一个 file到OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | 字符串 | 是 | 名称的file到upload |
+| `file` | file | 否 | file到upload \(binary\) |
+| `content` | 字符串 | 否 | 文本内容到upload \(如果否 file 为提供的\) |
+| `mimeType` | 字符串 | 否 | MIME 类型的file到创建 \(例如： 文本/plain，用于.txt, 应用/vnd.openxmlformats-officedocument.spreadsheetml.sheet，用于.xlsx\) |
+| `folderSelector` | 字符串 | 否 | 选择文件夹到upload file到|
+| `manualFolderId` | 字符串 | 否 | Manually entered 文件夹 ID \(advanced 模式\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | 布尔值 | 是否file 曾为 uploaded successfully |
+
+</div>
+
+
+
+---
+
+### 列出文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft 账户",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "onedrive"
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "选择文件夹",
+            "layout": "full",
+            "placeholder": "Select a folder to list files from",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "文件夹 ID",
+            "layout": "full",
+            "placeholder": "Enter folder ID (leave empty for root folder)"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "Search for specific files (e.g., name contains \"report\")"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "结果每个页面",
+            "layout": "full",
+            "placeholder": "Number of results (default: 100, max: 1000)",
+            "max": 1000
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Files (<code>onedrive_list</code>)</div>
+
+列出文件和folders在OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `folderSelector` | 字符串 | 否 | 选择文件夹到列出文件，来源为|
+| `manualFolderId` | 字符串 | 否 | manually entered 文件夹 ID \(advanced 模式\) |
+| `query` | 字符串 | 否 | A 查询到筛选条件文件 |
+| `pageSize` | 数字 | 否 | 数字的文件到返回 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | 布尔值 | 是否文件曾为 listed successfully |
+| `files` | 数组 | 以下内容的数组：file和文件夹对象使用元数据 |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将OneDrive集成到 workflow 中。可以创建文本和Excel 文件, upload 文件,和列出文件.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `onedrive`

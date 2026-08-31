@@ -1,0 +1,422 @@
+---
+title: Discord
+description: Interact con Discord
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="discord"
+  color=""
+/>
+
+
+## Configuración
+
+### Enviar Mensaje
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Discord"
+    type="discord"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "discord_send_message"
+                },
+                {
+                    "label": "Get Channel Messages",
+                    "id": "discord_get_messages"
+                },
+                {
+                    "label": "Get Server Information",
+                    "id": "discord_get_server"
+                },
+                {
+                    "label": "Get User Information",
+                    "id": "discord_get_user"
+                }
+            ],
+            "defaultValue": "discord_send_message"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce Discord bot token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "serverId",
+            "type": "short-input",
+            "title": "Server ID",
+            "layout": "full",
+            "placeholder": "Introduce Discord servidor ID",
+            "provider": "discord",
+            "required": true
+        },
+        {
+            "id": "channelId",
+            "type": "short-input",
+            "title": "Channel ID",
+            "layout": "full",
+            "placeholder": "Introduce Discord canal ID",
+            "provider": "discord",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Mensaje Contenido",
+            "layout": "full",
+            "placeholder": "Introduce message content..."
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Attachments",
+            "layout": "full",
+            "placeholder": "Cargar files un attach"
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "Archivo Attachments",
+            "layout": "full",
+            "placeholder": "Reference files desde anterior blocks"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar Mensaje (<code>discord_send_message</code>)</div>
+
+Enviar un message un un Discord canal
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | cadena | Sí | El bot token para authentication |
+| `channelId` | cadena | Sí | El Discord canal ID un send el message un |
+| `content` | cadena | No | El text content de el message |
+| `serverId` | cadena | Sí | El Discord servidor ID \(guild ID\) |
+| `files` | file[] | No | Archivos un attach un el message |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Correcto o error message |
+| `id` | cadena | Author user ID |
+| `content` | cadena | Mensaje content |
+| `channel_id` | cadena | Channel ID donde message was sent |
+| `username` | cadena | Author nombre de usuario |
+| `avatar` | cadena | Author avatar hash |
+
+</div>
+
+
+
+---
+
+### Obtener Channel Mensajes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Discord"
+    type="discord"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "discord_send_message"
+                },
+                {
+                    "label": "Get Channel Messages",
+                    "id": "discord_get_messages"
+                },
+                {
+                    "label": "Get Server Information",
+                    "id": "discord_get_server"
+                },
+                {
+                    "label": "Get User Information",
+                    "id": "discord_get_user"
+                }
+            ],
+            "defaultValue": "discord_get_messages"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce Discord bot token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "serverId",
+            "type": "short-input",
+            "title": "Server ID",
+            "layout": "full",
+            "placeholder": "Introduce Discord servidor ID",
+            "provider": "discord",
+            "required": true
+        },
+        {
+            "id": "channelId",
+            "type": "short-input",
+            "title": "Channel ID",
+            "layout": "full",
+            "placeholder": "Introduce Discord canal ID",
+            "provider": "discord",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Mensaje Límite",
+            "layout": "half",
+            "placeholder": "Number de messages (predeterminado: 10, max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Channel Mensajes (<code>discord_get_messages</code>)</div>
+
+Recuperar messages desde un Discord canal
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | cadena | Sí | El bot token para authentication |
+| `channelId` | cadena | Sí | El Discord canal ID un retrieve messages desde |
+| `limit` | número | No | Número máximo de mensajes que se recuperarán \(predeterminado: 10; máximo: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Correcto o error message |
+| `id` | cadena | Author user ID |
+| `content` | cadena | Mensaje content |
+| `channel_id` | cadena | Channel ID |
+| `username` | cadena | Author nombre de usuario |
+| `avatar` | cadena | Author avatar hash |
+
+</div>
+
+
+
+---
+
+### Obtener Server Information
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Discord"
+    type="discord"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "discord_send_message"
+                },
+                {
+                    "label": "Get Channel Messages",
+                    "id": "discord_get_messages"
+                },
+                {
+                    "label": "Get Server Information",
+                    "id": "discord_get_server"
+                },
+                {
+                    "label": "Get User Information",
+                    "id": "discord_get_user"
+                }
+            ],
+            "defaultValue": "discord_get_server"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce Discord bot token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "serverId",
+            "type": "short-input",
+            "title": "Server ID",
+            "layout": "full",
+            "placeholder": "Introduce Discord servidor ID",
+            "provider": "discord",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Server Information (<code>discord_get_server</code>)</div>
+
+Recuperar información about un Discord servidor (guild)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | cadena | Sí | El bot token para authentication |
+| `serverId` | cadena | Sí | El Discord servidor ID \(guild ID\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Correcto o error message |
+| `id` | cadena | Server ID |
+| `name` | cadena | Server name |
+| `icon` | cadena | Server icon hash |
+| `description` | cadena | Server description |
+| `owner_id` | cadena | Server owner user ID |
+| `roles` | matriz | Server roles |
+| `channels` | matriz | Server channels |
+
+</div>
+
+
+
+---
+
+### Obtener Usuario Information
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Discord"
+    type="discord"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Send Message",
+                    "id": "discord_send_message"
+                },
+                {
+                    "label": "Get Channel Messages",
+                    "id": "discord_get_messages"
+                },
+                {
+                    "label": "Get Server Information",
+                    "id": "discord_get_server"
+                },
+                {
+                    "label": "Get User Information",
+                    "id": "discord_get_user"
+                }
+            ],
+            "defaultValue": "discord_get_user"
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "layout": "full",
+            "placeholder": "Introduce Discord bot token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "Usuario ID",
+            "layout": "full",
+            "placeholder": "Introduce Discord user ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Usuario Information (<code>discord_get_user</code>)</div>
+
+Recuperar información about un Discord user
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | cadena | Sí | Discord bot token para authentication |
+| `userId` | cadena | Sí | El Discord user ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Correcto o error message |
+| `id` | cadena | Usuario ID |
+| `username` | cadena | Username |
+| `discriminator` | cadena | Usuario discriminator \(4-digit number\) |
+| `avatar` | cadena | Usuario avatar hash |
+| `bot` | booleano | Si user is un bot |
+| `system` | booleano | Si user is un system user |
+| `email` | cadena | Correo electrónico del usuario \(si está disponible\) |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integra Discord en el workflow. Permite enviar y obtener mensajes, consultar información del servidor y obtener información de una persona usuaria.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `discord`

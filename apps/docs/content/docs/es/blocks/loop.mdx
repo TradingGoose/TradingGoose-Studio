@@ -1,0 +1,121 @@
+---
+title: Bucle
+description: Repite bloques varias veces con control de iteraciones
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
+<BlockInfoCard
+  type="loop"
+  color=""
+/>
+
+El bloque Loop es un contenedor que ejecuta repetidamente los bloques que contiene. No es un bloque normal con un archivo de origen propio, sino un nodo envolvente especial gestionado por `LoopBlockHandler` en el ejecutor. Arrastra bloques al contenedor para ejecutarlos una vez por iteración.
+
+<Callout type="info">
+  Los bloques Loop son nodos contenedores. Arrastra bloques secundarios al bucle en el lienzo. Las conexiones entrantes acceden por Loop Start y las salidas secundarias vuelven a conectarse con Loop End antes de que el workflow continúe fuera del bucle.
+</Callout>
+
+## Tipos de bucle
+
+<Tabs items={['For', 'ForEach', 'While', 'Do-While']}>
+  <Tab>
+    **Bucle For** -- se ejecuta un número fijo de veces. Si no se especifica, el número predeterminado de iteraciones es **5**.
+
+    ```
+    Example: Run 3 times
+    - Iteration 1 (index 0)
+    - Iteration 2 (index 1)
+    - Iteration 3 (index 2)
+    ```
+  </Tab>
+  <Tab>
+    **Bucle ForEach** -- recorre cada elemento de una matriz u objeto. La colección no puede estar vacía; una colección vacía genera un error.
+
+    ```
+    Example: Process ["apple", "banana", "orange"]
+    - Iteration 1: currentItem = "apple"
+    - Iteration 2: currentItem = "banana"
+    - Iteration 3: currentItem = "orange"
+    ```
+
+    Para los objetos, cada iteración recibe un par `[key, value]`.
+  </Tab>
+  <Tab>
+    **Bucle While** -- evalúa una condición **antes** de cada iteración. Si la condición es falsa en la primera comprobación, el cuerpo no se ejecuta.
+
+    Los bucles While y Do-While **no tienen un límite de iteraciones integrado**. Se detienen cuando la condición se vuelve falsa o cuando el workflow alcanza el tiempo de espera.
+  </Tab>
+  <Tab>
+    **Bucle Do-While** -- ejecuta el cuerpo al menos una vez y evalúa la condición **después** de cada iteración. Úsalo cuando necesites una ejecución antes de comprobar la condición.
+  </Tab>
+</Tabs>
+
+## Funcionamiento
+
+El componente `LoopBlockHandler` del ejecutor gestiona las iteraciones:
+
+1. **Inicialización** -- el contador empieza en 1. En bucles `forEach`, se resuelve la colección (JSON, referencias a variables o expresiones).
+2. **Comprobación de continuidad** -- `for` y `forEach` comparan el contador con la longitud de la colección o el número de iteraciones. `while` y `doWhile` evalúan la condición con el mismo motor que el bloque Condition.
+3. **Activación de bloques secundarios** -- los bloques conectados al punto inicial interno del bucle se añaden a la ruta de ejecución activa.
+4. **Recopilación de resultados** -- las salidas de cada iteración se agregan en `loop.results`.
+5. **Incremento y repetición** -- el contador avanza y se repite el paso 2. Al terminar, se activan los bloques conectados al punto de salida.
+
+## Variables de iteración
+
+En el cuerpo del bucle están disponibles estas variables:
+
+| Variable | Tipo | Descripción |
+|---|---|---|
+| `loop.index` | number | Índice de base cero de la iteración actual |
+| `loop.currentItem` | any | Elemento actual (ForEach) o contexto del bucle (While) |
+| `loop.items` | array/object | Colección completa que se recorre (solo ForEach) |
+
+Después de completar el bucle, los bloques posteriores pueden acceder a:
+
+| Variable | Tipo | Descripción |
+|---|---|---|
+| `loop.results` | array | Matriz ordenada con las salidas de todas las iteraciones |
+
+## Configuración
+
+| Parámetro | Se aplica a | Descripción |
+|---|---|---|
+| **Loop Type** | All | `for`, `forEach`, `while` o `doWhile` |
+| **Iterations** | For | Número de repeticiones (valor predeterminado: 5) |
+| **Collection** | ForEach | Matriz u objeto que se recorrerá. Admite literales JSON, referencias `<block.output>` y expresiones. |
+| **Condition** | While / Do-While | Expresión booleana evaluada en cada iteración (p. ej., `<variable.i> < 10`) |
+
+## Ejemplos de uso
+
+### Procesamiento de resultados de una API
+
+1. Un bloque API obtiene una lista de clientes.
+2. Un bucle ForEach recorre cada cliente.
+3. Dentro del bucle, un Agent analiza los datos y una Function almacena el resultado.
+4. Después del bucle, un bloque Response devuelve los resultados agregados de `loop.results`.
+
+### Refinamiento iterativo
+
+1. Un bucle For configurado con 5 iteraciones genera variaciones de contenido.
+2. Dentro del bucle, un Agent crea un borrador y un Evaluator lo puntúa.
+3. Después del bucle, una Function selecciona en `loop.results` la variación con mayor puntuación.
+
+## Limitaciones
+
+<Callout type="warning">
+  Los bloques contenedores (Loops y Parallels) **no pueden anidarse**. No puedes colocar un Loop dentro de otro Loop ni un Parallel dentro de un Loop. Para iteraciones multidimensionales, reestructura el workflow con bucles secuenciales o procesa los datos por etapas.
+</Callout>
+
+<Callout type="info">
+  Los bucles ejecutan las iteraciones **secuencialmente**. Para ejecutar tareas independientes de forma simultánea, usa el bloque Parallel.
+</Callout>
+
+## Prácticas recomendadas
+
+- **Define números de iteraciones razonables** para evitar workflows de larga duración. El valor predeterminado es 5.
+- **Usa ForEach para colecciones** -- adapta automáticamente el número de iteraciones al tamaño de la colección y proporciona `currentItem`.
+- **Actualiza siempre la variable de condición** dentro de bucles While o Do-While. Si no cambias la variable de la que depende la condición, crearás un bucle infinito limitado únicamente por el tiempo de espera del workflow.

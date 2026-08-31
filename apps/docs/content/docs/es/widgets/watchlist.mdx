@@ -1,0 +1,51 @@
+---
+title: "Watchlist"
+description: "Gestiona listas de símbolos con columnas de mercado en vivo."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|---|---|
+| **Clave** | `watchlist` |
+| **Categoría** | Datos |
+
+El widget Watchlist permite crear, organizar y supervisar listas de símbolos con precios en vivo. Muestra último precio, cambio y porcentaje de cambio, y admite reordenación, secciones plegables y edición en línea.
+
+## Funciones
+
+- **Varias watchlists** -- Crea, cambia de nombre y elimina listas. El selector cambia entre ellas; las listas del sistema no pueden eliminarse.
+- **Precios en vivo** -- Cada fila muestra **Last**, **Change** y **Change %** en verde o rojo. Se actualizan automáticamente o mediante el botón del encabezado.
+- **Secciones** -- Agrupa símbolos bajo encabezados plegables, que pueden cambiarse de nombre y abrirse por separado.
+- **Arrastrar y soltar** -- Reordena símbolos y secciones con ratón, toque o teclado, y mueve elementos entre secciones.
+- **Edición en línea** -- Haz doble clic para cambiar el símbolo sin quitarlo y añadirlo de nuevo.
+- **Buscar y añadir** -- Busca una cotización en el centro del encabezado y pulsa el botón de confirmación para añadirla.
+- **Importar/exportar** -- Usa el menú de acciones y el formato JSON compartido de TradingGoose; conserva secciones y orden.
+- **Proveedor** -- Selecciona el proveedor en el lado izquierdo y configura parámetros y credenciales.
+- **Vincular por color** -- Al hacer clic se envía la cotización a los widgets con el mismo color, como [Data Chart](/widgets/data-chart), y se resalta el símbolo vinculado.
+
+## Uso
+
+El encabezado contiene: **izquierda**, configuración y selección del proveedor y actualización manual; **centro**, búsqueda y botón para añadir; **derecha**, selector de watchlist y menú para crear listas, añadir secciones, importar, exportar o eliminar. Haz clic para seleccionar; doble clic para editar. Los controles de fila eliminan elementos y los encabezados permiten cambiar nombre o eliminar secciones.
+
+<Callout type="info">Asigna el mismo color de pareja a Watchlist y Data Chart para cargar el gráfico al seleccionar un símbolo.</Callout>
+
+## Configuración
+
+| Parámetro | Descripción |
+|---|---|
+| `watchlistId` | ID de la watchlist seleccionada. |
+| `provider` | Proveedor de datos para obtener precios. |
+| `providerParams` | Parámetros del proveedor, como bolsa o mercado. |
+| `auth` | Clave API o secreto opcional. |
+| `runtime.refreshAt` | Marca de tiempo epoch que activa una actualización. |
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="Data Chart" href="/widgets/data-chart">Vincúlalo para cargar gráficos al seleccionar símbolos.</Card>
+  <Card title="Tools Overview" href="/tools">Explora todos los tools de workflow.</Card>
+</Cards>

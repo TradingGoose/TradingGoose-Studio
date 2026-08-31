@@ -1,0 +1,81 @@
+---
+title: Editor de workflows
+description: "Interfaz de lienzo para crear y editar workflows."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|---|---|
+| **Clave** | `editor_workflow` |
+| **Categoría** | Editor |
+
+Workflow Editor es el lienzo principal para crear workflows. Representa un gráfico React Flow donde colocas bloques, trazas conexiones y configuras cada paso. Cada widget usa su propio socket y almacén, por lo que varios editores funcionan de forma independiente.
+
+## Funciones
+
+- Lienzo React Flow con desplazamiento, zoom y selección.
+- Barra con búsqueda de bloques, tools y triggers por categoría; arrástralos al lienzo.
+- Bloques especiales Loop y Parallel.
+- Controles flotantes y controles de modo de entrenamiento configurables.
+- Exportación JSON de TradingGoose, incluidas las skills del espacio de trabajo.
+- Lista de triggers asociados.
+- Posición según la vista para colocar nuevos bloques en el centro visible.
+- Validación de subflows anidados y errores en tiempo real.
+- Advertencia al duplicar un trigger o infringir sus restricciones.
+
+## Uso
+
+### Añadir el widget
+
+Selecciona **Workflow Editor**. Carga el workflow activo o muestra un marcador si todavía no existe ninguno.
+
+### Diseño del encabezado
+
+- **Izquierda**: barra para buscar y añadir bloques, tools y triggers.
+- **Centro**: selector de workflow.
+- **Derecha**: controles de ejecución, exportación, guardado y acciones del workflow.
+
+### Interacciones principales
+
+1. **Añadir**: elige un bloque para colocarlo en el centro visible.
+2. **Conectar**: arrastra de una salida a una entrada.
+3. **Seleccionar y configurar**: haz clic en un nodo.
+4. **Eliminar**: selecciona un nodo o conexión y pulsa Delete.
+5. **Deshacer / rehacer**: usa los atajos estándar.
+
+### Sincronización por color
+
+Un color de pareja comparte el workflow activo con otros widgets. `gray` mantiene una selección independiente en los parámetros.
+
+<Callout>Vincula **Console**, **Chat** o **Variables** con el mismo color. El color solo sincroniza widgets del dashboard; Copilot sigue el layout activo.</Callout>
+
+## Configuración
+
+`WorkflowCanvasUIConfig` controla el lienzo:
+
+| Opción | Valor | Descripción |
+|---|---|---|
+| `floatingControls` | `true` | Muestra acciones flotantes. |
+| `trainingControls` | `true` | Habilita controles de entrenamiento. |
+| `forceTrainingControls` | `false` | Los muestra siempre. |
+| `triggerList` | `true` | Muestra la lista de triggers. |
+| `controlBar` | `false` | Muestra la barra heredada. |
+
+Los valores del widget se combinan con las anulaciones del layout.
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="Blocks Overview" href="/blocks">Explora los bloques.</Card>
+  <Card title="Tools Overview" href="/tools">Explora los tools.</Card>
+  <Card title="Triggers Overview" href="/triggers">Explora los triggers.</Card>
+  <Card title="Workflow List" href="/widgets/list-workflow">Explora, crea e importa workflows.</Card>
+  <Card title="Workflow Console" href="/widgets/workflow-console">Consulta registros y salidas.</Card>
+  <Card title="Workflow Chat" href="/widgets/workflow-chat">Interactúa con un workflow en ejecución.</Card>
+  <Card title="Copilot" href="/copilot">Asistente global del espacio de trabajo.</Card>
+  <Card title="Workflow Variables" href="/widgets/workflow-variables">Examina y edita variables.</Card>
+</Cards>

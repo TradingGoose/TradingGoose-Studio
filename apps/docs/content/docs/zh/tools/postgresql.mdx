@@ -1,0 +1,774 @@
+---
+title: PostgreSQL
+description: 连接 PostgreSQL 数据库
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="postgresql"
+  color=""
+/>
+
+
+## 配置
+
+### 查询 (SELECT)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostgreSQL"
+    type="postgresql"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Query (SELECT)",
+                    "id": "query"
+                },
+                {
+                    "label": "Insert Data",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update Data",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Data",
+                    "id": "delete"
+                },
+                {
+                    "label": "Execute Raw SQL",
+                    "id": "execute"
+                }
+            ],
+            "defaultValue": "query"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost or your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "layout": "full",
+            "placeholder": "5432",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "postgres",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "Your database password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                },
+                {
+                    "label": "Required",
+                    "id": "required"
+                },
+                {
+                    "label": "Preferred",
+                    "id": "preferred"
+                }
+            ]
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "SQL 查询",
+            "layout": "full",
+            "placeholder": "SELECT * FROM users WHERE active = true",
+            "language": "sql",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Query (SELECT) (<code>postgresql_query</code>)</div>
+
+执行一个 SELECT 查询在 PostgreSQL 数据库
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | PostgreSQL 服务器主机名或IP 地址 |
+| `port` | 数字 | 是 | PostgreSQL 服务器端口 \(默认值： 5432\) |
+| `database` | 字符串 | 是 | 要连接的数据库名称 |
+| `username` | 字符串 | 是 | 数据库用户名 |
+| `password` | 字符串 | 是 | 数据库密码 |
+| `ssl` | 字符串 | 否 | SSL connection 模式 \(已禁用, 必填, 首选\) |
+| `query` | 字符串 | 是 | SQL SELECT 查询到执行 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+| `rows` | 数组 | 以下内容的数组：行已返回，来源为查询 |
+
+</div>
+
+
+
+---
+
+### Insert 数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostgreSQL"
+    type="postgresql"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Query (SELECT)",
+                    "id": "query"
+                },
+                {
+                    "label": "Insert Data",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update Data",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Data",
+                    "id": "delete"
+                },
+                {
+                    "label": "Execute Raw SQL",
+                    "id": "execute"
+                }
+            ],
+            "defaultValue": "insert"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost or your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "layout": "full",
+            "placeholder": "5432",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "postgres",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "Your database password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                },
+                {
+                    "label": "Required",
+                    "id": "required"
+                },
+                {
+                    "label": "Preferred",
+                    "id": "preferred"
+                }
+            ]
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表名称",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "数据 (JSON)",
+            "layout": "full",
+            "placeholder": "{\\n  \"name\": \"John Doe\",\\n  \"email\": \"john@example.com\",\\n  \"active\": true\\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Insert Data (<code>postgresql_insert</code>)</div>
+
+Insert 数据到 PostgreSQL 数据库
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | PostgreSQL 服务器主机名或IP 地址 |
+| `port` | 数字 | 是 | PostgreSQL 服务器端口 \(默认值： 5432\) |
+| `database` | 字符串 | 是 | 要连接的数据库名称 |
+| `username` | 字符串 | 是 | 数据库用户名 |
+| `password` | 字符串 | 是 | 数据库密码 |
+| `ssl` | 字符串 | 否 | SSL connection 模式 \(已禁用, 必填, 首选\) |
+| `table` | 字符串 | 是 | 表名称到insert 数据到 |
+| `data` | 对象 | 是 | 数据对象到insert \(key-value pairs\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+| `rows` | 数组 | Inserted 数据 \(如果 RETURNING clause 使用的\) |
+
+</div>
+
+
+
+---
+
+### 更新数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostgreSQL"
+    type="postgresql"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Query (SELECT)",
+                    "id": "query"
+                },
+                {
+                    "label": "Insert Data",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update Data",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Data",
+                    "id": "delete"
+                },
+                {
+                    "label": "Execute Raw SQL",
+                    "id": "execute"
+                }
+            ],
+            "defaultValue": "update"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost or your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "layout": "full",
+            "placeholder": "5432",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "postgres",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "Your database password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                },
+                {
+                    "label": "Required",
+                    "id": "required"
+                },
+                {
+                    "label": "Preferred",
+                    "id": "preferred"
+                }
+            ]
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表名称",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "更新数据 (JSON)",
+            "layout": "full",
+            "placeholder": "{\\n  \"name\": \"Jane Doe\",\\n  \"email\": \"jane@example.com\"\\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "where",
+            "type": "short-input",
+            "title": "WHERE 条件",
+            "layout": "full",
+            "placeholder": "id = 1",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Data (<code>postgresql_update</code>)</div>
+
+更新数据在PostgreSQL 数据库
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | PostgreSQL 服务器主机名或IP 地址 |
+| `port` | 数字 | 是 | PostgreSQL 服务器端口 \(默认值： 5432\) |
+| `database` | 字符串 | 是 | 要连接的数据库名称 |
+| `username` | 字符串 | 是 | 数据库用户名 |
+| `password` | 字符串 | 是 | 数据库密码 |
+| `ssl` | 字符串 | 否 | SSL connection 模式 \(已禁用, 必填, 首选\) |
+| `table` | 字符串 | 是 | 表名称到更新数据在|
+| `data` | 对象 | 是 | 数据对象使用字段到更新 \(key-value pairs\) |
+| `where` | 字符串 | 是 | WHERE 子句条件 \(不含 WHERE 关键字\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+| `rows` | 数组 | 已更新数据 \(如果 RETURNING clause 使用的\) |
+
+</div>
+
+
+
+---
+
+### 删除数据
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostgreSQL"
+    type="postgresql"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Query (SELECT)",
+                    "id": "query"
+                },
+                {
+                    "label": "Insert Data",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update Data",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Data",
+                    "id": "delete"
+                },
+                {
+                    "label": "Execute Raw SQL",
+                    "id": "execute"
+                }
+            ],
+            "defaultValue": "delete"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost or your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "layout": "full",
+            "placeholder": "5432",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "postgres",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "Your database password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                },
+                {
+                    "label": "Required",
+                    "id": "required"
+                },
+                {
+                    "label": "Preferred",
+                    "id": "preferred"
+                }
+            ]
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表名称",
+            "layout": "full",
+            "placeholder": "users",
+            "required": true
+        },
+        {
+            "id": "where",
+            "type": "short-input",
+            "title": "WHERE 条件",
+            "layout": "full",
+            "placeholder": "id = 1",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Data (<code>postgresql_delete</code>)</div>
+
+删除数据，来源为PostgreSQL 数据库
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | PostgreSQL 服务器主机名或IP 地址 |
+| `port` | 数字 | 是 | PostgreSQL 服务器端口 \(默认值： 5432\) |
+| `database` | 字符串 | 是 | 要连接的数据库名称 |
+| `username` | 字符串 | 是 | 数据库用户名 |
+| `password` | 字符串 | 是 | 数据库密码 |
+| `ssl` | 字符串 | 否 | SSL connection 模式 \(已禁用, 必填, 首选\) |
+| `table` | 字符串 | 是 | 表名称到delete 数据，来源为|
+| `where` | 字符串 | 是 | WHERE 子句条件 \(不含 WHERE 关键字\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+| `rows` | 数组 | 已删除数据 \(如果 RETURNING clause 使用的\) |
+
+</div>
+
+
+
+---
+
+### 执行原始 SQL
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostgreSQL"
+    type="postgresql"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Query (SELECT)",
+                    "id": "query"
+                },
+                {
+                    "label": "Insert Data",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update Data",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete Data",
+                    "id": "delete"
+                },
+                {
+                    "label": "Execute Raw SQL",
+                    "id": "execute"
+                }
+            ],
+            "defaultValue": "execute"
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "layout": "full",
+            "placeholder": "localhost or your.database.host",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "layout": "full",
+            "placeholder": "5432",
+            "required": true
+        },
+        {
+            "id": "database",
+            "type": "short-input",
+            "title": "数据库名称",
+            "layout": "full",
+            "placeholder": "your_database",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "postgres",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "layout": "full",
+            "placeholder": "Your database password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ssl",
+            "type": "dropdown",
+            "title": "SSL 模式",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Disabled",
+                    "id": "disabled"
+                },
+                {
+                    "label": "Required",
+                    "id": "required"
+                },
+                {
+                    "label": "Preferred",
+                    "id": "preferred"
+                }
+            ]
+        },
+        {
+            "id": "query",
+            "type": "code",
+            "title": "SQL 查询",
+            "layout": "full",
+            "placeholder": "SELECT * FROM table_name",
+            "language": "sql",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Execute Raw SQL (<code>postgresql_execute</code>)</div>
+
+执行原始 SQL 查询在 PostgreSQL 数据库
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `host` | 字符串 | 是 | PostgreSQL 服务器主机名或IP 地址 |
+| `port` | 数字 | 是 | PostgreSQL 服务器端口 \(默认值： 5432\) |
+| `database` | 字符串 | 是 | 要连接的数据库名称 |
+| `username` | 字符串 | 是 | 数据库用户名 |
+| `password` | 字符串 | 是 | 数据库密码 |
+| `ssl` | 字符串 | 否 | SSL connection 模式 \(已禁用, 必填, 首选\) |
+| `query` | 字符串 | 是 | 原始 SQL 查询到执行 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `message` | 字符串 | 操作状态消息 |
+| `rows` | 数组 | 以下内容的数组：行已返回，来源为查询 |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将PostgreSQL集成到 workflow 中。可以查询, insert, 更新, delete,和执行原始 SQL.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `postgresql`

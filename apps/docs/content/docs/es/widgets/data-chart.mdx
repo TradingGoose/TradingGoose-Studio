@@ -1,0 +1,58 @@
+---
+title: "Gráfico de datos"
+description: "Visualiza datos de mercado OHLCV."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|---|---|
+| **Clave** | `data_chart` |
+| **Categoría** | Datos |
+
+Data Chart representa velas OHLCV con indicadores técnicos, herramientas de dibujo e intervalos configurables. Usa [lightweight-charts](https://tradingview.github.io/lightweight-charts/) y admite varios proveedores y sesiones de mercado.
+
+## Funciones
+
+- **Seis estilos de vela** -- Solid, Hollow, Up Hollow, Down Hollow, barra OHLC y línea Area.
+- **Intervalos** -- De 1m a 12mo; los rangos 1D, 5D, 1W, 1M, 3M, 6M, 1Y, 5Y y ALL eligen un intervalo adecuado.
+- **Indicadores técnicos** -- Añade indicadores Pine del espacio de trabajo o integrados. Se muestran en panel propio o sobre el precio, con valores de leyenda bajo el cursor. Sus entradas se editan en un modal. Consulta la [guía de indicadores](/indicators).
+- **Dibujo** -- Líneas, notas, trazos libres, formas y herramientas de análisis. Los dibujos persisten por símbolo y pueden mostrarse u ocultarse en conjunto.
+- **Leyenda OHLCV** -- Muestra apertura, máximo, mínimo y cierre, o un valor en modo Area, en verde o rojo según la dirección.
+- **Zona horaria y sesión** -- Usa hora local de la bolsa, UTC o cualquier zona IANA; alterna sesiones regular y extendida si el proveedor lo permite.
+- **Eje de precios** -- Escala normal, porcentual o logarítmica.
+- **Barras en vivo** -- Transmite datos por socket y combina las barras entrantes con la serie visible.
+
+## Uso
+
+El encabezado tiene tres grupos: **izquierda**, proveedor, parámetros y credenciales; **centro**, búsqueda de cotización, vinculable con [Watchlist](/widgets/watchlist); **derecha**, intervalo, estilo e indicadores. El pie contiene rangos y zona horaria. Desplaza para ampliar, arrastra para moverte y pasa el cursor para consultar OHLCV.
+
+<Callout type="info">Asigna el mismo color de pareja a Data Chart y Watchlist para actualizar el gráfico al seleccionar un símbolo.</Callout>
+
+## Configuración
+
+| Parámetro | Descripción |
+|---|---|
+| `listing` | Identidad del símbolo; se define desde el encabezado o la sincronización. |
+| `data.provider` | ID del proveedor de mercado. |
+| `data.auth` | Clave API o secreto opcional. |
+| `data.live.enabled` | Activa las barras en tiempo real. |
+| `view.interval` | Intervalo activo, como `1d` o `5m`. |
+| `view.candleType` | `candle_solid`, `candle_stroke`, `candle_up_stroke`, `candle_down_stroke`, `ohlc` o `area`. |
+| `view.priceAxisType` | `normal`, `percentage` o `log`. |
+| `view.marketSession` | `regular` o `extended`. |
+| `view.timezone` | Zona horaria IANA. |
+| `view.pineIndicators` | Referencias a indicadores con posibles entradas. |
+| `view.drawTools` | Instantáneas persistentes de dibujos. |
+| `view.rangePresetId` | `1d`, `5d`, `1w`, `1m`, `3m`, `6m`, `1y`, `5y` o `all`. |
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="Watchlist" href="/widgets/watchlist">Selecciona símbolos mediante el color de pareja.</Card>
+  <Card title="Indicators Guide" href="/indicators">Crea indicadores Pine personalizados.</Card>
+  <Card title="Indicator Editor" href="/widgets/editor-indicator">Escribe y perfecciona indicadores PineTS.</Card>
+</Cards>

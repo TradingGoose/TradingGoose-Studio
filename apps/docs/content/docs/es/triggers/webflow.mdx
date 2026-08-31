@@ -1,0 +1,418 @@
+---
+title: Webflow Trigger
+description: Activa el workflow cuando un nuevo elemento es creado en un Webflow CMS colección (requiere Webflow credentials)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="webflow"
+  color=""
+/>
+
+Activa el workflow cuando un nuevo elemento es creado en un Webflow CMS colección (requiere Webflow credentials)
+
+<Callout type="info">
+  Este trigger se basa en webhooks. Configura la URL del webhook en el servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+<Cards>
+  <Card title="Usar como un Herramienta" href="/tools/webflow">
+    Consulta workflow acciones, operaciones, y herramienta entradas para Webflow.
+  </Card>
+</Cards>
+
+
+## Eventos
+
+### Colección Elemento Creado
+
+Activa el workflow cuando un nuevo elemento es creado en un Webflow CMS colección (requiere Webflow credentials)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Colección Elemento Creado"
+    type="webflow_collection_item_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "selectedTriggerId",
+            "type": "dropdown",
+            "title": "Trigger Tipo",
+            "required": true,
+            "options": [
+                {
+                    "label": "Collection Item Created",
+                    "id": "webflow_collection_item_created"
+                },
+                {
+                    "label": "Collection Item Changed",
+                    "id": "webflow_collection_item_changed"
+                },
+                {
+                    "label": "Collection Item Deleted",
+                    "id": "webflow_collection_item_deleted"
+                }
+            ]
+        },
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este trigger requiere webflow credentials a acceder tu cuenta.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Select a site",
+            "description": "El Webflow sitio a supervisar",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Colección",
+            "placeholder": "Select a collection (optional)",
+            "description": "Optionally filtro a supervisar solo un específico colección"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El sitio ID donde la evento occurred"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "El colección ID donde la elemento fue creado"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "payload",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "El ID de el creado elemento"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "CMS locale ID"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "Último published marca de tiempo"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "Último actualizado marca de tiempo"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "Marca de tiempo cuando el elemento fue creado"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "Indica si el elemento es archivado"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "Indica si el elemento es un borrador"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "El campo datos de el elemento"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Formulario Submission
+
+Activa el workflow cuando un formulario es enviado en un Webflow sitio (requiere Webflow credentials)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Formulario Submission"
+    type="webflow_form_submission"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este trigger requiere webflow credentials a acceder tu cuenta.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Select a site",
+            "description": "El Webflow sitio a supervisar",
+            "required": true
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "Formulario ID",
+            "placeholder": "form-123abc (optional)",
+            "description": "El ID de el específico formulario a supervisar (opcional - leave vacío para todos formularios)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El sitio ID donde la formulario fue enviado"
+      },
+      {
+          "name": "formId",
+          "type": "string",
+          "description": "El formulario ID"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "El nombre de el formulario"
+      },
+      {
+          "name": "id",
+          "type": "string",
+          "description": "El único ID de formulario submission"
+      },
+      {
+          "name": "submittedAt",
+          "type": "string",
+          "description": "Marca de tiempo cuando el formulario fue enviado"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "El formulario submission campo datos (claves son campo names)"
+      },
+      {
+          "name": "schema",
+          "type": "object",
+          "description": "Formulario esquema información"
+      },
+      {
+          "name": "formElementId",
+          "type": "string",
+          "description": "El formulario element ID"
+      }
+  ]}
+/>
+
+---
+
+### Colección Elemento Changed
+
+Activa el workflow cuando un elemento es actualizado en un Webflow CMS colección (requiere Webflow credentials)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Colección Elemento Changed"
+    type="webflow_collection_item_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este trigger requiere webflow credentials a acceder tu cuenta.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Select a site",
+            "description": "El Webflow sitio a supervisar",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Colección",
+            "placeholder": "Select a collection (optional)",
+            "description": "Optionally filtro a supervisar solo un específico colección"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El sitio ID donde la evento occurred"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "El colección ID donde la elemento fue changed"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "payload",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "El ID de el changed elemento"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "CMS locale ID"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "Último published marca de tiempo"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "Último actualizado marca de tiempo"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "Marca de tiempo cuando el elemento fue creado"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "Indica si el elemento es archivado"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "Indica si el elemento es un borrador"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "El actualizado campo datos de el elemento"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Colección Elemento Eliminado
+
+Activa el workflow cuando un elemento es eliminado desde un Webflow CMS colección (requiere Webflow credentials)
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Colección Elemento Eliminado"
+    type="webflow_collection_item_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este trigger requiere webflow credentials a acceder tu cuenta.",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "Sitio",
+            "placeholder": "Select a site",
+            "description": "El Webflow sitio a supervisar",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "Colección",
+            "placeholder": "Select a collection (optional)",
+            "description": "Optionally filtro a supervisar solo un específico colección"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "El sitio ID donde la evento occurred"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "El colección ID donde la elemento fue eliminado"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "payload",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "El ID de el eliminado elemento"
+              },
+              {
+                  "name": "deletedOn",
+                  "type": "string",
+                  "description": "Marca de tiempo cuando el elemento fue eliminado"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+

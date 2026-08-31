@@ -1,0 +1,208 @@
+---
+title: Linear
+description: 在 Linear 中读取和创建问题
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="linear"
+  color=""
+/>
+
+
+## 配置
+
+### 读取问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Linear"
+    type="linear"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Issues",
+                    "id": "read"
+                },
+                {
+                    "label": "Create Issue",
+                    "id": "write"
+                }
+            ],
+            "defaultValue": "read"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Linear 账户",
+            "layout": "full",
+            "placeholder": "选择 Linear account",
+            "provider": "linear",
+            "required": true
+        },
+        {
+            "id": "teamId",
+            "type": "project-selector",
+            "title": "团队",
+            "layout": "full",
+            "placeholder": "选择一个团队",
+            "provider": "linear"
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "项目",
+            "layout": "full",
+            "placeholder": "选择一个 项目",
+            "provider": "linear"
+        },
+        {
+            "id": "manualTeamId",
+            "type": "short-input",
+            "title": "团队 ID",
+            "layout": "full",
+            "placeholder": "输入 Linear 团队 ID"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "输入 Linear 项目 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `issues` | json | 问题列表 |
+| `issue` | json | 单个 issue data |
+
+</div>
+
+
+
+---
+
+### 创建问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Linear"
+    type="linear"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Read Issues",
+                    "id": "read"
+                },
+                {
+                    "label": "Create Issue",
+                    "id": "write"
+                }
+            ],
+            "defaultValue": "write"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Linear 账户",
+            "layout": "full",
+            "placeholder": "选择 Linear account",
+            "provider": "linear",
+            "required": true
+        },
+        {
+            "id": "teamId",
+            "type": "project-selector",
+            "title": "团队",
+            "layout": "full",
+            "placeholder": "选择一个团队",
+            "provider": "linear"
+        },
+        {
+            "id": "projectId",
+            "type": "project-selector",
+            "title": "项目",
+            "layout": "full",
+            "placeholder": "选择一个 项目",
+            "provider": "linear"
+        },
+        {
+            "id": "manualTeamId",
+            "type": "short-input",
+            "title": "团队 ID",
+            "layout": "full",
+            "placeholder": "输入 Linear 团队 ID"
+        },
+        {
+            "id": "manualProjectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "输入 Linear 项目 ID"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "说明",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `issues` | json | 问题列表 |
+| `issue` | json | 单个 issue data |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+集成 Linear 到该 workflow. 可以 read 和 create issues.
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `linear`

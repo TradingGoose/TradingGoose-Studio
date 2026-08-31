@@ -1,0 +1,546 @@
+---
+title: Exa
+description: 使用 Exa AI 搜索
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="exa"
+  color=""
+/>
+
+
+## 配置
+
+### 搜索
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Exa"
+    type="exa"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "exa_search"
+                },
+                {
+                    "label": "Get Contents",
+                    "id": "exa_get_contents"
+                },
+                {
+                    "label": "Find Similar Links",
+                    "id": "exa_find_similar_links"
+                },
+                {
+                    "label": "Answer",
+                    "id": "exa_answer"
+                },
+                {
+                    "label": "Research",
+                    "id": "exa_research"
+                }
+            ],
+            "defaultValue": "exa_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Exa API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入你的 search query...",
+            "required": true
+        },
+        {
+            "id": "numResults",
+            "type": "short-input",
+            "title": "数字的结果",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "useAutoprompt",
+            "type": "switch",
+            "title": "使用 Autoprompt",
+            "layout": "full"
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "搜索类型",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Auto",
+                    "id": "auto"
+                },
+                {
+                    "label": "Neural",
+                    "id": "neural"
+                },
+                {
+                    "label": "Keyword",
+                    "id": "keyword"
+                },
+                {
+                    "label": "Fast",
+                    "id": "fast"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索 (<code>exa_search</code>)</div>
+
+搜索该 web 使用 Exa AI. 返回 relevant search 结果使用 titles, URLs, 和 text snippets.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | 字符串 | 是 | 该 search query 到 execute |
+| `numResults` | 数字 | 否 | 数字的结果到 return \(默认: 10, max: 25\) |
+| `useAutoprompt` | 布尔值 | 否 | 是否使用 autoprompt 到 improve 该 query \(默认: 否\) |
+| `type` | 字符串 | 否 | 搜索 type: neural, 关键词, auto 或 fast \(默认: auto\) |
+| `apiKey` | 字符串 | 是 | Exa AI API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `title` | 字符串 | 该 title 的该 search 结果 |
+| `url` | 字符串 | 该 URL 的该 search 结果 |
+| `publishedDate` | 字符串 | 日期何时该 content was 已发布 |
+| `author` | 字符串 | 该 author 的该 content |
+| `summary` | 字符串 | 一个 brief summary 的该 content |
+| `favicon` | 字符串 | URL 的该站点 |
+| `image` | 字符串 | URL 的一个 representative 图像从该页面 |
+| `text` | 字符串 | 文本 snippet 或完整 content 从该页面 |
+
+</div>
+
+
+
+---
+
+### 获取 Contents
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Exa"
+    type="exa"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "exa_search"
+                },
+                {
+                    "label": "Get Contents",
+                    "id": "exa_get_contents"
+                },
+                {
+                    "label": "Find Similar Links",
+                    "id": "exa_find_similar_links"
+                },
+                {
+                    "label": "Answer",
+                    "id": "exa_answer"
+                },
+                {
+                    "label": "Research",
+                    "id": "exa_research"
+                }
+            ],
+            "defaultValue": "exa_get_contents"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Exa API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "urls",
+            "type": "long-input",
+            "title": "URLs",
+            "layout": "full",
+            "placeholder": "输入 URLs 到 retrieve content 从 (comma-separated)...",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "switch",
+            "title": "包含文本",
+            "layout": "full"
+        },
+        {
+            "id": "summaryQuery",
+            "type": "long-input",
+            "title": "摘要查询",
+            "layout": "full",
+            "placeholder": "输入一个 query 到 guide 该 summary generation..."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取 Contents (<code>exa_get_contents</code>)</div>
+
+检索该 contents 的 webpages 使用 Exa AI. 返回该 title, text content, 和可选 summaries 用于每个 URL.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `urls` | 字符串 | 是 | 以逗号分隔列表的 URLs 到 retrieve content 从 |
+| `text` | 布尔值 | 否 | 如果为是，则使用默认设置返回完整页面文本；如果为否，则不返回文本。 |
+| `summaryQuery` | 字符串 | 否 | 查询到 guide 该 summary generation |
+| `apiKey` | 字符串 | 是 | Exa AI API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `url` | 字符串 | 该 URL 该 content was retrieved 从 |
+| `title` | 字符串 | 该 title 的该 webpage |
+| `text` | 字符串 | 该完整 text content 的该 webpage |
+
+</div>
+
+
+
+---
+
+### 查找 Similar 链接
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Exa"
+    type="exa"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "exa_search"
+                },
+                {
+                    "label": "Get Contents",
+                    "id": "exa_get_contents"
+                },
+                {
+                    "label": "Find Similar Links",
+                    "id": "exa_find_similar_links"
+                },
+                {
+                    "label": "Answer",
+                    "id": "exa_answer"
+                },
+                {
+                    "label": "Research",
+                    "id": "exa_research"
+                }
+            ],
+            "defaultValue": "exa_find_similar_links"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Exa API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "url",
+            "type": "long-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "输入 URL 到 find similar 链接用于...",
+            "required": true
+        },
+        {
+            "id": "numResults",
+            "type": "short-input",
+            "title": "数字的结果",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "text",
+            "type": "switch",
+            "title": "包含文本",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">查找 Similar 链接 (<code>exa_find_similar_links</code>)</div>
+
+查找 webpages similar 到一个给定 URL 使用 Exa AI. 返回一个列表的 similar 链接使用 titles 和 text snippets.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `url` | 字符串 | 是 | 该 URL 到 find similar 链接用于 |
+| `numResults` | 数字 | 否 | 数字的 similar 链接到 return \(默认: 10, max: 25\) |
+| `text` | 布尔值 | 否 | 是否包含该完整 text 的该 similar pages |
+| `apiKey` | 字符串 | 是 | Exa AI API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `title` | 字符串 | 该 title 的该 similar webpage |
+| `url` | 字符串 | 该 URL 的该 similar webpage |
+| `text` | 字符串 | 文本 snippet 或完整 content 从该 similar webpage |
+
+</div>
+
+
+
+---
+
+### 答复
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Exa"
+    type="exa"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "exa_search"
+                },
+                {
+                    "label": "Get Contents",
+                    "id": "exa_get_contents"
+                },
+                {
+                    "label": "Find Similar Links",
+                    "id": "exa_find_similar_links"
+                },
+                {
+                    "label": "Answer",
+                    "id": "exa_answer"
+                },
+                {
+                    "label": "Research",
+                    "id": "exa_research"
+                }
+            ],
+            "defaultValue": "exa_answer"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Exa API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "问题",
+            "layout": "full",
+            "placeholder": "输入你的问题...",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "switch",
+            "title": "包含文本",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">答复 (<code>exa_answer</code>)</div>
+
+获取一个 AI-generated 答案到一个问题使用 citations 从该 web 使用 Exa AI.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | 字符串 | 是 | 该问题到答案 |
+| `text` | 布尔值 | 否 | 是否包含该完整 text 的该答案 |
+| `apiKey` | 字符串 | 是 | Exa AI API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `answer` | 字符串 | AI-generated 答案到该问题 |
+| `title` | 字符串 | 该 title 的该 cited 来源 |
+| `url` | 字符串 | 该 URL 的该 cited 来源 |
+
+</div>
+
+
+
+---
+
+### 研究
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Exa"
+    type="exa"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "exa_search"
+                },
+                {
+                    "label": "Get Contents",
+                    "id": "exa_get_contents"
+                },
+                {
+                    "label": "Find Similar Links",
+                    "id": "exa_find_similar_links"
+                },
+                {
+                    "label": "Answer",
+                    "id": "exa_answer"
+                },
+                {
+                    "label": "Research",
+                    "id": "exa_research"
+                }
+            ],
+            "defaultValue": "exa_research"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Exa API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "研究查询",
+            "layout": "full",
+            "placeholder": "输入你的研究 topic 或问题...",
+            "required": true
+        },
+        {
+            "id": "includeText",
+            "type": "switch",
+            "title": "包含完整文本",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">研究 (<code>exa_research</code>)</div>
+
+使用 AI 开展全面研究，生成包含引文的详细报告
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | 字符串 | 是 | 研究 query 或 topic |
+| `includeText` | 布尔值 | 否 | 包含完整 text content 在结果 |
+| `apiKey` | 字符串 | 是 | Exa AI API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `title` | 字符串 | title output |
+| `url` | 字符串 | url output |
+| `summary` | 字符串 | summary output |
+| `text` | 字符串 | text output |
+| `publishedDate` | 字符串 | publishedDate output |
+| `author` | 字符串 | author output |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+集成 Exa 到该 workflow. 可以 search, get contents, find similar 链接, 答案一个问题, 和 perform 研究.
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `exa`

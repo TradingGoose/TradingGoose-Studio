@@ -1,0 +1,67 @@
+---
+title: webhook
+description: trigger workflow，来源为外部 HTTP webhook 请求
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="generic_webhook"
+  color=""
+  icon={true}
+/>
+
+webhook 允许外部 services到trigger workflow 执行由sending HTTP 请求. TradingGoose supports two approaches，用于webhook-based trigger.
+
+<Callout type="info">
+  这是基于 webhook 的 trigger。请在外部服务中配置 webhook URL，以便向 TradingGoose 发送事件。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Generic webhook"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+      { "id": "webhookUrl", "title": "Webhook URL", "type": "short-input", "placeholder": "Auto-generated webhook URL", "description": "Copy this URL and configure it in your external service" },
+      { "id": "secret", "title": "Webhook Secret", "type": "short-input", "password": true, "placeholder": "Optional secret for request validation" }
+    ]}
+  />
+</ShowcaseCard>
+
+### 工作原理
+
+1. **添加 Generic Webhook 块** — 拖入 Generic Webhook 块以启动工作流
+2. **获取 Webhook URL** — 复制自动生成的唯一端点
+3. **外部集成** — 配置外部服务，使其向此 URL 发送 POST 请求
+4. **工作流执行** — 每个发送到 Webhook URL 的请求都会触发工作流
+
+### Features
+
+- **Flexible payload** — Accepts 任何 JSON payload structure
+- **Automatic Parsing** — webhook 数据为 automatically parsed和可用到subsequent blocks
+- **身份验证** — 可选 bearer token或自定义 header 身份验证
+- **Rate Limiting** — Built-in protection 针对 abuse
+
+## trigger 模式，用于服务 Blocks
+
+Alternatively, 你可 使用特定服务 blocks (例如 Slack, GitHub, etc.)在"trigger 模式"到创建更多 specialized webhook endpoints.
+
+**在以下情况下使用 Generic Webhook：**
+- Integrating 使用自定义应用或services
+- 你需要最大 flexibility在payload structure
+- Working 使用services 该 don't 有 dedicated blocks
+
+**在以下情况下使用 Trigger Mode：**
+- Working 使用supported services (Slack, GitHub, etc.)
+- 你需要按服务专属事件进行筛选
+- 你需要 automatic webhook registration
+
+<Callout>
+Generic webhook trigger fires 每次 time webhook URL 接收一个请求, making it perfect，用于real-time 集成.
+</Callout>

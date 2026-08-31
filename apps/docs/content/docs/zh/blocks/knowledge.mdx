@@ -1,0 +1,62 @@
+---
+title: 知识
+description: 使用向量相似度搜索、创建和管理知识库中的文档
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard type="knowledge" color="#00B0B0" icon={true} />
+
+Knowledge 模块将工作流连接到知识库，可在运行时执行向量相似度搜索、上传新文本块和创建文档，以支持检索增强生成（RAG）。
+
+## 概述
+
+<Steps>
+  <Step><strong>Search</strong>：对知识库运行语义相似度查询，检索最相关的文本块。</Step>
+  <Step><strong>Upload Chunk</strong>：向现有文档追加文本块，使其可供后续查询。</Step>
+  <Step><strong>Create Document</strong>：向知识库添加新文档，可选择添加标签。</Step>
+</Steps>
+
+## 操作
+
+<Tabs items={['Search', 'Upload Chunk', 'Create Document']}>
+  <Tab>执行向量相似度搜索并返回最匹配的文本块。**Knowledge Base** 必填；**Search Query**、**Number of Results**（默认 10）和 **Tag Filters** 可选。可省略查询，仅按标签筛选。</Tab>
+  <Tab>向知识库中的现有文档追加文本块。系统自动生成向量，使其可供后续搜索。需要 **Knowledge Base**、**Document** 和 **Chunk Content**。</Tab>
+  <Tab>创建新文档，并对内容进行分块、向量化和索引。需要 **Knowledge Base**、**Document Name** 和 **Document Content**；**Document Tags** 可选。</Tab>
+</Tabs>
+
+## 配置
+
+<ShowcaseCard><BlockConfigPreview name="Knowledge" type="knowledge" color="#00B0B0" hideHeader subBlocks={[
+  { "id": "operation", "type": "dropdown", "title": "Operation", "layout": "full", "options": [{ "label": "Search", "id": "search" }, { "label": "Upload Chunk", "id": "upload_chunk" }, { "label": "Create Document", "id": "create_document" }] },
+  { "id": "knowledgeBaseId", "type": "knowledge-base-selector", "title": "Knowledge Base", "layout": "full", "placeholder": "Select knowledge base", "required": true, "condition": { "field": "operation", "value": ["search", "upload_chunk", "create_document"] } },
+  { "id": "query", "type": "short-input", "title": "Search Query", "layout": "full", "placeholder": "Enter your search query (optional when using tag filters)", "condition": { "field": "operation", "value": "search" } },
+  { "id": "topK", "type": "short-input", "title": "Number of Results", "layout": "full", "placeholder": "Enter number of results (default: 10)", "condition": { "field": "operation", "value": "search" } },
+  { "id": "tagFilters", "type": "knowledge-tag-filters", "title": "Tag Filters", "layout": "full", "placeholder": "Add tag filters", "condition": { "field": "operation", "value": "search" } },
+  { "id": "documentId", "type": "document-selector", "title": "Document", "layout": "full", "placeholder": "Select document", "required": true, "condition": { "field": "operation", "value": "upload_chunk" } },
+  { "id": "content", "type": "long-input", "title": "Chunk Content", "layout": "full", "placeholder": "Enter the chunk content to upload", "required": true, "condition": { "field": "operation", "value": "upload_chunk" } },
+  { "id": "name", "type": "short-input", "title": "Document Name", "layout": "full", "placeholder": "Enter document name", "required": true, "condition": { "field": "operation", "value": ["create_document"] } },
+  { "id": "content", "type": "long-input", "title": "Document Content", "layout": "full", "placeholder": "Enter the document content", "required": true, "condition": { "field": "operation", "value": ["create_document"] } },
+  { "id": "documentTags", "type": "document-tag-entry", "title": "Document Tags", "layout": "full", "condition": { "field": "operation", "value": "create_document" } }
+]} /></ShowcaseCard>
+
+## 输出
+
+| 输出 | 类型 | 说明 |
+|---|---|---|
+| `results` | json | 匹配文本块数组，或写入操作的确认数据。 |
+| `query` | string | 使用的查询。 |
+| `totalResults` | number | 返回的结果数量。 |
+
+## 最佳实践
+
+- **使用标签限定搜索** -- 可按主题、客户或类别划分知识库，无需创建多个知识库。
+- **保持文本块聚焦** -- 简短且主题一致的文本比冗长的多主题内容更容易产生良好匹配。
+- **与 Agent 模块配合** -- 将搜索结果传入 Agent 上下文以构建 RAG 流程。
+
+<Callout type="info">搜索查询可选。如果只需要匹配特定标签的文档，请将查询留空并使用标签筛选。</Callout>

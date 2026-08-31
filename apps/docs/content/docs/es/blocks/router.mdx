@@ -1,0 +1,235 @@
+---
+title: Router
+description: Enruta solicitudes de forma inteligente mediante IA
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="router"
+  color="#28C43F"
+/>
+
+El bloque Router utiliza IA para decidir de manera inteligente qué camino debe tomar tu flujo de trabajo a continuación, dirigiendo la ejecución del flujo de trabajo según condiciones o lógica específicas. A diferencia de los bloques de Condición que utilizan reglas simples, los bloques Router pueden entender el contexto y tomar decisiones inteligentes de enrutamiento basadas en el análisis de contenido.
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Router"
+    type="router"
+    color="#28C43F"
+    hideHeader
+    subBlocks={[
+      { "id": "prompt", "title": "Prompt", "type": "long-input", "layout": "full", "placeholder": "Route to the correct block based on the input...", "required": true },
+      { "id": "model", "title": "Model", "type": "combobox", "layout": "half", "placeholder": "Type or select a model...", "required": true },
+      { "id": "apiKey", "title": "API Key", "type": "short-input", "layout": "full", "placeholder": "Enter your API key", "password": true, "required": true },
+      { "id": "azureEndpoint", "title": "Azure OpenAI Endpoint", "type": "short-input", "layout": "full", "password": true, "placeholder": "https://your-resource.openai.azure.com" },
+      { "id": "azureApiVersion", "title": "Azure API Version", "type": "short-input", "layout": "full", "placeholder": "2024-07-01-preview" }
+    ]}
+  />
+</ShowcaseCard>
+
+## Descripción general
+
+El bloque Router te permite:
+
+<Steps>
+  <Step>
+    <strong>Enrutamiento inteligente de contenido</strong>: Usa IA para comprender la intención y el contexto
+  </Step>
+  <Step>
+    <strong>Dynamic path selection</strong>: Route workflows based on unstructured content analysis
+  </Step>
+  <Step>
+    <strong>Context-aware decisions</strong>: Make smart routing choices beyond simple rules
+  </Step>
+  <Step>
+    <strong>Gestión de varias rutas</strong>: Gestiona workflows complejos con varios destinos posibles
+  </Step>
+</Steps>
+
+## Router vs bloques de Condición
+
+<Accordions>
+<Accordion title="Cuándo usar Router">
+    - Se necesita análisis de contenido impulsado por IA
+    - Contenido no estructurado o tipos de contenido variables
+    - Enrutamiento basado en intención (p. ej., "dirigir tickets de soporte a departamentos")
+    - Se requiere toma de decisiones consciente del contexto
+  </Accordion>
+<Accordion title="Cuándo usar Condition">
+    - Decisiones simples basadas en reglas
+    - Datos estructurados o comparaciones numéricas
+    - Se necesita enrutamiento rápido y determinista
+    - Lógica booleana suficiente
+  </Accordion>
+</Accordions>
+
+## Cómo funciona
+
+El bloque Router:
+
+<Steps>
+  <Step>
+    <strong>Analizar contenido</strong>: Usa un LLM para comprender el contenido de entrada y su contexto
+  </Step>
+  <Step>
+    <strong>Evaluate targets</strong>: Compares content against available destination blocks
+  </Step>
+  <Step>
+    <strong>Seleccionar destino</strong>: identifica la ruta más adecuada según la intención
+  </Step>
+  <Step>
+    <strong>Enrutar la ejecución</strong>: Dirige el workflow al bloque seleccionado
+  </Step>
+</Steps>
+
+## Opciones de configuración
+
+### Contenido/Prompt
+
+El contenido o prompt que el Router analizará para tomar decisiones de enrutamiento. Esto puede ser:
+
+- Una consulta o entrada directa del usuario
+- Resultado de un bloque anterior
+- Un mensaje generado por el sistema
+
+### Bloques de destino
+
+Los posibles bloques de destino entre los que el Router puede seleccionar. El Router detectará automáticamente los bloques conectados, pero también puedes:
+
+- Personalizar las descripciones de los bloques de destino para mejorar la precisión del enrutamiento
+- Especificar criterios de enrutamiento para cada bloque de destino
+- Excluir ciertos bloques para que no sean considerados como destinos de enrutamiento
+
+### Selección de modelo
+
+Elige un modelo de IA para potenciar la decisión de enrutamiento:
+
+**OpenAI**: GPT-4o, o1, o3, o4-mini, gpt-4.1  \
+**Anthropic**: Claude 3.7 Sonnet \
+**Google**: Gemini 2.5 Pro, Gemini 2.0 Flash \
+**Otros proveedores**: Groq, Cerebras, xAI, DeepSeek \
+**Modelos locales**: cualquier modelo que se ejecute en Ollama
+
+**Recomendación**: utiliza modelos con gran capacidad de razonamiento, como GPT-4o o Claude 3.7 Sonnet, para tomar decisiones de enrutamiento más precisas.
+
+### Clave API
+
+Tu clave API para el proveedor de LLM seleccionado. Esta se almacena de forma segura y se utiliza para la autenticación.
+
+### Acceso a los resultados
+
+Después de que un router tome una decisión, puedes acceder a sus resultados:
+
+- **`<router.prompt>`**: Resumen del prompt de enrutamiento utilizado
+- **`<router.selected_path>`**: Detalles del bloque de destino elegido
+- **`<router.tokens>`**: Estadísticas de uso de tokens del LLM
+- **`<router.cost>`**: Resumen de costos para la llamada de enrutamiento (entrada, salida, total)
+- **`<router.model>`**: El modelo utilizado para la toma de decisiones
+
+## Funciones avanzadas
+
+### Criterios de enrutamiento personalizados
+
+Define criterios específicos para cada bloque de destino:
+
+```javascript
+// Example routing descriptions
+Target Block 1: "Technical support issues, API problems, integration questions"
+Target Block 2: "Billing inquiries, subscription changes, payment issues"
+Target Block 3: "General questions, feedback, feature requests"
+```
+
+## Entradas y salidas
+
+<Tabs items={['Configuration', 'Variables']}>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+    <strong>Contenido/prompt</strong>: Texto que se analiza para tomar decisiones de enrutamiento
+      </li>
+      <li>
+        <strong>Target Blocks</strong>: Connected blocks as potential destinations
+      </li>
+      <li>
+        <strong>Model</strong>: AI model for routing analysis
+      </li>
+      <li>
+        <strong>API Key</strong>: Authentication for selected LLM provider
+      </li>
+    </ul>
+  </Tab>
+  <Tab>
+    <ul className="list-disc space-y-2 pl-6">
+      <li>
+        <strong>router.prompt</strong>: resumen del prompt de enrutamiento utilizado
+      </li>
+      <li>
+        <strong>router.selected_path</strong>: Details of chosen destination
+      </li>
+      <li>
+        <strong>router.tokens</strong>: Token usage statistics
+      </li>
+      <li>
+        <strong>router.cost</strong>: resumen del costo de la llamada de enrutamiento (entrada, salida y total)
+      </li>
+      <li>
+        <strong>router.model</strong>: modelo utilizado para tomar la decisión
+      </li>
+    </ul>
+  </Tab>
+</Tabs>
+
+## Ejemplos de casos de uso
+
+### Clasificación de soporte al cliente
+
+<div className="mb-4 rounded-md border p-4">
+      <h4 className="font-medium">Situación: Enrutar tickets de soporte a departamentos especializados</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>User submits support request via form</li>
+    <li>El enrutador analiza el contenido y el contexto del ticket</li>
+    <li>Technical issues → Engineering support agent</li>
+    <li>Billing questions → Finance support agent</li>
+  </ol>
+</div>
+
+### Clasificación de contenido
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Scenario: Classify and route user-generated content</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>User submits content or feedback</li>
+    <li>El enrutador analiza el tipo de contenido y el sentimiento</li>
+    <li>Feature requests → Product team workflow</li>
+    <li>Bug reports → Technical support workflow</li>
+  </ol>
+</div>
+
+### Calificación de leads
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Scenario: Route leads based on qualification criteria</h4>
+  <ol className="list-decimal pl-5 text-sm">
+        <li>Información del cliente potencial capturada desde el formulario</li>
+    <li>El enrutador analiza el tamaño, el sector y las necesidades de la empresa</li>
+        <li>Clientes potenciales empresariales → Equipo de ventas con precios personalizados</li>
+    <li>SMB leads → Self-service onboarding flow</li>
+  </ol>
+</div>
+
+
+## Mejores prácticas
+
+- **Proporcionar descripciones claras de destino**: Ayuda al enrutador a entender cuándo seleccionar cada destino con descripciones específicas y detalladas
+- **Usar criterios de enrutamiento específicos**: Define condiciones claras y ejemplos para cada ruta para mejorar la precisión
+- **Implementar rutas alternativas**: Conecta un destino predeterminado para cuando ninguna ruta específica sea apropiada
+- **Probar con entradas diversas**: Asegúrate de que el enrutador maneja varios tipos de entrada, casos extremos y contenido inesperado
+- **Monitorear el rendimiento del enrutamiento**: Revisa las decisiones de enrutamiento regularmente y refina los criterios basándote en patrones de uso reales
+- **Elegir modelos apropiados**: Utiliza modelos con fuertes capacidades de razonamiento para decisiones de enrutamiento complejas

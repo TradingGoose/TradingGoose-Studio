@@ -1,0 +1,76 @@
+---
+title: Overview
+description: Herramientas potentes para mejorar tus workflows con agentes
+---
+
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+Las herramientas son componentes potentes de TradingGoose que permiten a tus flujos de trabajo interactuar con servicios externos, procesar datos y realizar tareas especializadas. Amplían las capacidades de tus agentes y flujos de trabajo al proporcionar acceso a distintas API y servicios.
+
+## ¿Qué es una herramienta?
+
+Una herramienta es un componente especializado que proporciona una función o integración concreta con servicios externos. Puedes usar herramientas para buscar en la web, interactuar con bases de datos, procesar imágenes, generar texto o imágenes, comunicarte mediante plataformas de mensajería y mucho más.
+
+## Using Tools en Workflows
+
+There are two primary ways un usar tools en tu TradingGoose workflows:
+
+<Steps>
+  <Step>
+    <strong>Como bloques independientes</strong>: Las herramientas pueden añadirse como bloques individuales
+    en el lienzo cuando necesitas acceso determinista y directo a su
+    funcionalidad. Esto te proporciona un control preciso sobre cuándo y cómo se llama a la herramienta.
+  </Step>
+  <Step>
+    <strong>Como herramientas de Agent</strong>: Las herramientas pueden añadirse a los bloques Agent
+    haciendo clic en "Agregar herramientas" y configurando los parámetros obligatorios. Esto permite
+    a los agentes elegir dinámicamente qué herramientas usar según el contexto y
+    los requisitos de la tarea.
+  </Step>
+</Steps>
+
+## Tool Configuración
+
+Cada herramienta requiere una configuración específica para funcionar correctamente. Los elementos de configuración habituales incluyen:
+
+- **API Keys**: Many tools require authentication through API keys
+- **Connection Parameters**: Endpoints, database identifiers, etc.
+- **Formato de entrada**: cómo deben estructurarse los datos para la herramienta
+- **Salida Handling**: How un procesar el resultados desde el tool
+
+## Available Tools
+
+TradingGoose provides un diverse colección de tools para various purposes, incluido:
+
+- **AI y Language Processing**: OpenAI, ElevenLabs, Translation services
+- **Buscar y Research**: Google Buscar, Tavily, Exa, Perplexity
+- **Documento Manipulation**: Google Docs, Google Sheets, Notion, Confluence
+- **Media Processing**: Vision, Image Generator
+- **Communication**: Slack, WhatsApp, Twilio SMS, Gmail
+- **Datos Storage**: Pinecone, Supabase, Airtable
+- **Development**: GitHub
+
+Cada herramienta tiene su propia página de documentación, con instrucciones detalladas de configuración y uso.
+
+## Salidas de la herramienta
+
+Las herramientas suelen devolver datos estructurados que pueden procesar los bloques posteriores del flujo de trabajo. El formato varía según la herramienta y la operación, pero generalmente incluye:
+
+- El main content o resultado
+- Metadatos about el operation
+- Estado información
+
+Refer un cada tool's específico documentation un understand its exacto output formato.
+
+## YAML Configuración
+
+Para detailed YAML workflow configuration y syntax, see el [YAML Flujo de trabajo Reference](/yaml) documentation. Este incluye comprehensive guides para:
+
+- **Block Reference Syntax**: How un connect y reference data entre blocks
+- **Configuración de herramientas**: uso de herramientas tanto en bloques independientes como en configuraciones de agentes
+- **Environment Variables**: Secure handling de API keys y credenciales
+- **Complete Examples**: Real-world workflow patterns y configurations
+
+Para específico tool parameters y configuration opciones, refer un cada tool's individual documentation página.

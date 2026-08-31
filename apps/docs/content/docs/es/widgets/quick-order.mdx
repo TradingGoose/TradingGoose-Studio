@@ -1,0 +1,65 @@
+---
+title: "Orden rápida"
+description: "Valida y envía órdenes al bróker desde un formulario de trading compacto."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `quick_order` |
+| **Categoría** | Trading |
+
+Quick Order ofrece un formulario específico de compra y venta para la cuenta de bróker y la cotización seleccionadas.
+
+## Funciones
+
+- **Controles según capacidades** -- Los tipos de orden se filtran por proveedor y cotización; las opciones de vigencia se filtran según la compatibilidad del proveedor.
+- **Límites de tamaño** -- Los modos por cantidad y valor nocional solo aparecen cuando el proveedor y el activo los admiten.
+- **Precios condicionales** -- Las entradas de límite, stop y seguimiento aparecen para el tipo de orden aplicable.
+- **Validación y envío** -- La cuenta, cotización, tamaño, precio y restricciones del proveedor se comprueban antes del envío.
+
+## Uso
+
+Selecciona Buy o Sell y una cotización. Después elige un modo de tamaño, tipo de orden y vigencia compatibles. Introduce la cantidad o el valor nocional requerido. Las órdenes con seguimiento aceptan `trailPrice` o `trailPercent`, pero no ambos. Revisa la validación antes de enviar.
+
+<Callout type="warn">Enviar el formulario ejecuta una acción de trading real mediante la cuenta de bróker configurada.</Callout>
+
+## Configuración
+
+Configuración persistente del widget:
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `provider` | Proveedor de trading. |
+| `serviceId` | Identificador del servicio de bróker. |
+| `portfolioIdentity` | Identidad canónica de la cuenta de bróker. |
+| `marketProvider` | Proveedor de datos de mercado para buscar cotizaciones. |
+| `marketProviderParams` | Parámetros específicos del proveedor de mercado. |
+| `marketAuth` | Credenciales opcionales del proveedor de mercado. |
+| `side` | Lado Buy o Sell persistente. |
+
+Estado transitorio del formulario:
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `listing` | Cotización seleccionada para esta orden. |
+| `sizingMode` | Tamaño por cantidad o valor nocional. |
+| `orderType` | Tipo de orden compatible con el proveedor y la cotización. |
+| `timeInForce` | Vigencia compatible con el proveedor. |
+| `quantity` | Cantidad de unidades. |
+| `notional` | Importe monetario. |
+| `limitPrice` | Precio límite cuando se requiere. |
+| `stopPrice` | Precio stop cuando se requiere. |
+| `trailPrice` | Importe absoluto de seguimiento. |
+| `trailPercent` | Porcentaje de seguimiento. |
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="Portfolio Snapshot" href="/widgets/portfolio-snapshot">Consulta la cuenta utilizada para la orden.</Card>
+  <Card title="Trading Action Tool" href="/tools/trading_action">Consulta el contrato del tool de workflow usado para las acciones de trading.</Card>
+</Cards>

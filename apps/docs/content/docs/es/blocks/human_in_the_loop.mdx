@@ -1,0 +1,64 @@
+---
+title: Intervención humana
+description: Pausa la ejecución del workflow y espera la aprobación de una persona antes de continuar
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard type="human_in_the_loop" color="#10B981" icon={true} />
+
+El bloque **Human in the Loop** pausa un flujo de trabajo en ejecución y espera a que una persona revise, proporcione datos o apruebe antes de continuar. Es el mecanismo principal para añadir supervisión humana a procesos automatizados.
+
+## Descripción general
+
+<Steps>
+  <Step><strong>Pausar la ejecución</strong>: el workflow se detiene en este bloque y queda en espera.</Step>
+  <Step><strong>Presentar el contexto</strong>: se muestran datos estructurados para que la persona tome una decisión informada.</Step>
+  <Step><strong>Notificar a los responsables</strong>: puede enviar un mensaje de Slack, correo u otra notificación con la URL de revisión.</Step>
+  <Step><strong>Recopilar datos y reanudar</strong>: la persona completa el formulario y el workflow continúa con sus datos disponibles para los bloques posteriores.</Step>
+</Steps>
+
+## Funcionamiento
+
+Cuando el ejecutor alcanza este bloque:
+
+1. **Representa los datos** -- Evalúa los campos `builderData`, incluidas las referencias `<variable.name>`, y presenta un resumen estructurado.
+2. **Genera una URL de reanudación** -- Crea una URL única y un endpoint API. La URL abre la interfaz de revisión; el endpoint acepta un `POST` para reanudar mediante programación.
+3. **Envía notificaciones** -- Si hay un tool de notificación configurado, envía automáticamente la URL.
+4. **Espera** -- Suspende la ejecución. Ningún bloque posterior se ejecuta hasta que actúe la persona.
+5. **Reanuda** -- Al enviar el formulario, el workflow continúa. Los campos completados quedan disponibles como salidas del bloque.
+
+<Callout type="info">Tras la pausa, el bloque genera **url**, enlace a la interfaz de revisión, y **resumeEndpoint**, URL de API que puedes llamar con `curl` u otro cliente HTTP.</Callout>
+
+## Configuración
+
+<ShowcaseCard><BlockConfigPreview name="Human in the Loop" type="human_in_the_loop" color="#10B981" hideHeader subBlocks={[
+      { "id": "builderData", "type": "response-format", "title": "Datos que se mostrarán", "description": "Define la estructura de los datos de respuesta. Usa <variable.name> en los nombres de campo para hacer referencia a variables del workflow." },
+      { "id": "notification", "type": "tool-input", "title": "Notificación (enviar URL)", "description": "Configura herramientas de notificación para avisar a los responsables de la aprobación (p. ej., Slack o correo electrónico)" },
+      { "id": "inputFormat", "type": "input-format", "title": "Formulario de reanudación", "description": "Define los campos que puede completar el responsable de la aprobación al reanudar" }
+]} /></ShowcaseCard>
+
+### Campos
+
+| Campo | Finalidad |
+|---|---|
+| **Display Data** | Datos clave-valor mostrados a la persona. Referencia variables anteriores con `<block.output>`. |
+| **Notification** | Tool que se ejecuta al pausar para enviar la URL a las personas adecuadas. |
+| **Resume Form** | Campos que deben completarse antes de reanudar. Se convierten en salidas del bloque. |
+
+## Salidas
+
+| Salida | Tipo | Descripción |
+|---|---|---|
+| `url` | string | URL de la interfaz donde se realiza la revisión. |
+| `resumeEndpoint` | string | Endpoint API para reanudar mediante HTTP POST. |
+
+## Prácticas recomendadas
+
+- **Configura siempre una notificación** para avisar de que el workflow está esperando. Sin ella, debes compartir la URL manualmente.
+- **Mantén enfocados los datos mostrados** -- incluye solo la información necesaria para decidir.
+- **Diseña con cuidado el formulario** -- los bloques posteriores dependerán de esos campos; usa nombres claros.

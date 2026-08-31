@@ -1,0 +1,86 @@
+---
+title: Historical Data
+description: Obtener historical market series desde registered providers.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="historical_data"
+  color="#0EA5E9"
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Historical Data"
+    type="historical_data"
+    color="#0EA5E9"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Datos Provider",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "listing",
+            "type": "market-selector",
+            "title": "Listing",
+            "layout": "full",
+            "required": true
+        },
+        {
+            "id": "interval",
+            "type": "dropdown",
+            "title": "Interval",
+            "layout": "full",
+            "placeholder": "Selecciona intervalo"
+        },
+        {
+            "id": "normalizationMode",
+            "type": "dropdown",
+            "title": "Normalization",
+            "layout": "full",
+            "placeholder": "Opcional normalization mode"
+        },
+        {
+            "id": "start",
+            "type": "datetime-input",
+            "title": "Iniciar",
+            "layout": "full",
+            "placeholder": "Iniciar time",
+            "required": true
+        },
+        {
+            "id": "end",
+            "type": "datetime-input",
+            "title": "End",
+            "layout": "full",
+            "placeholder": "End time",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+
+## Usage Instructions
+
+Elige un proveedor de datos de mercado, selecciona una cotización canónica y obtiene series de barras que incluyen apertura, máximo, mínimo, cierre, volumen y marcas de tiempo. El inicio y el final pueden ser cadenas ISO o marcas de tiempo UNIX.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `historical_data`

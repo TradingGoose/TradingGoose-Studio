@@ -1,0 +1,266 @@
+---
+title: Reddit
+description: 访问 Reddit 数据和内容
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="reddit"
+  color=""
+/>
+
+
+## 配置
+
+### 获取文章
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Reddit"
+    type="reddit"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Posts",
+                    "id": "get_posts"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                }
+            ],
+            "defaultValue": "get_posts"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Reddit 账户",
+            "layout": "full",
+            "placeholder": "Select Reddit account",
+            "provider": "reddit",
+            "required": true
+        },
+        {
+            "id": "subreddit",
+            "type": "short-input",
+            "title": "Subreddit",
+            "layout": "full",
+            "placeholder": "Enter subreddit name (without r/)",
+            "required": true
+        },
+        {
+            "id": "sort",
+            "type": "dropdown",
+            "title": "排序按",
+            "layout": "full",
+            "required": true,
+            "options": [
+                {
+                    "label": "Hot",
+                    "id": "hot"
+                },
+                {
+                    "label": "New",
+                    "id": "new"
+                },
+                {
+                    "label": "Top",
+                    "id": "top"
+                },
+                {
+                    "label": "Rising",
+                    "id": "rising"
+                }
+            ]
+        },
+        {
+            "id": "time",
+            "type": "dropdown",
+            "title": "时间筛选条件 (用于热门排序)",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Day",
+                    "id": "day"
+                },
+                {
+                    "label": "Week",
+                    "id": "week"
+                },
+                {
+                    "label": "Month",
+                    "id": "month"
+                },
+                {
+                    "label": "Year",
+                    "id": "year"
+                },
+                {
+                    "label": "All Time",
+                    "id": "all"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "最大文章",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `subreddit` | 字符串 | Subreddit 名称 |
+| `posts` | json | 文章数据 |
+| `post` | json | 单个 post 数据 |
+| `comments` | json | 评论数据 |
+
+</div>
+
+
+
+---
+
+### 获取评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Reddit"
+    type="reddit"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Posts",
+                    "id": "get_posts"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                }
+            ],
+            "defaultValue": "get_comments"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Reddit 账户",
+            "layout": "full",
+            "placeholder": "Select Reddit account",
+            "provider": "reddit",
+            "required": true
+        },
+        {
+            "id": "subreddit",
+            "type": "short-input",
+            "title": "Subreddit",
+            "layout": "full",
+            "placeholder": "Enter subreddit name (without r/)",
+            "required": true
+        },
+        {
+            "id": "postId",
+            "type": "short-input",
+            "title": "Post ID",
+            "layout": "full",
+            "placeholder": "Enter post ID",
+            "required": true
+        },
+        {
+            "id": "commentSort",
+            "type": "dropdown",
+            "title": "排序评论按",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Confidence",
+                    "id": "confidence"
+                },
+                {
+                    "label": "Top",
+                    "id": "top"
+                },
+                {
+                    "label": "New",
+                    "id": "new"
+                },
+                {
+                    "label": "Controversial",
+                    "id": "controversial"
+                },
+                {
+                    "label": "Old",
+                    "id": "old"
+                },
+                {
+                    "label": "Random",
+                    "id": "random"
+                },
+                {
+                    "label": "Q&A",
+                    "id": "qa"
+                }
+            ]
+        },
+        {
+            "id": "commentLimit",
+            "type": "short-input",
+            "title": "数量：评论",
+            "layout": "full",
+            "placeholder": "50"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `subreddit` | 字符串 | Subreddit 名称 |
+| `posts` | json | 文章数据 |
+| `post` | json | 单个 post 数据 |
+| `comments` | json | 评论数据 |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将Reddit集成到 workflow 中。可以get 文章和评论，来源为一个 subreddit.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `reddit`

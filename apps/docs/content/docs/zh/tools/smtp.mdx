@@ -1,0 +1,203 @@
+---
+title: SMTP
+description: 通过任意 SMTP 邮件服务器发送电子邮件
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="smtp"
+  color=""
+/>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SMTP"
+    type="smtp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "smtpHost",
+            "type": "short-input",
+            "title": "SMTP 主机",
+            "placeholder": "smtp.gmail.com, smtp.example.com",
+            "required": true
+        },
+        {
+            "id": "smtpPort",
+            "type": "short-input",
+            "title": "SMTP 端口",
+            "placeholder": "587",
+            "required": true
+        },
+        {
+            "id": "smtpUsername",
+            "type": "short-input",
+            "title": "SMTP 用户名",
+            "placeholder": "your-email@example.com",
+            "required": true
+        },
+        {
+            "id": "smtpPassword",
+            "type": "short-input",
+            "title": "SMTP 密码",
+            "placeholder": "Your SMTP password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "smtpSecure",
+            "type": "dropdown",
+            "title": "安全模式",
+            "required": true,
+            "options": [
+                {
+                    "label": "TLS (Port 587)",
+                    "id": "TLS"
+                },
+                {
+                    "label": "SSL (Port 465)",
+                    "id": "SSL"
+                },
+                {
+                    "label": "None (Port 25)",
+                    "id": "None"
+                }
+            ]
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "来自",
+            "placeholder": "sender@example.com",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "到",
+            "placeholder": "recipient@example.com",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "Email subject",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "正文",
+            "placeholder": "Email content",
+            "required": true
+        },
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "options": [
+                {
+                    "label": "Plain Text",
+                    "id": "text"
+                },
+                {
+                    "label": "HTML",
+                    "id": "html"
+                }
+            ]
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "附件",
+            "placeholder": "Upload files to attach"
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "附件",
+            "placeholder": "Reference files from previous blocks"
+        },
+        {
+            "id": "fromName",
+            "type": "short-input",
+            "title": "来自名称",
+            "placeholder": "Display name for sender"
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "placeholder": "cc1@example.com, cc2@example.com"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "BCC",
+            "placeholder": "bcc1@example.com, bcc2@example.com"
+        },
+        {
+            "id": "replyTo",
+            "type": "short-input",
+            "title": "回复地址",
+            "placeholder": "reply@example.com"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `smtp_send_mail`
+
+发送电子邮件 via SMTP 服务器
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `smtpHost` | 字符串 | 是 | SMTP 服务器主机名 \(例如： smtp.gmail.com\) |
+| `smtpPort` | 数字 | 是 | SMTP 服务器端口 \(587，用于TLS, 465，用于SSL\) |
+| `smtpUsername` | 字符串 | 是 | SMTP 身份验证用户名 |
+| `smtpPassword` | 字符串 | 是 | SMTP 身份验证密码 |
+| `smtpSecure` | 字符串 | 是 | 安全协议 \(TLS, SSL,或无\) |
+| `from` | 字符串 | 是 | 发件人 email 地址 |
+| `to` | 字符串 | 是 | 收件人 email 地址 |
+| `subject` | 字符串 | 是 | 电子邮件主题 |
+| `body` | 字符串 | 是 | 电子邮件正文内容 |
+| `contentType` | 字符串 | 否 | 内容类型 \(文本或html\) |
+| `fromName` | 字符串 | 否 | 显示名称，用于发件人 |
+| `cc` | 字符串 | 否 | CC 收件人 \(comma-separated\) |
+| `bcc` | 字符串 | 否 | BCC 收件人 \(comma-separated\) |
+| `replyTo` | 字符串 | 否 | 回复地址 |
+| `attachments` | file[] | 否 | 要附加到电子邮件的文件 |
+
+#### 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | 布尔值 | 是否email 曾为已发送 successfully |
+| `messageId` | 字符串 | 消息 ID，来源为SMTP 服务器 |
+| `to` | 字符串 | 收件人 email 地址 |
+| `subject` | 字符串 | 电子邮件主题 |
+
+
+## 用法说明
+
+使用任何 SMTP 服务器 (Gmail, Outlook, 自定义 servers, etc.). Configure SMTP connection 设置和发送电子邮件使用完整控制 over 内容, 收件人,和附件.发送电子邮件
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `smtp`

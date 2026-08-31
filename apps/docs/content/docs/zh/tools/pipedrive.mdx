@@ -1,0 +1,3086 @@
+---
+title: Pipedrive
+description: 与 Pipedrive CRM 交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="pipedrive"
+  color="#2E6936"
+/>
+
+
+## 配置
+
+### 获取所有交易
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_all_deals"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "Open",
+                    "id": "open"
+                },
+                {
+                    "label": "Won",
+                    "id": "won"
+                },
+                {
+                    "label": "Lost",
+                    "id": "lost"
+                }
+            ]
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "人员 ID",
+            "placeholder": "Filter by person ID"
+        },
+        {
+            "id": "org_id",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "Filter by organization ID"
+        },
+        {
+            "id": "pipeline_id",
+            "type": "short-input",
+            "title": "管道 ID",
+            "placeholder": "Filter by pipeline ID "
+        },
+        {
+            "id": "updated_since",
+            "type": "datetime-input",
+            "title": "已更新自",
+            "placeholder": "Date (2025-01-01T10:20:00Z)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (default 100, max 500)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get All Deals (<code>pipedrive_get_all_deals</code>)</div>
+
+检索所有交易，来源为Pipedrive 使用可选筛选条件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `status` | 字符串 | 否 | 仅 fetch 交易使用一个特定状态. 值: 打开, won, lost. 如果 omitted, 所有不 已删除交易为 已返回 |
+| `person_id` | 字符串 | 否 | 如果 supplied, 仅交易 linked到指定的人员为 已返回 |
+| `org_id` | 字符串 | 否 | 如果 supplied, 仅交易 linked到指定的组织为 已返回 |
+| `pipeline_id` | 字符串 | 否 | 如果 supplied, 仅交易在指定的管道为 已返回 |
+| `updated_since` | 字符串 | 否 | 如果设置, 仅交易已更新之后此 time 为已返回. 格式: 2025-01-01T10:20:00Z |
+| `limit` | 字符串 | 否 | 数量：结果到返回 \(默认值： 100, 最大: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `deals` | 数组 | 以下内容的数组：交易对象，来源为Pipedrive |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 获取交易
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_deal"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "deal_id",
+            "type": "short-input",
+            "title": "交易 ID",
+            "placeholder": "Enter deal ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Deal (<code>pipedrive_get_deal</code>)</div>
+
+获取交易的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deal_id` | 字符串 | 是 | 以下对象的 ID：交易到检索 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `deal` | 对象 | 交易对象使用完整详细信息 |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 创建交易
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "create_deal"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "Enter deal title",
+            "required": true
+        },
+        {
+            "id": "value",
+            "type": "short-input",
+            "title": "值",
+            "placeholder": "Monetary value "
+        },
+        {
+            "id": "currency",
+            "type": "short-input",
+            "title": "货币",
+            "placeholder": "Currency code (e.g., USD, EUR)"
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "人员 ID",
+            "placeholder": "Associated person ID "
+        },
+        {
+            "id": "org_id",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "Associated organization ID "
+        },
+        {
+            "id": "pipeline_id",
+            "type": "short-input",
+            "title": "管道 ID",
+            "placeholder": "Pipeline ID "
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "阶段 ID",
+            "placeholder": "Stage ID "
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "Open",
+                    "id": "open"
+                },
+                {
+                    "label": "Won",
+                    "id": "won"
+                },
+                {
+                    "label": "Lost",
+                    "id": "lost"
+                }
+            ]
+        },
+        {
+            "id": "expected_close_date",
+            "type": "datetime-input",
+            "title": "Expected Close 日期",
+            "placeholder": "YYYY-MM-DD "
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Deal (<code>pipedrive_create_deal</code>)</div>
+
+创建交易在Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `title` | 字符串 | 是 | 标题的交易 |
+| `value` | 字符串 | 否 | monetary 值的交易 |
+| `currency` | 字符串 | 否 | 货币代码 \(例如： USD, EUR\) |
+| `person_id` | 字符串 | 否 | ID：人员此 交易为 关联使用|
+| `org_id` | 字符串 | 否 | ID：组织此 交易为 关联使用|
+| `pipeline_id` | 字符串 | 否 | ID：管道此 交易应 为 placed在|
+| `stage_id` | 字符串 | 否 | ID：stage 此交易应 为 placed在|
+| `status` | 字符串 | 否 | 状态的交易: 打开, won, lost |
+| `expected_close_date` | 字符串 | 否 | Expected close 日期在YYYY-MM-DD 格式 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `deal` | 对象 | 已创建交易对象 |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 更新交易
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "update_deal"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "deal_id",
+            "type": "short-input",
+            "title": "交易 ID",
+            "placeholder": "Enter deal ID",
+            "required": true
+        },
+        {
+            "id": "value",
+            "type": "short-input",
+            "title": "值",
+            "placeholder": "Monetary value "
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "阶段 ID",
+            "placeholder": "Stage ID "
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "Open",
+                    "id": "open"
+                },
+                {
+                    "label": "Won",
+                    "id": "won"
+                },
+                {
+                    "label": "Lost",
+                    "id": "lost"
+                }
+            ]
+        },
+        {
+            "id": "expected_close_date",
+            "type": "datetime-input",
+            "title": "Expected Close 日期",
+            "placeholder": "YYYY-MM-DD "
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "新建标题",
+            "placeholder": "New deal title "
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Deal (<code>pipedrive_update_deal</code>)</div>
+
+更新交易在Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deal_id` | 字符串 | 是 | 以下对象的 ID：交易到更新 |
+| `title` | 字符串 | 否 | 新建标题，用于交易 |
+| `value` | 字符串 | 否 | 新建monetary 值，用于交易 |
+| `status` | 字符串 | 否 | 新建状态: 打开, won, lost |
+| `stage_id` | 字符串 | 否 | 新建stage ID，用于交易 |
+| `expected_close_date` | 字符串 | 否 | 新建expected close 日期在YYYY-MM-DD 格式 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `deal` | 对象 | 已更新交易对象 |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 获取文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_files"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "deal_id",
+            "type": "short-input",
+            "title": "交易 ID",
+            "placeholder": "Filter by deal ID "
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "人员 ID",
+            "placeholder": "Filter by person ID "
+        },
+        {
+            "id": "org_id",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "Filter by organization ID "
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (default 100, max 500)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Files (<code>pipedrive_get_files</code>)</div>
+
+检索文件，来源为Pipedrive 使用可选筛选条件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deal_id` | 字符串 | 否 | 筛选条件文件由交易 ID |
+| `person_id` | 字符串 | 否 | 筛选条件文件由人员 ID |
+| `org_id` | 字符串 | 否 | 筛选条件文件由组织 ID |
+| `limit` | 字符串 | 否 | 数量：结果到返回 \(默认值： 100, 最大: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `files` | 数组 | 以下内容的数组：file 对象，来源为Pipedrive |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 获取邮件线程
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_mail_messages"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "folder",
+            "type": "dropdown",
+            "title": "文件夹",
+            "options": [
+                {
+                    "label": "Inbox",
+                    "id": "inbox"
+                },
+                {
+                    "label": "Drafts",
+                    "id": "drafts"
+                },
+                {
+                    "label": "Sent",
+                    "id": "sent"
+                },
+                {
+                    "label": "Archive",
+                    "id": "archive"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (default 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Mail Threads (<code>pipedrive_get_mail_messages</code>)</div>
+
+检索邮件线程，来源为Pipedrive mailbox
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `folder` | 字符串 | 否 | 筛选条件由文件夹: 收件箱, 草稿, 已发送, 归档 \(默认值： 收件箱\) |
+| `limit` | 字符串 | 否 | 数量：结果到返回 \(默认值： 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `messages` | 数组 | 以下内容的数组：邮件线程对象，来源为Pipedrive mailbox |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 获取邮件线程消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_mail_thread"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "thread_id",
+            "type": "short-input",
+            "title": "线程 ID",
+            "placeholder": "Enter mail thread ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Mail Thread Messages (<code>pipedrive_get_mail_thread</code>)</div>
+
+检索所有消息，来源为一个特定邮件线程
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `thread_id` | 字符串 | 是 | 以下对象的 ID：邮件线程 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `messages` | 数组 | 以下内容的数组：邮件消息对象，来源为线程 |
+| `metadata` | 对象 | 操作元数据包括线程 ID |
+
+</div>
+
+
+
+---
+
+### 获取Pipelines
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_pipelines"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "sort_by",
+            "type": "dropdown",
+            "title": "排序按",
+            "options": [
+                {
+                    "label": "ID",
+                    "id": "id"
+                },
+                {
+                    "label": "Update Time",
+                    "id": "update_time"
+                },
+                {
+                    "label": "Add Time",
+                    "id": "add_time"
+                }
+            ]
+        },
+        {
+            "id": "sort_direction",
+            "type": "dropdown",
+            "title": "排序 Direction",
+            "options": [
+                {
+                    "label": "Ascending",
+                    "id": "asc"
+                },
+                {
+                    "label": "Descending",
+                    "id": "desc"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (default 100, max 500)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Pagination cursor (optional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Pipelines (<code>pipedrive_get_pipelines</code>)</div>
+
+检索所有 pipelines，来源为Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `sort_by` | 字符串 | 否 | 字段到排序按: id, update_time, add_time \(默认值： id\) |
+| `sort_direction` | 字符串 | 否 | Sorting direction: asc, desc \(默认值： asc\) |
+| `limit` | 字符串 | 否 | 数量：结果到返回 \(默认值： 100, 最大: 500\) |
+| `cursor` | 字符串 | 否 | 用于分页, marker representing 第一个项目在 下一个页面 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `pipelines` | 数组 | 以下内容的数组：管道对象，来源为Pipedrive |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 获取管道交易
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_pipeline_deals"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "pipeline_id",
+            "type": "short-input",
+            "title": "管道 ID",
+            "placeholder": "Enter pipeline ID",
+            "required": true
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "阶段 ID",
+            "placeholder": "Filter by stage ID "
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "Open",
+                    "id": "open"
+                },
+                {
+                    "label": "Won",
+                    "id": "won"
+                },
+                {
+                    "label": "Lost",
+                    "id": "lost"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (default 100, max 500)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Pipeline Deals (<code>pipedrive_get_pipeline_deals</code>)</div>
+
+检索所有交易在一个特定管道
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `pipeline_id` | 字符串 | 是 | 以下对象的 ID：管道 |
+| `stage_id` | 字符串 | 否 | 筛选条件由特定 stage 范围内管道 |
+| `status` | 字符串 | 否 | 筛选条件由交易状态: 打开, won, lost |
+| `limit` | 字符串 | 否 | 数量：结果到返回 \(默认值： 100, 最大: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `deals` | 数组 | 以下内容的数组：交易对象，来源为管道 |
+| `metadata` | 对象 | 操作元数据包括管道 ID |
+
+</div>
+
+
+
+---
+
+### 获取项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_projects"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "project_id",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "Project ID"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "label": "Open",
+                    "id": "open"
+                },
+                {
+                    "label": "Completed",
+                    "id": "completed"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (default 100, max 500)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Projects (<code>pipedrive_get_projects</code>)</div>
+
+检索所有项目或一个特定项目，来源为Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `project_id` | 字符串 | 否 | 可选: ID的一个特定项目到检索 |
+| `status` | 字符串 | 否 | 筛选条件由项目状态: 打开, 已完成, 已删除 \(仅，用于listing 所有\) |
+| `limit` | 字符串 | 否 | 数量：结果到返回 \(默认值： 100, 最大: 500, 仅，用于listing 所有\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `projects` | 数组 | 以下内容的数组：项目对象 \(当listing 所有\) |
+| `project` | 对象 | 单个项目对象 \(当project_id 为提供的\) |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 创建项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "create_project"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "Enter project title",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "Project description "
+        },
+        {
+            "id": "start_date",
+            "type": "datetime-input",
+            "title": "启动日期",
+            "placeholder": "YYYY-MM-DD "
+        },
+        {
+            "id": "end_date",
+            "type": "datetime-input",
+            "title": "结束日期",
+            "placeholder": "YYYY-MM-DD "
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Project (<code>pipedrive_create_project</code>)</div>
+
+创建项目在Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `title` | 字符串 | 是 | 标题的项目 |
+| `description` | 字符串 | 否 | 描述的项目 |
+| `start_date` | 字符串 | 否 | 项目开始日期在YYYY-MM-DD 格式 |
+| `end_date` | 字符串 | 否 | 项目结束日期在YYYY-MM-DD 格式 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `project` | 对象 | 已创建项目对象 |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 获取Activities
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_activities"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "deal_id",
+            "type": "short-input",
+            "title": "交易 ID",
+            "placeholder": "Filter by deal ID "
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "人员 ID",
+            "placeholder": "Filter by person ID "
+        },
+        {
+            "id": "org_id",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "Filter by organization ID "
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "活动类型",
+            "options": [
+                {
+                    "label": "Call",
+                    "id": "call"
+                },
+                {
+                    "label": "Meeting",
+                    "id": "meeting"
+                },
+                {
+                    "label": "Task",
+                    "id": "task"
+                },
+                {
+                    "label": "Deadline",
+                    "id": "deadline"
+                },
+                {
+                    "label": "Email",
+                    "id": "email"
+                },
+                {
+                    "label": "Lunch",
+                    "id": "lunch"
+                }
+            ]
+        },
+        {
+            "id": "done",
+            "type": "dropdown",
+            "title": "Completion 状态",
+            "options": [
+                {
+                    "label": "Not Done",
+                    "id": "0"
+                },
+                {
+                    "label": "Done",
+                    "id": "1"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (default 100, max 500)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Activities (<code>pipedrive_get_activities</code>)</div>
+
+检索activities (任务)，来源为Pipedrive 使用可选筛选条件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `deal_id` | 字符串 | 否 | 筛选条件 activities由交易 ID |
+| `person_id` | 字符串 | 否 | 筛选条件 activities由人员 ID |
+| `org_id` | 字符串 | 否 | 筛选条件 activities由组织 ID |
+| `type` | 字符串 | 否 | 筛选条件由活动类型 \(通话, 会议, 任务, 截止日期, email, lunch\) |
+| `done` | 字符串 | 否 | 筛选条件由completion 状态: 0，用于不完成, 1，用于完成 |
+| `limit` | 字符串 | 否 | 数量：结果到返回 \(默认值： 100, 最大: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `activities` | 数组 | 以下内容的数组：活动对象，来源为Pipedrive |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 创建活动
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "create_activity"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "deal_id",
+            "type": "short-input",
+            "title": "交易 ID",
+            "placeholder": "Filter by deal ID "
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "人员 ID",
+            "placeholder": "Filter by person ID "
+        },
+        {
+            "id": "org_id",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "Filter by organization ID "
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "Activity subject/title",
+            "required": true
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "活动类型",
+            "required": true,
+            "options": [
+                {
+                    "label": "Call",
+                    "id": "call"
+                },
+                {
+                    "label": "Meeting",
+                    "id": "meeting"
+                },
+                {
+                    "label": "Task",
+                    "id": "task"
+                },
+                {
+                    "label": "Deadline",
+                    "id": "deadline"
+                },
+                {
+                    "label": "Email",
+                    "id": "email"
+                },
+                {
+                    "label": "Lunch",
+                    "id": "lunch"
+                }
+            ]
+        },
+        {
+            "id": "due_date",
+            "type": "datetime-input",
+            "title": "Due 日期",
+            "placeholder": "YYYY-MM-DD",
+            "required": true
+        },
+        {
+            "id": "due_time",
+            "type": "time-input",
+            "title": "Due 时间",
+            "placeholder": "HH:mm:ss"
+        },
+        {
+            "id": "duration",
+            "type": "time-input",
+            "title": "时长",
+            "placeholder": "HH:mm:ss"
+        },
+        {
+            "id": "note",
+            "type": "long-input",
+            "title": "笔记",
+            "placeholder": "Activity notes "
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Activity (<code>pipedrive_create_activity</code>)</div>
+
+创建活动 (任务)在Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `subject` | 字符串 | 是 | 主题/标题的活动 |
+| `type` | 字符串 | 是 | 活动类型: 通话, 会议, 任务, 截止日期, email, lunch |
+| `due_date` | 字符串 | 是 | Due 日期在YYYY-MM-DD 格式 |
+| `due_time` | 字符串 | 否 | Due time在HH:mm:ss 格式 |
+| `duration` | 字符串 | 否 | 时长在HH:mm:ss 格式 |
+| `deal_id` | 字符串 | 否 | ID：交易到associate 使用|
+| `person_id` | 字符串 | 否 | ID：人员到associate 使用|
+| `org_id` | 字符串 | 否 | ID：组织到associate 使用|
+| `note` | 字符串 | 否 | 笔记，用于活动 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `activity` | 对象 | 已创建活动对象 |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 更新活动
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "update_activity"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "Activity subject/title",
+            "required": true
+        },
+        {
+            "id": "due_date",
+            "type": "datetime-input",
+            "title": "Due 日期",
+            "placeholder": "YYYY-MM-DD",
+            "required": true
+        },
+        {
+            "id": "due_time",
+            "type": "time-input",
+            "title": "Due 时间",
+            "placeholder": "HH:mm:ss"
+        },
+        {
+            "id": "duration",
+            "type": "time-input",
+            "title": "时长",
+            "placeholder": "HH:mm:ss"
+        },
+        {
+            "id": "note",
+            "type": "long-input",
+            "title": "笔记",
+            "placeholder": "Activity notes "
+        },
+        {
+            "id": "activity_id",
+            "type": "short-input",
+            "title": "活动 ID",
+            "placeholder": "Enter activity ID",
+            "required": true
+        },
+        {
+            "id": "done",
+            "type": "dropdown",
+            "title": "标记作为已完成",
+            "options": [
+                {
+                    "label": "Not Done",
+                    "id": "0"
+                },
+                {
+                    "label": "Done",
+                    "id": "1"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Activity (<code>pipedrive_update_activity</code>)</div>
+
+更新活动 (任务)在Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `activity_id` | 字符串 | 是 | 以下对象的 ID：活动到更新 |
+| `subject` | 字符串 | 否 | 新建主题/标题，用于活动 |
+| `due_date` | 字符串 | 否 | 新建due 日期在YYYY-MM-DD 格式 |
+| `due_time` | 字符串 | 否 | 新建due time在HH:mm:ss 格式 |
+| `duration` | 字符串 | 否 | 新建时长在HH:mm:ss 格式 |
+| `done` | 字符串 | 否 | 标记作为完成: 0，用于不完成, 1，用于完成 |
+| `note` | 字符串 | 否 | 新建笔记，用于活动 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `activity` | 对象 | 已更新活动对象 |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 获取潜在客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "get_leads"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "lead_id",
+            "type": "short-input",
+            "title": "潜在客户 ID",
+            "placeholder": "Lead ID"
+        },
+        {
+            "id": "archived",
+            "type": "dropdown",
+            "title": "已归档",
+            "options": [
+                {
+                    "label": "Active Leads",
+                    "id": "false"
+                },
+                {
+                    "label": "Archived Leads",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "人员 ID",
+            "placeholder": "Person ID to link lead to"
+        },
+        {
+            "id": "organization_id",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "Organization ID to link lead to"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Owner user ID"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "Number of results (default 100)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Leads (<code>pipedrive_get_leads</code>)</div>
+
+检索所有潜在客户或一个特定潜在客户，来源为Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `lead_id` | 字符串 | 否 | 可选: ID的一个特定潜在客户到检索 |
+| `archived` | 字符串 | 否 | 获取已归档潜在客户 instead的有效 ones |
+| `owner_id` | 字符串 | 否 | 筛选条件由所有者 user ID |
+| `person_id` | 字符串 | 否 | 筛选条件由人员 ID |
+| `organization_id` | 字符串 | 否 | 筛选条件由组织 ID |
+| `limit` | 字符串 | 否 | 数量：结果到返回 \(默认值： 100, 最大: 500\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `leads` | 数组 | 以下内容的数组：潜在客户对象 \(当listing 所有\) |
+| `lead` | 对象 | 单个潜在客户对象 \(当lead_id 为提供的\) |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 创建潜在客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "create_lead"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "Enter lead title",
+            "required": true
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "人员 ID",
+            "placeholder": "Person ID to link lead to"
+        },
+        {
+            "id": "organization_id",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "Organization ID to link lead to"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Owner user ID"
+        },
+        {
+            "id": "value_amount",
+            "type": "short-input",
+            "title": "值金额",
+            "placeholder": "Potential value amount"
+        },
+        {
+            "id": "value_currency",
+            "type": "short-input",
+            "title": "值货币",
+            "placeholder": "Currency code (e.g., USD, EUR)"
+        },
+        {
+            "id": "expected_close_date",
+            "type": "datetime-input",
+            "title": "Expected Close 日期",
+            "placeholder": "YYYY-MM-DD"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Lead (<code>pipedrive_create_lead</code>)</div>
+
+创建潜在客户在Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `title` | 字符串 | 是 | 名称的潜在客户 |
+| `person_id` | 字符串 | 否 | ID：人员 \(REQUIRED 除非 organization_id 为提供的\) |
+| `organization_id` | 字符串 | 否 | ID：组织 \(REQUIRED 除非 person_id 为提供的\) |
+| `owner_id` | 字符串 | 否 | ID：user 人员将 自己的潜在客户 |
+| `value_amount` | 字符串 | 否 | Potential 值金额 |
+| `value_currency` | 字符串 | 否 | 货币代码 \(例如： USD, EUR\) |
+| `expected_close_date` | 字符串 | 否 | Expected close 日期在YYYY-MM-DD 格式 |
+| `visible_to` | 字符串 | 否 | Visibility: 1 \(所有者 & 关注者\), 3 \(Entire 公司\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `lead` | 对象 | 已创建潜在客户对象 |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 更新潜在客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "update_lead"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "lead_id",
+            "type": "short-input",
+            "title": "潜在客户 ID",
+            "placeholder": "Lead ID"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "新建标题",
+            "placeholder": "New lead title"
+        },
+        {
+            "id": "person_id",
+            "type": "short-input",
+            "title": "人员 ID",
+            "placeholder": "Person ID to link lead to"
+        },
+        {
+            "id": "organization_id",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "Organization ID to link lead to"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Owner user ID"
+        },
+        {
+            "id": "value_amount",
+            "type": "short-input",
+            "title": "值金额",
+            "placeholder": "Potential value amount"
+        },
+        {
+            "id": "value_currency",
+            "type": "short-input",
+            "title": "值货币",
+            "placeholder": "Currency code (e.g., USD, EUR)"
+        },
+        {
+            "id": "expected_close_date",
+            "type": "datetime-input",
+            "title": "Expected Close 日期",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "is_archived",
+            "type": "dropdown",
+            "title": "Archive 潜在客户",
+            "options": [
+                {
+                    "label": "No",
+                    "id": "false"
+                },
+                {
+                    "label": "Yes",
+                    "id": "true"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update Lead (<code>pipedrive_update_lead</code>)</div>
+
+更新潜在客户在Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `lead_id` | 字符串 | 是 | 以下对象的 ID：潜在客户到更新 |
+| `title` | 字符串 | 否 | 新建名称，用于潜在客户 |
+| `person_id` | 字符串 | 否 | 新建人员 ID |
+| `organization_id` | 字符串 | 否 | 新建组织 ID |
+| `owner_id` | 字符串 | 否 | 新建所有者 user ID |
+| `value_amount` | 字符串 | 否 | 新建值金额 |
+| `value_currency` | 字符串 | 否 | 新建货币代码 \(例如： USD, EUR\) |
+| `expected_close_date` | 字符串 | 否 | 新建expected close 日期在YYYY-MM-DD 格式 |
+| `is_archived` | 字符串 | 否 | Archive 潜在客户: true或false |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `lead` | 对象 | 已更新潜在客户对象 |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+### 删除潜在客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pipedrive"
+    type="pipedrive"
+    color="#2E6936"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Get All Deals",
+                    "id": "get_all_deals"
+                },
+                {
+                    "label": "Get Deal",
+                    "id": "get_deal"
+                },
+                {
+                    "label": "Create Deal",
+                    "id": "create_deal"
+                },
+                {
+                    "label": "Update Deal",
+                    "id": "update_deal"
+                },
+                {
+                    "label": "Get Files",
+                    "id": "get_files"
+                },
+                {
+                    "label": "Get Mail Threads",
+                    "id": "get_mail_messages"
+                },
+                {
+                    "label": "Get Mail Thread Messages",
+                    "id": "get_mail_thread"
+                },
+                {
+                    "label": "Get Pipelines",
+                    "id": "get_pipelines"
+                },
+                {
+                    "label": "Get Pipeline Deals",
+                    "id": "get_pipeline_deals"
+                },
+                {
+                    "label": "Get Projects",
+                    "id": "get_projects"
+                },
+                {
+                    "label": "Create Project",
+                    "id": "create_project"
+                },
+                {
+                    "label": "Get Activities",
+                    "id": "get_activities"
+                },
+                {
+                    "label": "Create Activity",
+                    "id": "create_activity"
+                },
+                {
+                    "label": "Update Activity",
+                    "id": "update_activity"
+                },
+                {
+                    "label": "Get Leads",
+                    "id": "get_leads"
+                },
+                {
+                    "label": "Create Lead",
+                    "id": "create_lead"
+                },
+                {
+                    "label": "Update Lead",
+                    "id": "update_lead"
+                },
+                {
+                    "label": "Delete Lead",
+                    "id": "delete_lead"
+                }
+            ],
+            "defaultValue": "delete_lead"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Pipedrive 账户",
+            "placeholder": "Select Pipedrive account",
+            "provider": "pipedrive",
+            "required": true
+        },
+        {
+            "id": "lead_id",
+            "type": "short-input",
+            "title": "潜在客户 ID",
+            "placeholder": "Lead ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete Lead (<code>pipedrive_delete_lead</code>)</div>
+
+删除特定潜在客户，来源为Pipedrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `lead_id` | 字符串 | 是 | 以下对象的 ID：潜在客户到delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `data` | 对象 | Deletion confirmation 数据 |
+| `metadata` | 对象 | 操作元数据 |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将 Pipedrive 到你的 workflow. 管理交易, 联系人, sales 管道, 项目, activities, 文件,和communications 使用强大 CRM 功能.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `pipedrive`

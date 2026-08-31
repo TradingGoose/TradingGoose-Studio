@@ -1,0 +1,1296 @@
+---
+title: Google Groups
+description: 管理 Google Workspace 群组及其成员
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="google_groups"
+  color="#E8F0FE"
+/>
+
+
+## 配置
+
+### 列出群组
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "list_groups"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "customer",
+            "type": "short-input",
+            "title": "客户 ID",
+            "placeholder": "my_customer (默认)"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "按条件筛选域名 (例如, example.com)"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "placeholder": "筛选条件 query (例如, 电子邮件:admin*)"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "最大结果 (1-200)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出群组 (<code>google_groups_list_groups</code>)</div>
+
+列出全部 groups 在一个 Google 工作区域名
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `customer` | 字符串 | 否 | 客户 ID 或 "my_customer" 用于该 authenticated 用户\'s 域名 |
+| `domain` | 字符串 | 否 | 域名 名称 到 filter groups 按 |
+| `maxResults` | 数字 | 否 | 最大数字的结果到 return \(1-200\) |
+| `pageToken` | 字符串 | 否 | 令牌用于分页 |
+| `query` | 字符串 | 否 | 搜索 query 到 filter groups \(例如, "电子邮件:admin*"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `groups` | json | 数组的 group objects |
+
+</div>
+
+
+
+---
+
+### 获取群组
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "get_group"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "群组电子邮件或 ID",
+            "placeholder": "group@example.com 或 group ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取群组 (<code>google_groups_get_group</code>)</div>
+
+获取详细信息的一个指定 Google 群组按 电子邮件 或 group ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | 字符串 | 是 | 群组 电子邮件 address 或唯一 group ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+### 创建群组
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "create_group"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "群组电子邮件",
+            "placeholder": "newgroup@example.com",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "群组名称",
+            "placeholder": "Display 名称 用于该 group",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "说明",
+            "placeholder": "可选说明用于该 group"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建群组 (<code>google_groups_create_group</code>)</div>
+
+创建一个新 Google 群组在该域名
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `email` | 字符串 | 是 | 电子邮件 address 用于该新 group \(例如, team@yourdomain.com\) |
+| `name` | 字符串 | 是 | Display 名称 用于该 group |
+| `description` | 字符串 | 否 | 说明的该 group |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+### 更新群组
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "update_group"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "群组电子邮件或 ID",
+            "placeholder": "group@example.com 或 group ID",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "说明",
+            "placeholder": "可选说明用于该 group"
+        },
+        {
+            "id": "newName",
+            "type": "short-input",
+            "title": "新名称",
+            "placeholder": "新 display 名称"
+        },
+        {
+            "id": "newEmail",
+            "type": "short-input",
+            "title": "新电子邮件",
+            "placeholder": "新 电子邮件 address"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新群组 (<code>google_groups_update_group</code>)</div>
+
+更新一个现有 Google 群组
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | 字符串 | 是 | 群组 电子邮件 address 或唯一 group ID |
+| `name` | 字符串 | 否 | 新 display 名称 用于该 group |
+| `description` | 字符串 | 否 | 新说明用于该 group |
+| `email` | 字符串 | 否 | 新 电子邮件 address 用于该 group |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+### 删除群组
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "delete_group"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "群组电子邮件或 ID",
+            "placeholder": "group@example.com 或 group ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除群组 (<code>google_groups_delete_group</code>)</div>
+
+删除一个 Google 群组
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | 字符串 | 是 | 群组 电子邮件 address 或唯一 group ID 到 delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+### 列出成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "list_members"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "placeholder": "最大结果 (1-200)"
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "群组电子邮件或 ID",
+            "placeholder": "group@example.com 或 group ID",
+            "required": true
+        },
+        {
+            "id": "roles",
+            "type": "short-input",
+            "title": "按条件筛选角色",
+            "placeholder": "OWNER,MANAGER,MEMBER"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出成员 (<code>google_groups_list_members</code>)</div>
+
+列出全部 members 的一个 Google 群组
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | 字符串 | 是 | 群组 电子邮件 address 或唯一 group ID |
+| `maxResults` | 数字 | 否 | 最大数字的结果到 return \(1-200\) |
+| `pageToken` | 字符串 | 否 | 令牌用于分页 |
+| `roles` | 字符串 | 否 | 按条件筛选角色 \(comma-separated: OWNER, MANAGER, MEMBER\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `members` | json | 数组的 member objects |
+
+</div>
+
+
+
+---
+
+### 获取成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "get_member"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "群组电子邮件或 ID",
+            "placeholder": "group@example.com 或 group ID",
+            "required": true
+        },
+        {
+            "id": "memberKey",
+            "type": "short-input",
+            "title": "成员电子邮件或 ID",
+            "placeholder": "用户@example.com 或 member ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取成员 (<code>google_groups_get_member</code>)</div>
+
+获取详细信息的一个指定 member 在一个 Google 群组
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | 字符串 | 是 | 群组 电子邮件 address 或唯一 group ID |
+| `memberKey` | 字符串 | 是 | 成员 电子邮件 address 或唯一 member ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+### 添加成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "add_member"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "群组电子邮件或 ID",
+            "placeholder": "group@example.com 或 group ID",
+            "required": true
+        },
+        {
+            "id": "memberEmail",
+            "type": "short-input",
+            "title": "成员电子邮件",
+            "placeholder": "用户@example.com",
+            "required": true
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "成员角色",
+            "options": [
+                {
+                    "label": "Member",
+                    "id": "MEMBER"
+                },
+                {
+                    "label": "Manager",
+                    "id": "MANAGER"
+                },
+                {
+                    "label": "Owner",
+                    "id": "OWNER"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加成员 (<code>google_groups_add_member</code>)</div>
+
+添加一个新 member 到一个 Google 群组
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | 字符串 | 是 | 群组 电子邮件 address 或唯一 group ID |
+| `email` | 字符串 | 是 | 电子邮件 address 的该 member 到 add |
+| `role` | 字符串 | 否 | 角色用于该 member \(MEMBER, MANAGER, 或 OWNER\). 默认为 MEMBER. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+### 更新成员角色
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "update_member"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "群组电子邮件或 ID",
+            "placeholder": "group@example.com 或 group ID",
+            "required": true
+        },
+        {
+            "id": "memberKey",
+            "type": "short-input",
+            "title": "成员电子邮件或 ID",
+            "placeholder": "用户@example.com 或 member ID",
+            "required": true
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "成员角色",
+            "options": [
+                {
+                    "label": "Member",
+                    "id": "MEMBER"
+                },
+                {
+                    "label": "Manager",
+                    "id": "MANAGER"
+                },
+                {
+                    "label": "Owner",
+                    "id": "OWNER"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新成员角色 (<code>google_groups_update_member</code>)</div>
+
+Update 一个 member
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | 字符串 | 是 | 群组 电子邮件 address 或唯一 group ID |
+| `memberKey` | 字符串 | 是 | 成员 电子邮件 address 或唯一 member ID |
+| `role` | 字符串 | 是 | 新 角色 用于该 member \(MEMBER, MANAGER, 或 OWNER\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+### 移除成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "remove_member"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "群组电子邮件或 ID",
+            "placeholder": "group@example.com 或 group ID",
+            "required": true
+        },
+        {
+            "id": "memberKey",
+            "type": "short-input",
+            "title": "成员电子邮件或 ID",
+            "placeholder": "用户@example.com 或 member ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">移除成员 (<code>google_groups_remove_member</code>)</div>
+
+移除一个 member 从一个 Google 群组
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | 字符串 | 是 | 群组 电子邮件 address 或唯一 group ID |
+| `memberKey` | 字符串 | 是 | 电子邮件 address 或唯一 ID 的该 member 到 remove |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+### 检查 Membership
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Groups"
+    type="google_groups"
+    color="#E8F0FE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Groups",
+                    "id": "list_groups"
+                },
+                {
+                    "label": "Get Group",
+                    "id": "get_group"
+                },
+                {
+                    "label": "Create Group",
+                    "id": "create_group"
+                },
+                {
+                    "label": "Update Group",
+                    "id": "update_group"
+                },
+                {
+                    "label": "Delete Group",
+                    "id": "delete_group"
+                },
+                {
+                    "label": "List Members",
+                    "id": "list_members"
+                },
+                {
+                    "label": "Get Member",
+                    "id": "get_member"
+                },
+                {
+                    "label": "Add Member",
+                    "id": "add_member"
+                },
+                {
+                    "label": "Update Member Role",
+                    "id": "update_member"
+                },
+                {
+                    "label": "Remove Member",
+                    "id": "remove_member"
+                },
+                {
+                    "label": "Check Membership",
+                    "id": "has_member"
+                }
+            ],
+            "defaultValue": "has_member"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google 群组账户",
+            "placeholder": "选择 Google 工作区 account",
+            "provider": "google-groups",
+            "required": true
+        },
+        {
+            "id": "groupKey",
+            "type": "short-input",
+            "title": "群组电子邮件或 ID",
+            "placeholder": "group@example.com 或 group ID",
+            "required": true
+        },
+        {
+            "id": "memberKey",
+            "type": "short-input",
+            "title": "成员电子邮件或 ID",
+            "placeholder": "用户@example.com 或 member ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">检查 Membership (<code>google_groups_has_member</code>)</div>
+
+检查用户是否为 Google 群组的成员
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `groupKey` | 字符串 | 是 | 群组 电子邮件 address 或唯一 group ID |
+| `memberKey` | 字符串 | 是 | 成员 电子邮件 address 或唯一 member ID 到 check |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+连接 Google Workspace，并使用 Admin SDK Directory API 创建、更新和管理群组及其成员。
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `google_groups`

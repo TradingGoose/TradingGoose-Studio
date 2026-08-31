@@ -1,0 +1,52 @@
+---
+title: "指标编辑器"
+description: "在一个工作区中编辑 PineTS 指标。"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|---|---|
+| **键** | `editor_indicator` |
+| **类别** | 编辑器 |
+
+Indicator Editor 用于编写和完善自定义 PineTS 指标。它提供支持 TypeScript 的 Monaco 编辑器、PineTS 全局变量速查表和服务器端验证。使用 [Indicator List](/widgets/list-indicator) 浏览、创建和导入指标。
+
+## 功能
+
+- **Monaco 编辑器**支持 TypeScript 高亮、自动补全，并自动加载 PineTS 类型定义。
+- **速查工具栏**按类别分组；悬停可查看签名、说明和示例。
+- **Verify** 使用模拟数据在服务器端运行指标，并报告图线、标记和不支持样式的警告。
+- **Export** 将已保存指标下载为 TradingGoose 导出 JSON；如有修改请先保存。
+- **Save** 保存代码，并从 `inputMeta` 调用推断 `input.*` 供图表呈现控件。
+- **Wand 提示栏**根据自然语言说明生成 PineTS 代码。
+- 输入 `{{` 时打开环境变量下拉菜单。
+- **指标选择器**可通过配对颜色与 Indicator List 同步。
+
+## 使用方法
+
+1. 添加 widget，并选择现有指标，或先在 [Indicator List](/widgets/list-indicator) 中创建。
+2. 编写 PineTS，直接使用 `close`、`ta.sma`、`input.int` 和 `plot`，无需 `$` 前缀。
+3. 点击 **Verify**，修复错误或警告，再点击 **Save**。图表下次呈现时使用更新代码。
+
+### 快捷操作
+
+- **Wand toggle**：点击编辑器边栏中的魔杖图标，打开或关闭 AI 提示栏。
+
+<Callout>为 Indicator Editor 和 [Indicator List](/widgets/list-indicator) 指定相同 **pairColor**，即可自动打开列表中选择的指标。</Callout>
+
+## 配置
+
+除指标选择器外没有用户配置。所选指标以 `pineIndicatorId` 存储，并通过配对颜色存储同步。
+
+## 相关内容
+
+<Cards>
+  <Card title="PineTS Scripting Guide" href="/indicators">PineTS runtime、内置函数和输入类型参考。</Card>
+  <Card title="Indicator List" href="/widgets/list-indicator">浏览、创建和导入指标。</Card>
+  <Card title="Data Chart" href="/widgets/data-chart">在价格数据上呈现指标叠加层。</Card>
+  <Card title="Indicator Trigger" href="/triggers/indicator">根据指标条件触发工作流。</Card>
+</Cards>

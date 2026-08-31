@@ -1,0 +1,110 @@
+---
+title: 等待
+description: 将工作流执行暂停指定时长
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockConfigPreview } from '@/components/ui/block-config-preview'
+import { ShowcaseCard } from '@/components/ui/showcase-card'
+
+<BlockInfoCard
+  type="wait"
+  color="#F59E0B"
+/>
+
+等待模块会在继续执行下一个模块之前暂停您的工作流一段指定的时间。使用它可以在操作之间添加延迟、遵守 API 速率限制或间隔操作。
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wait"
+    type="wait"
+    color="#F59E0B"
+    hideHeader
+    subBlocks={[
+      { "id": "timeValue", "title": "Wait Amount", "type": "short-input", "layout": "half", "description": "Max: 600 seconds or 10 minutes", "placeholder": "10", "required": true },
+      { "id": "timeUnit", "title": "Unit", "type": "dropdown", "layout": "half", "options": [{ "label": "Seconds", "id": "seconds" }, { "label": "Minutes", "id": "minutes" }], "required": true }
+    ]}
+  />
+</ShowcaseCard>
+
+## 概述
+
+等待模块可以让您：
+
+<Steps>
+  <Step>
+<strong>添加延迟</strong>：在工作流步骤之间暂停执行
+  </Step>
+  <Step>
+    <strong>Respect rate limits</strong>: Space out API calls to stay within limits
+  </Step>
+  <Step>
+<strong>安排执行顺序</strong>：创建在操作之间设有延迟的定时工作流
+  </Step>
+</Steps>
+
+## 配置
+
+### 等待时间
+
+输入暂停执行的时长：
+- **输入**：正数
+- **最大值**：600 秒（10 分钟）或 10 分钟
+
+### 单位
+
+选择时间单位：
+- **秒**：用于短时间、精确的延迟
+- **分钟**：用于较长时间的暂停
+
+<Callout type="info">
+停止工作流即可取消 Wait 块。最长等待时间为 10 分钟。
+</Callout>
+
+## 输出
+
+- **`<wait.waitDuration>`**：等待时长（以毫秒为单位）
+- **`<wait.status>`**：等待状态（“等待中”、“已完成”或“已取消”）
+
+## 示例用例
+
+### API 速率限制
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Scenario: Stay within API rate limits</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>API block makes first request</li>
+    <li>Wait block pauses for 2 seconds</li>
+    <li>API block makes second request</li>
+<li>流程继续执行，且不会触发频率限制</li>
+  </ol>
+</div>
+
+### 定时通知
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Scenario: Send follow-up messages</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>Function sends initial email</li>
+    <li>Wait block pauses for 5 minutes</li>
+    <li>Function sends follow-up email</li>
+  </ol>
+</div>
+
+### 处理延迟
+
+<div className="mb-4 rounded-md border p-4">
+  <h4 className="font-medium">Scenario: Wait for external system</h4>
+  <ol className="list-decimal pl-5 text-sm">
+    <li>API block triggers job in external system</li>
+    <li>Wait block pauses for 30 seconds</li>
+    <li>API block checks job completion status</li>
+  </ol>
+</div>
+
+## 最佳实践
+
+- **保持合理的等待时间**：使用等待块处理最长 10 分钟的延迟。对于更长的延迟，请考虑使用计划的工作流
+- **监控执行时间**：请记住，等待会延长工作流的总持续时间

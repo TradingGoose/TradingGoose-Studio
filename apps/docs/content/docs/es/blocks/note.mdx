@@ -1,0 +1,56 @@
+---
+title: Nota
+description: Añade anotaciones visuales al lienzo del workflow sin afectar la ejecución
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="note"
+  color="#F59E0B"
+  icon={true}
+/>
+
+El bloque Note es una anotación exclusivamente visual que se muestra en el lienzo del workflow. No se ejecuta, no tiene entradas ni salidas y el ejecutor lo ignora por completo. Úsalo para documentar decisiones, dejar instrucciones a tus colaboradores o explicar secciones complejas de un workflow.
+
+## Descripción general
+
+Los bloques Note tienen una función exclusivamente organizativa:
+
+- **Documentar decisiones de diseño** -- explica por qué se eligió una estrategia de ramificación o un modelo.
+- **Dejar instrucciones** -- indica a tus colaboradores cómo configurar variables de entorno o qué hace una sección del workflow.
+- **Incluir referencias** -- pega enlaces de YouTube para mostrarlos como videos incrustados directamente en el lienzo.
+
+<Callout type="info">
+  Los bloques Note no afectan la ejecución del workflow. No producen salidas, no pueden conectarse a otros bloques y se eliminan por completo cuando se ejecuta el workflow.
+</Callout>
+
+## Configuración
+
+El único campo es un área de texto Markdown. Escribe texto sin formato, usa formato Markdown (encabezados, listas, negrita y bloques de código) o pega una URL de YouTube para incrustar un video.
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Note"
+    type="note"
+    color="#F59E0B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "content",
+            "type": "long-input",
+            "placeholder": "Add context or instructions for collaborators...",
+        "description": "Escribe la nota con Markdown. Los enlaces de YouTube se mostrarán como videos incrustados."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Prácticas recomendadas
+
+- **Coloca las notas cerca de los bloques que describen** para que el contexto sea visible de inmediato.
+- **Usa encabezados y listas de Markdown** para que las notas extensas sean fáciles de consultar.
+- **Prefiere las notas a los comentarios de los bloques de código** -- las notas son visibles en el lienzo sin abrir la configuración de un bloque.

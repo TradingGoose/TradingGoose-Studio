@@ -1,0 +1,2805 @@
+---
+title: Intercom
+description: Gestionar contacts, companies, conversations, tickets, y messages en Intercom
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="intercom"
+  color="#0057FF"
+/>
+
+
+## Configuración
+
+### Crear Contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "create_contact"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "Rol",
+            "options": [
+                {
+                    "label": "Lead",
+                    "id": "lead"
+                },
+                {
+                    "label": "User",
+                    "id": "user"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Contacto email"
+        },
+        {
+            "id": "external_id",
+            "type": "short-input",
+            "title": "External ID",
+            "placeholder": "External identificador para el contact"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "Phone",
+            "placeholder": "Contacto phone número"
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre",
+            "placeholder": "Contacto name"
+        },
+        {
+            "id": "avatar",
+            "type": "short-input",
+            "title": "Avatar URL",
+            "placeholder": "Avatar imagen URL"
+        },
+        {
+            "id": "signed_up_at",
+            "type": "short-input",
+            "title": "Signed Up At",
+            "placeholder": "Unix marca de tiempo"
+        },
+        {
+            "id": "last_seen_at",
+            "type": "short-input",
+            "title": "Last Seen At",
+            "placeholder": "Unix marca de tiempo"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "Propietario ID",
+            "placeholder": "Admin ID"
+        },
+        {
+            "id": "unsubscribed_from_emails",
+            "type": "dropdown",
+            "title": "Unsubscribed desde Correos electrónicos",
+            "options": [
+                {
+                    "label": "True",
+                    "id": "true"
+                },
+                {
+                    "label": "False",
+                    "id": "false"
+                }
+            ]
+        },
+        {
+            "id": "custom_attributes",
+            "type": "long-input",
+            "title": "Custom Attributes",
+            "placeholder": "JSON objeto con personalizado attributes"
+        },
+        {
+            "id": "contact_company_id",
+            "type": "short-input",
+            "title": "Empresa ID",
+            "placeholder": "Empresa ID un associate con contact"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Contacto (<code>intercom_create_contact</code>)</div>
+
+Crear un nuevo contact en Intercom con email, external_id, o role
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `role` | cadena | No | Rol del contacto. Acepta 'user' o 'lead'. El valor predeterminado es 'lead' si no se especifica. |
+| `email` | cadena | No | El contact's email address |
+| `external_id` | cadena | No | Un único identificador para el contact proporcionado por el cliente |
+| `phone` | cadena | No | El contact's phone número |
+| `name` | cadena | No | El contact's name |
+| `avatar` | cadena | No | Un avatar imagen URL para el contact |
+| `signed_up_at` | número | No | El time el user signed up como un Unix marca de tiempo |
+| `last_seen_at` | número | No | El time el user was último seen como un Unix marca de tiempo |
+| `owner_id` | cadena | No | El id de un admin que has been assigned account ownership de el contact |
+| `unsubscribed_from_emails` | booleano | No | Si el contact is unsubscribed desde emails |
+| `custom_attributes` | cadena | No | Custom attributes como JSON objeto \(e.g., \{"attribute_name": "value"\}\) |
+| `company_id` | cadena | No | Empresa ID un associate el contact con during creation |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el contact |
+| `type` | cadena | Listar type |
+| `role` | cadena | Rol de el contact \(user or lead\) |
+| `email` | cadena | Correo electrónico address de el contact |
+| `phone` | cadena | Phone número de el contact |
+| `name` | cadena | Nombre de el contact |
+| `avatar` | cadena | Avatar URL de el contact |
+| `owner_id` | cadena | ID de el admin assigned un este contact |
+| `external_id` | cadena | External identificador para el contact |
+| `created_at` | número | Unix marca de tiempo cuando contact was created |
+| `updated_at` | número | Unix marca de tiempo cuando contact was último updated |
+| `signed_up_at` | número | Unix marca de tiempo cuando user signed up |
+| `last_seen_at` | número | Unix marca de tiempo cuando user was último seen |
+| `workspace_id` | cadena | Espacio de trabajo ID el contact belongs un |
+| `custom_attributes` | objeto | Custom attributes set en el contact |
+| `url` | cadena | URL un fetch etiquetas |
+| `data` | matriz | Array de etiqueta objects |
+| `has_more` | booleano | Indica si hay más etiquetas |
+
+</div>
+
+
+
+---
+
+### Obtener Contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "get_contact"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "Contacto ID",
+            "placeholder": "Contacto ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Contacto (<code>intercom_get_contact</code>)</div>
+
+Obtener un único contact por ID desde Intercom
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | cadena | Sí | Contacto ID un retrieve |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el contact |
+| `type` | cadena | Object type \(contact\) |
+| `role` | cadena | Rol de el contact \(user or lead\) |
+| `email` | cadena | Correo electrónico address de el contact |
+| `phone` | cadena | Phone número de el contact |
+| `name` | cadena | Nombre de el contact |
+| `avatar` | cadena | Avatar URL de el contact |
+| `owner_id` | cadena | ID de el admin assigned un este contact |
+| `external_id` | cadena | External identificador para el contact |
+| `created_at` | número | Unix marca de tiempo cuando contact was created |
+| `updated_at` | número | Unix marca de tiempo cuando contact was último updated |
+| `workspace_id` | cadena | Espacio de trabajo ID el contact belongs un |
+| `custom_attributes` | objeto | Custom attributes set en el contact |
+| `tags` | objeto | Tags asociado con el contact |
+| `notes` | objeto | Notes asociado con el contact |
+| `companies` | objeto | Empresas asociado con el contact |
+| `location` | objeto | Location información para el contact |
+| `social_profiles` | objeto | Social profiles de el contact |
+
+</div>
+
+
+
+---
+
+### Actualizar Contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "update_contact"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "Rol",
+            "options": [
+                {
+                    "label": "Lead",
+                    "id": "lead"
+                },
+                {
+                    "label": "User",
+                    "id": "user"
+                }
+            ]
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "Contacto ID",
+            "placeholder": "Contacto ID",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Contacto email"
+        },
+        {
+            "id": "external_id",
+            "type": "short-input",
+            "title": "External ID",
+            "placeholder": "External identificador para el contact"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "Phone",
+            "placeholder": "Contacto phone número"
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre",
+            "placeholder": "Contacto name"
+        },
+        {
+            "id": "avatar",
+            "type": "short-input",
+            "title": "Avatar URL",
+            "placeholder": "Avatar imagen URL"
+        },
+        {
+            "id": "signed_up_at",
+            "type": "short-input",
+            "title": "Signed Up At",
+            "placeholder": "Unix marca de tiempo"
+        },
+        {
+            "id": "last_seen_at",
+            "type": "short-input",
+            "title": "Last Seen At",
+            "placeholder": "Unix marca de tiempo"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "Propietario ID",
+            "placeholder": "Admin ID"
+        },
+        {
+            "id": "unsubscribed_from_emails",
+            "type": "dropdown",
+            "title": "Unsubscribed desde Correos electrónicos",
+            "options": [
+                {
+                    "label": "True",
+                    "id": "true"
+                },
+                {
+                    "label": "False",
+                    "id": "false"
+                }
+            ]
+        },
+        {
+            "id": "custom_attributes",
+            "type": "long-input",
+            "title": "Custom Attributes",
+            "placeholder": "JSON objeto con personalizado attributes"
+        },
+        {
+            "id": "contact_company_id",
+            "type": "short-input",
+            "title": "Empresa ID",
+            "placeholder": "Empresa ID un associate con contact"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Contacto (<code>intercom_update_contact</code>)</div>
+
+Actualizar un existente contact en Intercom
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | cadena | Sí | Contacto ID un update |
+| `role` | cadena | No | El role de el contact. Accepts 'user' o 'lead'. |
+| `external_id` | cadena | No | Un único identificador para el contact proporcionado por el cliente |
+| `email` | cadena | No | El contact's email address |
+| `phone` | cadena | No | El contact's phone número |
+| `name` | cadena | No | El contact's name |
+| `avatar` | cadena | No | Un avatar imagen URL para el contact |
+| `signed_up_at` | número | No | El time el user signed up como un Unix marca de tiempo |
+| `last_seen_at` | número | No | El time el user was último seen como un Unix marca de tiempo |
+| `owner_id` | cadena | No | El id de un admin que has been assigned account ownership de el contact |
+| `unsubscribed_from_emails` | booleano | No | Si el contact is unsubscribed desde emails |
+| `custom_attributes` | cadena | No | Custom attributes como JSON objeto \(e.g., \{"attribute_name": "value"\}\) |
+| `company_id` | cadena | No | Empresa ID un associate el contact con |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el contact |
+| `type` | cadena | Object type \(contact\) |
+| `role` | cadena | Rol de el contact \(user or lead\) |
+| `email` | cadena | Correo electrónico address de el contact |
+| `phone` | cadena | Phone número de el contact |
+| `name` | cadena | Nombre de el contact |
+| `avatar` | cadena | Avatar URL de el contact |
+| `owner_id` | cadena | ID de el admin assigned un este contact |
+| `external_id` | cadena | External identificador para el contact |
+| `created_at` | número | Unix marca de tiempo cuando contact was created |
+| `updated_at` | número | Unix marca de tiempo cuando contact was último updated |
+| `workspace_id` | cadena | Espacio de trabajo ID el contact belongs un |
+| `custom_attributes` | objeto | Custom attributes set en el contact |
+| `tags` | objeto | Tags asociado con el contact |
+| `notes` | objeto | Notes asociado con el contact |
+| `companies` | objeto | Empresas asociado con el contact |
+| `location` | objeto | Location información para el contact |
+| `social_profiles` | objeto | Social profiles de el contact |
+
+</div>
+
+
+
+---
+
+### Listar Contactos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "list_contacts"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Per Página",
+            "placeholder": "Results por página (max: 150)",
+            "max": 150
+        },
+        {
+            "id": "starting_after",
+            "type": "short-input",
+            "title": "Starting After",
+            "placeholder": "Cursor para pagination"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Contactos (<code>intercom_list_contacts</code>)</div>
+
+Listar todos contacts desde Intercom con pagination support
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `per_page` | número | No | Number de resultados por página \(max: 150\) |
+| `starting_after` | cadena | No | Cursor para pagination - ID un start después de |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el contact |
+| `type` | cadena | Object type \(contact\) |
+| `role` | cadena | Rol de el contact \(user or lead\) |
+| `email` | cadena | Correo electrónico address de el contact |
+| `phone` | cadena | Phone número de el contact |
+| `name` | cadena | Nombre de el contact |
+| `external_id` | cadena | External identificador para el contact |
+| `created_at` | número | Unix marca de tiempo cuando contact was created |
+| `updated_at` | número | Unix marca de tiempo cuando contact was último updated |
+| `workspace_id` | cadena | Espacio de trabajo ID el contact belongs un |
+| `custom_attributes` | objeto | Custom attributes set en el contact |
+| `tags` | objeto | Tags asociado con el contact |
+
+</div>
+
+
+
+---
+
+### Buscar Contactos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "search_contacts"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Buscar Consulta",
+            "placeholder": "JSON search query o text",
+            "required": true
+        },
+        {
+            "id": "sort_field",
+            "type": "short-input",
+            "title": "Ordenación Field",
+            "placeholder": "Field un sort por (p. ej., name, created_at)"
+        },
+        {
+            "id": "sort_order",
+            "type": "dropdown",
+            "title": "Ordenación Orden",
+            "options": [
+                {
+                    "label": "Descending",
+                    "id": "descending"
+                },
+                {
+                    "label": "Ascending",
+                    "id": "ascending"
+                }
+            ]
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Per Página",
+            "placeholder": "Results por página (max: 150)",
+            "max": 150
+        },
+        {
+            "id": "starting_after",
+            "type": "short-input",
+            "title": "Starting After",
+            "placeholder": "Cursor para pagination"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar Contactos (<code>intercom_search_contacts</code>)</div>
+
+Buscar para contacts en Intercom mediante un query
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | cadena | Sí | Buscar query \(e.g., \{"field":"email","operator":"=","value":"user@example.com"\}\) |
+| `per_page` | número | No | Number de resultados por página \(max: 150\) |
+| `starting_after` | cadena | No | Cursor para pagination |
+| `sort_field` | cadena | No | Field un sort por \(e.g., "name", "created_at", "last_seen_at"\) |
+| `sort_order` | cadena | No | Ordenación order: "ascendente" o "descendente" |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el contact |
+| `type` | cadena | Object type \(contact\) |
+| `role` | cadena | Rol de el contact \(user or lead\) |
+| `email` | cadena | Correo electrónico address de el contact |
+| `phone` | cadena | Phone número de el contact |
+| `name` | cadena | Nombre de el contact |
+| `avatar` | cadena | Avatar URL de el contact |
+| `owner_id` | cadena | ID de el admin assigned un este contact |
+| `external_id` | cadena | External identificador para el contact |
+| `created_at` | número | Unix marca de tiempo cuando contact was created |
+| `updated_at` | número | Unix marca de tiempo cuando contact was último updated |
+| `signed_up_at` | número | Unix marca de tiempo cuando user signed up |
+| `last_seen_at` | número | Unix marca de tiempo cuando user was último seen |
+| `workspace_id` | cadena | Espacio de trabajo ID el contact belongs un |
+| `custom_attributes` | objeto | Custom attributes set en el contact |
+| `tags` | objeto | Tags asociado con el contact |
+| `notes` | objeto | Notes asociado con el contact |
+| `companies` | objeto | Empresas asociado con el contact |
+| `location` | objeto | Location información para el contact |
+| `social_profiles` | objeto | Social profiles de el contact |
+
+</div>
+
+
+
+---
+
+### Eliminar Contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "delete_contact"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "Contacto ID",
+            "placeholder": "Contacto ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar Contacto (<code>intercom_delete_contact</code>)</div>
+
+Eliminar un contact desde Intercom por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | cadena | Sí | Contacto ID un delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | ID de deleted contact |
+| `deleted` | booleano | Si el contact was deleted |
+
+</div>
+
+
+
+---
+
+### Crear Empresa
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "create_company"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "company_id",
+            "type": "short-input",
+            "title": "Empresa ID (External)",
+            "placeholder": "Your único identificador para el company",
+            "required": true
+        },
+        {
+            "id": "company_name",
+            "type": "short-input",
+            "title": "Empresa Nombre",
+            "placeholder": "Empresa name"
+        },
+        {
+            "id": "website",
+            "type": "short-input",
+            "title": "Sitio web",
+            "placeholder": "Empresa sitio web"
+        },
+        {
+            "id": "plan",
+            "type": "short-input",
+            "title": "Plan",
+            "placeholder": "Subscription plan"
+        },
+        {
+            "id": "size",
+            "type": "short-input",
+            "title": "Size",
+            "placeholder": "Number de employees"
+        },
+        {
+            "id": "industry",
+            "type": "short-input",
+            "title": "Industry",
+            "placeholder": "Empresa industry"
+        },
+        {
+            "id": "monthly_spend",
+            "type": "short-input",
+            "title": "Monthly Spend",
+            "placeholder": "Revenue amount"
+        },
+        {
+            "id": "remote_created_at",
+            "type": "short-input",
+            "title": "Remote Creado el",
+            "placeholder": "Unix marca de tiempo cuando company was created"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Empresa (<code>intercom_create_company</code>)</div>
+
+Crear o update un company en Intercom
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `company_id` | cadena | Sí | tu único identificador para el company |
+| `name` | cadena | No | El name de el company |
+| `website` | cadena | No | El company sitio web |
+| `plan` | cadena | No | El company plan name |
+| `size` | número | No | El número de employees en el company |
+| `industry` | cadena | No | El industry el company operates en |
+| `monthly_spend` | número | No | How much revenue el company generates para tu business. Nota: Este campo truncates floats un whole integers \(e.g., 155.98 becomes 155\) |
+| `custom_attributes` | cadena | No | Custom attributes como JSON objeto |
+| `remote_created_at` | número | No | El time el company was created por you como un Unix marca de tiempo |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el company |
+| `type` | cadena | Tag lista type |
+| `app_id` | cadena | Intercom app ID |
+| `company_id` | cadena | tu único identificador para el company |
+| `name` | cadena | Nombre de el company |
+| `website` | cadena | Empresa sitio web URL |
+| `plan` | objeto | Empresa plan información |
+| `size` | número | Number de employees |
+| `industry` | cadena | Industry el company operates en |
+| `monthly_spend` | número | Monthly revenue desde este company |
+| `session_count` | número | Number de sessions |
+| `user_count` | número | Number de users en el company |
+| `created_at` | número | Unix marca de tiempo cuando company was created |
+| `updated_at` | número | Unix marca de tiempo cuando company was último updated |
+| `remote_created_at` | número | Unix marca de tiempo cuando company was created por you |
+| `custom_attributes` | objeto | Custom attributes set en el company |
+
+</div>
+
+
+
+---
+
+### Obtener Empresa
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "get_company"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "companyId",
+            "type": "short-input",
+            "title": "Empresa ID",
+            "placeholder": "Intercom company ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Empresa (<code>intercom_get_company</code>)</div>
+
+Recuperar un único company por ID desde Intercom
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `companyId` | cadena | Sí | Empresa ID un retrieve |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el company |
+| `type` | cadena | Object type \(company\) |
+| `app_id` | cadena | Intercom app ID |
+| `company_id` | cadena | tu único identificador para el company |
+| `name` | cadena | Nombre de el company |
+| `website` | cadena | Empresa sitio web URL |
+| `plan` | objeto | Empresa plan información |
+| `size` | número | Number de employees |
+| `industry` | cadena | Industry el company operates en |
+| `monthly_spend` | número | Monthly revenue desde este company |
+| `session_count` | número | Number de sessions |
+| `user_count` | número | Number de users en el company |
+| `created_at` | número | Unix marca de tiempo cuando company was created |
+| `updated_at` | número | Unix marca de tiempo cuando company was último updated |
+| `custom_attributes` | objeto | Custom attributes set en el company |
+| `tags` | objeto | Tags asociado con el company |
+
+</div>
+
+
+
+---
+
+### Listar Empresas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "list_companies"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Per Página",
+            "placeholder": "Results por página (max: 150)",
+            "max": 150
+        },
+        {
+            "id": "starting_after",
+            "type": "short-input",
+            "title": "Starting After",
+            "placeholder": "Cursor para pagination"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Página",
+            "placeholder": "Página número"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Empresas (<code>intercom_list_companies</code>)</div>
+
+Lista todas las empresas de Intercom con paginación. Este endpoint tiene un límite de 10 000 empresas que pueden devolverse mediante paginación. Para conjuntos de datos mayores, utiliza la API Scroll.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `per_page` | número | No | Number de resultados por página |
+| `page` | número | No | Página número |
+| `starting_after` | cadena | No | Cursor para pagination \(preferred over page-based pagination\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el company |
+| `type` | cadena | Object type \(company\) |
+| `app_id` | cadena | Intercom app ID |
+| `company_id` | cadena | tu único identificador para el company |
+| `name` | cadena | Nombre de el company |
+| `website` | cadena | Empresa sitio web URL |
+| `plan` | objeto | Empresa plan información |
+| `monthly_spend` | número | Monthly revenue desde este company |
+| `session_count` | número | Number de sessions |
+| `user_count` | número | Number de users en el company |
+| `created_at` | número | Unix marca de tiempo cuando company was created |
+| `updated_at` | número | Unix marca de tiempo cuando company was último updated |
+| `custom_attributes` | objeto | Custom attributes set en el company |
+| `tags` | objeto | Tags asociado con el company |
+
+</div>
+
+
+
+---
+
+### Obtener Conversation
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "get_conversation"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "conversationId",
+            "type": "short-input",
+            "title": "Conversation ID",
+            "placeholder": "Conversation ID",
+            "required": true
+        },
+        {
+            "id": "display_as",
+            "type": "dropdown",
+            "title": "Display As",
+            "options": [
+                {
+                    "label": "HTML",
+                    "id": "html"
+                },
+                {
+                    "label": "Plain Text",
+                    "id": "plaintext"
+                }
+            ]
+        },
+        {
+            "id": "include_translations",
+            "type": "dropdown",
+            "title": "Include Translations",
+            "options": [
+                {
+                    "label": "False",
+                    "id": "false"
+                },
+                {
+                    "label": "True",
+                    "id": "true"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Conversation (<code>intercom_get_conversation</code>)</div>
+
+Recuperar un único conversation por ID desde Intercom
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `conversationId` | cadena | Sí | Conversation ID un retrieve |
+| `display_as` | cadena | No | Establecer un "plaintext" un retrieve messages en texto sin formato |
+| `include_translations` | booleano | No | cuando verdadero, conversation parts se be translated un el detected idioma de el conversation |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el conversation |
+| `type` | cadena | Object type \(conversation\) |
+| `title` | cadena | Título de el conversation |
+| `created_at` | número | Unix marca de tiempo cuando conversation was created |
+| `updated_at` | número | Unix marca de tiempo cuando conversation was último updated |
+| `waiting_since` | número | Unix marca de tiempo cuando waiting para reply |
+| `snoozed_until` | número | Unix marca de tiempo cuando snooze ends |
+| `open` | booleano | Si el conversation is open |
+| `state` | cadena | Estado de el conversation |
+| `read` | booleano | Si el conversation has been read |
+| `priority` | cadena | Priority de el conversation |
+| `admin_assignee_id` | número | ID de assigned admin |
+| `team_assignee_id` | cadena | ID de assigned equipo |
+| `tags` | objeto | Tags en el conversation |
+| `source` | objeto | Source de el conversation |
+| `contacts` | objeto | Contactos en el conversation |
+| `teammates` | objeto | Teammates en el conversation |
+| `conversation_parts` | objeto | Parts de el conversation |
+
+</div>
+
+
+
+---
+
+### Listar Conversations
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "list_conversations"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "sort",
+            "type": "short-input",
+            "title": "Ordenación By",
+            "placeholder": "Field un sort por (p. ej., waiting_since, updated_at)"
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "Orden",
+            "options": [
+                {
+                    "label": "Descending",
+                    "id": "desc"
+                },
+                {
+                    "label": "Ascending",
+                    "id": "asc"
+                }
+            ]
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Per Página",
+            "placeholder": "Results por página (max: 150)",
+            "max": 150
+        },
+        {
+            "id": "starting_after",
+            "type": "short-input",
+            "title": "Starting After",
+            "placeholder": "Cursor para pagination"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Conversations (<code>intercom_list_conversations</code>)</div>
+
+Listar todos conversations desde Intercom con pagination support
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `per_page` | número | No | Number de resultados por página \(max: 150\) |
+| `starting_after` | cadena | No | Cursor para pagination |
+| `sort` | cadena | No | Field un sort por \(e.g., "waiting_since", "updated_at", "created_at"\) |
+| `order` | cadena | No | Ordenación order: "asc" \(ascending\) o "desc" \(descending\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el conversation |
+| `type` | cadena | Object type \(conversation\) |
+| `title` | cadena | Título de el conversation |
+| `created_at` | número | Unix marca de tiempo cuando conversation was created |
+| `updated_at` | número | Unix marca de tiempo cuando conversation was último updated |
+| `waiting_since` | número | Unix marca de tiempo cuando waiting para reply |
+| `open` | booleano | Si el conversation is open |
+| `state` | cadena | Estado de el conversation |
+| `read` | booleano | Si el conversation has been read |
+| `priority` | cadena | Priority de el conversation |
+| `admin_assignee_id` | número | ID de assigned admin |
+| `team_assignee_id` | cadena | ID de assigned equipo |
+| `tags` | objeto | Tags en el conversation |
+| `source` | objeto | Source de el conversation |
+
+</div>
+
+
+
+---
+
+### Reply un Conversation
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "reply_conversation"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "conversationId",
+            "type": "short-input",
+            "title": "Conversation ID",
+            "placeholder": "Conversation ID",
+            "required": true
+        },
+        {
+            "id": "message_type",
+            "type": "dropdown",
+            "title": "Mensaje Tipo",
+            "required": true,
+            "options": [
+                {
+                    "label": "Comment",
+                    "id": "comment"
+                },
+                {
+                    "label": "Note",
+                    "id": "note"
+                }
+            ]
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Mensaje Cuerpo",
+            "placeholder": "Mensaje text",
+            "required": true
+        },
+        {
+            "id": "admin_id",
+            "type": "short-input",
+            "title": "Admin ID",
+            "placeholder": "ID de el admin sending el message",
+            "required": true
+        },
+        {
+            "id": "attachment_urls",
+            "type": "short-input",
+            "title": "Attachment URLs",
+            "placeholder": "Separados por comas imagen URLs (max 10)"
+        },
+        {
+            "id": "reply_created_at",
+            "type": "short-input",
+            "title": "Creado el",
+            "placeholder": "Unix marca de tiempo para reply creation time"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Reply un Conversation (<code>intercom_reply_conversation</code>)</div>
+
+Reply un un conversation como un admin en Intercom
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `conversationId` | cadena | Sí | Conversation ID un reply un |
+| `message_type` | cadena | Sí | Mensaje type: "comment" o "note" |
+| `body` | cadena | Sí | El text body de el reply |
+| `admin_id` | cadena | No | ID del administrador que redacta la respuesta. Si no se proporciona, se usará un administrador predeterminado \(Operator/Fin\). |
+| `attachment_urls` | cadena | No | Separados por comas lista de imagen URLs \(max 10\) |
+| `created_at` | número | No | Marca de tiempo Unix de creación de la respuesta. Si no se proporciona, se usa la hora actual. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el conversation |
+| `type` | cadena | Object type \(conversation\) |
+| `title` | cadena | Título de el conversation |
+| `created_at` | número | Unix marca de tiempo cuando conversation was created |
+| `updated_at` | número | Unix marca de tiempo cuando conversation was último updated |
+| `waiting_since` | número | Unix marca de tiempo cuando waiting para reply |
+| `open` | booleano | Si el conversation is open |
+| `state` | cadena | Estado de el conversation |
+| `read` | booleano | Si el conversation has been read |
+| `priority` | cadena | Priority de el conversation |
+| `admin_assignee_id` | número | ID de assigned admin |
+| `team_assignee_id` | cadena | ID de assigned equipo |
+| `tags` | objeto | Tags en el conversation |
+| `source` | objeto | Source de el conversation |
+| `contacts` | objeto | Contactos en el conversation |
+
+</div>
+
+
+
+---
+
+### Buscar Conversations
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "search_conversations"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Buscar Consulta",
+            "placeholder": "JSON search query o text",
+            "required": true
+        },
+        {
+            "id": "sort_field",
+            "type": "short-input",
+            "title": "Ordenación Field",
+            "placeholder": "Field un sort por (p. ej., name, created_at)"
+        },
+        {
+            "id": "sort_order",
+            "type": "dropdown",
+            "title": "Ordenación Orden",
+            "options": [
+                {
+                    "label": "Descending",
+                    "id": "descending"
+                },
+                {
+                    "label": "Ascending",
+                    "id": "ascending"
+                }
+            ]
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "Per Página",
+            "placeholder": "Results por página (max: 150)",
+            "max": 150
+        },
+        {
+            "id": "starting_after",
+            "type": "short-input",
+            "title": "Starting After",
+            "placeholder": "Cursor para pagination"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar Conversations (<code>intercom_search_conversations</code>)</div>
+
+Buscar para conversations en Intercom mediante un query
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | cadena | Sí | Buscar query como JSON objeto |
+| `per_page` | número | No | Number de resultados por página \(max: 150\) |
+| `starting_after` | cadena | No | Cursor para pagination |
+| `sort_field` | cadena | No | Field un sort por \(e.g., "created_at", "updated_at"\) |
+| `sort_order` | cadena | No | Ordenación order: "ascendente" o "descendente" |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el conversation |
+| `type` | cadena | Object type \(conversation\) |
+| `title` | cadena | Título de el conversation |
+| `created_at` | número | Unix marca de tiempo cuando conversation was created |
+| `updated_at` | número | Unix marca de tiempo cuando conversation was último updated |
+| `waiting_since` | número | Unix marca de tiempo cuando waiting para reply |
+| `open` | booleano | Si el conversation is open |
+| `state` | cadena | Estado de el conversation |
+| `read` | booleano | Si el conversation has been read |
+| `priority` | cadena | Priority de el conversation |
+| `admin_assignee_id` | número | ID de assigned admin |
+| `team_assignee_id` | cadena | ID de assigned equipo |
+| `tags` | objeto | Tags en el conversation |
+| `source` | objeto | Source de el conversation |
+
+</div>
+
+
+
+---
+
+### Crear Ticket
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "create_ticket"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ticket_type_id",
+            "type": "short-input",
+            "title": "Ticket Tipo ID",
+            "placeholder": "ID de el ticket type",
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "long-input",
+            "title": "Contactos",
+            "placeholder": "JSON matriz de contact identifiers",
+            "required": true
+        },
+        {
+            "id": "ticket_attributes",
+            "type": "long-input",
+            "title": "Ticket Attributes",
+            "placeholder": "JSON objeto con ticket attributes",
+            "required": true
+        },
+        {
+            "id": "ticket_company_id",
+            "type": "short-input",
+            "title": "Empresa ID",
+            "placeholder": "Empresa ID un associate con ticket"
+        },
+        {
+            "id": "ticket_created_at",
+            "type": "short-input",
+            "title": "Creado el",
+            "placeholder": "Unix marca de tiempo para ticket creation time"
+        },
+        {
+            "id": "conversation_to_link_id",
+            "type": "short-input",
+            "title": "Conversation un Link",
+            "placeholder": "ID de conversation un link un ticket"
+        },
+        {
+            "id": "disable_notifications",
+            "type": "dropdown",
+            "title": "Disable Notifications",
+            "options": [
+                {
+                    "label": "False",
+                    "id": "false"
+                },
+                {
+                    "label": "True",
+                    "id": "true"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Ticket (<code>intercom_create_ticket</code>)</div>
+
+Crear un nuevo ticket en Intercom
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `ticket_type_id` | cadena | Sí | El ID de el ticket type |
+| `contacts` | cadena | Sí | JSON matriz de contact identifiers \(e.g., \[\{"id": "contact_id"\}\]\) |
+| `ticket_attributes` | cadena | Sí | JSON objeto con ticket attributes incluido _default_title_ y _default_description_ |
+| `company_id` | cadena | No | Empresa ID un associate el ticket con |
+| `created_at` | número | No | Marca de tiempo Unix de creación del ticket. Si no se proporciona, se usa la hora actual. |
+| `conversation_to_link_id` | cadena | No | ID de un existente conversation un link un este ticket |
+| `disable_notifications` | booleano | No | cuando verdadero, suppresses notifications cuando el ticket is created |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el ticket |
+| `type` | cadena | Object type \(ticket\) |
+| `ticket_id` | cadena | Ticket ID |
+| `ticket_type` | objeto | Tipo de el ticket |
+| `ticket_attributes` | objeto | Attributes de el ticket |
+| `ticket_state` | cadena | Estado de el ticket |
+| `ticket_state_internal_label` | cadena | Internal etiqueta para ticket state |
+| `ticket_state_external_label` | cadena | External etiqueta para ticket state |
+| `created_at` | número | Unix marca de tiempo cuando ticket was created |
+| `updated_at` | número | Unix marca de tiempo cuando ticket was último updated |
+| `contacts` | objeto | Contactos asociado con el ticket |
+| `admin_assignee_id` | cadena | ID de assigned admin |
+| `team_assignee_id` | cadena | ID de assigned equipo |
+| `is_shared` | booleano | Si el ticket is compartido |
+
+</div>
+
+
+
+---
+
+### Obtener Ticket
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "get_ticket"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ticketId",
+            "type": "short-input",
+            "title": "Ticket ID",
+            "placeholder": "Ticket ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Ticket (<code>intercom_get_ticket</code>)</div>
+
+Recuperar un único ticket por ID desde Intercom
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `ticketId` | cadena | Sí | Ticket ID un retrieve |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el ticket |
+| `type` | cadena | Object type \(ticket\) |
+| `ticket_id` | cadena | Ticket ID |
+| `ticket_type` | objeto | Tipo de el ticket |
+| `ticket_attributes` | objeto | Attributes de el ticket |
+| `ticket_state` | cadena | Estado de el ticket |
+| `ticket_state_internal_label` | cadena | Internal etiqueta para ticket state |
+| `ticket_state_external_label` | cadena | External etiqueta para ticket state |
+| `created_at` | número | Unix marca de tiempo cuando ticket was created |
+| `updated_at` | número | Unix marca de tiempo cuando ticket was último updated |
+| `contacts` | objeto | Contactos asociado con el ticket |
+| `admin_assignee_id` | cadena | ID de assigned admin |
+| `team_assignee_id` | cadena | ID de assigned equipo |
+| `is_shared` | booleano | Si el ticket is compartido |
+
+</div>
+
+
+
+---
+
+### Crear Mensaje
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Create Contact",
+                    "id": "create_contact"
+                },
+                {
+                    "label": "Get Contact",
+                    "id": "get_contact"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "update_contact"
+                },
+                {
+                    "label": "List Contacts",
+                    "id": "list_contacts"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "search_contacts"
+                },
+                {
+                    "label": "Delete Contact",
+                    "id": "delete_contact"
+                },
+                {
+                    "label": "Create Company",
+                    "id": "create_company"
+                },
+                {
+                    "label": "Get Company",
+                    "id": "get_company"
+                },
+                {
+                    "label": "List Companies",
+                    "id": "list_companies"
+                },
+                {
+                    "label": "Get Conversation",
+                    "id": "get_conversation"
+                },
+                {
+                    "label": "List Conversations",
+                    "id": "list_conversations"
+                },
+                {
+                    "label": "Reply to Conversation",
+                    "id": "reply_conversation"
+                },
+                {
+                    "label": "Search Conversations",
+                    "id": "search_conversations"
+                },
+                {
+                    "label": "Create Ticket",
+                    "id": "create_ticket"
+                },
+                {
+                    "label": "Get Ticket",
+                    "id": "get_ticket"
+                },
+                {
+                    "label": "Create Message",
+                    "id": "create_message"
+                }
+            ],
+            "defaultValue": "create_message"
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "placeholder": "Introduce tu Intercom access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Mensaje Cuerpo",
+            "placeholder": "Mensaje text",
+            "required": true
+        },
+        {
+            "id": "message_type_msg",
+            "type": "dropdown",
+            "title": "Mensaje Tipo",
+            "required": true,
+            "options": [
+                {
+                    "label": "In-App",
+                    "id": "inapp"
+                },
+                {
+                    "label": "Email",
+                    "id": "email"
+                }
+            ]
+        },
+        {
+            "id": "template",
+            "type": "dropdown",
+            "title": "Plantilla",
+            "required": true,
+            "options": [
+                {
+                    "label": "Plain",
+                    "id": "plain"
+                },
+                {
+                    "label": "Personal",
+                    "id": "personal"
+                }
+            ]
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "placeholder": "Correo electrónico subject (para email type)"
+        },
+        {
+            "id": "from_type",
+            "type": "dropdown",
+            "title": "Desde Tipo",
+            "required": true,
+            "options": [
+                {
+                    "label": "Admin",
+                    "id": "admin"
+                }
+            ]
+        },
+        {
+            "id": "from_id",
+            "type": "short-input",
+            "title": "Desde ID",
+            "placeholder": "Admin ID",
+            "required": true
+        },
+        {
+            "id": "to_type",
+            "type": "dropdown",
+            "title": "Un Tipo",
+            "required": true,
+            "options": [
+                {
+                    "label": "Contact",
+                    "id": "contact"
+                }
+            ]
+        },
+        {
+            "id": "to_id",
+            "type": "short-input",
+            "title": "Un ID",
+            "placeholder": "Contacto ID",
+            "required": true
+        },
+        {
+            "id": "message_created_at",
+            "type": "short-input",
+            "title": "Creado el",
+            "placeholder": "Unix marca de tiempo para message creation time"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Mensaje (<code>intercom_create_message</code>)</div>
+
+Crear y send un nuevo admin-initiated message en Intercom
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `message_type` | cadena | Sí | Mensaje type: "inapp" para en-app messages o "email" para email messages |
+| `template` | cadena | Sí | Mensaje template estilo: "plain" para texto sin formato o "personal" para personalized estilo |
+| `subject` | cadena | No | El subject de el message \(for email type\) |
+| `body` | cadena | Sí | El body de el message |
+| `from_type` | cadena | Sí | Sender type: "admin" |
+| `from_id` | cadena | Sí | El ID de el admin sending el message |
+| `to_type` | cadena | Sí | Recipient type: "contact" |
+| `to_id` | cadena | Sí | El ID de el contact receiving el message |
+| `created_at` | número | No | Marca de tiempo Unix de creación del mensaje. Si no se proporciona, se usa la hora actual. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | cadena | Unique identificador para el message |
+| `type` | cadena | Object type \(message\) |
+| `created_at` | número | Unix marca de tiempo cuando message was created |
+| `body` | cadena | Cuerpo de el message |
+| `message_type` | cadena | Tipo de el message \(in_app or email\) |
+| `conversation_id` | cadena | ID de el conversation created |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integra Intercom en el workflow. Permite crear, obtener, actualizar, listar, buscar y eliminar contactos; crear, obtener y listar empresas; obtener, listar, responder y buscar conversaciones; crear y obtener tickets; y crear mensajes.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `intercom`

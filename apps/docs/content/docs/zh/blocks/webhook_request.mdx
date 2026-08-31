@@ -1,0 +1,67 @@
+---
+title: Webhook 请求
+description: 发送可选 HMAC 签名的出站 HTTP POST webhook 请求
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard type="webhook_request" color="#10B981" icon={true} />
+
+Webhook Request 模块向外部 webhook URL 发送**出站** HTTP POST 请求。可用它将工作流结果推送到 Zapier、Make、n8n 等第三方服务，或任何接受 webhook 负载的自定义 endpoint。
+
+<Callout type="warning">此模块发送**出站** webhook 调用，即工作流调用外部 URL。它不同于监听**入站**请求来启动工作流的 **Webhook Trigger**。</Callout>
+
+## 概述
+
+<Steps>
+  <Step><strong>设置目标 URL</strong>：指向任何接受 HTTP POST 请求的 endpoint。</Step>
+  <Step><strong>构建 JSON 负载</strong>：使用 `<agent.content>` 等变量引用包含上游模块的数据。</Step>
+  <Step><strong>按需签名请求</strong>：提供 HMAC-SHA256 签名密钥，使接收方能够验证真实性。</Step>
+  <Step><strong>添加自定义标头</strong>：包含 API 密钥、内容类型或接收方要求的其他标头。</Step>
+</Steps>
+
+## 工作原理
+
+模块运行时会：
+
+1. 在 URL、负载和标头中解析 `<agent.content>` 等来源限定引用，以及 `<variable.userId>` 等工作流变量。不要编造通用的模块前缀占位符。
+2. 将负载序列化为 JSON。
+3. 如果提供 **Signing Secret**，则对负载计算 HMAC-SHA256 签名并作为 webhook 标头附加，使接收服务器可验证请求未被篡改。
+4. 使用 `Content-Type: application/json` 和已配置的其他标头发送 POST 请求。
+5. 将响应数据、状态码和响应标头作为模块输出返回。
+
+## 配置
+
+<ShowcaseCard><BlockConfigPreview name="Webhook" type="webhook_request" color="#10B981" hideHeader subBlocks={[
+  { "id": "url", "type": "short-input", "title": "Webhook URL", "placeholder": "https://example.com/webhook", "required": true },
+  { "id": "body", "type": "code", "title": "Payload", "placeholder": "Enter JSON payload...", "language": "json" },
+  { "id": "secret", "type": "short-input", "title": "Signing Secret", "placeholder": "Optional: Secret for HMAC signature", "password": true },
+  { "id": "headers", "type": "table", "title": "Additional Headers", "description": "Optional custom headers to include with the webhook request" }
+]} /></ShowcaseCard>
+
+### 字段
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| **Webhook URL** | 是 | 目标 endpoint，必须接受 HTTP POST。 |
+| **Payload** | 否 | 要发送的 JSON 正文。使用 `<agent.content>` 等来源限定标签或 `<variable.userId>` 等工作流变量。 |
+| **Signing Secret** | 否 | 用于生成 HMAC-SHA256 签名标头以验证负载的共享密钥。 |
+| **Additional Headers** | 否 | 附加到请求的键值对，例如 `Authorization: Bearer ...`。 |
+
+## 输出
+
+| 输出 | 类型 | 说明 |
+|---|---|---|
+| `data` | json | 外部 endpoint 返回的已解析响应正文。 |
+| `status` | number | endpoint 返回的 HTTP 状态码。 |
+| `headers` | json | 响应标头。 |
+
+## 最佳实践
+
+- **将密钥存储在环境变量中** -- 使用 `{{WEBHOOK_SECRET}}` 引用签名密钥，不要直接粘贴。
+- **检查状态输出** -- 在 webhook 后使用 Condition 或 Router 模块处理非 2xx 响应。
+- **保持负载精简** -- 仅发送接收方需要的数据。大负载会增加延迟，也可能被某些 endpoint 拒绝。

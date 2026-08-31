@@ -6,19 +6,19 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { DocsLayout } from '@/components/layout/docs'
 import '../global.css'
-import { i18n } from '@/lib/i18n'
+import { docsLocaleCopy, i18n, isDocsLocale } from '@/lib/i18n'
 import { source } from '@/lib/source'
 
 const { provider } = defineI18nUI(i18n, {
   translations: {
     en: {
-      displayName: 'English',
-    },
-    zh: {
-      displayName: '简体中文',
+      displayName: docsLocaleCopy.en.displayName,
     },
     es: {
-      displayName: 'Español',
+      displayName: docsLocaleCopy.es.displayName,
+    },
+    zh: {
+      displayName: docsLocaleCopy.zh.displayName,
     },
   },
 })
@@ -28,22 +28,15 @@ type LayoutProps = {
   params: Promise<{ lang: string }>
 }
 
-function isSupportedLang(lang: string): lang is (typeof i18n.languages)[number] {
-  return i18n.languages.includes(lang as (typeof i18n.languages)[number])
-}
-
 export default async function Layout({ children, params }: LayoutProps) {
   const { lang } = await params
 
-  if (!isSupportedLang(lang)) {
+  if (!isDocsLocale(lang)) {
     notFound()
   }
   const locale = lang
 
-  const tree =
-    source.pageTree[locale] ??
-    (i18n.defaultLanguage ? source.pageTree[i18n.defaultLanguage] : undefined) ??
-    Object.values(source.pageTree)[0]
+  const tree = source.pageTree[locale]
   if (!tree) {
     notFound()
   }
@@ -51,9 +44,8 @@ export default async function Layout({ children, params }: LayoutProps) {
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'TradingGoose Documentation',
-    description:
-      'Comprehensive documentation for TradingGoose - the visual workflow builder for AI Agent Workflows.',
+    name: docsLocaleCopy[locale].siteName,
+    description: docsLocaleCopy[locale].description,
     url: 'https://docs.tradinggoose.ai',
     publisher: {
       '@type': 'Organization',
@@ -92,7 +84,7 @@ export default async function Layout({ children, params }: LayoutProps) {
               enabled: true,
             }}
             nav={{
-              title: 'Documentations',
+              title: docsLocaleCopy[locale].documentation,
               url: `/${locale}`,
               logo: (
                 <div className='flex h-8 w-8 items-center justify-center rounded-md bg-fd-primary'>

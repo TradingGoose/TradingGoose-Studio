@@ -1,0 +1,99 @@
+---
+title: Jina
+description: Convert sitio web content en text
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="jina"
+  color=""
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jina"
+    type="jina"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "Introduce URL un extraer content desde",
+            "required": true
+        },
+        {
+            "id": "options",
+            "type": "checkbox-list",
+            "title": "Options",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Use Reader LM v2",
+                    "id": "useReaderLMv2"
+                },
+                {
+                    "label": "Gather Links",
+                    "id": "gatherLinks"
+                },
+                {
+                    "label": "JSON Response",
+                    "id": "jsonResponse"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu Jina clave de API",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+### `jina_read_url`
+
+Extract y procesar web content en clean, LLM-friendly text mediante Jina AI Reader. Supports avanzado content parsing, link gathering, y varios output formats con configurable processing opciones.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `url` | cadena | Sí | El URL un read y convertir un markdown |
+| `useReaderLMv2` | booleano | No | Indica si se debe usar ReaderLM-v2 para better quality |
+| `gatherLinks` | booleano | No | Indica si se debe gather todos enlaces en el end |
+| `jsonResponse` | booleano | No | Indica si se debe return response en JSON formato |
+| `apiKey` | cadena | Sí | tu Jina AI clave de API |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | cadena | Extracted content |
+
+
+## Usage Instructions
+
+Integrate Jina en el workflow. Extracts content desde websites.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `jina`

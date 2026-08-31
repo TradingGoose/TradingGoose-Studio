@@ -1,0 +1,62 @@
+---
+title: Conocimiento
+description: Busca, crea y gestiona documentos en tus bases de conocimiento mediante similitud vectorial
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard type="knowledge" color="#00B0B0" icon={true} />
+
+El bloque Knowledge conecta el workflow con una base de conocimiento. Permite generación aumentada por recuperación (RAG) mediante búsquedas de similitud vectorial, carga de fragmentos y creación de documentos durante la ejecución.
+
+## Descripción general
+
+<Steps>
+  <Step><strong>Search</strong>: ejecuta una consulta semántica y recupera los fragmentos más relevantes.</Step>
+  <Step><strong>Upload Chunk</strong>: añade un fragmento a un documento para que pueda encontrarse en consultas futuras.</Step>
+  <Step><strong>Create Document</strong>: añade un documento nuevo, con etiquetas opcionales, a la base.</Step>
+</Steps>
+
+## Operaciones
+
+<Tabs items={['Search', 'Upload Chunk', 'Create Document']}>
+  <Tab>Realiza una búsqueda vectorial y devuelve los fragmentos principales. **Knowledge Base** es obligatorio; **Search Query**, **Number of Results** (10 de forma predeterminada) y **Tag Filters** son opcionales. La consulta puede omitirse para filtrar solo por etiquetas.</Tab>
+  <Tab>Añade texto a un documento existente. El fragmento se vectoriza y queda disponible para búsquedas. Requiere **Knowledge Base**, **Document** y **Chunk Content**.</Tab>
+  <Tab>Crea un documento, divide su contenido, lo vectoriza y lo indexa. Requiere **Knowledge Base**, **Document Name** y **Document Content**; **Document Tags** es opcional.</Tab>
+</Tabs>
+
+## Configuración
+
+<ShowcaseCard><BlockConfigPreview name="Knowledge" type="knowledge" color="#00B0B0" hideHeader subBlocks={[
+  { "id": "operation", "type": "dropdown", "title": "Operation", "layout": "full", "options": [{ "label": "Search", "id": "search" }, { "label": "Upload Chunk", "id": "upload_chunk" }, { "label": "Create Document", "id": "create_document" }] },
+  { "id": "knowledgeBaseId", "type": "knowledge-base-selector", "title": "Knowledge Base", "layout": "full", "placeholder": "Select knowledge base", "required": true, "condition": { "field": "operation", "value": ["search", "upload_chunk", "create_document"] } },
+  { "id": "query", "type": "short-input", "title": "Search Query", "layout": "full", "placeholder": "Enter your search query (optional when using tag filters)", "condition": { "field": "operation", "value": "search" } },
+  { "id": "topK", "type": "short-input", "title": "Number of Results", "layout": "full", "placeholder": "Enter number of results (default: 10)", "condition": { "field": "operation", "value": "search" } },
+  { "id": "tagFilters", "type": "knowledge-tag-filters", "title": "Tag Filters", "layout": "full", "placeholder": "Add tag filters", "condition": { "field": "operation", "value": "search" } },
+  { "id": "documentId", "type": "document-selector", "title": "Document", "layout": "full", "placeholder": "Select document", "required": true, "condition": { "field": "operation", "value": "upload_chunk" } },
+  { "id": "content", "type": "long-input", "title": "Chunk Content", "layout": "full", "placeholder": "Enter the chunk content to upload", "required": true, "condition": { "field": "operation", "value": "upload_chunk" } },
+  { "id": "name", "type": "short-input", "title": "Document Name", "layout": "full", "placeholder": "Enter document name", "required": true, "condition": { "field": "operation", "value": ["create_document"] } },
+  { "id": "content", "type": "long-input", "title": "Document Content", "layout": "full", "placeholder": "Enter the document content", "required": true, "condition": { "field": "operation", "value": ["create_document"] } },
+  { "id": "documentTags", "type": "document-tag-entry", "title": "Document Tags", "layout": "full", "condition": { "field": "operation", "value": "create_document" } }
+]} /></ShowcaseCard>
+
+## Salidas
+
+| Salida | Tipo | Descripción |
+|---|---|---|
+| `results` | json | Array de fragmentos coincidentes o confirmación de una escritura. |
+| `query` | string | Consulta utilizada. |
+| `totalResults` | number | Número de resultados devueltos. |
+
+## Prácticas recomendadas
+
+- **Usa etiquetas para delimitar búsquedas** -- divide una base por tema, cliente o categoría sin crear bases distintas.
+- **Mantén los fragmentos enfocados** -- el texto breve y coherente produce mejores coincidencias que el contenido largo con varios temas.
+- **Combínalo con Agent** -- pasa los resultados al contexto de un Agent para crear un proceso RAG.
+
+<Callout type="info">La consulta es opcional. Si solo necesitas documentos con ciertas etiquetas, deja la consulta vacía y usa los filtros.</Callout>

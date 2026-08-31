@@ -1,0 +1,54 @@
+---
+title: "Editor de skills"
+description: "Edita las skills del espacio de trabajo."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `editor_skill` |
+| **Categoría** | Editor |
+
+Skill Editor permite modificar el nombre, la descripción y las instrucciones de una skill. Las skills son conjuntos reutilizables que el agente carga durante la ejecución. Usa [Skill List](/widgets/list-skill) para explorar, crear e importar; usa el editor para redactar el contenido.
+
+## Funciones
+
+- **Name** acepta un nombre sin espacios externos, único en el espacio de trabajo y de hasta 64 caracteres. El agente lo usa para cargar la skill y se valida al guardar.
+- **Description** resume lo que la skill permite hacer.
+- **Instructions** admite hasta 50.000 caracteres de texto o Markdown y usa una fuente monoespaciada.
+- **Export** descarga la skill guardada como JSON de TradingGoose. Guarda antes si hay cambios.
+- **Save** conserva los cambios y valida el nombre, la descripción, el contenido y la unicidad.
+- El **selector de skills** cambia de skill y se sincroniza con Skill List mediante el color de pareja.
+
+## Uso
+
+1. Añade el widget desde el selector.
+2. Selecciona una skill en el encabezado o créala/importa desde [Skill List](/widgets/list-skill).
+3. Edita **Name**, **Description** e **Instructions**.
+4. Haz clic en **Save**.
+
+### Reglas de validación
+
+- **Name** debe tener entre 1 y 64 caracteres después de recortarlo; no exige otro formato.
+- **Name** debe ser único en el espacio de trabajo.
+- **Description** e **Instructions** son obligatorios y no pueden estar vacíos.
+
+Las skills importadas se normalizan automáticamente y los nombres duplicados se cambian al importarlas desde Skill List.
+
+<Callout>Este widget admite **pairColor**. Asigna el mismo color a Skill Editor y [Skill List](/widgets/list-skill) para abrir automáticamente en el editor la skill seleccionada en la lista.</Callout>
+
+## Configuración
+
+La skill seleccionada se guarda en los parámetros como `skillId` y se sincroniza mediante el almacén de color de pareja.
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="Skills Guide" href="/utilities/skills">Conoce las skills, su carga y las prácticas recomendadas.</Card>
+  <Card title="Skill List" href="/widgets/list-skill">Explora, crea e importa skills.</Card>
+  <Card title="Workflow Editor" href="/widgets/editor-workflow">Crea y edita workflows en el lienzo.</Card>
+</Cards>

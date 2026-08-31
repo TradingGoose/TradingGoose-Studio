@@ -1,0 +1,249 @@
+---
+title: Image Generator
+description: Generar imágenes
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="image_generator"
+  color="#4D5FFF"
+/>
+
+
+## Configuración
+
+### DALL-E 3
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Image Generator"
+    type="image_generator"
+    color="#4D5FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "DALL-E 3",
+                    "id": "dall-e-3"
+                },
+                {
+                    "label": "GPT Image",
+                    "id": "gpt-image-1"
+                }
+            ],
+            "defaultValue": "dall-e-3"
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "layout": "full",
+            "placeholder": "Describe el imagen you want un generate...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu OpenAI clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "size",
+            "type": "dropdown",
+            "title": "Size",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "1024x1024",
+                    "id": "1024x1024"
+                },
+                {
+                    "label": "1024x1792",
+                    "id": "1024x1792"
+                },
+                {
+                    "label": "1792x1024",
+                    "id": "1792x1024"
+                }
+            ]
+        },
+        {
+            "id": "quality",
+            "type": "dropdown",
+            "title": "Quality",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "Standard",
+                    "id": "standard"
+                },
+                {
+                    "label": "HD",
+                    "id": "hd"
+                }
+            ]
+        },
+        {
+            "id": "style",
+            "type": "dropdown",
+            "title": "Style",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "Vivid",
+                    "id": "vivid"
+                },
+                {
+                    "label": "Natural",
+                    "id": "natural"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | cadena | Generation response |
+| `image` | cadena | Generated imagen URL |
+| `metadata` | json | Generation metadata |
+
+</div>
+
+
+
+---
+
+### GPT Image
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Image Generator"
+    type="image_generator"
+    color="#4D5FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Model",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "DALL-E 3",
+                    "id": "dall-e-3"
+                },
+                {
+                    "label": "GPT Image",
+                    "id": "gpt-image-1"
+                }
+            ],
+            "defaultValue": "gpt-image-1"
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "layout": "full",
+            "placeholder": "Describe el imagen you want un generate...",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu OpenAI clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "size",
+            "type": "dropdown",
+            "title": "Size",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "Auto",
+                    "id": "auto"
+                },
+                {
+                    "label": "1024x1024",
+                    "id": "1024x1024"
+                },
+                {
+                    "label": "1536x1024",
+                    "id": "1536x1024"
+                },
+                {
+                    "label": "1024x1536",
+                    "id": "1024x1536"
+                }
+            ]
+        },
+        {
+            "id": "background",
+            "type": "dropdown",
+            "title": "Background",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "Auto",
+                    "id": "auto"
+                },
+                {
+                    "label": "Transparent",
+                    "id": "transparent"
+                },
+                {
+                    "label": "Opaque",
+                    "id": "opaque"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | cadena | Generation response |
+| `image` | cadena | Generated imagen URL |
+| `metadata` | json | Generation metadata |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integrate Image Generator en el workflow. Can generar imágenes mediante DALL-E 3 o GPT Image.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `image_generator`

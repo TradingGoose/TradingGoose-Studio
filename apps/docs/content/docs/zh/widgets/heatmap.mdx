@@ -1,0 +1,53 @@
+---
+title: "热力图"
+description: "在彩色热力图中比较市场或投资组合标的。"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|----------|-------|
+| **键** | `heatmap` |
+| **类别** | 交易 |
+
+热力图 widget 是只读视图，根据当前市场或投资组合数据设置标的方块的大小和颜色。
+
+## 功能
+
+- **两种数据源** -- `sourceMode` 选择 `watchlist` 或 `portfolio` 数据。
+- **Watchlist 大小** -- `watchlistSizeMetric` 使用 `volumeUsd` 表示美元成交额，或使用 `volume` 表示单位成交量。
+- **投资组合上下文** -- Portfolio 模式通过 `tradingProvider`、`serviceId` 和 `portfolioIdentity` 读取所选经纪商账户。
+- **联动选择** -- 选择方块会更新具有相同配对颜色的 widgets 所链接的 `listing`。
+- **刷新** -- 更新 `runtime.refreshAt` 会请求新数据，不更改已保存的设置。
+
+## 使用方法
+
+选择市场提供商及其参数或凭据。在 Watchlist 模式中，选择标的，并用 `volumeUsd` 或 `volume` 设置大小。在 Portfolio 模式中，选择经纪商和账户，使 `portfolioIdentity` 标识持仓。点击方块可将其标的发布到联动 widgets。热力图不会创建或修改订单。
+
+<Callout type="info">Portfolio 模式需要已配置的经纪商账户；报价补充仍可能依赖所选市场提供商。</Callout>
+
+## 配置
+
+| 参数 | 说明 |
+|-----------|-------------|
+| `listing` | 当前与联动 widgets 共享的标的。 |
+| `sourceMode` | `watchlist` 或 `portfolio`。 |
+| `watchlistSizeMetric` | Watchlist 模式中的 `volumeUsd` 或 `volume`。 |
+| `marketProvider` | 提供标的和报价数据的提供商。 |
+| `marketProviderParams` | 市场提供商专用参数。 |
+| `marketAuth` | 可选的市场提供商凭据。 |
+| `tradingProvider` | Portfolio 模式使用的经纪商提供商。 |
+| `serviceId` | 经纪商服务标识符。 |
+| `portfolioIdentity` | 所选经纪商账户的规范身份。 |
+| `runtime.refreshAt` | 用于请求刷新的时间戳。 |
+
+## 相关内容
+
+<Cards>
+  <Card title="Watchlist" href="/widgets/watchlist">管理并选择市场视图使用的标的。</Card>
+  <Card title="Data Chart" href="/widgets/data-chart">检查从热力图中选择的标的。</Card>
+  <Card title="Portfolio Snapshot" href="/widgets/portfolio-snapshot">以摘要形式查看同一经纪商账户。</Card>
+</Cards>

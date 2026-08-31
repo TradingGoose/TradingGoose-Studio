@@ -1,0 +1,352 @@
+---
+title: ArXiv
+description: 搜索并获取 ArXiv 学术论文
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="arxiv"
+  color=""
+/>
+
+
+## 配置
+
+### 搜索 Papers
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Papers",
+                    "id": "arxiv_search"
+                },
+                {
+                    "label": "Get Paper Details",
+                    "id": "arxiv_get_paper"
+                },
+                {
+                    "label": "Get Author Papers",
+                    "id": "arxiv_get_author_papers"
+                }
+            ],
+            "defaultValue": "arxiv_search"
+        },
+        {
+            "id": "searchQuery",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入 search terms (例如, \"machine learning\", \"quantum physics\")...",
+            "required": true
+        },
+        {
+            "id": "searchField",
+            "type": "dropdown",
+            "title": "搜索字段",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "All Fields",
+                    "id": "all"
+                },
+                {
+                    "label": "Title",
+                    "id": "ti"
+                },
+                {
+                    "label": "Author",
+                    "id": "au"
+                },
+                {
+                    "label": "Abstract",
+                    "id": "abs"
+                },
+                {
+                    "label": "Comment",
+                    "id": "co"
+                },
+                {
+                    "label": "Journal Reference",
+                    "id": "jr"
+                },
+                {
+                    "label": "Category",
+                    "id": "cat"
+                },
+                {
+                    "label": "Report Number",
+                    "id": "rn"
+                }
+            ]
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "sortBy",
+            "type": "dropdown",
+            "title": "排序按",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Relevance",
+                    "id": "relevance"
+                },
+                {
+                    "label": "Last Updated Date",
+                    "id": "lastUpdatedDate"
+                },
+                {
+                    "label": "Submitted Date",
+                    "id": "submittedDate"
+                }
+            ]
+        },
+        {
+            "id": "sortOrder",
+            "type": "dropdown",
+            "title": "排序顺序",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Descending",
+                    "id": "descending"
+                },
+                {
+                    "label": "Ascending",
+                    "id": "ascending"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索 Papers (<code>arxiv_search</code>)</div>
+
+搜索用于 academic papers 在 ArXiv 按关键词, authors, titles, 或 other 字段.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `searchQuery` | 字符串 | 是 | 该 search query 到 execute |
+| `searchField` | 字符串 | 否 | 字段到 search 在: 全部, ti \(title\), au \(author\), abs \(abstract\), co \(comment\), jr \(journal\), cat \(类别\), rn \(report 数字\) |
+| `maxResults` | 数字 | 否 | 最大数字的结果到 return \(默认: 10, max: 2000\) |
+| `sortBy` | 字符串 | 否 | 排序按: relevance, lastUpdatedDate, submittedDate \(默认: relevance\) |
+| `sortOrder` | 字符串 | 否 | 排序顺序: 升序, 降序 \(默认: 降序\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 字符串 | id output |
+| `title` | 字符串 | title output |
+| `summary` | 字符串 | summary output |
+| `authors` | 字符串 | authors output |
+| `published` | 字符串 | 已发布 output |
+| `updated` | 字符串 | updated output |
+| `link` | 字符串 | link output |
+| `pdfLink` | 字符串 | pdfLink output |
+| `categories` | 字符串 | categories output |
+| `primaryCategory` | 字符串 | primaryCategory output |
+| `comment` | 字符串 | comment output |
+| `journalRef` | 字符串 | journalRef output |
+
+</div>
+
+
+
+---
+
+### 获取 Paper 详细信息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Papers",
+                    "id": "arxiv_search"
+                },
+                {
+                    "label": "Get Paper Details",
+                    "id": "arxiv_get_paper"
+                },
+                {
+                    "label": "Get Author Papers",
+                    "id": "arxiv_get_author_papers"
+                }
+            ],
+            "defaultValue": "arxiv_get_paper"
+        },
+        {
+            "id": "paperId",
+            "type": "short-input",
+            "title": "Paper ID",
+            "layout": "full",
+            "placeholder": "输入 ArXiv paper ID (例如, 1706.03762, cs.AI/0001001)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取 Paper 详细信息 (<code>arxiv_get_paper</code>)</div>
+
+获取 detailed 信息 关于 一个指定 ArXiv paper 按 its ID.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `paperId` | 字符串 | 是 | ArXiv paper ID \(例如, "1706.03762"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 字符串 | id output |
+| `title` | 字符串 | title output |
+| `summary` | 字符串 | summary output |
+| `authors` | 字符串 | authors output |
+| `published` | 字符串 | 已发布 output |
+| `updated` | 字符串 | updated output |
+| `link` | 字符串 | link output |
+| `pdfLink` | 字符串 | pdfLink output |
+| `categories` | 字符串 | categories output |
+| `primaryCategory` | 字符串 | primaryCategory output |
+| `comment` | 字符串 | comment output |
+| `journalRef` | 字符串 | journalRef output |
+
+</div>
+
+
+
+---
+
+### 获取 Author Papers
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ArXiv"
+    type="arxiv"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search Papers",
+                    "id": "arxiv_search"
+                },
+                {
+                    "label": "Get Paper Details",
+                    "id": "arxiv_get_paper"
+                },
+                {
+                    "label": "Get Author Papers",
+                    "id": "arxiv_get_author_papers"
+                }
+            ],
+            "defaultValue": "arxiv_get_author_papers"
+        },
+        {
+            "id": "authorName",
+            "type": "short-input",
+            "title": "Author 名称",
+            "layout": "full",
+            "placeholder": "输入 author 名称 (例如, \"John Smith\")...",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取 Author Papers (<code>arxiv_get_author_papers</code>)</div>
+
+搜索用于 papers 按一个指定 author 在 ArXiv.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `authorName` | 字符串 | 是 | Author 名称 到 search 用于 |
+| `maxResults` | 数字 | 否 | 最大数字的结果到 return \(默认: 10, max: 2000\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 字符串 | id output |
+| `title` | 字符串 | title output |
+| `summary` | 字符串 | summary output |
+| `authors` | 字符串 | authors output |
+| `published` | 字符串 | 已发布 output |
+| `updated` | 字符串 | updated output |
+| `link` | 字符串 | link output |
+| `pdfLink` | 字符串 | pdfLink output |
+| `categories` | 字符串 | categories output |
+| `primaryCategory` | 字符串 | primaryCategory output |
+| `comment` | 字符串 | comment output |
+| `journalRef` | 字符串 | journalRef output |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+将 ArXiv 集成到工作流中。可以搜索论文、获取论文详情以及查询作者的论文。无需 OAuth 或 API 密钥。
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `arxiv`

@@ -1,0 +1,3273 @@
+---
+title: Grafana
+description: 与 Grafana 仪表板、警报和注释交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="grafana"
+  color="#E0E0E0"
+/>
+
+
+## 配置
+
+### 列出仪表板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_list_dashboards"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "placeholder": "筛选条件 dashboards 按 title"
+        },
+        {
+            "id": "tag",
+            "type": "short-input",
+            "title": "按条件筛选标签",
+            "placeholder": "tag1, tag2 (comma-separated)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出仪表板 (<code>grafana_list_dashboards</code>)</div>
+
+搜索和列表全部 dashboards
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `query` | 字符串 | 否 | 搜索 query 到 filter dashboards 按 title |
+| `tag` | 字符串 | 否 | 按条件筛选标签 \(comma-separated 用于多个标签\) |
+| `folderIds` | 字符串 | 否 | 按条件筛选 folder IDs \(comma-separated\) |
+| `starred` | 布尔值 | 否 | 仅 return starred dashboards |
+| `limit` | 数字 | 否 | 最大数字的 dashboards 到 return |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 数字 | 仪表板 ID |
+| `uid` | 字符串 | 仪表板 UID |
+| `title` | 字符串 | 仪表板 title |
+| `url` | 字符串 | 仪表板 URL path |
+| `tags` | 数组 | 仪表板标签 |
+
+</div>
+
+
+
+---
+
+### 获取仪表板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_get_dashboard"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "dashboardUid",
+            "type": "short-input",
+            "title": "仪表板 UID",
+            "placeholder": "输入 dashboard UID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取仪表板 (<code>grafana_get_dashboard</code>)</div>
+
+获取一个 dashboard 按 its UID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `dashboardUid` | 字符串 | 是 | 该 UID 的该 dashboard 到 retrieve |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `dashboard` | json | 该完整 dashboard JSON 对象 |
+
+</div>
+
+
+
+---
+
+### 创建仪表板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_create_dashboard"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "仪表板标题",
+            "placeholder": "输入 dashboard title",
+            "required": true
+        },
+        {
+            "id": "folderUid",
+            "type": "short-input",
+            "title": "文件夹 UID",
+            "placeholder": "可选 - folder 到 create dashboard 在"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "tag1, tag2 (comma-separated)"
+        },
+        {
+            "id": "panels",
+            "type": "long-input",
+            "title": "Panels (JSON)",
+            "placeholder": "JSON 数组的 panel configurations"
+        },
+        {
+            "id": "message",
+            "type": "short-input",
+            "title": "提交消息",
+            "placeholder": "可选 version message"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建仪表板 (<code>grafana_create_dashboard</code>)</div>
+
+创建一个新 dashboard
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `title` | 字符串 | 是 | 该 title 的该新 dashboard |
+| `folderUid` | 字符串 | 否 | 该 UID 的该 folder 到 create 该 dashboard 在 |
+| `tags` | 字符串 | 否 | 以逗号分隔列表的标签 |
+| `timezone` | 字符串 | 否 | 仪表板时区 \(例如, browser, utc\) |
+| `refresh` | 字符串 | 否 | Auto-refresh 间隔 \(例如, 5s, 1m, 5m\) |
+| `panels` | 字符串 | 否 | JSON 数组的 panel configurations |
+| `overwrite` | 布尔值 | 否 | Overwrite 现有 dashboard 使用 same title |
+| `message` | 字符串 | 否 | 提交 message 用于该 dashboard version |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 数字 | 该 numeric ID 的该 created dashboard |
+| `uid` | 字符串 | 该 UID 的该 created dashboard |
+| `url` | 字符串 | 该 URL path 到该 dashboard |
+| `status` | 字符串 | 状态的该 operation \(success\) |
+| `version` | 数字 | 该 version 数字的该 dashboard |
+
+</div>
+
+
+
+---
+
+### 更新仪表板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_update_dashboard"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "dashboardUid",
+            "type": "short-input",
+            "title": "仪表板 UID",
+            "placeholder": "输入 dashboard UID",
+            "required": true
+        },
+        {
+            "id": "folderUid",
+            "type": "short-input",
+            "title": "文件夹 UID",
+            "placeholder": "可选 - folder 到 create dashboard 在"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "tag1, tag2 (comma-separated)"
+        },
+        {
+            "id": "panels",
+            "type": "long-input",
+            "title": "Panels (JSON)",
+            "placeholder": "JSON 数组的 panel configurations"
+        },
+        {
+            "id": "message",
+            "type": "short-input",
+            "title": "提交消息",
+            "placeholder": "可选 version message"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新仪表板 (<code>grafana_update_dashboard</code>)</div>
+
+更新一个现有 dashboard. Fetches 该当前 dashboard 和 merges 你的 changes.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `dashboardUid` | 字符串 | 是 | 该 UID 的该 dashboard 到 update |
+| `title` | 字符串 | 否 | 新 title 用于该 dashboard |
+| `folderUid` | 字符串 | 否 | 新 folder UID 到移动该 dashboard 到 |
+| `tags` | 字符串 | 否 | 以逗号分隔列表的新标签 |
+| `timezone` | 字符串 | 否 | 仪表板时区 \(例如, browser, utc\) |
+| `refresh` | 字符串 | 否 | Auto-refresh 间隔 \(例如, 5s, 1m, 5m\) |
+| `panels` | 字符串 | 否 | JSON 数组的 panel configurations |
+| `overwrite` | 布尔值 | 否 | 即使存在版本冲突也覆盖 |
+| `message` | 字符串 | 否 | 提交 message 用于此 version |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 数字 | 该 numeric ID 的该 updated dashboard |
+| `uid` | 字符串 | 该 UID 的该 updated dashboard |
+| `url` | 字符串 | 该 URL path 到该 dashboard |
+| `status` | 字符串 | 状态的该 operation \(success\) |
+| `version` | 数字 | 该新 version 数字的该 dashboard |
+
+</div>
+
+
+
+---
+
+### 删除仪表板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_delete_dashboard"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "dashboardUid",
+            "type": "short-input",
+            "title": "仪表板 UID",
+            "placeholder": "输入 dashboard UID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除仪表板 (<code>grafana_delete_dashboard</code>)</div>
+
+删除一个 dashboard 按 its UID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `dashboardUid` | 字符串 | 是 | 该 UID 的该 dashboard 到 delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `title` | 字符串 | 该 title 的该 deleted dashboard |
+| `message` | 字符串 | Confirmation message |
+
+</div>
+
+
+
+---
+
+### 列出警报规则
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_list_alert_rules"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出警报规则 (<code>grafana_list_alert_rules</code>)</div>
+
+列出全部 alert rules 在该 Grafana instance
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `uid` | 字符串 | 警报 rule UID |
+| `title` | 字符串 | 警报 rule title |
+| `condition` | 字符串 | 警报 condition |
+| `folderUID` | 字符串 | Parent folder UID |
+| `ruleGroup` | 字符串 | 规则 group 名称 |
+| `noDataState` | 字符串 | 未返回数据时的状态 |
+
+</div>
+
+
+
+---
+
+### 获取警报规则
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_get_alert_rule"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "alertRuleUid",
+            "type": "short-input",
+            "title": "警报规则 UID",
+            "placeholder": "输入 alert rule UID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取警报规则 (<code>grafana_get_alert_rule</code>)</div>
+
+获取一个指定 alert rule 按 its UID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `alertRuleUid` | 字符串 | 是 | 该 UID 的该 alert rule 到 retrieve |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `uid` | 字符串 | 警报 rule UID |
+| `title` | 字符串 | 警报 rule title |
+| `condition` | 字符串 | 警报 condition |
+| `data` | json | 警报 rule query data |
+| `folderUID` | 字符串 | Parent folder UID |
+| `ruleGroup` | 字符串 | 规则 group 名称 |
+| `noDataState` | 字符串 | 未返回数据时的状态 |
+| `execErrState` | 字符串 | 状态在 execution error |
+| `annotations` | json | 警报注释 |
+
+</div>
+
+
+
+---
+
+### 创建警报规则
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_create_alert_rule"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "folderUid",
+            "type": "short-input",
+            "title": "文件夹 UID",
+            "placeholder": "可选 - folder 到 create dashboard 在"
+        },
+        {
+            "id": "alertTitle",
+            "type": "short-input",
+            "title": "警报标题",
+            "placeholder": "输入 alert rule 名称"
+        },
+        {
+            "id": "folderUid",
+            "type": "short-input",
+            "title": "文件夹 UID",
+            "placeholder": "文件夹 UID 用于该 alert rule"
+        },
+        {
+            "id": "ruleGroup",
+            "type": "short-input",
+            "title": "规则群组",
+            "placeholder": "输入 rule group 名称"
+        },
+        {
+            "id": "condition",
+            "type": "short-input",
+            "title": "Condition",
+            "placeholder": "Condition refId (例如, 一个)"
+        },
+        {
+            "id": "data",
+            "type": "long-input",
+            "title": "查询数据 (JSON)",
+            "placeholder": "JSON 数组的 query/expression data objects"
+        },
+        {
+            "id": "forDuration",
+            "type": "short-input",
+            "title": "用于时长",
+            "placeholder": "5m (例如, 5m, 1h)"
+        },
+        {
+            "id": "noDataState",
+            "type": "dropdown",
+            "title": "否数据状态",
+            "options": [
+                {
+                    "label": "No Data",
+                    "id": "NoData"
+                },
+                {
+                    "label": "Alerting",
+                    "id": "Alerting"
+                },
+                {
+                    "label": "OK",
+                    "id": "OK"
+                }
+            ]
+        },
+        {
+            "id": "execErrState",
+            "type": "dropdown",
+            "title": "错误状态",
+            "options": [
+                {
+                    "label": "Alerting",
+                    "id": "Alerting"
+                },
+                {
+                    "label": "OK",
+                    "id": "OK"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建警报规则 (<code>grafana_create_alert_rule</code>)</div>
+
+创建一个新 alert rule
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `title` | 字符串 | 是 | 该 title 的该 alert rule |
+| `folderUid` | 字符串 | 是 | 该 UID 的该 folder 到 create 该 alert 在 |
+| `ruleGroup` | 字符串 | 是 | 该 名称 的该 rule group |
+| `condition` | 字符串 | 是 | 该 refId 的该 query 或 expression 到使用作为该 alert condition |
+| `data` | 字符串 | 是 | JSON 数组的 query/expression data objects |
+| `forDuration` | 字符串 | 否 | 时长到等待之前 firing \(例如, 5m, 1h\) |
+| `noDataState` | 字符串 | 否 | 未返回数据时的状态 \(NoData、Alerting、OK\) |
+| `execErrState` | 字符串 | 否 | 状态在 execution error \(Alerting, OK\) |
+| `annotations` | 字符串 | 否 | JSON 对象的注释 |
+| `labels` | 字符串 | 否 | JSON 对象的标签 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `uid` | 字符串 | 该 UID 的该 created alert rule |
+| `title` | 字符串 | 警报 rule title |
+| `folderUID` | 字符串 | Parent folder UID |
+
+</div>
+
+
+
+---
+
+### 更新警报规则
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_update_alert_rule"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "alertRuleUid",
+            "type": "short-input",
+            "title": "警报规则 UID",
+            "placeholder": "输入 alert rule UID",
+            "required": true
+        },
+        {
+            "id": "alertTitle",
+            "type": "short-input",
+            "title": "警报标题",
+            "placeholder": "输入 alert rule 名称"
+        },
+        {
+            "id": "folderUid",
+            "type": "short-input",
+            "title": "文件夹 UID",
+            "placeholder": "文件夹 UID 用于该 alert rule"
+        },
+        {
+            "id": "ruleGroup",
+            "type": "short-input",
+            "title": "规则群组",
+            "placeholder": "输入 rule group 名称"
+        },
+        {
+            "id": "condition",
+            "type": "short-input",
+            "title": "Condition",
+            "placeholder": "Condition refId (例如, 一个)"
+        },
+        {
+            "id": "data",
+            "type": "long-input",
+            "title": "查询数据 (JSON)",
+            "placeholder": "JSON 数组的 query/expression data objects"
+        },
+        {
+            "id": "forDuration",
+            "type": "short-input",
+            "title": "用于时长",
+            "placeholder": "5m (例如, 5m, 1h)"
+        },
+        {
+            "id": "noDataState",
+            "type": "dropdown",
+            "title": "否数据状态",
+            "options": [
+                {
+                    "label": "No Data",
+                    "id": "NoData"
+                },
+                {
+                    "label": "Alerting",
+                    "id": "Alerting"
+                },
+                {
+                    "label": "OK",
+                    "id": "OK"
+                }
+            ]
+        },
+        {
+            "id": "execErrState",
+            "type": "dropdown",
+            "title": "错误状态",
+            "options": [
+                {
+                    "label": "Alerting",
+                    "id": "Alerting"
+                },
+                {
+                    "label": "OK",
+                    "id": "OK"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新警报规则 (<code>grafana_update_alert_rule</code>)</div>
+
+更新一个现有 alert rule. Fetches 该当前 rule 和 merges 你的 changes.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `alertRuleUid` | 字符串 | 是 | 该 UID 的该 alert rule 到 update |
+| `title` | 字符串 | 否 | 新 title 用于该 alert rule |
+| `folderUid` | 字符串 | 否 | 新 folder UID 到移动该 alert 到 |
+| `ruleGroup` | 字符串 | 否 | 新 rule group 名称 |
+| `condition` | 字符串 | 否 | 新 condition refId |
+| `data` | 字符串 | 否 | 新 JSON 数组的 query/expression data objects |
+| `forDuration` | 字符串 | 否 | 时长到等待之前 firing \(例如, 5m, 1h\) |
+| `noDataState` | 字符串 | 否 | 未返回数据时的状态 \(NoData、Alerting、OK\) |
+| `execErrState` | 字符串 | 否 | 状态在 execution error \(Alerting, OK\) |
+| `annotations` | 字符串 | 否 | JSON 对象的注释 |
+| `labels` | 字符串 | 否 | JSON 对象的标签 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `uid` | 字符串 | 该 UID 的该 updated alert rule |
+| `title` | 字符串 | 警报 rule title |
+| `folderUID` | 字符串 | Parent folder UID |
+
+</div>
+
+
+
+---
+
+### 删除警报规则
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_delete_alert_rule"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "alertRuleUid",
+            "type": "short-input",
+            "title": "警报规则 UID",
+            "placeholder": "输入 alert rule UID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除警报规则 (<code>grafana_delete_alert_rule</code>)</div>
+
+删除一个 alert rule 按 its UID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `alertRuleUid` | 字符串 | 是 | 该 UID 的该 alert rule 到 delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+### 列出联系人点
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_list_contact_points"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出联系人点 (<code>grafana_list_contact_points</code>)</div>
+
+列出全部 alert notification contact 点
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `uid` | 字符串 | 联系人 point UID |
+| `name` | 字符串 | 联系人 point 名称 |
+| `type` | 字符串 | Notification type \(电子邮件, slack, etc.\) |
+
+</div>
+
+
+
+---
+
+### 创建注释
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_create_annotation"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "注释文本",
+            "placeholder": "输入注释 text...",
+            "required": true
+        },
+        {
+            "id": "annotationTags",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "tag1, tag2 (comma-separated)"
+        },
+        {
+            "id": "annotationDashboardUid",
+            "type": "short-input",
+            "title": "仪表板 UID",
+            "placeholder": "输入 dashboard UID",
+            "required": true
+        },
+        {
+            "id": "panelId",
+            "type": "short-input",
+            "title": "Panel ID",
+            "placeholder": "可选 - attach 到指定 panel"
+        },
+        {
+            "id": "time",
+            "type": "short-input",
+            "title": "时间 (epoch ms)",
+            "placeholder": "可选 - 默认为 now"
+        },
+        {
+            "id": "timeEnd",
+            "type": "short-input",
+            "title": "结束时间 (epoch ms)",
+            "placeholder": "可选 - 用于 range 注释"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建注释 (<code>grafana_create_annotation</code>)</div>
+
+创建一个注释在一个 dashboard 或作为一个 global 注释
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `text` | 字符串 | 是 | 该 text content 的该注释 |
+| `tags` | 字符串 | 否 | 以逗号分隔列表的标签 |
+| `dashboardUid` | 字符串 | 是 | UID 的该 dashboard 到 add 该注释到 |
+| `panelId` | 数字 | 否 | ID 的该 panel 到 add 该注释到 |
+| `time` | 数字 | 否 | 开始时间在 epoch milliseconds \(默认为 now\) |
+| `timeEnd` | 数字 | 否 | 结束时间在 epoch milliseconds \(用于 range 注释\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 数字 | 该 ID 的该 created 注释 |
+
+</div>
+
+
+
+---
+
+### 列出注释
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_list_annotations"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "annotationTags",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "tag1, tag2 (comma-separated)"
+        },
+        {
+            "id": "annotationDashboardUid",
+            "type": "short-input",
+            "title": "仪表板 UID",
+            "placeholder": "输入 dashboard UID",
+            "required": true
+        },
+        {
+            "id": "panelId",
+            "type": "short-input",
+            "title": "Panel ID",
+            "placeholder": "可选 - attach 到指定 panel"
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "从时间 (epoch ms)",
+            "placeholder": "筛选条件从 time"
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "到时间 (epoch ms)",
+            "placeholder": "筛选条件到 time"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出注释 (<code>grafana_list_annotations</code>)</div>
+
+查询注释按 time range, dashboard, 或标签
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `from` | 数字 | 否 | 开始时间在 epoch milliseconds |
+| `to` | 数字 | 否 | 结束时间在 epoch milliseconds |
+| `dashboardUid` | 字符串 | 是 | 仪表板 UID 到 query 注释从 |
+| `panelId` | 数字 | 否 | 按条件筛选 panel ID |
+| `tags` | 字符串 | 否 | 以逗号分隔列表的标签到按条件筛选 |
+| `type` | 字符串 | 否 | 按条件筛选 type \(alert 或注释\) |
+| `limit` | 数字 | 否 | 最大数字的注释到 return |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 数字 | 注释 ID |
+| `dashboardId` | 数字 | 仪表板 ID |
+| `dashboardUID` | 字符串 | 仪表板 UID |
+| `created` | 数字 | Creation 时间戳在 epoch ms |
+| `updated` | 数字 | 最后一个 update 时间戳在 epoch ms |
+| `time` | 数字 | 开始时间在 epoch ms |
+| `timeEnd` | 数字 | 结束时间在 epoch ms |
+| `text` | 字符串 | 注释 text |
+| `tags` | 数组 | 注释标签 |
+| `items` | 字符串 | 项目 output |
+| `login` | 字符串 | Login 的该 用户 who created 该注释 |
+| `email` | 字符串 | 电子邮件的该 用户 who created 该注释 |
+| `avatarUrl` | 字符串 | Avatar URL 的该 用户 |
+
+</div>
+
+
+
+---
+
+### 更新注释
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_update_annotation"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "注释文本",
+            "placeholder": "输入注释 text...",
+            "required": true
+        },
+        {
+            "id": "annotationTags",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "tag1, tag2 (comma-separated)"
+        },
+        {
+            "id": "time",
+            "type": "short-input",
+            "title": "时间 (epoch ms)",
+            "placeholder": "可选 - 默认为 now"
+        },
+        {
+            "id": "timeEnd",
+            "type": "short-input",
+            "title": "结束时间 (epoch ms)",
+            "placeholder": "可选 - 用于 range 注释"
+        },
+        {
+            "id": "annotationId",
+            "type": "short-input",
+            "title": "注释 ID",
+            "placeholder": "输入注释 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新注释 (<code>grafana_update_annotation</code>)</div>
+
+更新一个现有注释
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `annotationId` | 数字 | 是 | 该 ID 的该注释到 update |
+| `text` | 字符串 | 是 | 新 text content 用于该注释 |
+| `tags` | 字符串 | 否 | 以逗号分隔列表的新标签 |
+| `time` | 数字 | 否 | 新开始时间在 epoch milliseconds |
+| `timeEnd` | 数字 | 否 | 新结束时间在 epoch milliseconds |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 数字 | 该 ID 的该 updated 注释 |
+
+</div>
+
+
+
+---
+
+### 删除注释
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_delete_annotation"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "annotationId",
+            "type": "short-input",
+            "title": "注释 ID",
+            "placeholder": "输入注释 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除注释 (<code>grafana_delete_annotation</code>)</div>
+
+删除一个注释按 its ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `annotationId` | 数字 | 是 | 该 ID 的该注释到 delete |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+请参阅此操作的块输出。
+
+</div>
+
+
+
+---
+
+### 列出数据 Sources
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_list_data_sources"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出数据 Sources (<code>grafana_list_data_sources</code>)</div>
+
+列出全部 data sources 已配置 在 Grafana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 数字 | 数据来源 ID |
+| `uid` | 字符串 | 数据来源 UID |
+| `name` | 字符串 | 数据来源 名称 |
+| `type` | 字符串 | 数据来源 type \(prometheus, mysql, etc.\) |
+| `url` | 字符串 | 数据来源 URL |
+
+</div>
+
+
+
+---
+
+### 获取数据来源
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_get_data_source"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "dataSourceId",
+            "type": "short-input",
+            "title": "数据来源 ID",
+            "placeholder": "输入 data 来源 ID 或 UID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取数据来源 (<code>grafana_get_data_source</code>)</div>
+
+获取一个 data 来源按 its ID 或 UID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `dataSourceId` | 字符串 | 是 | 该 ID 或 UID 的该 data 来源到 retrieve |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 数字 | 数据来源 ID |
+| `uid` | 字符串 | 数据来源 UID |
+| `name` | 字符串 | 数据来源 名称 |
+| `type` | 字符串 | 数据来源 type |
+| `url` | 字符串 | 数据来源 connection URL |
+| `database` | 字符串 | 数据库 名称 \(if applicable\) |
+| `isDefault` | 布尔值 | 是否此 is 该默认 data 来源 |
+
+</div>
+
+
+
+---
+
+### 列出文件夹
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_list_folders"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出文件夹 (<code>grafana_list_folders</code>)</div>
+
+列出全部 folders 在 Grafana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `limit` | 数字 | 否 | 最大数字的 folders 到 return |
+| `page` | 数字 | 否 | 页面数字用于分页 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 数字 | 文件夹 ID |
+| `uid` | 字符串 | 文件夹 UID |
+| `title` | 字符串 | 文件夹 title |
+| `hasAcl` | 布尔值 | 是否该 folder has 自定义 ACL 权限 |
+| `canSave` | 布尔值 | 是否该当前 用户 可以 save 该 folder |
+| `canEdit` | 布尔值 | 是否该当前 用户 可以 edit 该 folder |
+| `canAdmin` | 布尔值 | 是否该当前 用户 has admin rights |
+| `canDelete` | 布尔值 | 是否该当前 用户 可以 delete 该 folder |
+| `createdBy` | 字符串 | 用户名的 who created 该 folder |
+| `created` | 字符串 | 时间戳何时该 folder was created |
+| `updatedBy` | 字符串 | 用户名的 who 最后一个 updated 该 folder |
+| `updated` | 字符串 | 时间戳何时该 folder was 最后一个 updated |
+
+</div>
+
+
+
+---
+
+### 创建文件夹
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "List Dashboards",
+                    "id": "grafana_list_dashboards"
+                },
+                {
+                    "label": "Get Dashboard",
+                    "id": "grafana_get_dashboard"
+                },
+                {
+                    "label": "Create Dashboard",
+                    "id": "grafana_create_dashboard"
+                },
+                {
+                    "label": "Update Dashboard",
+                    "id": "grafana_update_dashboard"
+                },
+                {
+                    "label": "Delete Dashboard",
+                    "id": "grafana_delete_dashboard"
+                },
+                {
+                    "label": "List Alert Rules",
+                    "id": "grafana_list_alert_rules"
+                },
+                {
+                    "label": "Get Alert Rule",
+                    "id": "grafana_get_alert_rule"
+                },
+                {
+                    "label": "Create Alert Rule",
+                    "id": "grafana_create_alert_rule"
+                },
+                {
+                    "label": "Update Alert Rule",
+                    "id": "grafana_update_alert_rule"
+                },
+                {
+                    "label": "Delete Alert Rule",
+                    "id": "grafana_delete_alert_rule"
+                },
+                {
+                    "label": "List Contact Points",
+                    "id": "grafana_list_contact_points"
+                },
+                {
+                    "label": "Create Annotation",
+                    "id": "grafana_create_annotation"
+                },
+                {
+                    "label": "List Annotations",
+                    "id": "grafana_list_annotations"
+                },
+                {
+                    "label": "Update Annotation",
+                    "id": "grafana_update_annotation"
+                },
+                {
+                    "label": "Delete Annotation",
+                    "id": "grafana_delete_annotation"
+                },
+                {
+                    "label": "List Data Sources",
+                    "id": "grafana_list_data_sources"
+                },
+                {
+                    "label": "Get Data Source",
+                    "id": "grafana_get_data_source"
+                },
+                {
+                    "label": "List Folders",
+                    "id": "grafana_list_folders"
+                },
+                {
+                    "label": "Create Folder",
+                    "id": "grafana_create_folder"
+                }
+            ],
+            "defaultValue": "grafana_create_folder"
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "Grafana URL",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务账户令牌",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "组织 ID",
+            "placeholder": "可选 - 用于 multi-org instances"
+        },
+        {
+            "id": "folderTitle",
+            "type": "short-input",
+            "title": "文件夹标题",
+            "placeholder": "输入 folder title",
+            "required": true
+        },
+        {
+            "id": "folderUidNew",
+            "type": "short-input",
+            "title": "文件夹 UID",
+            "placeholder": "可选 - auto-generated if not 提供的"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建文件夹 (<code>grafana_create_folder</code>)</div>
+
+创建一个新 folder 在 Grafana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Grafana 服务账户令牌 |
+| `baseUrl` | 字符串 | 是 | Grafana 实例 URL \(例如, https://your-grafana.com\) |
+| `organizationId` | 字符串 | 否 | 组织 ID 用于 multi-org Grafana instances |
+| `title` | 字符串 | 是 | 该 title 的该新 folder |
+| `uid` | 字符串 | 否 | 文件夹的可选 UID \(未提供时自动生成\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | 数字 | 该 numeric ID 的该 created folder |
+| `uid` | 字符串 | 该 UID 的该 created folder |
+| `title` | 字符串 | 该 title 的该 created folder |
+| `url` | 字符串 | 该 URL path 到该 folder |
+| `hasAcl` | 布尔值 | 是否该 folder has 自定义 ACL 权限 |
+| `canSave` | 布尔值 | 是否该当前 用户 可以 save 该 folder |
+| `canEdit` | 布尔值 | 是否该当前 用户 可以 edit 该 folder |
+| `canAdmin` | 布尔值 | 是否该当前 用户 has admin rights 在该 folder |
+| `canDelete` | 布尔值 | 是否该当前 用户 可以 delete 该 folder |
+| `createdBy` | 字符串 | 用户名的 who created 该 folder |
+| `created` | 字符串 | 时间戳何时该 folder was created |
+| `updatedBy` | 字符串 | 用户名的 who 最后一个 updated 该 folder |
+| `updated` | 字符串 | 时间戳何时该 folder was 最后一个 updated |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+集成 Grafana 到工作流. 管理 dashboards, alerts, 注释, data sources, folders, 和 monitor health status.
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `grafana`

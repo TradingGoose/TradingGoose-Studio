@@ -1,0 +1,65 @@
+---
+title: Workflow
+description: Ejecuta un workflow secundario y asigna variables del workflow principal a su esquema de entrada
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard type="workflow_input" color="#6366F1" icon={true} />
+
+El bloque Workflow ejecuta otro workflow (secundario) desde el workflow actual (principal). Lee el esquema del **Input Form Trigger** del secundario y muestra una interfaz de asignación para pasar variables del principal a las entradas esperadas. Es el mecanismo principal para dividir automatizaciones complejas en subworkflows reutilizables.
+
+## Descripción general
+
+<Steps>
+  <Step><strong>Selecciona un workflow secundario</strong>: elige cualquier workflow del espacio de trabajo, excepto el actual.</Step>
+  <Step><strong>Asigna las entradas</strong>: el bloque lee el Input Form Trigger del secundario y muestra cada campo esperado. Asigna variables del principal o valores fijos.</Step>
+  <Step><strong>Ejecuta</strong>: el workflow secundario se ejecuta hasta terminar con las entradas asignadas.</Step>
+  <Step><strong>Devuelve los resultados</strong>: la salida final del secundario vuelve al principal como salida `result` del bloque.</Step>
+</Steps>
+
+## Funcionamiento
+
+El workflow secundario debe usar un **Input Form Trigger** como bloque inicial. Este trigger define el esquema de entrada: nombres, tipos y descripciones de campos. Al seleccionar el workflow secundario, la interfaz Input Mapping representa esos campos dinámicamente para que puedas conectarlos.
+
+Durante la ejecución, el bloque:
+
+1. Resuelve todos los valores asignados desde el estado actual del workflow principal.
+2. Invoca el ejecutor del workflow secundario con las entradas resueltas.
+3. Espera a que termine.
+4. Devuelve `success`, `childWorkflowName` y el `result` completo de la ejecución secundaria.
+
+<Callout type="info">El menú solo muestra workflows del espacio de trabajo distintos al actual. No puedes invocar un workflow de forma recursiva.</Callout>
+
+## Configuración
+
+<ShowcaseCard><BlockConfigPreview name="Workflow" type="workflow_input" color="#6366F1" hideHeader subBlocks={[
+  { "id": "workflowId", "type": "dropdown", "title": "Select Workflow", "required": true },
+      { "id": "inputMapping", "type": "input-mapping", "title": "Asignación de entradas", "layout": "full", "description": "Asigna los campos definidos en el Input Trigger del workflow secundario a variables o valores de este workflow." }
+]} /></ShowcaseCard>
+
+### Campos
+
+| Campo | Obligatorio | Descripción |
+|---|---|---|
+| **Select Workflow** | Sí | Workflow secundario que se ejecutará. Debe tener un Input Form Trigger. |
+| **Input Mapping** | -- | Asignación dinámica de valores del principal al esquema del trigger secundario. Aparece tras seleccionar un workflow. |
+
+## Salidas
+
+| Salida | Tipo | Descripción |
+|---|---|---|
+| `success` | boolean | Indica si el workflow secundario terminó correctamente. |
+| `childWorkflowName` | string | Nombre del workflow secundario ejecutado. |
+| `result` | json | Resultado completo de su ejecución. |
+| `error` | string | Mensaje de error si falló. |
+
+## Prácticas recomendadas
+
+- **Diseña workflows secundarios con Input Form Triggers claros** -- usa nombres de campo descriptivos para facilitar la asignación.
+- **Mantén los workflows secundarios enfocados** -- deben hacer bien una sola tarea para poder reutilizarlos.
+- **Comprueba la salida `success`** -- usa un bloque Condition después del bloque Workflow para gestionar los fallos.

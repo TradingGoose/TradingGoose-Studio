@@ -1,0 +1,119 @@
+---
+title: MCP (Model Context Protocol)
+description: Conecta herramientas y servicios externos a los agentes mediante el estándar Model Context Protocol.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Steps, Step } from 'fumadocs-ui/components/steps'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+El [Model Context Protocol](https://modelcontextprotocol.com/) (MCP) es un estándar abierto que permite a los agentes de IA conectarse de forma segura a herramientas y fuentes de datos externas. TradingGoose implementa un cliente MCP compatible con JSON-RPC 2.0 y negocia la versión del protocolo entre varias revisiones (`2025-06-18`, `2025-03-26`, `2024-11-05`).
+
+## Transportes compatibles
+
+Cada servidor MCP registrado utiliza uno de estos tres modos de transporte basados en HTTP:
+
+| Transporte | Descripción |
+|-----------|-------------|
+| **HTTP** | HTTP POST estándar con respuestas JSON. Adecuado para herramientas simples de solicitud y respuesta. |
+| **SSE** | Server-Sent Events. El servidor puede responder con `text/event-stream` para transmitir resultados. |
+| **Streamable HTTP** | Transporte MCP más reciente (especificación 2025-03-26). Admite gestión de sesiones mediante encabezados `Mcp-Session-Id` y negociación del tipo de contenido entre JSON y SSE. |
+
+El mismo cliente gestiona los tres transportes. El campo de transporte controla la etiqueta de la conexión, mientras que el cliente negocia automáticamente el formato de respuesta según el encabezado `Content-Type` del servidor.
+
+## Añadir un servidor MCP
+
+<Steps>
+<Step>
+### Abre el widget MCP Editor
+
+Añade el widget **MCP Editor** al panel o abre **Workspace Settings > MCP Servers**. Consulta la [documentación del widget MCP Editor](/widgets/editor-mcp) para obtener detalles sobre su interfaz.
+</Step>
+<Step>
+### Proporciona la configuración del servidor
+
+Cada servidor requiere:
+
+- **Name** -- Una etiqueta legible.
+- **Transport** -- Uno de `http`, `sse` o `streamable-http`.
+- **URL** -- El endpoint del servidor (p. ej., `https://mcp.example.com/v1`).
+- **Headers** (opcional) -- Encabezados personalizados, como `Authorization`. Admite interpolación de variables de entorno (consulta la sección siguiente).
+- **Timeout** (opcional) -- Tiempo de espera de la solicitud en milisegundos. El valor predeterminado es 30 000 ms.
+- **Retries** (opcional) -- Número de reintentos. El valor predeterminado es 3.
+</Step>
+<Step>
+### Guarda y prueba
+
+Haz clic en **Save** y utiliza el botón **Test connection** de la barra de herramientas de MCP Editor. El cliente ejecutará el proceso de inicialización completo —negociación de versión, intercambio de capacidades y una notificación `initialized`— para confirmar que el servidor está disponible.
+</Step>
+</Steps>
+
+## Autenticación y variables de entorno
+
+Puedes referenciar variables de entorno personales o del espacio de trabajo en la URL y los encabezados del servidor con sintaxis de llaves dobles:
+
+```
+Authorization: Bearer {{MY_API_KEY}}
+```
+
+Durante la ejecución, el servicio resuelve estos placeholders en el entorno efectivo descifrado. Si falta alguna variable referenciada, la solicitud falla con un error descriptivo que enumera los nombres sin resolver.
+
+<Callout type="warn">
+Nunca escribas secretos directamente en la configuración del servidor. Guarda siempre los valores sensibles como variables de entorno y referencia estos valores con la sintaxis `{{VAR_NAME}}`.
+</Callout>
+
+## Detección de herramientas
+
+Al conectar un servidor, el cliente envía una solicitud JSON-RPC `tools/list`. La respuesta se convierte en una lista de herramientas, cada una con:
+
+- **name** -- Identificador único de la herramienta en ese servidor.
+- **description** -- Función de la herramienta.
+- **inputSchema** -- Un JSON Schema que describe los argumentos esperados.
+
+Las herramientas detectadas se almacenan en caché por espacio de trabajo con una política de expulsión LRU (máximo de 1000 entradas). La caché se actualiza automáticamente cuando caduca; también puedes forzar una actualización desde la barra de herramientas de MCP Editor.
+
+## Usar herramientas MCP en bloques Agent
+
+Después de registrar y activar un servidor, sus herramientas aparecen junto a las herramientas integradas en el selector de cualquier bloque **Agent**.
+
+<Steps>
+<Step>
+### Selecciona herramientas MCP
+
+Abre un bloque Agent y expande la sección **Tools**. Las herramientas MCP se agrupan bajo el nombre de su servidor. Selecciona las que necesites.
+</Step>
+<Step>
+### Ejecuta el agente
+
+Durante la ejecución, el agente llama a `tools/call` en el servidor MCP correspondiente y envía el nombre y los argumentos de la herramienta. El resultado vuelve como contenido estructurado —texto, imagen o recurso— y se incorpora al contexto del agente.
+</Step>
+</Steps>
+
+Cada ejecución pasa por un sistema de consentimiento y auditoría. Antes de enviar la llamada, el cliente comprueba el servidor con una política de seguridad —orígenes bloqueados y límites de frecuencia— y registra una pista de auditoría.
+
+## Seguridad
+
+El cliente MCP aplica de forma predeterminada estas medidas de seguridad:
+
+- **Consent gating** -- Comprueba cada ejecución con la política de seguridad activa antes de enviarla.
+- **Origin allowlisting** -- Añade automáticamente el origen de la URL del servidor a la lista de orígenes permitidos.
+- **Rate limiting** -- Límite configurable de ejecuciones por hora (valor predeterminado: 1000).
+- **Audit logging** -- Etiqueta cada decisión de consentimiento con un ID de auditoría único para permitir su seguimiento.
+- **Blocked origins** -- Rechaza de inmediato los servidores incluidos en la lista de bloqueados.
+
+## Solución de problemas
+
+<Cards>
+<Card title="Server not connecting">
+Comprueba que la URL sea correcta y que el servidor esté en ejecución. El cliente prueba con y sin barra final, por lo que resuelve automáticamente esos problemas de ruta. Consulta la consola del navegador para ver errores detallados de conexión.
+</Card>
+<Card title="Tools not appearing">
+Confirma que el servidor esté **enabled** y que no se haya eliminado de forma lógica. Usa el botón **Refresh tools** de MCP Editor para vaciar la caché y volver a detectar las herramientas.
+</Card>
+<Card title="Missing environment variable errors">
+El mensaje de error enumera las variables sin resolver. Añádelas a la configuración de entorno personal o del espacio de trabajo e inténtalo de nuevo.
+</Card>
+<Card title="Timeout errors">
+Aumenta el tiempo de espera del servidor en MCP Editor. El valor predeterminado es de 30 segundos. Los servidores lentos o las respuestas grandes pueden necesitar más tiempo.
+</Card>
+</Cards>

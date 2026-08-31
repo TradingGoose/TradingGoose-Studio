@@ -1,0 +1,82 @@
+---
+title: Portfolio Detail
+description: Obtener completo portfolio detail desde un seleccionado bróker cuenta.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="portfolio_detail"
+  color="#115e59"
+/>
+
+{/* MANUAL-CONTENT-START:intro */}
+Seleccionar ambos **Bróker** y **Bróker Cuenta** antes running Portfolio Detail. El seleccionado bróker cuenta supplies el canonical `portfolioIdentity` obligatorio por `trading_get_portfolio_detail`.
+{/* MANUAL-CONTENT-END */}
+
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Portfolio Detail"
+    type="portfolio_detail"
+    color="#115e59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "trading-provider-selector",
+            "title": "Bróker",
+            "layout": "full",
+            "placeholder": "Select broker",
+            "required": true
+        },
+        {
+            "id": "portfolioIdentity",
+            "type": "trading-account-selector",
+            "title": "Bróker Cuenta",
+            "layout": "full",
+            "placeholder": "Select broker account",
+            "description": "Bróker cuenta usado a fetch portfolio detail.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `trading_get_portfolio_detail`
+
+Obtener cuenta resumen, cash, posiciones, y órdenes desde Alpaca o Tradier.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `portfolioIdentity` | json | Sí | Canonical portfolioIdentity seleccionado por el bróker cuenta campo. |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `summary` | cadena | Estado mensaje para portfolio detail retrieval. |
+| `provider` | cadena | Bróker/proveedor usado para el solicitud. |
+| `portfolioDetail` | json | Canonical portfolio detail con cash, posiciones, y resumen. |
+
+
+## Uso Instrucciones
+
+Portfolio detail bloque ese devuelve cuenta resumen, cash, posiciones, y órdenes desde Alpaca o Tradier.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `portfolio_detail`

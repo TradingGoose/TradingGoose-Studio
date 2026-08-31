@@ -1,0 +1,33 @@
+{
+  "pages": [
+    "index",
+    "airtable",
+    "api",
+    "calendly",
+    "chat",
+    "circleback",
+    "fireflies",
+    "generic",
+    "github",
+    "gmail",
+    "google-forms",
+    "grain",
+    "hubspot",
+    "imap",
+    "indicator",
+    "input-form",
+    "manual",
+    "microsoft-teams",
+    "outlook",
+    "portfolio",
+    "rss",
+    "schedule",
+    "slack",
+    "stripe",
+    "telegram",
+    "twilio-voice",
+    "webflow",
+    "webhook",
+    "whatsapp"
+  ]
+}

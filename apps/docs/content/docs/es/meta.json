@@ -1,0 +1,20 @@
+{
+  "title": "Documentación de TradingGoose",
+  "pages": [
+    "./introduction/index",
+    "./copilot/index",
+    "utilities",
+    "./permissions/index",
+    "indicators",
+    "triggers",
+    "blocks",
+    "widgets",
+    "tools",
+    "connections",
+    "knowledgebase",
+    "variables",
+    "execution",
+    "sdks"
+  ],
+  "defaultOpen": false
+}

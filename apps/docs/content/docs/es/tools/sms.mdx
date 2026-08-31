@@ -1,0 +1,76 @@
+---
+title: SMS
+description: Envía SMS mensajes mediante el internal SMS servicio
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="sms"
+  color=""
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SMS"
+    type="sms"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "A",
+            "layout": "full",
+            "placeholder": "+1234567890",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Mensaje",
+            "layout": "full",
+            "placeholder": "Your SMS message content...",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `sms_send`
+
+Envía un SMS mensaje mediante el internal SMS servicio proporcionado por Twilio
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `to` | cadena | Sí | Destinatario phone número \(incluir país código, p. ej., +1234567890\) |
+| `body` | cadena | Sí | SMS mensaje contenido |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Indica si el SMS fue enviados successfully |
+| `to` | cadena | Destinatario phone número |
+
+
+## Uso Instrucciones
+
+Envía SMS mensajes directly mediante el internal SMS servicio proporcionado por Twilio. Sin externo configuración o OAuth obligatorio. Perfect para sending notificaciones, alertas, o general propósito texto mensajes desde tu workflows. Requiere válido phone numbers con país códigos.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `sms`

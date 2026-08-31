@@ -1,0 +1,847 @@
+---
+title: Calendly
+description: Gestiona la programación y los eventos de Calendly
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="calendly"
+  color=""
+/>
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/calendly">
+    See trigger events, setup, y event payloads para Calendly.
+  </Card>
+</Cards>
+
+
+## Configuración
+
+### Obtener Actual Usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Current User",
+                    "id": "calendly_get_current_user"
+                },
+                {
+                    "label": "List Event Types",
+                    "id": "calendly_list_event_types"
+                },
+                {
+                    "label": "Get Event Type",
+                    "id": "calendly_get_event_type"
+                },
+                {
+                    "label": "List Scheduled Events",
+                    "id": "calendly_list_scheduled_events"
+                },
+                {
+                    "label": "Get Scheduled Event",
+                    "id": "calendly_get_scheduled_event"
+                },
+                {
+                    "label": "List Event Invitees",
+                    "id": "calendly_list_event_invitees"
+                },
+                {
+                    "label": "Cancel Event",
+                    "id": "calendly_cancel_event"
+                }
+            ],
+            "defaultValue": "calendly_get_current_user"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Token de acceso",
+            "placeholder": "Introduce tu Calendly personal acceso token",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Actual Usuario (<code>calendly_get_current_user</code>)</div>
+
+Obtener información sobre el currently authenticated Calendly usuario
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | cadena | Sí | Calendly Personal Token de acceso |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `uri` | cadena | Canonical reference un el usuario |
+| `name` | cadena | Usuario completo nombre |
+| `slug` | cadena | Único identificador para el usuario en URLs |
+| `email` | cadena | Usuario email address |
+| `scheduling_url` | cadena | URL un el usuario |
+| `timezone` | cadena | Usuario zona horaria |
+| `avatar_url` | cadena | URL un usuario avatar imagen |
+| `created_at` | cadena | ISO marca de tiempo cuando usuario was created |
+| `updated_at` | cadena | ISO marca de tiempo cuando usuario was último updated |
+
+</div>
+
+
+
+---
+
+### Listar Evento Tipos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Current User",
+                    "id": "calendly_get_current_user"
+                },
+                {
+                    "label": "List Event Types",
+                    "id": "calendly_list_event_types"
+                },
+                {
+                    "label": "Get Event Type",
+                    "id": "calendly_get_event_type"
+                },
+                {
+                    "label": "List Scheduled Events",
+                    "id": "calendly_list_scheduled_events"
+                },
+                {
+                    "label": "Get Scheduled Event",
+                    "id": "calendly_get_scheduled_event"
+                },
+                {
+                    "label": "List Event Invitees",
+                    "id": "calendly_list_event_invitees"
+                },
+                {
+                    "label": "Cancel Event",
+                    "id": "calendly_cancel_event"
+                }
+            ],
+            "defaultValue": "calendly_list_event_types"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Token de acceso",
+            "placeholder": "Introduce tu Calendly personal acceso token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "user",
+            "type": "short-input",
+            "title": "Usuario URI",
+            "placeholder": "Filtrar por usuario URI"
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "Organización URI",
+            "placeholder": "Filtrar por organización URI (opcional)"
+        },
+        {
+            "id": "active",
+            "type": "switch",
+            "title": "Activo Solo",
+            "description": "Cuando habilitado, muestra solo activo event tipos. Cuando deshabilitado, muestra todos event tipos."
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "Resultados Por Página",
+            "placeholder": "Número de resultados (predeterminado: 20, max: 100)",
+            "max": 100
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "Página Token",
+            "placeholder": "Token para paginación"
+        },
+        {
+            "id": "sort",
+            "type": "short-input",
+            "title": "Orden de clasificación",
+            "placeholder": "p. ej., \"nombre:asc\", \"start_time:desc\""
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Evento Tipos (<code>calendly_list_event_types</code>)</div>
+
+Recuperar un lista de todos event tipos para un usuario o organización
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | cadena | Sí | Calendly Personal Token de acceso |
+| `user` | cadena | No | Devolver solo event tipos que belong un este usuario \(URI formato\) |
+| `organization` | cadena | No | Devolver solo event tipos que belong un este organización \(URI formato\) |
+| `count` | número | No | Número de resultados por página \(predeterminado: 20, max: 100\) |
+| `pageToken` | cadena | No | Página token para paginación |
+| `sort` | cadena | No | Orden de clasificación para resultados \(p. ej., "nombre:asc", "nombre:desc"\) |
+| `active` | booleano | No | Cuando verdadero, show solo activo event tipos. Cuando falso o unchecked, show todos event tipos \(both activo y inactive\). |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `uri` | cadena | Canonical reference un el event tipo |
+| `name` | cadena | Evento tipo nombre |
+| `active` | booleano | Si el event tipo is activo |
+| `booking_method` | cadena | Booking método \(p. ej.,  |
+| `color` | cadena | Hex color code |
+| `created_at` | cadena | ISO marca de tiempo de creation |
+| `description_html` | cadena | HTML formatted descripción |
+| `description_plain` | cadena | Texto sin formato descripción |
+| `duration` | número | Duración en minutes |
+| `scheduling_url` | cadena | URL un scheduling página |
+| `slug` | cadena | Único identificador para URLs |
+| `type` | cadena | Evento tipo classification |
+
+</div>
+
+
+
+---
+
+### Obtener Evento Tipo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Current User",
+                    "id": "calendly_get_current_user"
+                },
+                {
+                    "label": "List Event Types",
+                    "id": "calendly_list_event_types"
+                },
+                {
+                    "label": "Get Event Type",
+                    "id": "calendly_get_event_type"
+                },
+                {
+                    "label": "List Scheduled Events",
+                    "id": "calendly_list_scheduled_events"
+                },
+                {
+                    "label": "Get Scheduled Event",
+                    "id": "calendly_get_scheduled_event"
+                },
+                {
+                    "label": "List Event Invitees",
+                    "id": "calendly_list_event_invitees"
+                },
+                {
+                    "label": "Cancel Event",
+                    "id": "calendly_cancel_event"
+                }
+            ],
+            "defaultValue": "calendly_get_event_type"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Token de acceso",
+            "placeholder": "Introduce tu Calendly personal acceso token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventTypeUuid",
+            "type": "short-input",
+            "title": "Evento Tipo UUID",
+            "placeholder": "Introduce event tipo UUID o URI",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Evento Tipo (<code>calendly_get_event_type</code>)</div>
+
+Obtener detailed información sobre un específico event tipo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | cadena | Sí | Calendly Personal Token de acceso |
+| `eventTypeUuid` | cadena | Sí | Evento tipo UUID \(puede be completo URI o just el UUID\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `uri` | cadena | Referencia canónica al tipo de evento |
+| `name` | cadena | Texto de la pregunta |
+| `active` | booleano | Indica si el tipo de evento está activo |
+| `booking_method` | cadena | Método de reserva |
+| `color` | cadena | Código hexadecimal del color |
+| `created_at` | cadena | Marca de tiempo ISO de creación |
+| `type` | cadena | Tipo de pregunta \(text, single_select, multi_select, etc.\) |
+| `position` | número | Orden de la pregunta |
+| `enabled` | booleano | Indica si la pregunta está habilitada |
+| `required` | booleano | Indica si la pregunta es obligatoria |
+| `items` | cadena | Elementos de salida |
+
+</div>
+
+
+
+---
+
+### Listar Programado Eventos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Current User",
+                    "id": "calendly_get_current_user"
+                },
+                {
+                    "label": "List Event Types",
+                    "id": "calendly_list_event_types"
+                },
+                {
+                    "label": "Get Event Type",
+                    "id": "calendly_get_event_type"
+                },
+                {
+                    "label": "List Scheduled Events",
+                    "id": "calendly_list_scheduled_events"
+                },
+                {
+                    "label": "Get Scheduled Event",
+                    "id": "calendly_get_scheduled_event"
+                },
+                {
+                    "label": "List Event Invitees",
+                    "id": "calendly_list_event_invitees"
+                },
+                {
+                    "label": "Cancel Event",
+                    "id": "calendly_cancel_event"
+                }
+            ],
+            "defaultValue": "calendly_list_scheduled_events"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Token de acceso",
+            "placeholder": "Introduce tu Calendly personal acceso token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "user",
+            "type": "short-input",
+            "title": "Usuario URI",
+            "placeholder": "Filtrar por usuario URI"
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "Organización URI",
+            "placeholder": "Filtrar por organización URI (opcional)"
+        },
+        {
+            "id": "invitee_email",
+            "type": "short-input",
+            "title": "Invitee Correo electrónico",
+            "placeholder": "Filtrar por invitee email"
+        },
+        {
+            "id": "min_start_time",
+            "type": "datetime-input",
+            "title": "Min Hora de inicio",
+            "placeholder": "p. ej., 2024-01-01 00:00:00"
+        },
+        {
+            "id": "max_start_time",
+            "type": "datetime-input",
+            "title": "Max Hora de inicio",
+            "placeholder": "2024-12-31 23:59:59"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Active",
+                    "id": "active"
+                },
+                {
+                    "label": "Canceled",
+                    "id": "canceled"
+                }
+            ]
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "Resultados Por Página",
+            "placeholder": "Número de resultados (predeterminado: 20, max: 100)",
+            "max": 100
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "Página Token",
+            "placeholder": "Token para paginación"
+        },
+        {
+            "id": "sort",
+            "type": "short-input",
+            "title": "Orden de clasificación",
+            "placeholder": "p. ej., \"nombre:asc\", \"start_time:desc\""
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Programado Eventos (<code>calendly_list_scheduled_events</code>)</div>
+
+Recuperar un lista de programado events para un usuario o organización
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | cadena | Sí | Calendly Personal Token de acceso |
+| `user` | cadena | No | Devolver events que belong un este usuario \(URI formato\). Either "usuario" o "organización" debe be proporcionado. |
+| `organization` | cadena | No | Devolver events que belong un este organización \(URI formato\). Either "usuario" o "organización" debe be proporcionado. |
+| `invitee_email` | cadena | No | Devolver events donde invitee has este email |
+| `count` | número | No | Número de resultados por página \(predeterminado: 20, max: 100\) |
+| `max_start_time` | cadena | No | Devolver events con hora de inicio antes de este time \(ISO 8601 formato\) |
+| `min_start_time` | cadena | No | Devolver events con hora de inicio después de este time \(ISO 8601 formato\) |
+| `pageToken` | cadena | No | Página token para paginación |
+| `sort` | cadena | No | Orden de clasificación para resultados \(p. ej., "start_time:asc", "start_time:desc"\) |
+| `status` | cadena | No | Filtrar por estado \("activo" o "canceled"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `uri` | cadena | Canonical reference un el event |
+| `name` | cadena | Evento nombre |
+| `status` | cadena | Evento estado \(activo o canceled\) |
+| `start_time` | cadena | ISO marca de tiempo de event start |
+| `end_time` | cadena | ISO marca de tiempo de event end |
+| `event_type` | cadena | URI de el event tipo |
+| `type` | cadena | Ubicación tipo \(p. ej.,  |
+| `location` | cadena | Ubicación descripción |
+
+</div>
+
+
+
+---
+
+### Obtener Programado Evento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Current User",
+                    "id": "calendly_get_current_user"
+                },
+                {
+                    "label": "List Event Types",
+                    "id": "calendly_list_event_types"
+                },
+                {
+                    "label": "Get Event Type",
+                    "id": "calendly_get_event_type"
+                },
+                {
+                    "label": "List Scheduled Events",
+                    "id": "calendly_list_scheduled_events"
+                },
+                {
+                    "label": "Get Scheduled Event",
+                    "id": "calendly_get_scheduled_event"
+                },
+                {
+                    "label": "List Event Invitees",
+                    "id": "calendly_list_event_invitees"
+                },
+                {
+                    "label": "Cancel Event",
+                    "id": "calendly_cancel_event"
+                }
+            ],
+            "defaultValue": "calendly_get_scheduled_event"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Token de acceso",
+            "placeholder": "Introduce tu Calendly personal acceso token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventUuid",
+            "type": "short-input",
+            "title": "Evento UUID",
+            "placeholder": "Introduce programado event UUID o URI",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Programado Evento (<code>calendly_get_scheduled_event</code>)</div>
+
+Obtener detailed información sobre un específico programado event
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | cadena | Sí | Calendly Personal Token de acceso |
+| `eventUuid` | cadena | Sí | Programado event UUID \(puede be completo URI o just el UUID\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `uri` | cadena | Canonical reference un el event |
+| `name` | cadena | Evento nombre |
+| `status` | cadena | Evento estado \(activo o canceled\) |
+| `start_time` | cadena | ISO marca de tiempo de event start |
+| `end_time` | cadena | ISO marca de tiempo de event end |
+| `event_type` | cadena | URI de el event tipo |
+| `type` | cadena | Ubicación tipo |
+| `location` | cadena | Ubicación descripción |
+
+</div>
+
+
+
+---
+
+### Listar Evento Invitees
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Current User",
+                    "id": "calendly_get_current_user"
+                },
+                {
+                    "label": "List Event Types",
+                    "id": "calendly_list_event_types"
+                },
+                {
+                    "label": "Get Event Type",
+                    "id": "calendly_get_event_type"
+                },
+                {
+                    "label": "List Scheduled Events",
+                    "id": "calendly_list_scheduled_events"
+                },
+                {
+                    "label": "Get Scheduled Event",
+                    "id": "calendly_get_scheduled_event"
+                },
+                {
+                    "label": "List Event Invitees",
+                    "id": "calendly_list_event_invitees"
+                },
+                {
+                    "label": "Cancel Event",
+                    "id": "calendly_cancel_event"
+                }
+            ],
+            "defaultValue": "calendly_list_event_invitees"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Token de acceso",
+            "placeholder": "Introduce tu Calendly personal acceso token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "label": "Active",
+                    "id": "active"
+                },
+                {
+                    "label": "Canceled",
+                    "id": "canceled"
+                }
+            ]
+        },
+        {
+            "id": "eventUuid",
+            "type": "short-input",
+            "title": "Evento UUID",
+            "placeholder": "Introduce programado event UUID o URI",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Filtrar por invitee email"
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "Resultados Por Página",
+            "placeholder": "Número de resultados (predeterminado: 20, max: 100)",
+            "max": 100
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "Página Token",
+            "placeholder": "Token para paginación"
+        },
+        {
+            "id": "sort",
+            "type": "short-input",
+            "title": "Orden de clasificación",
+            "placeholder": "p. ej., \"nombre:asc\", \"start_time:desc\""
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar Evento Invitees (<code>calendly_list_event_invitees</code>)</div>
+
+Recuperar un lista de invitees para un programado event
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | cadena | Sí | Calendly Personal Token de acceso |
+| `eventUuid` | cadena | Sí | Programado event UUID \(puede be completo URI o just el UUID\) |
+| `count` | número | No | Número de resultados por página \(predeterminado: 20, max: 100\) |
+| `email` | cadena | No | Filtro invitees por email address |
+| `pageToken` | cadena | No | Página token para paginación |
+| `sort` | cadena | No | Orden de clasificación para resultados \(p. ej., "created_at:asc", "created_at:desc"\) |
+| `status` | cadena | No | Filtrar por estado \("activo" o "canceled"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `uri` | cadena | Canonical reference un el invitee |
+| `email` | cadena | Invitee email address |
+| `name` | cadena | Invitee completo nombre |
+| `first_name` | cadena | Invitee primero nombre |
+| `last_name` | cadena | Invitee último nombre |
+| `status` | cadena | Invitee estado \(activo o canceled\) |
+| `question` | cadena | Pregunta text |
+| `answer` | cadena | Invitee respuesta |
+
+</div>
+
+
+
+---
+
+### Cancelar Evento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly"
+    type="calendly"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Current User",
+                    "id": "calendly_get_current_user"
+                },
+                {
+                    "label": "List Event Types",
+                    "id": "calendly_list_event_types"
+                },
+                {
+                    "label": "Get Event Type",
+                    "id": "calendly_get_event_type"
+                },
+                {
+                    "label": "List Scheduled Events",
+                    "id": "calendly_list_scheduled_events"
+                },
+                {
+                    "label": "Get Scheduled Event",
+                    "id": "calendly_get_scheduled_event"
+                },
+                {
+                    "label": "List Event Invitees",
+                    "id": "calendly_list_event_invitees"
+                },
+                {
+                    "label": "Cancel Event",
+                    "id": "calendly_cancel_event"
+                }
+            ],
+            "defaultValue": "calendly_cancel_event"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Token de acceso",
+            "placeholder": "Introduce tu Calendly personal acceso token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventUuid",
+            "type": "short-input",
+            "title": "Evento UUID",
+            "placeholder": "Introduce programado event UUID o URI",
+            "required": true
+        },
+        {
+            "id": "reason",
+            "type": "long-input",
+            "title": "Cancellation Motivo",
+            "placeholder": "Motivo para cancellation (opcional)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cancelar Evento (<code>calendly_cancel_event</code>)</div>
+
+Cancelar un programado event
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | cadena | Sí | Calendly Personal Token de acceso |
+| `eventUuid` | cadena | Sí | Programado event UUID un cancel \(puede be completo URI o just el UUID\) |
+| `reason` | cadena | No | Motivo para cancellation \(se be sent un invitees\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `canceler_type` | cadena | Tipo de canceler \(host o invitee\) |
+| `canceled_by` | cadena | Nombre de persona who canceled |
+| `reason` | cadena | Cancellation motivo |
+
+</div>
+
+
+
+---
+
+
+## Uso Instrucciones
+
+Integrar Calendly en tu workflow. Gestionar event tipos, programado events, invitees, y webhooks. Puede also trigger flujos de trabajo según Calendly webhook events (invitee programado, invitee canceled, routing formulario submitted). Requiere Personal Token de acceso.
+
+
+
+## Notas
+
+- Category: `tools`
+- Type: `calendly`

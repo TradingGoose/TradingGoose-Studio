@@ -7,7 +7,7 @@
     "dev": "next dev --port 3001",
     "build": "NODE_OPTIONS='--max-old-space-size=4096' next build --webpack",
     "start": "next start",
-    "i18n": "bunx lingo.dev@latest run",
+    "validate:i18n": "node scripts/validate-i18n.mjs",
     "postinstall": "bun node_modules/.bin/fumadocs-mdx",
     "type-check": "bun node_modules/.bin/fumadocs-mdx && tsc --noEmit"
   },

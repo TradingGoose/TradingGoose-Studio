@@ -3,15 +3,11 @@
 import { useEffect, useState } from 'react'
 import { Check, ChevronRight } from 'lucide-react'
 import { useParams, usePathname, useRouter } from 'next/navigation'
+import { docsLocaleCopy, i18n, isDocsLocale, type DocsLocale } from '@/lib/i18n'
 
-const languages = {
-  en: { name: 'English', flag: '🇺🇸' },
-  es: { name: 'Español', flag: '🇪🇸' },
-  fr: { name: 'Français', flag: '🇫🇷' },
-  de: { name: 'Deutsch', flag: '🇩🇪' },
-  ja: { name: '日本語', flag: '🇯🇵' },
-  zh: { name: '简体中文', flag: '🇨🇳' },
-}
+const languages = Object.fromEntries(
+  i18n.languages.map((locale) => [locale, { name: docsLocaleCopy[locale].displayName }])
+) as Record<DocsLocale, { name: string }>
 
 export function LanguageDropdown() {
   const [isOpen, setIsOpen] = useState(false)
@@ -21,13 +17,13 @@ export function LanguageDropdown() {
 
   const [currentLang, setCurrentLang] = useState(() => {
     const langFromParams = params?.lang as string
-    return langFromParams && Object.keys(languages).includes(langFromParams) ? langFromParams : 'en'
+    return langFromParams && isDocsLocale(langFromParams) ? langFromParams : 'en'
   })
 
   useEffect(() => {
     const langFromParams = params?.lang as string
 
-    if (langFromParams && Object.keys(languages).includes(langFromParams)) {
+    if (langFromParams && isDocsLocale(langFromParams)) {
       if (langFromParams !== currentLang) {
         setCurrentLang(langFromParams)
       }
@@ -48,7 +44,7 @@ export function LanguageDropdown() {
 
     const segments = pathname.split('/').filter(Boolean)
 
-    if (segments[0] && Object.keys(languages).includes(segments[0])) {
+    if (segments[0] && isDocsLocale(segments[0])) {
       segments.shift()
     }
 
@@ -114,7 +110,6 @@ export function LanguageDropdown() {
                   currentLang === code ? 'bg-muted/60 font-medium text-primary' : 'text-foreground'
                 }`}
               >
-                <span className='text-base md:text-sm'>{lang.flag}</span>
                 <span className='leading-none'>{lang.name}</span>
                 {currentLang === code && (
                   <Check className='ml-auto h-4 w-4 text-primary md:h-3.5 md:w-3.5' />

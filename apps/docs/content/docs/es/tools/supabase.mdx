@@ -1,0 +1,851 @@
+---
+title: Supabase
+description: Usar Supabase base de datos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="supabase"
+  color=""
+/>
+
+
+## Configuración
+
+### Obtener Muchos Filas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "query"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "Proyecto ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Tabla",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Servicio Role Secreto",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "Filtro (PostgREST syntax)",
+            "layout": "full",
+            "placeholder": "status=eq.active"
+        },
+        {
+            "id": "orderBy",
+            "type": "short-input",
+            "title": "Orden Por",
+            "layout": "full",
+            "placeholder": "column_name (add DESC for descending)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "layout": "full",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get Many Rows (<code>supabase_query</code>)</div>
+
+Consulta datos desde un Supabase tabla
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | cadena | Sí | Tu Supabase proyecto ID \(p. ej., jdrkgepadsdopsntdlom\) |
+| `table` | cadena | Sí | El nombre de el Supabase tabla a consulta |
+| `filter` | cadena | No | PostgREST filtro \(p. ej., "id=eq.123"\) |
+| `orderBy` | cadena | No | Column a orden por \(añadir DESC para descendente\) |
+| `limit` | número | No | Número máximo de filas a devolver |
+| `apiKey` | cadena | Sí | Tu Supabase servicio role secreto clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de estado de la operación |
+
+</div>
+
+
+
+---
+
+### Obtener un Fila
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "get_row"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "Proyecto ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Tabla",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Servicio Role Secreto",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "Filtro (PostgREST syntax)",
+            "layout": "full",
+            "placeholder": "id=eq.123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Get a Row (<code>supabase_get_row</code>)</div>
+
+Obtener un único fila desde un Supabase tabla basados en filtro criteria
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | cadena | Sí | Tu Supabase proyecto ID \(p. ej., jdrkgepadsdopsntdlom\) |
+| `table` | cadena | Sí | El nombre de el Supabase tabla a consulta |
+| `filter` | cadena | Sí | PostgREST filtro a buscar el específico fila \(p. ej., "id=eq.123"\) |
+| `apiKey` | cadena | Sí | Tu Supabase servicio role secreto clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de estado de la operación |
+
+</div>
+
+
+
+---
+
+### Crear un Fila
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "insert"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "Proyecto ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Tabla",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Servicio Role Secreto",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "Datos",
+            "layout": "full",
+            "placeholder": "{\\n  \"column1\": \"value1\",\\n  \"column2\": \"value2\"\\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create a Row (<code>supabase_insert</code>)</div>
+
+Insert datos en un Supabase tabla
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | cadena | Sí | Tu Supabase proyecto ID \(p. ej., jdrkgepadsdopsntdlom\) |
+| `table` | cadena | Sí | El nombre de el Supabase tabla a insert datos en |
+| `data` | matriz | Sí | El datos a insert \(matriz de objetos o un único objeto\) |
+| `apiKey` | cadena | Sí | Tu Supabase servicio role secreto clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de estado de la operación |
+
+</div>
+
+
+
+---
+
+### Actualizar un Fila
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "update"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "Proyecto ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Tabla",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Servicio Role Secreto",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "Datos",
+            "layout": "full",
+            "placeholder": "{\\n  \"column1\": \"value1\",\\n  \"column2\": \"value2\"\\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "Filtro (PostgREST syntax)",
+            "layout": "full",
+            "placeholder": "id=eq.123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Update a Row (<code>supabase_update</code>)</div>
+
+Actualizar filas en un Supabase tabla basados en filtro criteria
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | cadena | Sí | Tu Supabase proyecto ID \(p. ej., jdrkgepadsdopsntdlom\) |
+| `table` | cadena | Sí | El nombre de el Supabase tabla a actualizar |
+| `filter` | cadena | Sí | PostgREST filtro a identify filas a actualizar \(p. ej., "id=eq.123"\) |
+| `data` | objeto | Sí | Datos a actualizar en el coincidentes filas |
+| `apiKey` | cadena | Sí | Tu Supabase servicio role secreto clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de estado de la operación |
+
+</div>
+
+
+
+---
+
+### Elimina Fila
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "delete"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "Proyecto ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Tabla",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Servicio Role Secreto",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "Filtro (PostgREST syntax)",
+            "layout": "full",
+            "placeholder": "id=eq.123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Delete a Row (<code>supabase_delete</code>)</div>
+
+Eliminar filas desde un Supabase tabla basados en filtro criteria
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | cadena | Sí | Tu Supabase proyecto ID \(p. ej., jdrkgepadsdopsntdlom\) |
+| `table` | cadena | Sí | El nombre de el Supabase tabla a delete desde |
+| `filter` | cadena | Sí | PostgREST filtro a identify filas a delete \(p. ej., "id=eq.123"\) |
+| `apiKey` | cadena | Sí | Tu Supabase servicio role secreto clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de estado de la operación |
+
+</div>
+
+
+
+---
+
+### Upsert un Fila
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "upsert"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "Proyecto ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Tabla",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Servicio Role Secreto",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "Datos",
+            "layout": "full",
+            "placeholder": "{\\n  \"column1\": \"value1\",\\n  \"column2\": \"value2\"\\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Upsert a Row (<code>supabase_upsert</code>)</div>
+
+Insert o actualizar datos en un Supabase tabla (upsert operación)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | cadena | Sí | Tu Supabase proyecto ID \(p. ej., jdrkgepadsdopsntdlom\) |
+| `table` | cadena | Sí | El nombre de el Supabase tabla a upsert datos en |
+| `data` | matriz | Sí | El datos a upsert \(insert o actualizar\) - matriz de objetos o un único objeto |
+| `apiKey` | cadena | Sí | Tu Supabase servicio role secreto clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de estado de la operación |
+
+</div>
+
+
+
+---
+
+### Vector Buscar
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Get Many Rows",
+                    "id": "query"
+                },
+                {
+                    "label": "Get a Row",
+                    "id": "get_row"
+                },
+                {
+                    "label": "Create a Row",
+                    "id": "insert"
+                },
+                {
+                    "label": "Update a Row",
+                    "id": "update"
+                },
+                {
+                    "label": "Delete a Row",
+                    "id": "delete"
+                },
+                {
+                    "label": "Upsert a Row",
+                    "id": "upsert"
+                },
+                {
+                    "label": "Vector Search",
+                    "id": "vector_search"
+                }
+            ],
+            "defaultValue": "vector_search"
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "Proyecto ID",
+            "layout": "full",
+            "placeholder": "Your Supabase project ID (e.g., jdrkgepadsdopsntdlom)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "Tabla",
+            "layout": "full",
+            "placeholder": "Name of the table",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Servicio Role Secreto",
+            "layout": "full",
+            "placeholder": "Your Supabase service role secret key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "functionName",
+            "type": "short-input",
+            "title": "Función Nombre",
+            "layout": "full",
+            "placeholder": "match_documents",
+            "required": true
+        },
+        {
+            "id": "queryEmbedding",
+            "type": "code",
+            "title": "Consulta Embedding",
+            "layout": "full",
+            "placeholder": "[0.1, 0.2, 0.3, ...]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "matchThreshold",
+            "type": "short-input",
+            "title": "Match Threshold (opcional)",
+            "layout": "full",
+            "placeholder": "0.78"
+        },
+        {
+            "id": "matchCount",
+            "type": "short-input",
+            "title": "Match Cantidad (opcional)",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Vector Search (<code>supabase_vector_search</code>)</div>
+
+Perform similarity buscar mediante pgvector en un Supabase tabla
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | cadena | Sí | Tu Supabase proyecto ID \(p. ej., jdrkgepadsdopsntdlom\) |
+| `functionName` | cadena | Sí | El nombre de el PostgreSQL function ese performs vector buscar \(p. ej., match_documents\) |
+| `queryEmbedding` | matriz | Sí | El consulta vector/embedding a buscar para similar elementos |
+| `matchThreshold` | número | No | Mínimo similarity threshold \(0-1\), normalmente 0.7-0.9 |
+| `matchCount` | número | No | Número máximo de resultados a devolver \(predeterminado: 10\) |
+| `apiKey` | cadena | Sí | Tu Supabase servicio role secreto clave |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de estado de la operación |
+
+</div>
+
+
+
+---
+
+
+## Uso Instrucciones
+
+Integra Supabase en el flujo de trabajo. Permite obtener varias filas, consultar, crear, actualizar, eliminar o insertar y actualizar una fila.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `supabase`

@@ -1,0 +1,99 @@
+---
+title: Jina
+description: 将网站内容转换为文本
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="jina"
+  color=""
+/>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jina"
+    type="jina"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "url",
+            "type": "short-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "输入 URL 到提取 content 从",
+            "required": true
+        },
+        {
+            "id": "options",
+            "type": "checkbox-list",
+            "title": "选项",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Use Reader LM v2",
+                    "id": "useReaderLMv2"
+                },
+                {
+                    "label": "Gather Links",
+                    "id": "gatherLinks"
+                },
+                {
+                    "label": "JSON Response",
+                    "id": "jsonResponse"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Jina API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `jina_read_url`
+
+提取和处理 web content 到 clean, LLM-friendly text 使用 Jina AI Reader. Supports 高级 content parsing, link gathering, 和多个 output formats 使用 configurable processing 选项.
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `url` | 字符串 | 是 | 该 URL 到 read 和转换到 markdown |
+| `useReaderLMv2` | 布尔值 | 否 | 是否使用 ReaderLM-v2 用于 better quality |
+| `gatherLinks` | 布尔值 | 否 | 是否 gather 全部链接在该 end |
+| `jsonResponse` | 布尔值 | 否 | 是否 return response 在 JSON 格式 |
+| `apiKey` | 字符串 | 是 | 你的 Jina AI API 密钥 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | 字符串 | Extracted content |
+
+
+## 用量说明
+
+集成 Jina 到该 workflow. Extracts content 从 websites.
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `jina`

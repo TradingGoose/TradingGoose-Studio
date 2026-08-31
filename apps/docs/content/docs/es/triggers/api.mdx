@@ -1,0 +1,105 @@
+---
+title: API Trigger
+description: Iniciar un workflow desde un authenticated HTTP solicitud
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="api_trigger"
+  color="#2F55FF"
+  icon={true}
+/>
+
+El disparador de API expone tu flujo de trabajo como un endpoint HTTP seguro. Envía datos JSON al endpoint y el flujo los procesa de inmediato. Las llamadas a la API siempre utilizan el despliegue más reciente.
+
+<Callout type="info">
+  Este es un **webhook-based** trigger. Externo services o scripts enviar HTTP solicitudes a inicio el workflow.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="API Trigger"
+    type="api_trigger"
+    color="#2F55FF"
+    hideHeader
+    subBlocks={[
+      { "id": "inputFormat", "title": "Input Format", "type": "short-input", "layout": "full", "description": "Define el esquema JSON de entrada que acepta el endpoint de la API" }
+    ]}
+  />
+</ShowcaseCard>
+
+Añadir un **Entrada Formato** campo para cada parámetro. Supported tipos:
+
+- **cadena** — Texto valores
+- **número** — Numeric valores
+- **booleano** — True/false valores
+- **json** — JSON objetos
+- **archivos** — Archivo uploads (acceder via `<api.fieldName[0].url>`, `<api.fieldName[0].name>`, etc.)
+
+### Salida Reference
+
+| Reference | Tipo | Descripción |
+|-----------|------|-------------|
+| `<api.field>` | varies | Campo defined en el Entrada Formato |
+| `<api.input>` | json | Entire structured solicitud cuerpo |
+
+## Solicitud Ejemplo
+
+```bash
+curl -X POST \
+  https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: YOUR_KEY' \
+  -d '{"userId":"demo-user","maxTokens":1024}'
+```
+
+## Streaming Respuestas
+
+Activa la transmisión en tiempo real para recibir la salida del flujo de trabajo a medida que se genera.
+
+### Solicitud Parámetros
+
+- `stream` — Establécelo en `true` para habilitar la transmisión mediante Server-Sent Events (SSE)
+- `selectedOutputs` — Matriz de salidas de bloque que se transmitirán (p. ej., `["agent1.content"]`)
+
+### Ejemplo
+
+```bash
+curl -X POST \
+  https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: YOUR_KEY' \
+  -d '{"message": "Count to five", "stream": true, "selectedOutputs": ["agent1.content"]}'
+```
+
+### Respuesta Formato
+
+```
+data: {"blockId":"...","chunk":"One"}
+data: {"blockId":"...","chunk":", two"}
+data: {"event":"done","success":true,"output":{},"metadata":{"duration":610}}
+data: [DONE]
+```
+
+### Archivo Subir Formato
+
+```json
+{
+  "documents": [{
+    "type": "file",
+    "data": "data:application/pdf;base64,JVBERi0xLjQK...",
+    "name": "document.pdf",
+    "mime": "application/pdf"
+  }]
+}
+```
+
+<Callout type="warning">
+A workflow puede contener solo uno API Trigger. Publicar un nuevo deployment después changes por tanto el endpoint stays arriba a fecha.
+</Callout>

@@ -1,0 +1,82 @@
+---
+title: Portfolio Detail
+description: 获取完整 portfolio detail，来源为一个所选经纪商账户.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="portfolio_detail"
+  color="#115e59"
+/>
+
+{/* MANUAL-CONTENT-START:intro */}
+选择两者 **经纪商**和**经纪商账户** 之前 running Portfolio Detail. 所选经纪商账户 supplies canonical `portfolioIdentity` 必填由`trading_get_portfolio_detail`.
+{/* MANUAL-CONTENT-END */}
+
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Portfolio Detail"
+    type="portfolio_detail"
+    color="#115e59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "trading-provider-selector",
+            "title": "经纪商",
+            "layout": "full",
+            "placeholder": "Select broker",
+            "required": true
+        },
+        {
+            "id": "portfolioIdentity",
+            "type": "trading-account-selector",
+            "title": "经纪商账户",
+            "layout": "full",
+            "placeholder": "Select broker account",
+            "description": "经纪商账户使用的到fetch portfolio detail.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `trading_get_portfolio_detail`
+
+获取账户摘要, cash, 持仓,和订单，来源为Alpaca或Tradier.
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `portfolioIdentity` | json | 是 | Canonical portfolioIdentity 所选由经纪商账户字段. |
+
+#### 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `summary` | 字符串 | 状态消息，用于portfolio detail retrieval. |
+| `provider` | 字符串 | 经纪商/提供商使用的，用于请求. |
+| `portfolioDetail` | json | Canonical portfolio detail 使用cash, 持仓,和摘要. |
+
+
+## 用法说明
+
+Portfolio detail 块该 返回账户摘要, cash, 持仓,和订单，来源为Alpaca或Tradier.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `portfolio_detail`

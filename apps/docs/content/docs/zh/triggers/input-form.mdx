@@ -1,0 +1,56 @@
+---
+title: 输入表单 trigger
+description: Manual trigger 使用一个 structured 输入架构
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="input_trigger"
+  color=""
+  icon={true}
+/>
+
+使用一个输入表单 trigger 当一个 workflow 应开始，来源为editor 使用类型化字段. run panel 节目 exactly 字段你 define, 因此 workflow 始终接收 clean 数据.
+
+<Callout type="info">
+  此为 一个 **manual** trigger 使用structured 输入. Define 你的架构和run，来源为editor.
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="输入表单 trigger"
+    type="input_trigger"
+    hideHeader
+    subBlocks={[
+      { "id": "inputFormat", "title": "Input Format", "type": "short-input", "layout": "full", "description": "Define form fields with name, type, and default value" }
+    ]}
+  />
+</ShowcaseCard>
+
+添加字段在输入格式 builder. Supported 类型:
+
+- **字符串** — 文本值
+- **数字** — Numeric 值
+- **布尔值** — True/false 值
+- **json** — JSON 对象
+
+### 输出架构
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `<blockName.field>` | varies | 每个字段 defined在输入格式 |
+| `<blockName.input>` | json | Entire structured 输入 payload |
+
+## 子 workflow
+
+输入表单 trigger 还 power Workflow 块. 当你 embed 一个子 workflow, mapping step 节目子 表单字段因此你 可连接 variables，来源为父级.
+
+<Callout>
+需要一个 quick run 按钮使用否字段? 使用一个 Manual trigger instead.
+</Callout>

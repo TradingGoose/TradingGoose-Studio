@@ -1,0 +1,81 @@
+---
+title: 工作流编辑器
+description: "用于构建和编辑工作流的画布界面。"
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|---|---|
+| **键** | `editor_workflow` |
+| **类别** | 编辑器 |
+
+Workflow Editor 是构建 AI 工作流的主画布。它呈现完整 React Flow 图，可放置模块、绘制连接并配置各步骤。每个 widget 使用独立 socket 和工作流存储，因此同一工作区中的多个编辑器可独立运行。
+
+## 功能
+
+- React Flow 画布，支持平移、缩放和节点选择。
+- 标题工具栏按类别列出并搜索模块、tools 和 triggers；可拖到画布。
+- 提供特殊的 Loop 和 Parallel 模块。
+- 可配置的浮动控件和训练模式控件。
+- 导出 TradingGoose JSON，并包含工作区 skills。
+- 显示工作流所有 triggers。
+- 根据 widget 可见区域将新模块放在中心。
+- 实时验证嵌套 subflow 并突出错误。
+- 添加重复 trigger 或违反限制时显示警告。
+
+## 使用方法
+
+### 添加 widget
+
+选择 **Workflow Editor**。它加载活动工作流；没有工作流时显示占位提示。
+
+### 标题布局
+
+- **左侧**：搜索和添加模块、tools、triggers 的工具栏。
+- **中间**：工作流选择器。
+- **右侧**：执行、导出、保存和工作流操作。
+
+### 主要操作
+
+1. **添加模块**：选择模块并放在可见区域中心。
+2. **连接模块**：从输出端拖到输入端。
+3. **选择和配置**：点击节点编辑设置。
+4. **删除**：选择节点或边并按 Delete。
+5. **撤销/重做**：使用标准快捷键。
+
+### 配对颜色同步
+
+指定配对颜色后与同色 widgets 共享活动工作流；`gray` 时通过参数独立管理。
+
+<Callout>使用相同颜色与 **Console**、**Chat** 或 **Variables** 配对。颜色仅同步 dashboard widgets；全局 Copilot 跟随活动 layout。</Callout>
+
+## 配置
+
+`WorkflowCanvasUIConfig` 控制画布：
+
+| 选项 | 默认值 | 说明 |
+|---|---|---|
+| `floatingControls` | `true` | 显示浮动操作按钮。 |
+| `trainingControls` | `true` | 启用训练模式控件。 |
+| `forceTrainingControls` | `false` | 始终显示训练控件。 |
+| `triggerList` | `true` | 显示 trigger 列表。 |
+| `controlBar` | `false` | 显示旧控制栏。 |
+
+Widget 默认值会与 layout 覆盖项合并。
+
+## 相关内容
+
+<Cards>
+  <Card title="Blocks Overview" href="/blocks">浏览工作流模块。</Card>
+  <Card title="Tools Overview" href="/tools">浏览工作流 tools。</Card>
+  <Card title="Triggers Overview" href="/triggers">浏览工作流 triggers。</Card>
+  <Card title="Workflow List" href="/widgets/list-workflow">浏览、创建和导入工作流。</Card>
+  <Card title="Workflow Console" href="/widgets/workflow-console">查看执行日志和输出。</Card>
+  <Card title="Workflow Chat" href="/widgets/workflow-chat">与运行中的工作流交互。</Card>
+  <Card title="Copilot" href="/copilot">工作区全局助手。</Card>
+  <Card title="Workflow Variables" href="/widgets/workflow-variables">检查和编辑变量状态。</Card>
+</Cards>

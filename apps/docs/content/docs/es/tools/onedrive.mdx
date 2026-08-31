@@ -1,0 +1,452 @@
+---
+title: OneDrive
+description: Crea, sube y enumera archivos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="onedrive"
+  color=""
+/>
+
+
+## Configuración
+
+### Crear Carpeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "create_folder"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Cuenta",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "onedrive"
+        },
+        {
+            "id": "folderName",
+            "type": "short-input",
+            "title": "Carpeta Nombre",
+            "layout": "full",
+            "placeholder": "Name for the new folder"
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Seleccionar Principal Carpeta",
+            "layout": "full",
+            "placeholder": "Select a parent folder",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "Principal Carpeta ID",
+            "layout": "full",
+            "placeholder": "Enter parent folder ID (leave empty for root folder)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Create Folder (<code>onedrive_create_folder</code>)</div>
+
+Crea carpeta en OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `folderName` | cadena | Sí | Nombre de el carpeta a crear |
+| `folderSelector` | cadena | No | Seleccionar el principal carpeta a crear el carpeta en |
+| `manualFolderId` | cadena | No | Manually entered principal carpeta ID \(advanced modo\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Indica si el carpeta fue creado successfully |
+
+</div>
+
+
+
+---
+
+### Crear Archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "create_file"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Cuenta",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "onedrive"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "Archivo Nombre",
+            "layout": "full",
+            "placeholder": "Name of the file",
+            "required": true
+        },
+        {
+            "id": "mimeType",
+            "type": "dropdown",
+            "title": "Archivo Tipo",
+            "layout": "full",
+            "placeholder": "Select file type",
+            "required": true,
+            "options": [
+                {
+                    "label": "Text File (.txt)",
+                    "id": "text/plain"
+                },
+                {
+                    "label": "Excel File (.xlsx)",
+                    "id": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                }
+            ]
+        },
+        {
+            "id": "values",
+            "type": "long-input",
+            "title": "Valores",
+            "layout": "full",
+            "placeholder": "Enter values as JSON array of arrays (e.g., [[\"A1\",\"B1\"],[\"A2\",\"B2\"]]) or an array of objects"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Texto Contenido",
+            "layout": "full",
+            "placeholder": "Text content for the file",
+            "required": true
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Seleccionar Principal Carpeta",
+            "layout": "full",
+            "placeholder": "Select a parent folder",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "Principal Carpeta ID",
+            "layout": "full",
+            "placeholder": "Enter parent folder ID (leave empty for root folder)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `file` | json | El OneDrive file objeto, incluidos detalles como como id, nombre, tamaño, y más. |
+| `files` | json | Un matriz de OneDrive file objetos, cada que contiene detalles como como id, nombre, tamaño, y más. |
+
+</div>
+
+
+
+---
+
+### Subir Archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Cuenta",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "onedrive"
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "Archivo Nombre",
+            "layout": "full",
+            "placeholder": "Name of the file",
+            "required": true
+        },
+        {
+            "id": "file",
+            "type": "file-upload",
+            "title": "Archivo",
+            "layout": "full",
+            "placeholder": "Upload a file"
+        },
+        {
+            "id": "fileReference",
+            "type": "short-input",
+            "title": "Archivo",
+            "layout": "full",
+            "placeholder": "Reference file from previous block (e.g., {{block_1.file}})"
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Seleccionar Principal Carpeta",
+            "layout": "full",
+            "placeholder": "Select a parent folder",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "Principal Carpeta ID",
+            "layout": "full",
+            "placeholder": "Enter parent folder ID (leave empty for root folder)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Upload File (<code>onedrive_upload</code>)</div>
+
+Subir un file a OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `fileName` | cadena | Sí | El nombre de el file a upload |
+| `file` | file | No | El file a upload \(binary\) |
+| `content` | cadena | No | El texto contenido a upload \(si No file es proporcionado\) |
+| `mimeType` | cadena | No | El MIME tipo de el file a crear \(p. ej., texto/plain para .txt, aplicación/vnd.openxmlformats-officedocument.spreadsheetml.sheet para .xlsx\) |
+| `folderSelector` | cadena | No | Seleccionar el carpeta a upload el file a |
+| `manualFolderId` | cadena | No | Manually entered carpeta ID \(advanced modo\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Indica si el file fue uploaded successfully |
+
+</div>
+
+
+
+---
+
+### Listar Archivos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="OneDrive"
+    type="onedrive"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Create Folder",
+                    "id": "create_folder"
+                },
+                {
+                    "label": "Create File",
+                    "id": "create_file"
+                },
+                {
+                    "label": "Upload File",
+                    "id": "upload"
+                },
+                {
+                    "label": "List Files",
+                    "id": "list"
+                }
+            ],
+            "defaultValue": "list"
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Microsoft Cuenta",
+            "layout": "full",
+            "placeholder": "Select Microsoft account",
+            "provider": "onedrive"
+        },
+        {
+            "id": "folderSelector",
+            "type": "file-selector",
+            "title": "Seleccionar Carpeta",
+            "layout": "full",
+            "placeholder": "Select a folder to list files from",
+            "provider": "microsoft"
+        },
+        {
+            "id": "manualFolderId",
+            "type": "short-input",
+            "title": "Carpeta ID",
+            "layout": "full",
+            "placeholder": "Enter folder ID (leave empty for root folder)"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Buscar Consulta",
+            "layout": "full",
+            "placeholder": "Search for specific files (e.g., name contains \"report\")"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Resultados Por Página",
+            "layout": "full",
+            "placeholder": "Number of results (default: 100, max: 1000)",
+            "max": 1000
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">List Files (<code>onedrive_list</code>)</div>
+
+Listar archivos y folders en OneDrive
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `folderSelector` | cadena | No | Seleccionar el carpeta a listar archivos desde |
+| `manualFolderId` | cadena | No | El manually entered carpeta ID \(advanced modo\) |
+| `query` | cadena | No | A consulta a filtro el archivos |
+| `pageSize` | número | No | El número de archivos a devolver |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Indica si archivos fueron listed successfully |
+| `files` | matriz | Matriz de file y carpeta objetos con metadatos |
+
+</div>
+
+
+
+---
+
+
+## Uso Instrucciones
+
+Integra OneDrive en el workflow. Permite crear texto y Excel archivos, upload archivos, y listar archivos.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `onedrive`

@@ -1,0 +1,172 @@
+---
+title: Gmail Trigger
+description: Triggers cuando nuevo correos electrónicos son received en Gmail (requiere Gmail credentials)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="gmail"
+  color=""
+/>
+
+Triggers cuando nuevo correos electrónicos son received en Gmail (requiere Gmail credentials)
+
+<Callout type="info">
+Este disparador se basa en sondeo. TradingGoose comprueba automáticamente si hay datos nuevos en un intervalo regular.
+</Callout>
+
+<Cards>
+  <Card title="Usar como un Herramienta" href="/tools/gmail">
+    Consulta workflow acciones, operaciones, y herramienta entradas para Gmail.
+  </Card>
+</Cards>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail Correo electrónico Trigger"
+    type="gmail_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este trigger requiere google email credentials a acceder tu cuenta.",
+            "required": true
+        },
+        {
+            "id": "labelIds",
+            "type": "dropdown",
+            "title": "Gmail Labels a Supervisar",
+            "placeholder": "Select Gmail labels to monitor for new emails",
+            "description": "Elegir que Gmail labels a supervisar. Leave vacío a supervisar todos correos electrónicos."
+        },
+        {
+            "id": "labelFilterBehavior",
+            "type": "dropdown",
+            "title": "Label Filtro Behavior",
+            "description": "Incluir solo correos electrónicos con seleccionado labels, o exclude correos electrónicos con seleccionado labels",
+            "required": true,
+            "options": [
+                {
+                    "label": "INCLUDE",
+                    "id": "INCLUDE"
+                },
+                {
+                    "label": "EXCLUDE",
+                    "id": "EXCLUDE"
+                }
+            ]
+        },
+        {
+            "id": "searchQuery",
+            "type": "short-input",
+            "title": "Gmail Buscar Consulta",
+            "placeholder": "subject:report OR from:important@example.com",
+            "description": "Opcional Gmail buscar consulta a filtro correos electrónicos. Usar el mismo formato como Gmail buscar box (p. ej., \"asunto:factura\", \"de:boss@empresa.com\", \"tiene:adjunto\"). Leave vacío a buscar todos correos electrónicos."
+        },
+        {
+            "id": "markAsRead",
+            "type": "switch",
+            "title": "Marcar como Leer",
+            "description": "Automatically marcar correos electrónicos como leer después procesamiento"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Incluir Adjuntos",
+            "description": "Descargar y incluir email adjuntos en el trigger payload"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "email",
+          "type": "object",
+          "description": "email",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "Gmail mensaje ID"
+              },
+              {
+                  "name": "threadId",
+                  "type": "string",
+                  "description": "Gmail hilo ID"
+              },
+              {
+                  "name": "subject",
+                  "type": "string",
+                  "description": "Correo electrónico asunto line"
+              },
+              {
+                  "name": "from",
+                  "type": "string",
+                  "description": "Remitente email dirección"
+              },
+              {
+                  "name": "to",
+                  "type": "string",
+                  "description": "Destinatario email dirección"
+              },
+              {
+                  "name": "cc",
+                  "type": "string",
+                  "description": "CC destinatarios"
+              },
+              {
+                  "name": "date",
+                  "type": "string",
+                  "description": "Correo electrónico fecha en ISO formato"
+              },
+              {
+                  "name": "bodyText",
+                  "type": "string",
+                  "description": "Plain texto email cuerpo"
+              },
+              {
+                  "name": "bodyHtml",
+                  "type": "string",
+                  "description": "HTML email cuerpo"
+              },
+              {
+                  "name": "labels",
+                  "type": "string",
+                  "description": "Correo electrónico labels matriz"
+              },
+              {
+                  "name": "hasAttachments",
+                  "type": "boolean",
+                  "description": "Indica si email tiene adjuntos"
+              },
+              {
+                  "name": "attachments",
+                  "type": "file[]",
+                  "description": "Matriz de email adjuntos como archivos (si includeAttachments es activado)"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Evento marca de tiempo"
+      }
+  ]}
+/>
+

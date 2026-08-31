@@ -1,0 +1,92 @@
+---
+title: Google Forms
+description: Leer responses desde un Google Form
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="google_forms"
+  color=""
+/>
+
+<Cards>
+  <Card title="Use as a Trigger" href="/triggers/google-forms">
+    See trigger events, setup, y event payloads para Google Forms.
+  </Card>
+</Cards>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Forms"
+    type="google_forms"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Cuenta",
+            "layout": "full",
+            "placeholder": "Selecciona Google account",
+            "provider": "google-forms",
+            "required": true
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "Form ID",
+            "layout": "full",
+            "placeholder": "Introduce el Google Form ID",
+            "required": true
+        },
+        {
+            "id": "responseId",
+            "type": "short-input",
+            "title": "Respuesta ID",
+            "layout": "full",
+            "placeholder": "Introduce un específico response ID"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Tamaño de página",
+            "layout": "full",
+            "placeholder": "Max responses un retrieve (predeterminado 5000)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+### `google_forms_get_responses`
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `data` | json | Respuesta o lista de responses |
+
+
+## Usage Instructions
+
+Integrate Google Forms en tu workflow. Provide un Form ID un lista responses, o specify un Respuesta ID un fetch un único response. Requires OAuth.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `google_forms`

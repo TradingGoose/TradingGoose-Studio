@@ -1,0 +1,3249 @@
+---
+title: Jira Service Management
+description: Interactúa con Jira Service Management
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="jira_service_management"
+  color="#E0E0E0"
+/>
+
+
+## Configuración
+
+### Obtener Service Desks
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_service_desks"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Resultados máximos",
+            "placeholder": "Maximum resultados (predeterminado: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Service Desks (<code>jsm_get_service_desks</code>)</div>
+
+Obtener todos servicio desks desde Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `start` | número | No | Índice inicial para la paginación \(predeterminado: 0\) |
+| `limit` | número | No | Número máximo de resultados que se devolverán \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `serviceDesks` | json | Array de servicio desks |
+| `total` | número | Total número de servicio desks |
+
+</div>
+
+
+
+---
+
+### Obtener Solicitud Types
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_request_types"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "ID de mesa de servicio",
+            "placeholder": "Introduce servicio desk ID"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Resultados máximos",
+            "placeholder": "Maximum resultados (predeterminado: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Solicitud Types (<code>jsm_get_request_types</code>)</div>
+
+Obtener request types para un servicio desk en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `serviceDeskId` | cadena | Sí | ID de mesa de servicio un get request types para |
+| `start` | número | No | Índice inicial para la paginación \(predeterminado: 0\) |
+| `limit` | número | No | Número máximo de resultados que se devolverán \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+
+
+---
+
+### Crear Solicitud
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "create_request"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "ID de mesa de servicio",
+            "placeholder": "Introduce servicio desk ID"
+        },
+        {
+            "id": "requestTypeId",
+            "type": "short-input",
+            "title": "Solicitud Tipo ID",
+            "placeholder": "Introduce request type ID",
+            "required": true
+        },
+        {
+            "id": "summary",
+            "type": "short-input",
+            "title": "Resumen",
+            "placeholder": "Introduce request summary",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Introduce request description"
+        },
+        {
+            "id": "raiseOnBehalfOf",
+            "type": "short-input",
+            "title": "Raise en Behalf Of",
+            "placeholder": "Cuenta ID un raise request en behalf de"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Solicitud (<code>jsm_create_request</code>)</div>
+
+Crear un nuevo servicio request en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `issueId` | cadena | Created request issue ID |
+
+</div>
+
+
+
+---
+
+### Obtener Solicitud
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_request"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "ID o clave de incidencia",
+            "placeholder": "Introduce issue ID o key (p. ej., SD-123)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Solicitud (<code>jsm_get_request</code>)</div>
+
+Obtener un único servicio request desde Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `issueIdOrKey` | cadena | Sí | Incidencia ID o key \(e.g., SD-123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+
+
+---
+
+### Obtener Solicitudes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_requests"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "requestOwnership",
+            "type": "dropdown",
+            "title": "Solicitud Ownership",
+            "options": [
+                {
+                    "label": "All Requests",
+                    "id": "ALL_REQUESTS"
+                },
+                {
+                    "label": "My Requests",
+                    "id": "OWNED_REQUESTS"
+                },
+                {
+                    "label": "Participated",
+                    "id": "PARTICIPATED_REQUESTS"
+                },
+                {
+                    "label": "Organization",
+                    "id": "ORGANIZATION"
+                }
+            ]
+        },
+        {
+            "id": "requestStatus",
+            "type": "dropdown",
+            "title": "Solicitud Estado",
+            "options": [
+                {
+                    "label": "All",
+                    "id": "ALL"
+                },
+                {
+                    "label": "Open",
+                    "id": "OPEN"
+                },
+                {
+                    "label": "Closed",
+                    "id": "CLOSED"
+                }
+            ]
+        },
+        {
+            "id": "searchTerm",
+            "type": "short-input",
+            "title": "Buscar Term",
+            "placeholder": "Buscar requests"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Resultados máximos",
+            "placeholder": "Maximum resultados (predeterminado: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Solicitudes (<code>jsm_get_requests</code>)</div>
+
+Obtener varios servicio requests desde Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+Consulta las salidas del bloque para esta operación.
+
+</div>
+
+
+
+---
+
+### Agregar Comentario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "add_comment"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "ID o clave de incidencia",
+            "placeholder": "Introduce issue ID o key (p. ej., SD-123)",
+            "required": true
+        },
+        {
+            "id": "commentBody",
+            "type": "long-input",
+            "title": "Comentario",
+            "placeholder": "Introduce comment text",
+            "required": true
+        },
+        {
+            "id": "isPublic",
+            "type": "dropdown",
+            "title": "Comentario Visibility",
+            "options": [
+                {
+                    "label": "Public (visible to customer)",
+                    "id": "true"
+                },
+                {
+                    "label": "Internal (agents only)",
+                    "id": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar Comentario (<code>jsm_add_comment</code>)</div>
+
+Agregar un comment (público o interno) un un servicio request en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `issueIdOrKey` | cadena | Sí | Incidencia ID o key \(e.g., SD-123\) |
+| `body` | cadena | Sí | Comentario body text |
+| `isPublic` | booleano | Sí | Indica si el comentario es público \(visible para el cliente\) o interno |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `issueIdOrKey` | cadena | Incidencia ID o key |
+| `commentId` | cadena | Created comment ID |
+| `body` | cadena | Comentario body text |
+| `isPublic` | booleano | Si el comment is público |
+
+</div>
+
+
+
+---
+
+### Obtener Comentarios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_comments"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "ID o clave de incidencia",
+            "placeholder": "Introduce issue ID o key (p. ej., SD-123)",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Resultados máximos",
+            "placeholder": "Maximum resultados (predeterminado: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Comentarios (<code>jsm_get_comments</code>)</div>
+
+Obtener comments para un servicio request en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `issueIdOrKey` | cadena | Sí | Incidencia ID o key \(e.g., SD-123\) |
+| `isPublic` | booleano | No | Filtro un solo público comments |
+| `internal` | booleano | No | Filtro un solo interno comments |
+| `start` | número | No | Índice inicial para la paginación \(predeterminado: 0\) |
+| `limit` | número | No | Número máximo de resultados que se devolverán \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `issueIdOrKey` | cadena | Incidencia ID o key |
+| `comments` | json | Array de comments |
+| `total` | número | Total número de comments |
+
+</div>
+
+
+
+---
+
+### Obtener Customers
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_customers"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "ID de mesa de servicio",
+            "placeholder": "Introduce servicio desk ID"
+        },
+        {
+            "id": "customerQuery",
+            "type": "short-input",
+            "title": "Buscar Consulta",
+            "placeholder": "Buscar customers por name o email"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Resultados máximos",
+            "placeholder": "Maximum resultados (predeterminado: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Customers (<code>jsm_get_customers</code>)</div>
+
+Obtener customers para un servicio desk en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `serviceDeskId` | cadena | Sí | ID de mesa de servicio un get customers para |
+| `query` | cadena | No | Buscar query un filter customers |
+| `start` | número | No | Índice inicial para la paginación \(predeterminado: 0\) |
+| `limit` | número | No | Número máximo de resultados que se devolverán \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `customers` | json | Array de customers |
+| `total` | número | Total número de customers |
+
+</div>
+
+
+
+---
+
+### Agregar Customer
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "add_customer"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "ID de mesa de servicio",
+            "placeholder": "Introduce servicio desk ID"
+        },
+        {
+            "id": "emails",
+            "type": "short-input",
+            "title": "Correo electrónico Addresses",
+            "placeholder": "Separados por comas email addresses",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar Customer (<code>jsm_add_customer</code>)</div>
+
+Agregar customers un un servicio desk en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `serviceDeskId` | cadena | Sí | ID de mesa de servicio un add customers un |
+| `emails` | cadena | Sí | Separados por comas email addresses un add como customers |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `serviceDeskId` | cadena | Service desk ID |
+
+</div>
+
+
+
+---
+
+### Obtener Organizations
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_organizations"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "ID de mesa de servicio",
+            "placeholder": "Introduce servicio desk ID"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Resultados máximos",
+            "placeholder": "Maximum resultados (predeterminado: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Organizations (<code>jsm_get_organizations</code>)</div>
+
+Obtener organizations para un servicio desk en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `serviceDeskId` | cadena | Sí | ID de mesa de servicio un get organizations para |
+| `start` | número | No | Índice inicial para la paginación \(predeterminado: 0\) |
+| `limit` | número | No | Número máximo de resultados que se devolverán \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `organizations` | json | Array de organizations |
+| `total` | número | Total número de organizations |
+
+</div>
+
+
+
+---
+
+### Crear Organization
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "create_organization"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "organizationName",
+            "type": "short-input",
+            "title": "Organization Nombre",
+            "placeholder": "Introduce organización name",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Organization (<code>jsm_create_organization</code>)</div>
+
+Crear un nuevo organización en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `name` | cadena | Sí | Nombre de el organización un create |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `organizationId` | cadena | ID de el created organización |
+| `name` | cadena | Nombre de el created organización |
+
+</div>
+
+
+
+---
+
+### Agregar Organization
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "add_organization"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "ID de mesa de servicio",
+            "placeholder": "Introduce servicio desk ID"
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "Organization ID",
+            "placeholder": "Introduce organización ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar Organization (<code>jsm_add_organization</code>)</div>
+
+Agregar un organización un un servicio desk en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `serviceDeskId` | cadena | Sí | ID de mesa de servicio un add el organización un |
+| `organizationId` | cadena | Sí | Organization ID un add un el servicio desk |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `serviceDeskId` | cadena | ID de mesa de servicio |
+| `organizationId` | cadena | Organization ID added |
+
+</div>
+
+
+
+---
+
+### Obtener Queues
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_queues"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "serviceDeskId",
+            "type": "short-input",
+            "title": "ID de mesa de servicio",
+            "placeholder": "Introduce servicio desk ID"
+        },
+        {
+            "id": "includeCount",
+            "type": "dropdown",
+            "title": "Include Incidencia Count",
+            "options": [
+                {
+                    "label": "No",
+                    "id": "false"
+                },
+                {
+                    "label": "Yes",
+                    "id": "true"
+                }
+            ]
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Resultados máximos",
+            "placeholder": "Maximum resultados (predeterminado: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Queues (<code>jsm_get_queues</code>)</div>
+
+Obtener queues para un servicio desk en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `serviceDeskId` | cadena | Sí | ID de mesa de servicio un get queues para |
+| `includeCount` | booleano | No | Include issue cantidad para cada queue |
+| `start` | número | No | Índice inicial para la paginación \(predeterminado: 0\) |
+| `limit` | número | No | Número máximo de resultados que se devolverán \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `queues` | json | Array de queues |
+| `total` | número | Total número de queues |
+
+</div>
+
+
+
+---
+
+### Obtener SLA
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_sla"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "ID o clave de incidencia",
+            "placeholder": "Introduce issue ID o key (p. ej., SD-123)",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "Resultados máximos",
+            "placeholder": "Maximum resultados (predeterminado: 50)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener SLA (<code>jsm_get_sla</code>)</div>
+
+Obtener SLA información para un servicio request en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `issueIdOrKey` | cadena | Sí | Incidencia ID o key \(e.g., SD-123\) |
+| `start` | número | No | Índice inicial para la paginación \(predeterminado: 0\) |
+| `limit` | número | No | Número máximo de resultados que se devolverán \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `issueIdOrKey` | cadena | Incidencia ID o key |
+| `slas` | json | Array de SLA información |
+| `total` | número | Total número de SLAs |
+
+</div>
+
+
+
+---
+
+### Obtener Transitions
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_transitions"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "ID o clave de incidencia",
+            "placeholder": "Introduce issue ID o key (p. ej., SD-123)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Transitions (<code>jsm_get_transitions</code>)</div>
+
+Obtener disponible transitions para un servicio request en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `issueIdOrKey` | cadena | Sí | Incidencia ID o key \(e.g., SD-123\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `issueIdOrKey` | cadena | Incidencia ID o key |
+
+</div>
+
+
+
+---
+
+### Transition Solicitud
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "transition_request"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "ID o clave de incidencia",
+            "placeholder": "Introduce issue ID o key (p. ej., SD-123)",
+            "required": true
+        },
+        {
+            "id": "transitionId",
+            "type": "short-input",
+            "title": "Transition ID",
+            "placeholder": "Introduce transition ID",
+            "required": true
+        },
+        {
+            "id": "transitionComment",
+            "type": "long-input",
+            "title": "Comentario",
+            "placeholder": "Agregar opcional comment during transition"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Transition Solicitud (<code>jsm_transition_request</code>)</div>
+
+Transition un servicio request un un nuevo status en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `issueIdOrKey` | cadena | Sí | Incidencia ID o key \(e.g., SD-123\) |
+| `transitionId` | cadena | Sí | Transition ID un apply |
+| `comment` | cadena | No | Opcional comment un add during transition |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `issueIdOrKey` | cadena | Incidencia ID o key |
+| `transitionId` | cadena | Applied transition ID |
+
+</div>
+
+
+
+---
+
+### Obtener Participants
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_participants"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "ID o clave de incidencia",
+            "placeholder": "Introduce issue ID o key (p. ej., SD-123)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Participants (<code>jsm_get_participants</code>)</div>
+
+Obtener participants para un request en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `issueIdOrKey` | cadena | Sí | Incidencia ID o key \(e.g., SD-123\) |
+| `start` | número | No | Índice inicial para la paginación \(predeterminado: 0\) |
+| `limit` | número | No | Número máximo de resultados que se devolverán \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `issueIdOrKey` | cadena | Incidencia ID o key |
+| `participants` | json | Array de participants |
+| `total` | número | Total número de participants |
+
+</div>
+
+
+
+---
+
+### Agregar Participants
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "add_participants"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "ID o clave de incidencia",
+            "placeholder": "Introduce issue ID o key (p. ej., SD-123)",
+            "required": true
+        },
+        {
+            "id": "participantAccountIds",
+            "type": "short-input",
+            "title": "Cuenta IDs",
+            "placeholder": "Separados por comas account IDs",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Agregar Participants (<code>jsm_add_participants</code>)</div>
+
+Agregar participants un un request en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `issueIdOrKey` | cadena | Sí | Incidencia ID o key \(e.g., SD-123\) |
+| `accountIds` | cadena | Sí | Separados por comas account IDs un add como participants |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `issueIdOrKey` | cadena | Incidencia ID o key |
+| `participants` | json | Array de added participants |
+
+</div>
+
+
+
+---
+
+### Obtener Approvals
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "get_approvals"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "ID o clave de incidencia",
+            "placeholder": "Introduce issue ID o key (p. ej., SD-123)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener Approvals (<code>jsm_get_approvals</code>)</div>
+
+Obtener approvals para un request en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `issueIdOrKey` | cadena | Sí | Incidencia ID o key \(e.g., SD-123\) |
+| `start` | número | No | Índice inicial para la paginación \(predeterminado: 0\) |
+| `limit` | número | No | Número máximo de resultados que se devolverán \(predeterminado: 50\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `issueIdOrKey` | cadena | Incidencia ID o key |
+| `approvals` | json | Array de approvals |
+| `total` | número | Total número de approvals |
+
+</div>
+
+
+
+---
+
+### Responder Approval
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Jira Service Management"
+    type="jira_service_management"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "options": [
+                {
+                    "label": "Get Service Desks",
+                    "id": "get_service_desks"
+                },
+                {
+                    "label": "Get Request Types",
+                    "id": "get_request_types"
+                },
+                {
+                    "label": "Create Request",
+                    "id": "create_request"
+                },
+                {
+                    "label": "Get Request",
+                    "id": "get_request"
+                },
+                {
+                    "label": "Get Requests",
+                    "id": "get_requests"
+                },
+                {
+                    "label": "Add Comment",
+                    "id": "add_comment"
+                },
+                {
+                    "label": "Get Comments",
+                    "id": "get_comments"
+                },
+                {
+                    "label": "Get Customers",
+                    "id": "get_customers"
+                },
+                {
+                    "label": "Add Customer",
+                    "id": "add_customer"
+                },
+                {
+                    "label": "Get Organizations",
+                    "id": "get_organizations"
+                },
+                {
+                    "label": "Create Organization",
+                    "id": "create_organization"
+                },
+                {
+                    "label": "Add Organization",
+                    "id": "add_organization"
+                },
+                {
+                    "label": "Get Queues",
+                    "id": "get_queues"
+                },
+                {
+                    "label": "Get SLA",
+                    "id": "get_sla"
+                },
+                {
+                    "label": "Get Transitions",
+                    "id": "get_transitions"
+                },
+                {
+                    "label": "Transition Request",
+                    "id": "transition_request"
+                },
+                {
+                    "label": "Get Participants",
+                    "id": "get_participants"
+                },
+                {
+                    "label": "Add Participants",
+                    "id": "add_participants"
+                },
+                {
+                    "label": "Get Approvals",
+                    "id": "get_approvals"
+                },
+                {
+                    "label": "Answer Approval",
+                    "id": "answer_approval"
+                }
+            ],
+            "defaultValue": "answer_approval"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Domain",
+            "placeholder": "Introduce Jira dominio (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Jira Cuenta",
+            "placeholder": "Selecciona Jira account",
+            "provider": "jira",
+            "required": true
+        },
+        {
+            "id": "issueIdOrKey",
+            "type": "short-input",
+            "title": "ID o clave de incidencia",
+            "placeholder": "Introduce issue ID o key (p. ej., SD-123)",
+            "required": true
+        },
+        {
+            "id": "approvalId",
+            "type": "short-input",
+            "title": "Approval ID",
+            "placeholder": "Introduce approval ID",
+            "required": true
+        },
+        {
+            "id": "approvalDecision",
+            "type": "dropdown",
+            "title": "Decision",
+            "options": [
+                {
+                    "label": "Approve",
+                    "id": "approve"
+                },
+                {
+                    "label": "Decline",
+                    "id": "decline"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Responder Approval (<code>jsm_answer_approval</code>)</div>
+
+Aprobar o decline un approval request en Jira Service Management
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | cadena | Sí | tu Jira dominio \(e.g., yourcompany.atlassian.net\) |
+| `cloudId` | cadena | No | Jira ID de nube para el instance |
+| `issueIdOrKey` | cadena | Sí | Incidencia ID o key \(e.g., SD-123\) |
+| `approvalId` | cadena | Sí | Approval ID un respuesta |
+| `decision` | cadena | Sí | Decision: "approve" o "decline" |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | cadena | Timestamp de el operation |
+| `issueIdOrKey` | cadena | Incidencia ID o key |
+| `approvalId` | cadena | Approval ID |
+| `decision` | cadena | Decision made \(approve/decline\) |
+
+</div>
+
+
+
+---
+
+
+## Usage Instructions
+
+Integra Jira Service Management para gestionar servicios de TI. Crea y gestiona solicitudes de servicio, clientes y organizaciones; realiza el seguimiento de los SLA y gestiona colas.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `jira_service_management`

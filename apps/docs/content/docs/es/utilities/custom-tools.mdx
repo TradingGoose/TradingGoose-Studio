@@ -1,0 +1,106 @@
+---
+title: Herramientas personalizadas
+description: Crea herramientas del espacio de trabajo con un esquema JSON y un cuerpo de función JavaScript que los bloques Agent pueden invocar durante la ejecución del workflow.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+Las herramientas personalizadas permiten definir funciones que los bloques Agent pueden invocar durante la ejecución. Cada herramienta combina una **configuración JSON**, que declara el nombre, la descripción y los parámetros, con un **cuerpo de función JavaScript** que se ejecuta al llamar a la herramienta. Puedes exportarlas desde el editor e importarlas mediante el widget Custom Tool List con el formato JSON compartido de TradingGoose.
+
+## Esquema de la herramienta
+
+Cada herramienta personalizada sigue el formato JSON de llamada a funciones de OpenAI. El editor valida el esquema con cada cambio y exige todos los campos siguientes.
+
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "addItemToOrder",
+    "description": "Add one quantity of a food item to the order.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "itemName": {
+          "type": "string",
+          "description": "The name of the food item to add to order"
+        }
+      },
+      "required": ["itemName"]
+    }
+  }
+}
+```
+
+- `type` debe ser `"function"`.
+- `function.name` es el identificador que el agente ve e invoca. Debe ser único en el espacio de trabajo al guardarlo. Los nombres importados que entren en conflicto se renombran automáticamente.
+- `function.description` indica al agente cuándo debe usar la herramienta.
+- `function.parameters` es un objeto JSON Schema estándar que describe las entradas.
+
+## Código de la herramienta
+
+La pestaña de código contiene el cuerpo de una `async function(params, environmentVariables)`. El editor admite dos formas de referencia:
+
+- **Parameters** — usa directamente el nombre del parámetro (p. ej., `itemName`). El editor ofrece autocompletado a partir del esquema.
+- **Environment variables** — usa la sintaxis de llaves dobles: `{{API_KEY}}`.
+
+La función debe usar `return` cuando se espera una salida. No se admiten importaciones externas; usa `fetch` o las API integradas.
+
+## Crear y editar herramientas
+
+<Steps>
+  <Step>
+    Abre el widget [Custom Tool Editor](/widgets/editor-custom-tool) en el panel del espacio de trabajo.
+  </Step>
+  <Step>
+    Selecciona una herramienta existente en el menú desplegable o crea una nueva desde el widget [Custom Tool List](/widgets/list-custom-tool).
+  </Step>
+  <Step>
+    Alterna entre las pestañas **Config** y **Code** para editar el esquema JSON y el cuerpo JavaScript, respectivamente. Ambas pestañas incluyen una varita de IA que puede generar contenido a partir de un prompt en lenguaje natural.
+  </Step>
+  <Step>
+    Haz clic en el botón **Save** del encabezado del widget. El editor valida el esquema antes de guardarlo y rechaza los nombres de herramientas duplicados.
+  </Step>
+</Steps>
+
+## Importación y exportación
+
+Las herramientas personalizadas usan el formato JSON de exportación compartido de TradingGoose. Exporta una herramienta desde Custom Tool Editor e impórtala desde el widget [Custom Tool List](/widgets/list-custom-tool). Los títulos y nombres de función importados se normalizan automáticamente, y los conflictos se renombran para completar la importación sin limpieza manual.
+
+## Cómo invocan los agentes las herramientas personalizadas
+
+Cuando añades una herramienta personalizada a la lista de un bloque Agent, se registra con `type: "custom-tool"`. Durante la ejecución, el bloque Agent lee `function.name` como identificador, `function.description` como descripción y `function.parameters` como esquema de entrada. El agente decide si debe llamar a la herramienta y cuándo hacerlo según estos campos y el contexto de la conversación. Después ejecuta el cuerpo de la función JavaScript con los parámetros resueltos.
+
+<Callout type="info">
+  Los bloques Agent no pueden utilizar los bloques principales (API, Webhook, Function, Workflow, Memory) como herramientas. Solo se permiten integraciones, herramientas MCP y herramientas personalizadas en la lista.
+</Callout>
+
+## Herramientas personalizadas frente a MCP
+
+| Característica | Herramientas personalizadas | MCP |
+|---------|-------------|-----|
+| **Definition** | Esquema JSON y cuerpo de función JS | Servidor externo que implementa Model Context Protocol |
+| **Scope** | Una función por herramienta | Un servidor puede exponer varias herramientas |
+| **Code execution** | JavaScript integrado en el editor | Se ejecuta en el servidor MCP remoto |
+| **Best for** | Lógica autocontenida rápida o llamadas a API | Conexión con servidores de herramientas de terceros normalizados |
+
+Para integraciones de herramientas externas mediante MCP, consulta la [página de la utilidad MCP](/utilities/mcp).
+
+<Callout type="warn">
+  Las herramientas personalizadas pertenecen al espacio de trabajo. Todos sus miembros pueden verlas, editarlas y eliminarlas. Al eliminar una herramienta personalizada, se borran permanentemente su código y su configuración.
+</Callout>
+
+## Contenido relacionado
+
+<Cards>
+  <Card title="Custom Tool Editor" href="/widgets/editor-custom-tool">
+    Widget para editar el esquema y el código de una herramienta personalizada.
+  </Card>
+  <Card title="Custom Tool List" href="/widgets/list-custom-tool">
+    Explora, crea e importa herramientas personalizadas en el espacio de trabajo.
+  </Card>
+  <Card title="MCP" href="/utilities/mcp">
+    Conecta servidores de herramientas externos mediante Model Context Protocol.
+  </Card>
+</Cards>

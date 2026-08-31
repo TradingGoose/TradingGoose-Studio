@@ -1,0 +1,196 @@
+---
+title: Serper
+description: Buscar en la web mediante Serper
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="serper"
+  color=""
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Serper"
+    type="serper"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Buscar Consulta",
+            "layout": "full",
+            "placeholder": "Enter your search query...",
+            "required": true
+        },
+        {
+            "id": "type",
+            "type": "dropdown",
+            "title": "Buscar Tipo",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "search",
+                    "id": "search"
+                },
+                {
+                    "label": "news",
+                    "id": "news"
+                },
+                {
+                    "label": "places",
+                    "id": "places"
+                },
+                {
+                    "label": "images",
+                    "id": "images"
+                }
+            ]
+        },
+        {
+            "id": "num",
+            "type": "dropdown",
+            "title": "Número de Resultados",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "10",
+                    "id": "10"
+                },
+                {
+                    "label": "20",
+                    "id": "20"
+                },
+                {
+                    "label": "30",
+                    "id": "30"
+                },
+                {
+                    "label": "40",
+                    "id": "40"
+                },
+                {
+                    "label": "50",
+                    "id": "50"
+                },
+                {
+                    "label": "100",
+                    "id": "100"
+                }
+            ]
+        },
+        {
+            "id": "gl",
+            "type": "dropdown",
+            "title": "País",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "US",
+                    "id": "US"
+                },
+                {
+                    "label": "GB",
+                    "id": "GB"
+                },
+                {
+                    "label": "CA",
+                    "id": "CA"
+                },
+                {
+                    "label": "AU",
+                    "id": "AU"
+                },
+                {
+                    "label": "DE",
+                    "id": "DE"
+                },
+                {
+                    "label": "FR",
+                    "id": "FR"
+                }
+            ]
+        },
+        {
+            "id": "hl",
+            "type": "dropdown",
+            "title": "Idioma",
+            "layout": "half",
+            "options": [
+                {
+                    "label": "en",
+                    "id": "en"
+                },
+                {
+                    "label": "es",
+                    "id": "es"
+                },
+                {
+                    "label": "fr",
+                    "id": "fr"
+                },
+                {
+                    "label": "de",
+                    "id": "de"
+                },
+                {
+                    "label": "it",
+                    "id": "it"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Clave",
+            "layout": "full",
+            "placeholder": "Enter your Serper API key",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `serper_search`
+
+A potente web buscar herramienta ese proporciona acceder a Google buscar resultados mediante Serper.dev API. Supports diferentes tipos de busca incluidos normal web buscar, noticias, lugares, y imágenes, con cada resultado que contiene relevantes metadatos como titles, URLs, fragmentos, y type-específico información.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | cadena | Sí | El buscar consulta |
+| `num` | número | No | Número de resultados a devolver |
+| `gl` | cadena | No | País código para buscar resultados |
+| `hl` | cadena | No | Idioma código para buscar resultados |
+| `type` | cadena | No | Tipo de buscar a perform |
+| `apiKey` | cadena | Sí | Serper API Clave |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `searchResults` | json | Buscar resultados datos |
+
+
+## Uso Instrucciones
+
+Integra Serper en el workflow. Permite buscar el web.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `serper`

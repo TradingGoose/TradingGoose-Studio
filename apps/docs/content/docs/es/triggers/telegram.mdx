@@ -1,0 +1,220 @@
+---
+title: Telegram Trigger
+description: Activar el workflow desde Telegram bot mensajes y eventos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="telegram"
+  color=""
+/>
+
+Activar el workflow desde Telegram bot mensajes y eventos
+
+<Callout type="info">
+  Este trigger se basa en webhooks. Configura la URL del webhook en el servicio externo para enviar eventos a TradingGoose.
+</Callout>
+
+<Cards>
+  <Card title="Usar como un Herramienta" href="/tools/telegram">
+    Consulta workflow acciones, operaciones, y herramienta entradas para Telegram.
+  </Card>
+</Cards>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram Webhook"
+    type="telegram_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Token del bot",
+            "placeholder": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+            "description": "Tu Telegram Token del bot desde BotFather",
+            "required": true,
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Salida Esquema
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "message",
+          "type": "object",
+          "description": "mensaje",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Telegram mensaje ID"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "Mensaje texto contenido (si present)"
+              },
+              {
+                  "name": "date",
+                  "type": "number",
+                  "description": "Fecha el mensaje fue enviados (Unix marca de tiempo)"
+              },
+              {
+                  "name": "messageType",
+                  "type": "string",
+                  "description": "Detected contenido tipo: texto, photo, documento, audio, video, voz, sticker, location, contacto, poll"
+              },
+              {
+                  "name": "raw",
+                  "type": "object",
+                  "description": "sin procesar",
+                  "children": [
+                      {
+                          "name": "message_id",
+                          "type": "number",
+                          "description": "Original Telegram message_id"
+                      },
+                      {
+                          "name": "date",
+                          "type": "number",
+                          "description": "Original Telegram mensaje fecha (Unix marca de tiempo)"
+                      },
+                      {
+                          "name": "text",
+                          "type": "string",
+                          "description": "Original Telegram texto (si present)"
+                      },
+                      {
+                          "name": "caption",
+                          "type": "string",
+                          "description": "Original Telegram subtítulo (si present)"
+                      },
+                      {
+                          "name": "chat",
+                          "type": "object",
+                          "description": "chat",
+                          "children": [
+                              {
+                                  "name": "id",
+                                  "type": "number",
+                                  "description": "Chat identificador"
+                              },
+                              {
+                                  "name": "username",
+                                  "type": "string",
+                                  "description": "Chat nombre de usuario (si disponible)"
+                              },
+                              {
+                                  "name": "first_name",
+                                  "type": "string",
+                                  "description": "Primero nombre (para privado chats)"
+                              },
+                              {
+                                  "name": "last_name",
+                                  "type": "string",
+                                  "description": "Último nombre (para privado chats)"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "from",
+                          "type": "object",
+                          "description": "de",
+                          "children": [
+                              {
+                                  "name": "id",
+                                  "type": "number",
+                                  "description": "Remitente usuario ID"
+                              },
+                              {
+                                  "name": "is_bot",
+                                  "type": "boolean",
+                                  "description": "Indica si el remitente es un bot"
+                              },
+                              {
+                                  "name": "first_name",
+                                  "type": "string",
+                                  "description": "Remitente primero nombre"
+                              },
+                              {
+                                  "name": "last_name",
+                                  "type": "string",
+                                  "description": "Remitente último nombre"
+                              },
+                              {
+                                  "name": "language_code",
+                                  "type": "string",
+                                  "description": "Remitente language código (si disponible)"
+                              }
+                          ]
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "description": "remitente",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Remitente usuario ID"
+              },
+              {
+                  "name": "username",
+                  "type": "string",
+                  "description": "Remitente nombre de usuario (si disponible)"
+              },
+              {
+                  "name": "firstName",
+                  "type": "string",
+                  "description": "Remitente primero nombre"
+              },
+              {
+                  "name": "lastName",
+                  "type": "string",
+                  "description": "Remitente último nombre"
+              },
+              {
+                  "name": "languageCode",
+                  "type": "string",
+                  "description": "Remitente language código (si disponible)"
+              },
+              {
+                  "name": "isBot",
+                  "type": "boolean",
+                  "description": "Indica si el remitente es un bot"
+              }
+          ]
+      },
+      {
+          "name": "updateId",
+          "type": "number",
+          "description": "Actualizar ID para este webhook delivery"
+      },
+      {
+          "name": "updateType",
+          "type": "string",
+          "description": "Tipo de actualizar: mensaje, edited_message, channel_post, edited_channel_post, unknown"
+      }
+  ]}
+/>
+
+

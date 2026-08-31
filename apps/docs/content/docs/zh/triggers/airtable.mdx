@@ -1,0 +1,141 @@
+---
+title: Airtable trigger
+description: 触发 workflow，来源为Airtable record changes 例如创建, 更新,和delete 事件 (需要 Airtable credentials)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="airtable"
+  color=""
+/>
+
+触发 workflow，来源为Airtable record changes 例如创建, 更新,和delete 事件 (需要 Airtable credentials)
+
+<Callout type="info">
+  这是基于 webhook 的 trigger。请在外部服务中配置 webhook URL，以便向 TradingGoose 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="使用作为一个工具" href="/tools/airtable">
+    参阅workflow 操作, 操作,和工具输入，用于Airtable.
+  </Card>
+</Cards>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Airtable webhook"
+    type="airtable_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "凭据",
+            "description": "此 trigger 需要 airtable credentials到访问你的账户.",
+            "required": true
+        },
+        {
+            "id": "baseId",
+            "type": "short-input",
+            "title": "Base ID",
+            "placeholder": "appXXXXXXXXXXXXXX",
+            "description": "以下对象的 ID：Airtable Base 此 webhook 将监控.",
+            "required": true
+        },
+        {
+            "id": "tableId",
+            "type": "short-input",
+            "title": "表 ID",
+            "placeholder": "tblXXXXXXXXXXXXXX",
+            "description": "以下对象的 ID：表范围内 Base 该 webhook 将监控.",
+            "required": true
+        },
+        {
+            "id": "includeCellValues",
+            "type": "switch",
+            "title": "包括完整记录数据",
+            "description": "启用到接收 complete record 数据在payload, 不仅 changes."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件 payload"
+  fields={[
+      {
+          "name": "payloads",
+          "type": "array",
+          "description": "payloads的Airtable changes"
+      },
+      {
+          "name": "latestPayload",
+          "type": "object",
+          "description": "latestPayload",
+          "children": [
+              {
+                  "name": "timestamp",
+                  "type": "string",
+                  "description": "时间戳的Airtable 更改"
+              },
+              {
+                  "name": "payloadFormat",
+                  "type": "object",
+                  "description": "格式的Airtable 更改"
+              },
+              {
+                  "name": "actionMetadata",
+                  "type": "object",
+                  "description": "actionMetadata",
+                  "children": [
+                      {
+                          "name": "source",
+                          "type": "string",
+                          "description": "来源的Airtable 更改"
+                      },
+                      {
+                          "name": "sourceMetadata",
+                          "type": "object",
+                          "description": "sourceMetadata",
+                          "children": [
+                              {
+                                  "name": "pageId",
+                                  "type": "string",
+                                  "description": "以下对象的 ID：页面该 triggered Airtable 更改"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "changedTablesById",
+                          "type": "object",
+                          "description": "tables 该曾为 changed"
+                      },
+                      {
+                          "name": "baseTransactionNumber",
+                          "type": "number",
+                          "description": "transaction 数字的Airtable 更改"
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "airtableChanges",
+          "type": "array",
+          "description": "Changes 完成到Airtable 表"
+      }
+  ]}
+/>
+
+

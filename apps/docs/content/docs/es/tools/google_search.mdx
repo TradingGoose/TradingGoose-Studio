@@ -1,0 +1,97 @@
+---
+title: Google Search
+description: Busca en la web
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="google_search"
+  color=""
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Search"
+    type="google_search"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Buscar Consulta",
+            "layout": "full",
+            "placeholder": "Introduce tu search query",
+            "required": true
+        },
+        {
+            "id": "searchEngineId",
+            "type": "short-input",
+            "title": "Custom Buscar Engine ID",
+            "layout": "full",
+            "placeholder": "Introduce tu Custom Buscar Engine ID",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu Google clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "num",
+            "type": "short-input",
+            "title": "Number de Results",
+            "layout": "half",
+            "placeholder": "10",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Tools
+
+### `google_search`
+
+Buscar el web con el Custom Buscar API
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `query` | cadena | Sí | El search query un execute |
+| `searchEngineId` | cadena | Sí | Custom Buscar Engine ID |
+| `num` | cadena | No | Número de resultados que se devolverán \(predeterminado: 10; máximo: 10\) |
+| `apiKey` | cadena | Sí | Google clave de API |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `title` | cadena | Título de el search resultado |
+| `link` | cadena | URL de el search resultado |
+| `snippet` | cadena | Snippet o description de el search resultado |
+| `displayLink` | cadena | Display URL |
+
+
+## Usage Instructions
+
+Integrate Google Buscar en el workflow. Can search el web.
+
+
+
+## Notes
+
+- Category: `tools`
+- Type: `google_search`

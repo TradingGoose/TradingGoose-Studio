@@ -1,0 +1,126 @@
+---
+title: Orden Detail
+description: Recupera del proveedor los detalles de una orden de trading enviada anteriormente.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="trading_order_detail"
+  color="#0f766e"
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Orden Detail"
+    type="trading_order_detail"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "orderId",
+            "type": "order-id-selector",
+            "title": "Orden ID",
+            "layout": "full",
+            "placeholder": "Search by order ID, symbol, ticker, quote, or date",
+            "required": true
+        },
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Bróker",
+            "layout": "full",
+            "placeholder": "Select the broker used for this order",
+            "required": true
+        },
+        {
+            "id": "environment",
+            "type": "dropdown",
+            "title": "Entorno",
+            "layout": "half",
+            "placeholder": "Optional environment override",
+            "options": [
+                {
+                    "label": "Paper (Sandbox)",
+                    "id": "paper"
+                },
+                {
+                    "label": "Live Trading",
+                    "id": "live"
+                }
+            ]
+        },
+        {
+            "id": "accountId",
+            "type": "short-input",
+            "title": "Cuenta ID",
+            "layout": "full",
+            "placeholder": "Optional Tradier account ID override",
+            "condition": {
+                "field": "provider",
+                "value": "tradier"
+            }
+        },
+        {
+            "id": "accountUrl",
+            "type": "short-input",
+            "title": "Cuenta URL",
+            "layout": "full",
+            "placeholder": "Optional Robinhood account URL override",
+            "condition": {
+                "field": "provider",
+                "value": "robinhood"
+            }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `trading_order_detail`
+
+Recuperar todos provider-available detalles para un anteriormente registrado trading orden por Trading Goose orden ID.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `orderId` | cadena | Sí | Trading Goose orden ID \(orderHistoryTable.id\) creado cuando el orden fue enviado. |
+| `provider` | cadena | No | Expected proveedor para este orden. Usado para credential selection y mismatch validation. |
+| `environment` | cadena | No | Opcional entorno override \(paper o live\) para proveedor order-detail fetch. |
+| `credential` | cadena | No | OAuth credential id para el seleccionado bróker \(populated desde seleccionado cuenta\). |
+| `tradierCredential` | cadena | No | Tradier OAuth credential id. |
+| `robinhoodCredential` | cadena | No | Robinhood OAuth credential id. |
+| `alpacaCredential` | cadena | No | Alpaca OAuth credential id. |
+| `apiKey` | cadena | No | Alpaca API clave ID \(opcional si mediante OAuth\). |
+| `apiSecret` | cadena | No | Alpaca API secreto clave \(opcional si mediante OAuth\). |
+| `accountId` | cadena | No | Tradier cuenta ID override si no present en stored orden metadatos. |
+| `accountUrl` | cadena | No | Robinhood cuenta URL override si needed. |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `summary` | cadena | Estado mensaje para orden detail retrieval. |
+| `provider` | cadena | Bróker/proveedor de el orden. |
+| `appOrderId` | cadena | Trading Goose orden ID \(orderHistoryTable.id\). |
+| `providerOrderId` | cadena | Provider-native orden ID usado para el API lookup. |
+
+
+## Uso Instrucciones
+
+Looks arriba el Trading Goose orden historial record por orden ID, resolves el proveedor orden ID, y fetches el últimos proveedor orden detail.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `trading_order_detail`

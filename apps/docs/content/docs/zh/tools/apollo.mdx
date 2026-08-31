@@ -1,0 +1,4537 @@
+---
+title: Apollo
+description: 使用 Apollo.io 搜索、扩充和管理联系人
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="apollo"
+  color="#EBF212"
+/>
+
+
+## 配置
+
+### 搜索人员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "people_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "person_titles",
+            "type": "code",
+            "title": "Job Titles",
+            "placeholder": "[\"CEO\", \"VP 的 Sales\"]",
+            "language": "json"
+        },
+        {
+            "id": "person_locations",
+            "type": "code",
+            "title": "Locations",
+            "placeholder": "[\"San Francisco, CA\", \"新 York, NY\"]",
+            "language": "json"
+        },
+        {
+            "id": "organization_names",
+            "type": "code",
+            "title": "公司 Names",
+            "placeholder": "[\"公司一个\", \"公司 B\"]",
+            "language": "json"
+        },
+        {
+            "id": "person_seniorities",
+            "type": "code",
+            "title": "Seniority Levels",
+            "placeholder": "[\"senior\", \"manager\", \"director\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "搜索关键词"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "结果每页面",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索人员 (<code>apollo_people_search</code>)</div>
+
+搜索 Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `person_titles` | 数组 | 否 | Job titles 到 search 用于 \(例如, \["CEO", "VP 的 Sales"\]\) |
+| `person_locations` | 数组 | 否 | Locations 到 search 在 \(例如, \["San Francisco, CA", "新 York, NY"\]\) |
+| `person_seniorities` | 数组 | 否 | Seniority levels \(例如, \["senior", "executive", "manager"\]\) |
+| `organization_names` | 数组 | 否 | 公司 names 到 search 内 |
+| `q_keywords` | 字符串 | 否 | 关键词到 search 用于 |
+| `page` | 数字 | 否 | 页面数字用于分页 \(默认: 1\) |
+| `per_page` | 数字 | 否 | 结果每页面 \(默认: 25, max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `people` | json | 数组的人员匹配该 search criteria |
+
+</div>
+
+
+
+---
+
+### 扩充人员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "people_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "名字",
+            "placeholder": "第一个 名称"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "姓氏",
+            "placeholder": "最后一个 名称"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "电子邮件",
+            "placeholder": "电子邮件@example.com"
+        },
+        {
+            "id": "organization_name",
+            "type": "short-input",
+            "title": "公司名称",
+            "placeholder": "公司 名称"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "example.com"
+        },
+        {
+            "id": "reveal_personal_emails",
+            "type": "switch",
+            "title": "Reveal 个人电子邮件"
+        },
+        {
+            "id": "reveal_phone_number",
+            "type": "switch",
+            "title": "Reveal Phone Numbers"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">扩充人员 (<code>apollo_people_enrich</code>)</div>
+
+扩充 data 用于一个单个人员使用 Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `first_name` | 字符串 | 否 | 第一个 名称 的该人员 |
+| `last_name` | 字符串 | 否 | 最后一个 名称 的该人员 |
+| `email` | 字符串 | 否 | 电子邮件 address 的该人员 |
+| `organization_name` | 字符串 | 否 | 公司 名称 位置该人员 works |
+| `domain` | 字符串 | 否 | 公司域名 \(例如, apollo.io\) |
+| `linkedin_url` | 字符串 | 否 | LinkedIn profile URL |
+| `reveal_personal_emails` | 布尔值 | 否 | Reveal 个人 电子邮件 addresses \(uses credits\) |
+| `reveal_phone_number` | 布尔值 | 否 | Reveal phone numbers \(uses credits\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `person` | json | Enriched 人员 data 从 Apollo |
+
+</div>
+
+
+
+---
+
+### Bulk 扩充人员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "people_bulk_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "reveal_personal_emails",
+            "type": "switch",
+            "title": "Reveal 个人电子邮件"
+        },
+        {
+            "id": "reveal_phone_number",
+            "type": "switch",
+            "title": "Reveal Phone Numbers"
+        },
+        {
+            "id": "people",
+            "type": "code",
+            "title": "人员 (JSON 数组)",
+            "placeholder": "[{\"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk 扩充人员 (<code>apollo_people_bulk_enrich</code>)</div>
+
+扩充 data 用于 up 到 10 人员在 once 使用 Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `people` | 数组 | 是 | 数组的人员到 enrich \(max 10\) |
+| `reveal_personal_emails` | 布尔值 | 否 | Reveal 个人 电子邮件 addresses \(uses credits\) |
+| `reveal_phone_number` | 布尔值 | 否 | Reveal phone numbers \(uses credits\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `people` | json | 数组的 enriched 人员 data |
+
+</div>
+
+
+
+---
+
+### 搜索组织
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "organization_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization_locations",
+            "type": "code",
+            "title": "组织 Locations",
+            "placeholder": "[\"San Francisco, CA\"]",
+            "language": "json"
+        },
+        {
+            "id": "organization_num_employees_ranges",
+            "type": "code",
+            "title": "Employee 数量 Ranges",
+            "placeholder": "[\"1-10\", \"11-50\", \"51-200\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_organization_keyword_tags",
+            "type": "code",
+            "title": "关键词标签",
+            "placeholder": "[\"saas\", \"b2b\", \"enterprise\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_organization_name",
+            "type": "short-input",
+            "title": "组织名称",
+            "placeholder": "公司 名称 到 search"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "结果每页面",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索组织 (<code>apollo_organization_search</code>)</div>
+
+搜索 Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `organization_locations` | 数组 | 否 | 公司 locations 到 search |
+| `organization_num_employees_ranges` | 数组 | 否 | Employee 数量 ranges \(例如, \["1-10", "11-50"\]\) |
+| `q_organization_keyword_tags` | 数组 | 否 | Industry 或关键词标签 |
+| `q_organization_name` | 字符串 | 否 | 组织 名称 到 search 用于 |
+| `page` | 数字 | 否 | 页面数字用于分页 |
+| `per_page` | 数字 | 否 | 结果每页面 \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `organizations` | json | 数组的组织匹配该 search criteria |
+
+</div>
+
+
+
+---
+
+### 扩充组织
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "organization_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization_name",
+            "type": "short-input",
+            "title": "公司名称",
+            "placeholder": "公司 名称"
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "placeholder": "example.com"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">扩充组织 (<code>apollo_organization_enrich</code>)</div>
+
+扩充 data 用于一个单个组织使用 Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `organization_name` | 字符串 | 否 | 名称的该组织 \(在 least 一个的 organization_name 或域名为必填项\) |
+| `domain` | 字符串 | 否 | 公司域名 \(例如, apollo.io\) \(在 least 一个的域名或 organization_name 为必填项\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `organization` | json | Enriched 组织 data 从 Apollo |
+
+</div>
+
+
+
+---
+
+### Bulk 扩充组织
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "organization_bulk_enrich"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizations",
+            "type": "code",
+            "title": "组织 (JSON 数组)",
+            "placeholder": "[{\"organization_name\": \"Company A\", \"domain\": \"companya.com\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk 扩充组织 (<code>apollo_organization_bulk_enrich</code>)</div>
+
+扩充 data 用于 up 到 10 组织在 once 使用 Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `organizations` | 数组 | 是 | 数组的组织到 enrich \(max 10\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `organizations` | json | 数组的 enriched 组织 data |
+
+</div>
+
+
+
+---
+
+### 创建联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "名字",
+            "placeholder": "第一个 名称"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "姓氏",
+            "placeholder": "最后一个 名称"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "电子邮件",
+            "placeholder": "电子邮件@example.com"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Job 标题",
+            "placeholder": "Job title"
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "Apollo 账户 ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Apollo 用户 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建联系人 (<code>apollo_contact_create</code>)</div>
+
+创建一个新 contact 在你的 Apollo database
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `first_name` | 字符串 | 是 | 第一个 名称 的该 contact |
+| `last_name` | 字符串 | 是 | 最后一个 名称 的该 contact |
+| `email` | 字符串 | 否 | 电子邮件 address 的该 contact |
+| `title` | 字符串 | 否 | Job title |
+| `account_id` | 字符串 | 否 | Apollo 账户 ID 到 associate 使用 |
+| `owner_id` | 字符串 | 否 | 用户 ID 的该 contact owner |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contact` | json | Created contact data 从 Apollo |
+
+</div>
+
+
+
+---
+
+### 更新联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "first_name",
+            "type": "short-input",
+            "title": "名字",
+            "placeholder": "第一个 名称"
+        },
+        {
+            "id": "last_name",
+            "type": "short-input",
+            "title": "姓氏",
+            "placeholder": "最后一个 名称"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "电子邮件",
+            "placeholder": "电子邮件@example.com"
+        },
+        {
+            "id": "contact_id",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "Apollo contact ID",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Job 标题",
+            "placeholder": "Job title"
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "Apollo 账户 ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Apollo 用户 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新联系人 (<code>apollo_contact_update</code>)</div>
+
+更新一个现有 contact 在你的 Apollo database
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `contact_id` | 字符串 | 是 | ID 的该 contact 到 update |
+| `first_name` | 字符串 | 否 | 第一个 名称 的该 contact |
+| `last_name` | 字符串 | 否 | 最后一个 名称 的该 contact |
+| `email` | 字符串 | 否 | 电子邮件 address |
+| `title` | 字符串 | 否 | Job title |
+| `account_id` | 字符串 | 否 | Apollo 账户 ID |
+| `owner_id` | 字符串 | 否 | 用户 ID 的该 contact owner |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contact` | json | Updated contact data 从 Apollo |
+
+</div>
+
+
+
+---
+
+### 搜索联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contact_stage_ids",
+            "type": "code",
+            "title": "联系人 Stage IDs",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "搜索关键词"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "结果每页面",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索联系人 (<code>apollo_contact_search</code>)</div>
+
+搜索你的团队
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `q_keywords` | 字符串 | 否 | 关键词到 search 用于 |
+| `contact_stage_ids` | 数组 | 否 | 按条件筛选 contact stage IDs |
+| `page` | 数字 | 否 | 页面数字用于分页 |
+| `per_page` | 数字 | 否 | 结果每页面 \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contacts` | json | 数组的 contacts 匹配该 search criteria |
+
+</div>
+
+
+
+---
+
+### Bulk 创建联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_bulk_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "联系人 (JSON 数组)",
+            "placeholder": "[{\"first_name\": \"John\", \"last_name\": \"Doe\", \"email\": \"john@example.com\", \"title\": \"CEO\"}]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "run_dedupe",
+            "type": "switch",
+            "title": "运行 Deduplication"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk 创建联系人 (<code>apollo_contact_bulk_create</code>)</div>
+
+在 Apollo 数据库中一次最多创建 100 个联系人。支持去重，可避免创建重复联系人。需要主密钥。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+| `contacts` | 数组 | 是 | 要创建的联系人数组 \(最多 100 个\)。每个联系人应包含 first_name 和 last_name，还可包含 email、title、account_id、owner_id |
+| `run_dedupe` | 布尔值 | 否 | 启用去重以避免创建重复联系人。启用后，现有联系人将不经修改直接返回 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `created_contacts` | json | 数组的 newly created contacts |
+| `existing_contacts` | json | 数组的现有 contacts \(何时 deduplication is 已启用\) |
+
+</div>
+
+
+
+---
+
+### Bulk 更新联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "contact_bulk_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "联系人 (JSON 数组)",
+            "placeholder": "[{\"id\": \"contact_id_1\", \"first_name\": \"John\", \"last_name\": \"Doe\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk 更新联系人 (<code>apollo_contact_bulk_update</code>)</div>
+
+更新 up 到 100 现有 contacts 在 once 在你的 Apollo database. 每个 contact 必须包含一个 id 字段. Master key required.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+| `contacts` | 数组 | 是 | 要更新的联系人数组 \(最多 100 个\)。每个联系人必须包含 id 字段，还可包含 first_name、last_name、email、title、account_id、owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `updated_contacts` | json | 数组的 successfully updated contacts |
+| `failed_contacts` | json | 数组的 contacts 该失败到 update |
+
+</div>
+
+
+
+---
+
+### 创建账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Apollo 用户 ID"
+        },
+        {
+            "id": "account_name",
+            "type": "short-input",
+            "title": "账户名称",
+            "placeholder": "公司 名称"
+        },
+        {
+            "id": "website_url",
+            "type": "short-input",
+            "title": "网站 URL",
+            "placeholder": "https://example.com"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "电话号码",
+            "placeholder": "公司 phone"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建账户 (<code>apollo_account_create</code>)</div>
+
+创建一个新 account (company) 在你的 Apollo database
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `name` | 字符串 | 是 | 公司 名称 |
+| `website_url` | 字符串 | 否 | 公司网站 URL |
+| `phone` | 字符串 | 否 | 公司 phone 数字 |
+| `owner_id` | 字符串 | 否 | 用户 ID 的该 account owner |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `account` | json | Created account data 从 Apollo |
+
+</div>
+
+
+
+---
+
+### 更新账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "Apollo 账户 ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Apollo 用户 ID"
+        },
+        {
+            "id": "account_name",
+            "type": "short-input",
+            "title": "账户名称",
+            "placeholder": "公司 名称"
+        },
+        {
+            "id": "website_url",
+            "type": "short-input",
+            "title": "网站 URL",
+            "placeholder": "https://example.com"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "电话号码",
+            "placeholder": "公司 phone"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新账户 (<code>apollo_account_update</code>)</div>
+
+更新一个现有 account 在你的 Apollo database
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `account_id` | 字符串 | 是 | ID 的该 account 到 update |
+| `name` | 字符串 | 否 | 公司 名称 |
+| `website_url` | 字符串 | 否 | 公司网站 URL |
+| `phone` | 字符串 | 否 | 公司 phone 数字 |
+| `owner_id` | 字符串 | 否 | 用户 ID 的该 account owner |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `account` | json | Updated account data 从 Apollo |
+
+</div>
+
+
+
+---
+
+### 搜索账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Apollo 用户 ID"
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "搜索关键词"
+        },
+        {
+            "id": "account_stage_ids",
+            "type": "code",
+            "title": "账户 Stage IDs",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "结果每页面",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索账户 (<code>apollo_account_search</code>)</div>
+
+搜索你的团队
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+| `q_keywords` | 字符串 | 否 | 关键词到 search 用于在 account data |
+| `owner_id` | 字符串 | 否 | 按条件筛选 account owner 用户 ID |
+| `account_stage_ids` | 数组 | 否 | 按条件筛选 account stage IDs |
+| `page` | 数字 | 否 | 页面数字用于分页 |
+| `per_page` | 数字 | 否 | 结果每页面 \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `accounts` | json | 数组的账户匹配该 search criteria |
+
+</div>
+
+
+
+---
+
+### Bulk 创建账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_bulk_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "accounts",
+            "type": "code",
+            "title": "账户 (JSON 数组)",
+            "placeholder": "[{\"name\": \"Company A\", \"website_url\": \"https://companya.com\", \"phone\": \"+1234567890\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk 创建账户 (<code>apollo_account_bulk_create</code>)</div>
+
+一次最多可在 Apollo 数据库中创建 100 个账户。请注意：Apollo 不会执行去重；如果条目的名称或域名相似，可能会创建重复账户。此操作需要主密钥。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+| `accounts` | 数组 | 是 | 数组的账户到 create \(max 100\). 每个 account 应包含 名称 \(required\), 和 optionally website_url, phone, owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `created_accounts` | json | 数组的 newly created 账户 |
+| `failed_accounts` | json | 数组的账户该失败到 create |
+
+</div>
+
+
+
+---
+
+### Bulk 更新账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "account_bulk_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "accounts",
+            "type": "code",
+            "title": "账户 (JSON 数组)",
+            "placeholder": "[{\"id\": \"account_id_1\", \"name\": \"Updated Company Name\"}]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Bulk 更新账户 (<code>apollo_account_bulk_update</code>)</div>
+
+在 Apollo 数据库中一次最多更新 1000 个现有账户 \(上限高于联系人\)。每个账户必须包含 id 字段。需要主密钥。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+| `accounts` | 数组 | 是 | 数组的账户到 update \(max 1000\). 每个 account 必须包含 id 字段, 和 optionally 名称, website_url, phone, owner_id |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `updated_accounts` | json | 数组的 successfully updated 账户 |
+| `failed_accounts` | json | 数组的账户该失败到 update |
+
+</div>
+
+
+
+---
+
+### 创建商机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "Apollo 账户 ID"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Apollo 用户 ID"
+        },
+        {
+            "id": "opportunity_name",
+            "type": "short-input",
+            "title": "商机名称",
+            "placeholder": "商机 名称"
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "Amount",
+            "placeholder": "交易 amount (例如, 50000)"
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "Stage ID",
+            "placeholder": "商机 stage ID"
+        },
+        {
+            "id": "close_date",
+            "type": "datetime-input",
+            "title": "关闭日期",
+            "placeholder": "ISO date (例如, 2024-12-31)"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "说明",
+            "placeholder": "商机说明"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建商机 (<code>apollo_opportunity_create</code>)</div>
+
+创建一个新交易用于一个 account 在你的 Apollo database (master key required)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+| `name` | 字符串 | 是 | 名称的该商机/交易 |
+| `account_id` | 字符串 | 是 | ID 的该 account 此商机 belongs 到 |
+| `amount` | 数字 | 否 | Monetary value 的该商机 |
+| `stage_id` | 字符串 | 否 | ID 的该交易 stage |
+| `owner_id` | 字符串 | 否 | 用户 ID 的该商机 owner |
+| `close_date` | 字符串 | 否 | Expected close date \(ISO 8601 格式\) |
+| `description` | 字符串 | 否 | 说明或备注 关于 该商机 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `opportunity` | json | Created 商机 data 从 Apollo |
+
+</div>
+
+
+
+---
+
+### 搜索商机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "q_keywords",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "搜索关键词"
+        },
+        {
+            "id": "account_ids",
+            "type": "code",
+            "title": "账户 ID",
+            "placeholder": "[\"account_id_1\", \"account_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "stage_ids",
+            "type": "code",
+            "title": "Stage IDs",
+            "placeholder": "[\"stage_id_1\", \"stage_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "owner_ids",
+            "type": "code",
+            "title": "所有者 IDs",
+            "placeholder": "[\"user_id_1\", \"user_id_2\"]",
+            "language": "json"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "结果每页面",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索商机 (<code>apollo_opportunity_search</code>)</div>
+
+搜索和列表全部 deals/商机在你的团队
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `q_keywords` | 字符串 | 否 | 关键词到 search 用于在商机 names |
+| `account_ids` | 数组 | 否 | 按条件筛选指定账户 ID |
+| `stage_ids` | 数组 | 否 | 按条件筛选交易 stage IDs |
+| `owner_ids` | 数组 | 否 | 按条件筛选商机 owner IDs |
+| `page` | 数字 | 否 | 页面数字用于分页 |
+| `per_page` | 数字 | 否 | 结果每页面 \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `opportunities` | json | 数组的商机匹配该 search criteria |
+
+</div>
+
+
+
+---
+
+### 获取商机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_get"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "opportunity_id",
+            "type": "short-input",
+            "title": "商机 ID",
+            "placeholder": "Apollo 商机 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取商机 (<code>apollo_opportunity_get</code>)</div>
+
+检索 complete 详细信息的一个指定交易/商机按 ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `opportunity_id` | 字符串 | 是 | ID 的该商机到 retrieve |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `opportunity` | json | Complete 商机 data 从 Apollo |
+
+</div>
+
+
+
+---
+
+### 更新商机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "opportunity_update"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "Apollo 用户 ID"
+        },
+        {
+            "id": "opportunity_name",
+            "type": "short-input",
+            "title": "商机名称",
+            "placeholder": "商机 名称"
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "Amount",
+            "placeholder": "交易 amount (例如, 50000)"
+        },
+        {
+            "id": "stage_id",
+            "type": "short-input",
+            "title": "Stage ID",
+            "placeholder": "商机 stage ID"
+        },
+        {
+            "id": "close_date",
+            "type": "datetime-input",
+            "title": "关闭日期",
+            "placeholder": "ISO date (例如, 2024-12-31)"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "说明",
+            "placeholder": "商机说明"
+        },
+        {
+            "id": "opportunity_id",
+            "type": "short-input",
+            "title": "商机 ID",
+            "placeholder": "Apollo 商机 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新商机 (<code>apollo_opportunity_update</code>)</div>
+
+更新一个现有交易/商机在你的 Apollo database
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 |
+| `opportunity_id` | 字符串 | 是 | ID 的该商机到 update |
+| `name` | 字符串 | 否 | 名称的该商机/交易 |
+| `amount` | 数字 | 否 | Monetary value 的该商机 |
+| `stage_id` | 字符串 | 否 | ID 的该交易 stage |
+| `owner_id` | 字符串 | 否 | 用户 ID 的该商机 owner |
+| `close_date` | 字符串 | 否 | Expected close date \(ISO 8601 格式\) |
+| `description` | 字符串 | 否 | 说明或备注 关于 该商机 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `opportunity` | json | Updated 商机 data 从 Apollo |
+
+</div>
+
+
+
+---
+
+### 搜索序列
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "sequence_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "q_name",
+            "type": "short-input",
+            "title": "序列名称",
+            "placeholder": "搜索按序列 名称"
+        },
+        {
+            "id": "active",
+            "type": "switch",
+            "title": "活跃仅"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "结果每页面",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索序列 (<code>apollo_sequence_search</code>)</div>
+
+搜索用于序列/campaigns 在你的团队
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+| `q_name` | 字符串 | 否 | 搜索序列按 名称 |
+| `active` | 布尔值 | 否 | 按条件筛选活跃 status \(是用于活跃序列, 否用于 inactive\) |
+| `page` | 数字 | 否 | 页面数字用于分页 |
+| `per_page` | 数字 | 否 | 结果每页面 \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `sequences` | json | 数组的序列/campaigns 匹配该 search criteria |
+
+</div>
+
+
+
+---
+
+### 添加到序列
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "sequence_add"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "sequence_id",
+            "type": "short-input",
+            "title": "序列 ID",
+            "placeholder": "Apollo 序列 ID",
+            "required": true
+        },
+        {
+            "id": "contact_ids",
+            "type": "code",
+            "title": "联系人 IDs (JSON 数组)",
+            "placeholder": "[\"contact_id_1\", \"contact_id_2\"]",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加到序列 (<code>apollo_sequence_add_contacts</code>)</div>
+
+添加 contacts 到一个 Apollo 序列
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+| `sequence_id` | 字符串 | 是 | ID 的该序列到 add contacts 到 |
+| `contact_ids` | 数组 | 是 | 数组的 contact IDs 到 add 到该序列 |
+| `emailer_campaign_id` | 字符串 | 否 | 可选 emailer campaign ID |
+| `send_email_from_user_id` | 字符串 | 否 | 用户 ID 到 send emails 从 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contacts_added` | json | 数组的 contact IDs added 到该序列 |
+
+</div>
+
+
+
+---
+
+### 创建任务
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "task_create"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "account_id",
+            "type": "short-input",
+            "title": "账户 ID",
+            "placeholder": "Apollo 账户 ID"
+        },
+        {
+            "id": "note",
+            "type": "long-input",
+            "title": "任务注意",
+            "placeholder": "任务说明",
+            "required": true
+        },
+        {
+            "id": "due_at",
+            "type": "datetime-input",
+            "title": "Due 日期",
+            "placeholder": "ISO date (例如, 2024-12-31T23:59:59Z)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建任务 (<code>apollo_task_create</code>)</div>
+
+创建一个新 task 在 Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+| `note` | 字符串 | 是 | 任务 note/说明 |
+| `contact_id` | 字符串 | 否 | 联系人 ID 到 associate 使用 |
+| `account_id` | 字符串 | 否 | 账户 ID 到 associate 使用 |
+| `due_at` | 字符串 | 否 | Due date 在 ISO 格式 |
+| `priority` | 字符串 | 否 | 任务优先级 |
+| `type` | 字符串 | 否 | 任务 type |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `task` | json | Created task data 从 Apollo |
+
+</div>
+
+
+
+---
+
+### 搜索任务
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "task_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "completed",
+            "type": "switch",
+            "title": "已完成"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "1"
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "结果每页面",
+            "placeholder": "25 (max: 100)",
+            "max": 100
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索任务 (<code>apollo_task_search</code>)</div>
+
+搜索用于 tasks 在 Apollo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+| `contact_id` | 字符串 | 否 | 按条件筛选 contact ID |
+| `account_id` | 字符串 | 否 | 按条件筛选账户 ID |
+| `completed` | 布尔值 | 否 | 按条件筛选 completion status |
+| `page` | 数字 | 否 | 页面数字用于分页 |
+| `per_page` | 数字 | 否 | 结果每页面 \(max: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `tasks` | json | 数组的 tasks 匹配该 search criteria |
+
+</div>
+
+
+
+---
+
+### 获取电子邮件账户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Apollo"
+    type="apollo"
+    color="#EBF212"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "options": [
+                {
+                    "label": "Search People",
+                    "id": "people_search"
+                },
+                {
+                    "label": "Enrich Person",
+                    "id": "people_enrich"
+                },
+                {
+                    "label": "Bulk Enrich People",
+                    "id": "people_bulk_enrich"
+                },
+                {
+                    "label": "Search Organizations",
+                    "id": "organization_search"
+                },
+                {
+                    "label": "Enrich Organization",
+                    "id": "organization_enrich"
+                },
+                {
+                    "label": "Bulk Enrich Organizations",
+                    "id": "organization_bulk_enrich"
+                },
+                {
+                    "label": "Create Contact",
+                    "id": "contact_create"
+                },
+                {
+                    "label": "Update Contact",
+                    "id": "contact_update"
+                },
+                {
+                    "label": "Search Contacts",
+                    "id": "contact_search"
+                },
+                {
+                    "label": "Bulk Create Contacts",
+                    "id": "contact_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Contacts",
+                    "id": "contact_bulk_update"
+                },
+                {
+                    "label": "Create Account",
+                    "id": "account_create"
+                },
+                {
+                    "label": "Update Account",
+                    "id": "account_update"
+                },
+                {
+                    "label": "Search Accounts",
+                    "id": "account_search"
+                },
+                {
+                    "label": "Bulk Create Accounts",
+                    "id": "account_bulk_create"
+                },
+                {
+                    "label": "Bulk Update Accounts",
+                    "id": "account_bulk_update"
+                },
+                {
+                    "label": "Create Opportunity",
+                    "id": "opportunity_create"
+                },
+                {
+                    "label": "Search Opportunities",
+                    "id": "opportunity_search"
+                },
+                {
+                    "label": "Get Opportunity",
+                    "id": "opportunity_get"
+                },
+                {
+                    "label": "Update Opportunity",
+                    "id": "opportunity_update"
+                },
+                {
+                    "label": "Search Sequences",
+                    "id": "sequence_search"
+                },
+                {
+                    "label": "Add to Sequence",
+                    "id": "sequence_add"
+                },
+                {
+                    "label": "Create Task",
+                    "id": "task_create"
+                },
+                {
+                    "label": "Search Tasks",
+                    "id": "task_search"
+                },
+                {
+                    "label": "Get Email Accounts",
+                    "id": "email_accounts"
+                }
+            ],
+            "defaultValue": "email_accounts"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Apollo API 密钥",
+            "placeholder": "输入你的 Apollo API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取电子邮件账户 (<code>apollo_email_accounts</code>)</div>
+
+获取列表的团队
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | 字符串 | 是 | Apollo API 密钥 \(master key required\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `email_accounts` | json | 数组的团队 电子邮件 账户 linked 在 Apollo |
+
+</div>
+
+
+
+---
+
+
+## 用量说明
+
+将 Apollo.io 集成到工作流中。搜索人员和公司、补充联系人数据、管理 CRM 联系人和账户、将联系人添加到序列，以及创建任务。
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `apollo`

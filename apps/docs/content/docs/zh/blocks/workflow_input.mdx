@@ -1,0 +1,65 @@
+---
+title: Workflow
+description: 执行子工作流，并将父工作流变量映射到其输入架构
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard type="workflow_input" color="#6366F1" icon={true} />
+
+Workflow 模块从当前父工作流中执行另一个子工作流。它读取子工作流的 **Input Form Trigger** 架构，并显示映射界面，用于将父工作流变量传入子工作流的预期输入。这是将复杂自动化拆分成可复用子工作流的主要机制。
+
+## 概述
+
+<Steps>
+  <Step><strong>选择子工作流</strong>：选择工作区中除当前工作流外的任意工作流。</Step>
+  <Step><strong>映射输入</strong>：模块读取子工作流的 Input Form Trigger 并显示各个预期字段。为字段映射父变量或固定值。</Step>
+  <Step><strong>执行</strong>：子工作流使用映射后的输入运行至完成。</Step>
+  <Step><strong>返回结果</strong>：子工作流的最终输出作为模块的 `result` 输出返回父工作流。</Step>
+</Steps>
+
+## 工作原理
+
+子工作流必须使用 **Input Form Trigger** 作为起始模块。该 trigger 定义输入架构，包括字段名、类型和说明。选择子工作流后，Input Mapping 界面会动态呈现这些字段以供连接。
+
+运行时，此模块会：
+
+1. 从父工作流当前状态解析所有映射值。
+2. 调用子工作流执行器并传入解析后的输入。
+3. 等待子工作流完成。
+4. 返回 `success`、`childWorkflowName` 和完整的子执行 `result`。
+
+<Callout type="info">下拉菜单只显示工作区中与当前工作流不同的工作流。不能递归调用工作流。</Callout>
+
+## 配置
+
+<ShowcaseCard><BlockConfigPreview name="Workflow" type="workflow_input" color="#6366F1" hideHeader subBlocks={[
+  { "id": "workflowId", "type": "dropdown", "title": "Select Workflow", "required": true },
+  { "id": "inputMapping", "type": "input-mapping", "title": "Input Mapping", "layout": "full", "description": "Map fields defined in the child workflow's Input Trigger to variables/values in this workflow." }
+]} /></ShowcaseCard>
+
+### 字段
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| **Select Workflow** | 是 | 要执行的子工作流，必须包含 Input Form Trigger。 |
+| **Input Mapping** | -- | 将父工作流值动态映射到子 trigger 架构。选择工作流后显示。 |
+
+## 输出
+
+| 输出 | 类型 | 说明 |
+|---|---|---|
+| `success` | boolean | 子工作流是否成功完成。 |
+| `childWorkflowName` | string | 已执行子工作流的名称。 |
+| `result` | json | 子工作流的完整执行结果。 |
+| `error` | string | 子工作流失败时的错误消息。 |
+
+## 最佳实践
+
+- **为子工作流设计清晰的 Input Form Trigger** -- 使用描述性字段名，便于父工作流映射。
+- **让子工作流保持专注** -- 每个子工作流只做好一项任务，以便多个父工作流复用。
+- **检查 `success` 输出** -- 在 Workflow 模块后使用 Condition 模块处理失败。

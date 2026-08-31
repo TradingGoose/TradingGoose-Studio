@@ -1,0 +1,199 @@
+---
+title: Tavily
+description: 搜索并提取信息
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="tavily"
+  color=""
+/>
+
+
+## 配置
+
+### 搜索
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Tavily"
+    type="tavily"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "tavily_search"
+                },
+                {
+                    "label": "Extract Content",
+                    "id": "tavily_extract"
+                }
+            ],
+            "defaultValue": "tavily_search"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Tavily API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "Enter your search query...",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果",
+            "layout": "full",
+            "placeholder": "5"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Search (<code>tavily_search</code>)</div>
+
+Perform AI-powered web 搜索使用 Tavily
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `query` | 字符串 | 是 | 搜索查询到执行 |
+| `max_results` | 数字 | 否 | 最大数量：结果 \(1-20\) |
+| `apiKey` | 字符串 | 是 | Tavily API 键 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `query` | 字符串 | 搜索查询该 曾为 executed |
+| `title` | 字符串 | 标题输出 |
+| `url` | 字符串 | url 输出 |
+| `snippet` | 字符串 | snippet 输出 |
+
+</div>
+
+
+
+---
+
+### Extract 内容
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Tavily"
+    type="tavily"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Search",
+                    "id": "tavily_search"
+                },
+                {
+                    "label": "Extract Content",
+                    "id": "tavily_extract"
+                }
+            ],
+            "defaultValue": "tavily_extract"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Enter your Tavily API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "urls",
+            "type": "long-input",
+            "title": "URL",
+            "layout": "full",
+            "placeholder": "Enter URL to extract content from...",
+            "required": true
+        },
+        {
+            "id": "extract_depth",
+            "type": "dropdown",
+            "title": "Extract Depth",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "basic",
+                    "id": "basic"
+                },
+                {
+                    "label": "advanced",
+                    "id": "advanced"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Extract Content (<code>tavily_extract</code>)</div>
+
+Extract 原始内容，来源为多个 web 页面 simultaneously 使用 Tavily
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `urls` | 字符串 | 是 | URL或数组的URLs到extract 内容，来源为|
+| `extract_depth` | 字符串 | 否 | depth的提取 \(basic=1 credit/5 URLs, advanced=2 credits/5 URLs\) |
+| `apiKey` | 字符串 | 是 | Tavily API 键 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `url` | 字符串 | URL 该曾为 extracted |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将Tavily集成到 workflow 中。可以搜索 web和extract 内容，来源为特定 URLs. 需要 API 键.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `tavily`

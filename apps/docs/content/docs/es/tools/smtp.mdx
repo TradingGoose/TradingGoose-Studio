@@ -1,0 +1,203 @@
+---
+title: SMTP
+description: Envía correos mediante cualquier servidor SMTP
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="smtp"
+  color=""
+/>
+
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SMTP"
+    type="smtp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "smtpHost",
+            "type": "short-input",
+            "title": "SMTP Host",
+            "placeholder": "smtp.gmail.com, smtp.example.com",
+            "required": true
+        },
+        {
+            "id": "smtpPort",
+            "type": "short-input",
+            "title": "SMTP Puerto",
+            "placeholder": "587",
+            "required": true
+        },
+        {
+            "id": "smtpUsername",
+            "type": "short-input",
+            "title": "SMTP Nombre de usuario",
+            "placeholder": "your-email@example.com",
+            "required": true
+        },
+        {
+            "id": "smtpPassword",
+            "type": "short-input",
+            "title": "SMTP Contraseña",
+            "placeholder": "Your SMTP password",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "smtpSecure",
+            "type": "dropdown",
+            "title": "Seguridad Modo",
+            "required": true,
+            "options": [
+                {
+                    "label": "TLS (Port 587)",
+                    "id": "TLS"
+                },
+                {
+                    "label": "SSL (Port 465)",
+                    "id": "SSL"
+                },
+                {
+                    "label": "None (Port 25)",
+                    "id": "None"
+                }
+            ]
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "De",
+            "placeholder": "sender@example.com",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "A",
+            "placeholder": "recipient@example.com",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "placeholder": "Email subject",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Cuerpo",
+            "placeholder": "Email content",
+            "required": true
+        },
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Contenido Tipo",
+            "options": [
+                {
+                    "label": "Plain Text",
+                    "id": "text"
+                },
+                {
+                    "label": "HTML",
+                    "id": "html"
+                }
+            ]
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Adjuntos",
+            "placeholder": "Upload files to attach"
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Adjuntos",
+            "placeholder": "Reference files from previous blocks"
+        },
+        {
+            "id": "fromName",
+            "type": "short-input",
+            "title": "De Nombre",
+            "placeholder": "Display name for sender"
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "placeholder": "cc1@example.com, cc2@example.com"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "BCC",
+            "placeholder": "bcc1@example.com, bcc2@example.com"
+        },
+        {
+            "id": "replyTo",
+            "type": "short-input",
+            "title": "Responder a",
+            "placeholder": "reply@example.com"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `smtp_send_mail`
+
+Enviar correos electrónicos via SMTP servidor
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `smtpHost` | cadena | Sí | SMTP servidor nombre de host \(p. ej., smtp.gmail.com\) |
+| `smtpPort` | número | Sí | SMTP servidor puerto \(587 para TLS, 465 para SSL\) |
+| `smtpUsername` | cadena | Sí | SMTP autenticación nombre de usuario |
+| `smtpPassword` | cadena | Sí | SMTP autenticación contraseña |
+| `smtpSecure` | cadena | Sí | Seguridad protocolo \(TLS, SSL, o Ninguno\) |
+| `from` | cadena | Sí | Remitente email dirección |
+| `to` | cadena | Sí | Destinatario email dirección |
+| `subject` | cadena | Sí | Correo electrónico asunto |
+| `body` | cadena | Sí | Correo electrónico cuerpo contenido |
+| `contentType` | cadena | No | Contenido tipo \(texto o html\) |
+| `fromName` | cadena | No | Visualización nombre para remitente |
+| `cc` | cadena | No | CC destinatarios \(comma-separated\) |
+| `bcc` | cadena | No | BCC destinatarios \(comma-separated\) |
+| `replyTo` | cadena | No | Dirección de correo electrónico para las respuestas |
+| `attachments` | file[] | No | Archivos a attach a el email |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | booleano | Indica si el email fue enviados successfully |
+| `messageId` | cadena | Mensaje ID desde SMTP servidor |
+| `to` | cadena | Destinatario email dirección |
+| `subject` | cadena | Correo electrónico asunto |
+
+
+## Uso Instrucciones
+
+Envía correos electrónicos mediante cualquier SMTP servidor (Gmail, Outlook, personalizado servers, etc.). Configure SMTP connection configuración y enviar correos electrónicos con completo controlar over contenido, destinatarios, y adjuntos.
+
+
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `smtp`

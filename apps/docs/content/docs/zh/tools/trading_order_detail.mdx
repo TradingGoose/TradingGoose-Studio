@@ -1,0 +1,126 @@
+---
+title: 订单 Detail
+description: 获取先前提交的 trading 订单在提供商侧的详细信息。
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="trading_order_detail"
+  color="#0f766e"
+/>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="订单 Detail"
+    type="trading_order_detail"
+    color="#0f766e"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "orderId",
+            "type": "order-id-selector",
+            "title": "订单 ID",
+            "layout": "full",
+            "placeholder": "Search by order ID, symbol, ticker, quote, or date",
+            "required": true
+        },
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "经纪商",
+            "layout": "full",
+            "placeholder": "Select the broker used for this order",
+            "required": true
+        },
+        {
+            "id": "environment",
+            "type": "dropdown",
+            "title": "环境",
+            "layout": "half",
+            "placeholder": "Optional environment override",
+            "options": [
+                {
+                    "label": "Paper (Sandbox)",
+                    "id": "paper"
+                },
+                {
+                    "label": "Live Trading",
+                    "id": "live"
+                }
+            ]
+        },
+        {
+            "id": "accountId",
+            "type": "short-input",
+            "title": "账户 ID",
+            "layout": "full",
+            "placeholder": "Optional Tradier account ID override",
+            "condition": {
+                "field": "provider",
+                "value": "tradier"
+            }
+        },
+        {
+            "id": "accountUrl",
+            "type": "short-input",
+            "title": "账户 URL",
+            "layout": "full",
+            "placeholder": "Optional Robinhood account URL override",
+            "condition": {
+                "field": "provider",
+                "value": "robinhood"
+            }
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `trading_order_detail`
+
+检索所有 provider-available 详细信息，用于一个先前已记录 trading 订单由Trading Goose 订单 ID.
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `orderId` | 字符串 | 是 | Trading Goose 订单 ID \(orderHistoryTable.id\) 已创建当订单曾为已提交. |
+| `provider` | 字符串 | 否 | Expected 提供商，用于此订单. 使用的，用于credential selection和mismatch validation. |
+| `environment` | 字符串 | 否 | 可选环境 override \(paper或live\)，用于提供商 order-detail fetch. |
+| `credential` | 字符串 | 否 | OAuth credential id，用于所选经纪商 \(populated，来源为所选账户\). |
+| `tradierCredential` | 字符串 | 否 | Tradier OAuth credential id. |
+| `robinhoodCredential` | 字符串 | 否 | Robinhood OAuth credential id. |
+| `alpacaCredential` | 字符串 | 否 | Alpaca OAuth credential id. |
+| `apiKey` | 字符串 | 否 | Alpaca API 键 ID \(可选如果使用 OAuth\). |
+| `apiSecret` | 字符串 | 否 | Alpaca API 密钥键 \(可选如果使用 OAuth\). |
+| `accountId` | 字符串 | 否 | Tradier 账户 ID override 如果不 present在stored 订单元数据. |
+| `accountUrl` | 字符串 | 否 | Robinhood 账户 URL override 如果 needed. |
+
+#### 输出
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `summary` | 字符串 | 状态消息，用于订单 detail retrieval. |
+| `provider` | 字符串 | 经纪商/提供商的订单. |
+| `appOrderId` | 字符串 | Trading Goose 订单 ID \(orderHistoryTable.id\). |
+| `providerOrderId` | 字符串 | Provider-native 订单 ID 使用的，用于API lookup. |
+
+
+## 用法说明
+
+Looks 上 Trading Goose 订单历史记录 record由订单 ID, resolves 提供商订单 ID,和fetches 最新提供商订单 detail.
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `trading_order_detail`

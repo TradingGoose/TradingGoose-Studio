@@ -1,0 +1,89 @@
+---
+title: Clay
+description: 填充 Clay 工作簿
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="clay"
+  color=""
+/>
+
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Clay"
+    type="clay"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookURL",
+            "type": "short-input",
+            "title": "Webhook URL",
+            "layout": "full",
+            "placeholder": "输入 Clay Webhook URL",
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "long-input",
+            "title": "数据 (JSON 或纯文本)",
+            "layout": "full",
+            "placeholder": "输入你的 JSON data 到 populate 你的 Clay table",
+            "required": true
+        },
+        {
+            "id": "authToken",
+            "type": "short-input",
+            "title": "身份验证令牌",
+            "layout": "full",
+            "placeholder": "输入你的 Clay Webhook auth 令牌",
+            "description": "可选：如果你的 Clay 表已启用 Webhook 身份验证，请在此输入身份验证令牌。该令牌将通过 x-clay-Webhook-auth 标头发送。",
+            "password": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `clay_populate`
+
+Populate Clay 使用 data 从一个 JSON file. Enables direct communication 和 notifications 使用时间戳 tracking 和频道 confirmation.
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `webhookURL` | 字符串 | 是 | 该 Webhook URL 到 populate |
+| `data` | json | 是 | 该 data 到 populate |
+| `authToken` | 字符串 | 否 | 用于 Clay Webhook 身份验证的可选令牌 \(大多数 Webhook 不需要此令牌\) |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `data` | json | 响应 data 从 Clay Webhook |
+| `status` | 数字 | HTTP status code |
+| `statusText` | 字符串 | HTTP status text |
+| `headers` | 对象 | 响应标头从 Clay |
+| `timestamp` | 字符串 | ISO 时间戳何时 Webhook was received |
+
+
+## 用量说明
+
+集成 Clay 到该 workflow. 可以 populate 一个 table 使用 data.
+
+
+
+## 备注
+
+- Category: `tools`
+- Type: `clay`

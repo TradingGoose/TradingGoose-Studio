@@ -1,0 +1,549 @@
+---
+title: Pinecone
+description: 使用 Pinecone 向量数据库
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+
+<BlockInfoCard
+  type="pinecone"
+  color="#1C17FF"
+/>
+
+
+## 配置
+
+### 生成Embeddings
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pinecone"
+    type="pinecone"
+    color="#1C17FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Generate Embeddings",
+                    "id": "generate"
+                },
+                {
+                    "label": "Upsert Text",
+                    "id": "upsert_text"
+                },
+                {
+                    "label": "Search With Text",
+                    "id": "search_text"
+                },
+                {
+                    "label": "Search With Vector",
+                    "id": "search_vector"
+                },
+                {
+                    "label": "Fetch Vectors",
+                    "id": "fetch"
+                }
+            ],
+            "defaultValue": "generate"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Your Pinecone API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "multilingual-e5-large",
+                    "id": "multilingual-e5-large"
+                },
+                {
+                    "label": "llama-text-embed-v2",
+                    "id": "llama-text-embed-v2"
+                },
+                {
+                    "label": "pinecone-sparse-english-v0",
+                    "id": "pinecone-sparse-english-v0"
+                }
+            ]
+        },
+        {
+            "id": "inputs",
+            "type": "long-input",
+            "title": "文本 Inputs",
+            "layout": "full",
+            "placeholder": "[{\"text\": \"Your text here\"}]",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `matches` | json | 搜索matches |
+| `upsertedCount` | 数字 | Upserted 数量 |
+| `data` | json | 响应数据 |
+| `model` | 字符串 | 模型信息 |
+| `vector_type` | 字符串 | 向量类型 |
+| `usage` | json | 用法 statistics |
+
+</div>
+
+
+
+---
+
+### Upsert 文本
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pinecone"
+    type="pinecone"
+    color="#1C17FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Generate Embeddings",
+                    "id": "generate"
+                },
+                {
+                    "label": "Upsert Text",
+                    "id": "upsert_text"
+                },
+                {
+                    "label": "Search With Text",
+                    "id": "search_text"
+                },
+                {
+                    "label": "Search With Vector",
+                    "id": "search_vector"
+                },
+                {
+                    "label": "Fetch Vectors",
+                    "id": "fetch"
+                }
+            ],
+            "defaultValue": "upsert_text"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Your Pinecone API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "indexHost",
+            "type": "short-input",
+            "title": "Index 主机",
+            "layout": "full",
+            "placeholder": "https://index-name-abc123.svc.project-id.pinecone.io",
+            "required": true
+        },
+        {
+            "id": "namespace",
+            "type": "short-input",
+            "title": "Namespace",
+            "layout": "full",
+            "placeholder": "default",
+            "required": true
+        },
+        {
+            "id": "records",
+            "type": "long-input",
+            "title": "记录",
+            "layout": "full",
+            "placeholder": "{\"_id\": \"rec1\", \"text\": \"Apple\"}",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `matches` | json | 搜索matches |
+| `upsertedCount` | 数字 | Upserted 数量 |
+| `data` | json | 响应数据 |
+| `model` | 字符串 | 模型信息 |
+| `vector_type` | 字符串 | 向量类型 |
+| `usage` | json | 用法 statistics |
+
+</div>
+
+
+
+---
+
+### 搜索使用文本
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pinecone"
+    type="pinecone"
+    color="#1C17FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Generate Embeddings",
+                    "id": "generate"
+                },
+                {
+                    "label": "Upsert Text",
+                    "id": "upsert_text"
+                },
+                {
+                    "label": "Search With Text",
+                    "id": "search_text"
+                },
+                {
+                    "label": "Search With Vector",
+                    "id": "search_vector"
+                },
+                {
+                    "label": "Fetch Vectors",
+                    "id": "fetch"
+                }
+            ],
+            "defaultValue": "search_text"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Your Pinecone API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "indexHost",
+            "type": "short-input",
+            "title": "Index 主机",
+            "layout": "full",
+            "placeholder": "https://index-name-abc123.svc.project-id.pinecone.io",
+            "required": true
+        },
+        {
+            "id": "namespace",
+            "type": "short-input",
+            "title": "Namespace",
+            "layout": "full",
+            "placeholder": "default",
+            "required": true
+        },
+        {
+            "id": "searchQuery",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "Enter text to search for",
+            "required": true
+        },
+        {
+            "id": "topK",
+            "type": "short-input",
+            "title": "热门 K 结果",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "fields",
+            "type": "long-input",
+            "title": "字段到返回",
+            "layout": "full",
+            "placeholder": "[\"category\", \"text\"]"
+        },
+        {
+            "id": "filter",
+            "type": "long-input",
+            "title": "筛选条件",
+            "layout": "full",
+            "placeholder": "{\"category\": \"product\"}"
+        },
+        {
+            "id": "rerank",
+            "type": "long-input",
+            "title": "Rerank 选项",
+            "layout": "full",
+            "placeholder": "{\"model\": \"bge-reranker-v2-m3\", \"rank_fields\": [\"text\"], \"top_n\": 2}"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `matches` | json | 搜索matches |
+| `upsertedCount` | 数字 | Upserted 数量 |
+| `data` | json | 响应数据 |
+| `model` | 字符串 | 模型信息 |
+| `vector_type` | 字符串 | 向量类型 |
+| `usage` | json | 用法 statistics |
+
+</div>
+
+
+
+---
+
+### 搜索使用向量
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pinecone"
+    type="pinecone"
+    color="#1C17FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Generate Embeddings",
+                    "id": "generate"
+                },
+                {
+                    "label": "Upsert Text",
+                    "id": "upsert_text"
+                },
+                {
+                    "label": "Search With Text",
+                    "id": "search_text"
+                },
+                {
+                    "label": "Search With Vector",
+                    "id": "search_vector"
+                },
+                {
+                    "label": "Fetch Vectors",
+                    "id": "fetch"
+                }
+            ],
+            "defaultValue": "search_vector"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Your Pinecone API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "indexHost",
+            "type": "short-input",
+            "title": "Index 主机",
+            "layout": "full",
+            "placeholder": "https://index-name-abc123.svc.project-id.pinecone.io",
+            "required": true
+        },
+        {
+            "id": "namespace",
+            "type": "short-input",
+            "title": "Namespace",
+            "layout": "full",
+            "placeholder": "default",
+            "required": true
+        },
+        {
+            "id": "vector",
+            "type": "long-input",
+            "title": "查询向量",
+            "layout": "full",
+            "placeholder": "[0.1, 0.2, 0.3, ...]",
+            "required": true
+        },
+        {
+            "id": "topK",
+            "type": "short-input",
+            "title": "热门 K 结果",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "options",
+            "type": "checkbox-list",
+            "title": "选项",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Include Values",
+                    "id": "includeValues"
+                },
+                {
+                    "label": "Include Metadata",
+                    "id": "includeMetadata"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `matches` | json | 搜索matches |
+| `upsertedCount` | 数字 | Upserted 数量 |
+| `data` | json | 响应数据 |
+| `model` | 字符串 | 模型信息 |
+| `vector_type` | 字符串 | 向量类型 |
+| `usage` | json | 用法 statistics |
+
+</div>
+
+
+
+---
+
+### 获取Vectors
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Pinecone"
+    type="pinecone"
+    color="#1C17FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "options": [
+                {
+                    "label": "Generate Embeddings",
+                    "id": "generate"
+                },
+                {
+                    "label": "Upsert Text",
+                    "id": "upsert_text"
+                },
+                {
+                    "label": "Search With Text",
+                    "id": "search_text"
+                },
+                {
+                    "label": "Search With Vector",
+                    "id": "search_vector"
+                },
+                {
+                    "label": "Fetch Vectors",
+                    "id": "fetch"
+                }
+            ],
+            "defaultValue": "fetch"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 键",
+            "layout": "full",
+            "placeholder": "Your Pinecone API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "indexHost",
+            "type": "short-input",
+            "title": "Index 主机",
+            "layout": "full",
+            "placeholder": "https://index-name-abc123.svc.project-id.pinecone.io",
+            "required": true
+        },
+        {
+            "id": "namespace",
+            "type": "short-input",
+            "title": "Namespace",
+            "layout": "full",
+            "placeholder": "Namespace",
+            "required": true
+        },
+        {
+            "id": "ids",
+            "type": "long-input",
+            "title": "向量 ID",
+            "layout": "full",
+            "placeholder": "[\"vec1\", \"vec2\"]",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-sm font-medium text-fd-muted-foreground mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `matches` | json | 搜索matches |
+| `upsertedCount` | 数字 | Upserted 数量 |
+| `data` | json | 响应数据 |
+| `model` | 字符串 | 模型信息 |
+| `vector_type` | 字符串 | 向量类型 |
+| `usage` | json | 用法 statistics |
+
+</div>
+
+
+
+---
+
+
+## 用法说明
+
+将 Pinecone 集成到工作流中。你可以生成嵌入、插入或更新文本、使用文本搜索、获取向量，以及使用向量搜索。
+
+
+
+## 笔记
+
+- 类别: `tools`
+- 类型: `pinecone`
