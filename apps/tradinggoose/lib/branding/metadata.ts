@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { getBrandConfig } from '@/lib/branding/branding'
+import { getBaseUrl } from '@/lib/urls/utils'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { defaultLocale, getOpenGraphLocale, type LocaleCode } from '@/i18n/utils'
-import { getBaseUrl } from '@/lib/urls/utils'
 
 export const DEFAULT_META_DESCRIPTION =
   'Open-source LLM trading platform. Connect data providers, write custom indicators in PineTS, and trigger AI agent workflows on live signals.'

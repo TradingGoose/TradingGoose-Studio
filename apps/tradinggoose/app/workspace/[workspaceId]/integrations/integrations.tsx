@@ -1,26 +1,34 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown, ExternalLink, Search, Waypoints } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { AlertCircle, Check, ChevronDown, ExternalLink, Search, Waypoints } from 'lucide-react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createLogger } from '@/lib/logs/console/logger'
+import { startOAuthConnectFlow } from '@/lib/oauth/connect'
 import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
 import { cn } from '@/lib/utils'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import {
+  disconnectOAuthService,
+  oauthConnectionsKeys,
   type ServiceInfo,
-  useConnectOAuthService,
-  useDisconnectOAuthService,
   useOAuthConnections,
 } from '@/hooks/queries/oauth-connections'
 import { usePathname, useRouter } from '@/i18n/navigation'
 
 const logger = createLogger('Integrations')
+
+type IntegrationsFeedback = {
+  kind: 'success' | 'error'
+  message: string
+}
 
 export function Integrations() {
   const t = useTranslations('workspace.integrations')
@@ -30,19 +38,73 @@ export function Integrations() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
   const pendingServiceRef = useRef<HTMLDivElement>(null)
+  const integrationActionLockRef = useRef(false)
+  const queryClient = useQueryClient()
 
-  const { data: services = [], isPending: servicesPending, refetch } = useOAuthConnections()
-  const connectService = useConnectOAuthService()
-  const disconnectService = useDisconnectOAuthService()
+  const {
+    data: services = [],
+    isError: connectionsFailed,
+    isPending: servicesPending,
+    refetch,
+  } = useOAuthConnections()
+  const connectService = useMutation({
+    mutationFn: startOAuthConnectFlow,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: oauthConnectionsKeys.connections() })
+    },
+    onError: (error) => {
+      logger.error('OAuth connection error:', error)
+    },
+  })
+  const disconnectService = useMutation({
+    mutationFn: disconnectOAuthService,
+    onMutate: async ({ accountId }) => {
+      await queryClient.cancelQueries({ queryKey: oauthConnectionsKeys.connections() })
+      const previousServices = queryClient.getQueryData<ServiceInfo[]>(
+        oauthConnectionsKeys.connections()
+      )
+
+      if (previousServices) {
+        queryClient.setQueryData<ServiceInfo[]>(
+          oauthConnectionsKeys.connections(),
+          previousServices.map((service) => {
+            const accounts = service.accounts?.filter((account) => account.id !== accountId) || []
+            return accounts.length === (service.accounts?.length ?? 0)
+              ? service
+              : { ...service, accounts, isConnected: accounts.length > 0 }
+          })
+        )
+      }
+
+      return { previousServices }
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousServices) {
+        queryClient.setQueryData(oauthConnectionsKeys.connections(), context.previousServices)
+      }
+      logger.error('Failed to disconnect service')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: oauthConnectionsKeys.connections() })
+    },
+  })
   const [searchTerm, setSearchTerm] = useState('')
   const [isConnecting, setIsConnecting] = useState<string | null>(null)
   const [pendingService, setPendingService] = useState<string | null>(null)
-  const [authSuccess, setAuthSuccess] = useState(false)
-  const [authError, setAuthError] = useState<string | null>(null)
+  const [actionFeedback, setActionFeedback] = useState<IntegrationsFeedback | null>(null)
   const [showActionRequired, setShowActionRequired] = useState(false)
   const [providerAvailability, setProviderAvailability] = useState<Record<string, boolean>>({})
   const [availabilityLoaded, setAvailabilityLoaded] = useState(false)
+  const [availabilityFailed, setAvailabilityFailed] = useState(false)
   const isLoading = (servicesPending && services.length === 0) || !availabilityLoaded
+  const hasLoadFailure = connectionsFailed || availabilityFailed
+  const isPending = Boolean(isConnecting) || connectService.isPending || disconnectService.isPending
+  const visibleFeedback =
+    actionFeedback?.kind === 'error'
+      ? actionFeedback
+      : hasLoadFailure
+        ? ({ kind: 'error', message: t('failures.load') } satisfies IntegrationsFeedback)
+        : actionFeedback
 
   const providerIds = useMemo(() => {
     const ids = new Set<string>()
@@ -56,6 +118,7 @@ export function Integrations() {
 
   useEffect(() => {
     let isMounted = true
+    setAvailabilityFailed(false)
 
     const loadAvailability = async () => {
       try {
@@ -65,12 +128,17 @@ export function Integrations() {
         const response = await fetch(`/api/auth/oauth/providers${query}`, {
           cache: 'no-store',
         })
-        if (!response.ok) return
+        if (!response.ok) {
+          throw new Error('Provider availability request failed')
+        }
         const data = (await response.json()) as Record<string, boolean>
         if (!isMounted) return
         setProviderAvailability(data)
       } catch (error) {
         logger.error('Failed to load provider availability', error)
+        if (isMounted) {
+          setAvailabilityFailed(true)
+        }
       } finally {
         if (isMounted) {
           setAvailabilityLoaded(true)
@@ -95,7 +163,7 @@ export function Integrations() {
 
     // Handle OAuth callback
     if ((code && state) || trelloConnected === '1') {
-      setAuthError(null)
+      setActionFeedback(null)
       // This is an OAuth callback - try to restore state from localStorage
       try {
         const stored = localStorage.getItem('pending_oauth_state')
@@ -119,8 +187,7 @@ export function Integrations() {
         localStorage.removeItem('pending_oauth_state') // Clean up corrupted state
       }
 
-      // Set success flag
-      setAuthSuccess(true)
+      setActionFeedback({ kind: 'success', message: t('successMessage') })
 
       // Refresh connections to show the new connection
       refetch().catch((error) => logger.error('Failed to refresh services after OAuth', error))
@@ -128,17 +195,21 @@ export function Integrations() {
       // Clear the URL parameters
       router.replace(`/workspace/${workspaceId}/integrations`)
     } else if (error) {
-      const message = errorDescription || t('errors.oauth')
+      const message = errorDescription || t('failures.oauth')
       logger.error('OAuth error:', { error, errorDescription })
-      setAuthError(message)
+      setActionFeedback({ kind: 'error', message })
       router.replace(`/workspace/${workspaceId}/integrations`)
     }
   }, [refetch, router, searchParams, t, workspaceId])
 
   // Handle connect button click
   const handleConnect = async (service: ServiceInfo) => {
+    if (integrationActionLockRef.current || isPending) return
+    integrationActionLockRef.current = true
+
     try {
       setIsConnecting(service.id)
+      setActionFeedback(null)
 
       logger.info('Connecting service:', {
         serviceId: service.id,
@@ -157,23 +228,39 @@ export function Integrations() {
         providerId: service.providerId,
         callbackURL: `${pathname}${window.location.search}${window.location.hash}`,
       })
-    } catch (error) {
-      logger.error('OAuth connection error:', { error })
+    } catch {
+      setActionFeedback({ kind: 'error', message: t('failures.oauth') })
     } finally {
+      integrationActionLockRef.current = false
       setIsConnecting(null)
     }
   }
 
   // Handle disconnect button click
   const handleDisconnect = async (service: ServiceInfo, accountId: string) => {
-    setIsConnecting(`${service.id}-${accountId}`)
+    if (integrationActionLockRef.current || isPending) return
+    integrationActionLockRef.current = true
+    const disconnectKey = `${service.id}-${accountId}`
+    setIsConnecting(disconnectKey)
+    setActionFeedback(null)
     try {
       await disconnectService.mutateAsync({
         accountId,
       })
     } catch (error) {
-      logger.error('Error disconnecting service:', { error })
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? (error as { code?: unknown }).code
+          : null
+      setActionFeedback({
+        kind: 'error',
+        message:
+          code === 'EXTERNAL_SUBSCRIPTION_IN_USE'
+            ? t('failures.disconnectInUse')
+            : t('failures.disconnect'),
+      })
     } finally {
+      integrationActionLockRef.current = false
       setIsConnecting(null)
     }
   }
@@ -236,10 +323,11 @@ export function Integrations() {
         <span className='font-medium text-sm'>{t('title')}</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
-        <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3'>
+        <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring'>
           <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
           <Input
             placeholder={t('searchPlaceholder')}
+            aria-label={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className='flex-1 border-0 bg-transparent px-0 font-[380] font-sans text-base text-foreground leading-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
@@ -258,27 +346,26 @@ export function Integrations() {
             <div className='flex-1 overflow-auto'>
               <div className='relative flex h-full flex-col p-1'>
                 <div className='scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent min-h-0 flex-1 overflow-y-auto p-6'>
-                  {/* Success message */}
-                  {authSuccess && (
-                    <div className='rounded-sm border border-green-200 bg-green-50 p-4'>
-                      <div className='flex'>
-                        <div className='flex-shrink-0'>
-                          <Check className='h-5 w-5 text-green-400' />
-                        </div>
-                        <div className='ml-3'>
-                          <p className='font-medium text-green-800 text-sm'>
-                            {t('successMessage')}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {authError && (
-                    <div className='rounded-sm border border-red-200 bg-red-50 p-4'>
-                      <p className='font-medium text-red-800 text-sm'>{authError}</p>
-                    </div>
-                  )}
+                  {visibleFeedback ? (
+                    <Alert
+                      variant={visibleFeedback.kind === 'error' ? 'destructive' : 'default'}
+                      role={visibleFeedback.kind === 'error' ? 'alert' : 'status'}
+                      aria-live={visibleFeedback.kind === 'success' ? 'polite' : undefined}
+                      aria-atomic='true'
+                      className={
+                        visibleFeedback.kind === 'success'
+                          ? 'border-green-200 bg-green-50 text-green-800'
+                          : undefined
+                      }
+                    >
+                      {visibleFeedback.kind === 'success' ? (
+                        <Check aria-hidden='true' />
+                      ) : (
+                        <AlertCircle aria-hidden='true' />
+                      )}
+                      <AlertDescription>{visibleFeedback.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
 
                   {/* Pending service message */}
                   {pendingService && showActionRequired && (
@@ -380,13 +467,17 @@ export function Integrations() {
                                             variant='ghost'
                                             size='sm'
                                             onClick={() => handleDisconnect(service, account.id)}
-                                            disabled={isConnecting === disconnectKey}
+                                            disabled={isPending}
+                                            focusableWhenDisabled={isConnecting === disconnectKey}
+                                            aria-busy={isConnecting === disconnectKey || undefined}
                                             className={cn(
                                               'h-8 text-muted-foreground hover:text-foreground',
-                                              isConnecting === disconnectKey && 'cursor-not-allowed'
+                                              isPending && 'cursor-not-allowed'
                                             )}
                                           >
-                                            {t('disconnect')}
+                                            {isConnecting === disconnectKey
+                                              ? t('disconnecting')
+                                              : t('disconnect')}
                                           </Button>
                                         </div>
                                       )
@@ -397,13 +488,12 @@ export function Integrations() {
                                     variant='outline'
                                     size='sm'
                                     onClick={() => handleConnect(service)}
-                                    disabled={isConnecting === service.id}
-                                    className={cn(
-                                      'h-8',
-                                      isConnecting === service.id && 'cursor-not-allowed'
-                                    )}
+                                    disabled={isPending}
+                                    focusableWhenDisabled={isConnecting === service.id}
+                                    aria-busy={isConnecting === service.id || undefined}
+                                    className={cn('h-8', isPending && 'cursor-not-allowed')}
                                   >
-                                    {t('connect')}
+                                    {isConnecting === service.id ? t('connecting') : t('connect')}
                                   </Button>
                                 )}
                               </div>
@@ -413,6 +503,7 @@ export function Integrations() {
                       )}
 
                       {!isLoading &&
+                        !hasLoadFailure &&
                         !searchTerm.trim() &&
                         Object.keys(filteredGroupedServices).length === 0 && (
                           <div className='py-8 text-center text-muted-foreground text-sm'>
@@ -421,11 +512,13 @@ export function Integrations() {
                         )}
 
                       {/* Show message when search has no results */}
-                      {searchTerm.trim() && Object.keys(filteredGroupedServices).length === 0 && (
-                        <div className='py-8 text-center text-muted-foreground text-sm'>
-                          {t('emptyState.noSearchMatches', { query: searchTerm })}
-                        </div>
-                      )}
+                      {!hasLoadFailure &&
+                        searchTerm.trim() &&
+                        Object.keys(filteredGroupedServices).length === 0 && (
+                          <div className='py-8 text-center text-muted-foreground text-sm'>
+                            {t('emptyState.noSearchMatches', { query: searchTerm })}
+                          </div>
+                        )}
                     </div>
                   )}
                 </div>

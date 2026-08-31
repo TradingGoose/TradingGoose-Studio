@@ -78,31 +78,30 @@ export function SearchableDropdown<TOption extends SearchableDropdownOption>({
 
   return (
     <DropdownMenu open={resolvedOpen} onOpenChange={handleOpenChange} modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type='button'
-          variant='outline'
-          size='sm'
-          disabled={disabled}
-          className={triggerClassName}
-          role='combobox'
-          aria-expanded={resolvedOpen}
-          aria-label={triggerLabel}
-        >
-          {renderTriggerValue ? (
-            renderTriggerValue(selectedOption)
-          ) : (
-            <span
-              className={cn(
-                'truncate',
-                selectedOption ? 'text-foreground' : 'text-muted-foreground'
-              )}
-            >
-              {selectedOption?.label ?? placeholder}
-            </span>
-          )}
-          <ChevronDown className='ml-0.5 h-4 w-4 text-muted-foreground' />
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            disabled={disabled}
+            className={triggerClassName}
+            role='combobox'
+            aria-expanded={resolvedOpen}
+            aria-label={triggerLabel}
+          />
+        }
+      >
+        {renderTriggerValue ? (
+          renderTriggerValue(selectedOption)
+        ) : (
+          <span
+            className={cn('truncate', selectedOption ? 'text-foreground' : 'text-muted-foreground')}
+          >
+            {selectedOption?.label ?? placeholder}
+          </span>
+        )}
+        <ChevronDown className='ml-0.5 h-4 w-4 text-muted-foreground' />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <Command>

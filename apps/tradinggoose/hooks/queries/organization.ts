@@ -1,16 +1,17 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import {
+  keepPreviousData,
+  mutationOptions,
+  type QueryClient,
+  useQuery,
+} from '@tanstack/react-query'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 import { workspaceKeys } from '@/hooks/queries/workspace'
-import { type LocaleCode } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('OrganizationQueries')
 
-/**
- * Query key factories for organization-related queries
- * This ensures consistent cache invalidation across the app
- */
 export const organizationKeys = {
   all: ['organizations'] as const,
   lists: () => [...organizationKeys.all, 'list'] as const,
@@ -35,9 +36,6 @@ export interface OrganizationWorkspaceRecord {
   billingOwner: OrganizationWorkspaceBillingOwner
 }
 
-/**
- * Fetch all organizations for the current user
- */
 async function fetchOrganizations() {
   const [billingResponse, orgsResponse, activeOrgResponse] = await Promise.all([
     fetch('/api/billing?context=user').then((r) => r.json()),
@@ -52,9 +50,6 @@ async function fetchOrganizations() {
   }
 }
 
-/**
- * Hook to fetch all organizations
- */
 export function useOrganizations(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: organizationKeys.lists(),
@@ -65,17 +60,11 @@ export function useOrganizations(options?: { enabled?: boolean }) {
   })
 }
 
-/**
- * Fetch a specific organization by ID
- */
 async function fetchOrganization() {
   const response = await client.organization.getFullOrganization()
   return response.data
 }
 
-/**
- * Hook to fetch a specific organization
- */
 export function useOrganization(orgId: string) {
   return useQuery({
     queryKey: organizationKeys.detail(orgId),
@@ -86,26 +75,22 @@ export function useOrganization(orgId: string) {
   })
 }
 
-/**
- * Fetch organization billing data
- */
 async function fetchOrganizationBilling(orgId: string) {
   const response = await fetch(`/api/billing?context=organization&id=${orgId}`)
-
-  if (response.status === 404) {
-    return null
-  }
 
   if (!response.ok) {
     throw new Error('Failed to fetch organization billing data')
   }
   const payload = await response.json()
-  return payload?.data ?? payload
+  const billingData = payload?.data ?? null
+  return billingData
+    ? {
+        ...billingData,
+        userRole: typeof payload?.userRole === 'string' ? payload.userRole : null,
+      }
+    : null
 }
 
-/**
- * Hook to fetch organization billing data
- */
 export function useOrganizationBilling(orgId: string) {
   return useQuery({
     queryKey: organizationKeys.billing(orgId),
@@ -115,6 +100,30 @@ export function useOrganizationBilling(orgId: string) {
     staleTime: 30 * 1000,
     placeholderData: keepPreviousData,
   })
+}
+
+export function useCurrentOrganizationAccessState(options?: { enabled?: boolean }) {
+  const { data: organizationsData } = useOrganizations(options)
+  const activeOrganizationId = organizationsData?.activeOrganization?.id ?? ''
+  const { data: organizationBillingData } = useOrganizationBilling(activeOrganizationId)
+  const activeOrganizationBilling =
+    organizationBillingData?.organizationId === activeOrganizationId
+      ? organizationBillingData
+      : null
+  const organizationRole = activeOrganizationBilling?.userRole
+  const billingEnabled = organizationsData
+    ? (organizationsData.billingData?.data?.billingEnabled ?? true)
+    : false
+
+  return {
+    billingEnabled,
+    ...getOrganizationAccessState({
+      billingEnabled,
+      hasOrganization: Boolean(activeOrganizationId),
+      isOrganizationAdmin: organizationRole === 'owner' || organizationRole === 'admin',
+      organizationTier: activeOrganizationBilling?.subscriptionTier,
+    }),
+  }
 }
 
 async function fetchOrganizationWorkspaces(
@@ -153,9 +162,6 @@ export function useAvailableOrganizationBillingWorkspaces(orgId: string, enabled
   })
 }
 
-/**
- * Fetch organization member usage data
- */
 async function fetchOrganizationMembers(orgId: string) {
   const response = await fetch(`/api/organizations/${orgId}/members?include=usage`)
 
@@ -169,9 +175,6 @@ async function fetchOrganizationMembers(orgId: string) {
   return response.json()
 }
 
-/**
- * Hook to fetch organization members with usage data
- */
 export function useOrganizationMembers(orgId: string) {
   return useQuery({
     queryKey: organizationKeys.memberUsage(orgId),
@@ -190,291 +193,31 @@ interface UpdateOrganizationUsageLimitParams {
   limit: number
 }
 
-export function useUpdateOrganizationUsageLimit() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ organizationId, limit }: UpdateOrganizationUsageLimitParams) => {
-      const response = await fetch('/api/usage', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context: 'organization', organizationId, limit }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || error.message || 'Failed to update usage limit')
-      }
-
-      return response.json()
-    },
-    onMutate: async ({ organizationId, limit }) => {
-      await queryClient.cancelQueries({ queryKey: organizationKeys.billing(organizationId) })
-
-      const previousBillingData = queryClient.getQueryData(organizationKeys.billing(organizationId))
-
-      queryClient.setQueryData(organizationKeys.billing(organizationId), (old: any) => {
-        if (!old) return old
-        const currentUsage = old.data?.currentUsage || old.data?.usage?.current || 0
-        const newPercentUsed = limit > 0 ? (currentUsage / limit) * 100 : 0
-
-        return {
-          ...old,
-          data: {
-            ...old.data,
-            totalUsageLimit: limit,
-            usage: {
-              ...old.data?.usage,
-              limit,
-              percentUsed: newPercentUsed,
-            },
-            percentUsed: newPercentUsed,
-          },
-        }
-      })
-
-      return { previousBillingData, organizationId }
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousBillingData && context?.organizationId) {
-        queryClient.setQueryData(
-          organizationKeys.billing(context.organizationId),
-          context.previousBillingData
-        )
-      }
-    },
-    onSettled: (_data, _error, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: organizationKeys.billing(variables.organizationId),
-      })
-    },
-  })
-}
-
-/**
- * Invite member mutation
- */
 interface InviteMemberParams {
   email: string
   workspaceInvitations?: Array<{ workspaceId: string; permission: 'admin' | 'write' | 'read' }>
   orgId: string
 }
 
-export function useInviteMember() {
-  const queryClient = useQueryClient()
-  const locale = useLocale() as LocaleCode
-
-  return useMutation({
-    mutationFn: async ({ email, workspaceInvitations, orgId }: InviteMemberParams) => {
-      const response = await fetch(`/api/organizations/${orgId}/invitations?batch=true`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          emails: [email],
-          workspaceInvitations,
-          locale,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || error.message || 'Failed to invite member')
-      }
-
-      return response.json()
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.billing(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.memberUsage(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
-    },
-  })
-}
-
-/**
- * Remove member mutation
- */
 interface RemoveMemberParams {
   memberId: string
   orgId: string
   shouldReduceSeats?: boolean
 }
 
-export function useRemoveMember() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ memberId, orgId, shouldReduceSeats }: RemoveMemberParams) => {
-      const response = await fetch(
-        `/api/organizations/${orgId}/members/${memberId}?shouldReduceSeats=${shouldReduceSeats}`,
-        {
-          method: 'DELETE',
-        }
-      )
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to remove member')
-      }
-
-      return response.json()
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.billing(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.memberUsage(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
-    },
-  })
-}
-
-/**
- * Cancel invitation mutation
- */
 interface CancelInvitationParams {
   invitationId: string
   orgId: string
 }
 
-export function useCancelInvitation() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ invitationId, orgId }: CancelInvitationParams) => {
-      const response = await fetch(
-        `/api/organizations/${orgId}/invitations?invitationId=${invitationId}`,
-        {
-          method: 'DELETE',
-        }
-      )
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to cancel invitation')
-      }
-
-      return response.json()
-    },
-    onSuccess: (_data, variables) => {
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
-    },
-  })
-}
-
-/**
- * Update seats mutation (handles both add and reduce)
- */
 interface UpdateSeatsParams {
   orgId: string
   seats: number
 }
 
-export function useUpdateSeats() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ seats, orgId }: UpdateSeatsParams) => {
-      const response = await fetch(`/api/organizations/${orgId}/seats`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seats }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to update seats')
-      }
-
-      return response.json()
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.billing(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
-    },
-  })
-}
-
-/**
- * Update organization settings mutation
- */
-interface UpdateOrganizationParams {
-  orgId: string
-  name?: string
-  slug?: string
-  logo?: string | null
-}
-
-export function useUpdateOrganization() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ orgId, ...updates }: UpdateOrganizationParams) => {
-      const response = await fetch(`/api/organizations/${orgId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to update organization')
-      }
-
-      return response.json()
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
-    },
-  })
-}
-
-/**
- * Create organization mutation
- */
 interface CreateOrganizationParams {
   name: string
   slug?: string
-}
-
-export function useCreateOrganization() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ name, slug }: CreateOrganizationParams) => {
-      const response = await fetch('/api/organizations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new Error(error.error || error.message || 'Failed to create organization')
-      }
-
-      const data = await response.json()
-      if (!data.organizationId) {
-        throw new Error('Failed to create organization')
-      }
-
-      await client.organization.setActive({
-        organizationId: data.organizationId,
-      })
-
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.all })
-    },
-  })
 }
 
 interface AssignWorkspaceToOrganizationParams {
@@ -482,90 +225,285 @@ interface AssignWorkspaceToOrganizationParams {
   workspaceId: string
 }
 
-export function useAssignWorkspaceToOrganization() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ organizationId, workspaceId }: AssignWorkspaceToOrganizationParams) => {
-      const response = await fetch(`/api/organizations/${organizationId}/workspaces`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspaceId }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        logger.error('Failed to assign workspace billing owner to organization', {
-          organizationId,
-          workspaceId,
-          status: response.status,
-          error,
-        })
-        throw new Error(error.error || error.message || 'Failed to assign workspace billing owner')
-      }
-
-      return response.json()
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: organizationKeys.workspaces(variables.organizationId),
-      })
-      queryClient.invalidateQueries({
-        queryKey: organizationKeys.availableWorkspaces(variables.organizationId),
-      })
-      queryClient.invalidateQueries({ queryKey: workspaceKeys.settings(variables.workspaceId) })
-      queryClient.invalidateQueries({ queryKey: workspaceKeys.adminLists() })
-      queryClient.invalidateQueries({
-        queryKey: organizationKeys.billing(variables.organizationId),
-      })
-    },
-  })
-}
-
 interface ReleaseWorkspaceFromOrganizationParams {
   organizationId: string
   workspaceId: string
 }
 
-export function useReleaseWorkspaceFromOrganization() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ organizationId, workspaceId }: ReleaseWorkspaceFromOrganizationParams) => {
-      const response = await fetch(
-        `/api/organizations/${organizationId}/workspaces?workspaceId=${encodeURIComponent(workspaceId)}`,
-        {
-          method: 'DELETE',
-        }
-      )
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        logger.error('Failed to release workspace billing owner from organization', {
-          organizationId,
-          workspaceId,
-          status: response.status,
-          error,
+export const organizationMutationOptions = {
+  updateUsageLimit(queryClient: QueryClient) {
+    return mutationOptions({
+      mutationFn: async ({ organizationId, limit }: UpdateOrganizationUsageLimitParams) => {
+        const response = await fetch('/api/usage', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ context: 'organization', organizationId, limit }),
         })
-        throw new Error(
-          error.error || error.message || 'Failed to release workspace billing ownership'
-        )
-      }
 
-      return response.json()
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: organizationKeys.workspaces(variables.organizationId),
-      })
-      queryClient.invalidateQueries({
-        queryKey: organizationKeys.availableWorkspaces(variables.organizationId),
-      })
-      queryClient.invalidateQueries({ queryKey: workspaceKeys.settings(variables.workspaceId) })
-      queryClient.invalidateQueries({ queryKey: workspaceKeys.adminLists() })
-      queryClient.invalidateQueries({
-        queryKey: organizationKeys.billing(variables.organizationId),
-      })
-    },
-  })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || error.message || 'Failed to update usage limit')
+        }
+
+        return response.json()
+      },
+      onMutate: async ({ organizationId, limit }) => {
+        await queryClient.cancelQueries({ queryKey: organizationKeys.billing(organizationId) })
+
+        const previousBillingData = queryClient.getQueryData(
+          organizationKeys.billing(organizationId)
+        )
+
+        queryClient.setQueryData(organizationKeys.billing(organizationId), (old: any) => {
+          if (!old) return old
+          const currentUsage = old.data?.currentUsage || old.data?.usage?.current || 0
+          const newPercentUsed = limit > 0 ? (currentUsage / limit) * 100 : 0
+
+          return {
+            ...old,
+            data: {
+              ...old.data,
+              totalUsageLimit: limit,
+              usage: {
+                ...old.data?.usage,
+                limit,
+                percentUsed: newPercentUsed,
+              },
+              percentUsed: newPercentUsed,
+            },
+          }
+        })
+
+        return { previousBillingData, organizationId }
+      },
+      onError: (_err, _variables, context) => {
+        if (context?.previousBillingData && context?.organizationId) {
+          queryClient.setQueryData(
+            organizationKeys.billing(context.organizationId),
+            context.previousBillingData
+          )
+        }
+      },
+      onSettled: (_data, _error, variables) =>
+        queryClient.invalidateQueries({
+          queryKey: organizationKeys.billing(variables.organizationId),
+        }),
+    })
+  },
+
+  inviteMember(queryClient: QueryClient, locale: LocaleCode) {
+    return mutationOptions({
+      mutationFn: async ({ email, workspaceInvitations, orgId }: InviteMemberParams) => {
+        const response = await fetch(`/api/organizations/${orgId}/invitations?batch=true`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            emails: [email],
+            workspaceInvitations,
+            locale,
+          }),
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || error.message || 'Failed to invite member')
+        }
+
+        return response.json()
+      },
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
+        queryClient.invalidateQueries({ queryKey: organizationKeys.billing(variables.orgId) })
+        queryClient.invalidateQueries({ queryKey: organizationKeys.memberUsage(variables.orgId) })
+        queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
+      },
+    })
+  },
+
+  removeMember(queryClient: QueryClient) {
+    return mutationOptions({
+      mutationFn: async ({ memberId, orgId, shouldReduceSeats }: RemoveMemberParams) => {
+        const response = await fetch(
+          `/api/organizations/${orgId}/members/${memberId}?shouldReduceSeats=${shouldReduceSeats}`,
+          {
+            method: 'DELETE',
+          }
+        )
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.message || 'Failed to remove member')
+        }
+
+        return response.json()
+      },
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
+        queryClient.invalidateQueries({ queryKey: organizationKeys.billing(variables.orgId) })
+        queryClient.invalidateQueries({ queryKey: organizationKeys.memberUsage(variables.orgId) })
+        queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
+      },
+    })
+  },
+
+  cancelInvitation(queryClient: QueryClient) {
+    return mutationOptions({
+      mutationFn: async ({ invitationId, orgId }: CancelInvitationParams) => {
+        const response = await fetch(
+          `/api/organizations/${orgId}/invitations?invitationId=${invitationId}`,
+          {
+            method: 'DELETE',
+          }
+        )
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.message || 'Failed to cancel invitation')
+        }
+
+        return response.json()
+      },
+      onSuccess: (_data, variables) => {
+        // Invalidate related queries
+        queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
+        queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
+      },
+    })
+  },
+
+  updateSeats(queryClient: QueryClient) {
+    return mutationOptions({
+      mutationFn: async ({ seats, orgId }: UpdateSeatsParams) => {
+        const response = await fetch(`/api/organizations/${orgId}/seats`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seats }),
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to update seats')
+        }
+
+        return response.json()
+      },
+      onSuccess: (_data, variables) => {
+        queryClient.invalidateQueries({ queryKey: organizationKeys.detail(variables.orgId) })
+        queryClient.invalidateQueries({ queryKey: organizationKeys.billing(variables.orgId) })
+        queryClient.invalidateQueries({ queryKey: organizationKeys.lists() })
+      },
+    })
+  },
+
+  createOrganization(queryClient: QueryClient) {
+    return mutationOptions({
+      mutationFn: async ({ name, slug }: CreateOrganizationParams) => {
+        const result = await client.organization.create({
+          name,
+          slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
+        })
+
+        if (result.error) {
+          throw new Error(result.error.message || 'Failed to create organization')
+        }
+
+        if (!result.data?.id) {
+          throw new Error('Failed to create organization')
+        }
+
+        await client.organization.setActive({
+          organizationId: result.data.id,
+        })
+
+        return { success: true, organizationId: result.data.id }
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: organizationKeys.all })
+      },
+    })
+  },
+
+  assignWorkspace(queryClient: QueryClient) {
+    return mutationOptions({
+      mutationFn: async ({ organizationId, workspaceId }: AssignWorkspaceToOrganizationParams) => {
+        const response = await fetch(`/api/organizations/${organizationId}/workspaces`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspaceId }),
+        })
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}))
+          logger.error('Failed to assign workspace billing owner to organization', {
+            organizationId,
+            workspaceId,
+            status: response.status,
+            error,
+          })
+          throw new Error(
+            error.error || error.message || 'Failed to assign workspace billing owner'
+          )
+        }
+
+        return response.json()
+      },
+      onSuccess: (_data, variables) =>
+        Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: organizationKeys.workspaces(variables.organizationId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: workspaceKeys.settings(variables.workspaceId),
+          }),
+          queryClient.invalidateQueries({ queryKey: workspaceKeys.adminLists() }),
+          queryClient.invalidateQueries({
+            queryKey: organizationKeys.billing(variables.organizationId),
+          }),
+        ]),
+    })
+  },
+
+  releaseWorkspace(queryClient: QueryClient) {
+    return mutationOptions({
+      mutationFn: async ({
+        organizationId,
+        workspaceId,
+      }: ReleaseWorkspaceFromOrganizationParams) => {
+        const response = await fetch(
+          `/api/organizations/${organizationId}/workspaces?workspaceId=${encodeURIComponent(workspaceId)}`,
+          {
+            method: 'DELETE',
+          }
+        )
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}))
+          logger.error('Failed to release workspace billing owner from organization', {
+            organizationId,
+            workspaceId,
+            status: response.status,
+            error,
+          })
+          throw new Error(
+            error.error || error.message || 'Failed to release workspace billing ownership'
+          )
+        }
+
+        return response.json()
+      },
+      onSuccess: (_data, variables) =>
+        Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: organizationKeys.workspaces(variables.organizationId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: workspaceKeys.settings(variables.workspaceId),
+          }),
+          queryClient.invalidateQueries({ queryKey: workspaceKeys.adminLists() }),
+          queryClient.invalidateQueries({
+            queryKey: organizationKeys.billing(variables.organizationId),
+          }),
+        ]),
+    })
+  },
 }

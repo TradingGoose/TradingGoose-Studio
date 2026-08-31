@@ -1,8 +1,11 @@
 'use client'
 
-import { Fragment, memo, type ReactNode, useCallback, useRef } from 'react'
+import { Fragment, memo, type ReactNode, useCallback } from 'react'
+import { useMessages } from 'next-intl'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { useHorizontalWheelScrollRef } from '@/components/widget-header-control'
 import type { PairColor } from '@/widgets/pair-colors'
 import { getWidgetDefinition } from '@/widgets/registry'
 import type { WidgetComponentProps, WidgetHeaderSlots, WidgetRuntimeContext } from '@/widgets/types'
@@ -39,6 +42,8 @@ function WidgetSurfaceComponent({
   onWidgetParamsPatch,
   onWidgetLinkedParamsPatch,
 }: WidgetSurfaceProps) {
+  const copy = useMessages().workspace.widgets.surface
+  const headerScrollRef = useHorizontalWheelScrollRef<HTMLDivElement>()
   const renderState = useDashboardWidgetRenderState()
   const renderWidget = renderState.renderWidget
   const widgetKey = renderState.widgetKey ?? 'empty'
@@ -64,17 +69,6 @@ function WidgetSurfaceComponent({
   const registryHeader = renderState.isEffectiveParamsReady
     ? (definition?.renderHeader?.(headerContext) ?? emptyDefinition?.renderHeader?.(headerContext))
     : undefined
-  const headerScrollRef = useRef<HTMLDivElement>(null)
-
-  const handleHorizontalWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    if (!headerScrollRef.current) return
-    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
-      return
-    }
-    event.preventDefault()
-    headerScrollRef.current.scrollLeft += event.deltaY
-  }, [])
-
   const handleWidgetSelect = useCallback(
     (key: string) => {
       if (!onWidgetChange) return
@@ -104,7 +98,6 @@ function WidgetSurfaceComponent({
         <header className='border-border/80 border-b bg-muted/40 text-accent-foreground'>
           <div
             ref={headerScrollRef}
-            onWheel={handleHorizontalWheel}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             aria-label='Widget header'
           >
@@ -141,13 +134,35 @@ function WidgetSurfaceComponent({
         </header>
 
         <div className='flex flex-1 flex-col overflow-hidden'>
-          {renderState.error ? (
-            <div className='flex h-full items-center justify-center px-4 text-center text-destructive text-sm'>
-              {renderState.error}
+          {renderState.loadFailure ? (
+            <div className='flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm'>
+              <p className='text-destructive' role='alert' aria-atomic='true'>
+                {renderState.loadFailure === 'pair'
+                  ? copy.failedToLoadPairSettings
+                  : copy.failedToLoadWidget}
+              </p>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={renderState.retry}
+                disabled={renderState.isRetrying}
+                focusableWhenDisabled={renderState.isRetrying}
+                aria-busy={renderState.isRetrying || undefined}
+              >
+                {renderState.isRetrying ? copy.retrying : copy.retry}
+              </Button>
             </div>
           ) : !renderState.isEffectiveParamsReady ? (
-            <div className='flex h-full items-center justify-center'>
+            <div
+              className='flex h-full items-center justify-center'
+              role='status'
+              aria-live='polite'
+              aria-atomic='true'
+              aria-busy='true'
+            >
               <LoadingAgent size='md' />
+              <span className='sr-only'>{copy.loadingWidget}</span>
             </div>
           ) : WidgetComponent ? (
             <RenderWidgetComponent

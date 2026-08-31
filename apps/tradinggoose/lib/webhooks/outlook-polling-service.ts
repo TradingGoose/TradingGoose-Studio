@@ -7,6 +7,7 @@ import { getOAuthAccessTokenForStoredCredential } from '@/lib/credentials/oauth'
 import { pollingIdempotency } from '@/lib/idempotency'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { getWebhookRevision, WebhookRevisionConflictError } from '@/lib/webhooks/webhook-helpers'
 
 const logger = createLogger('OutlookPollingService')
 
@@ -169,7 +170,7 @@ export async function pollOutlookWebhooks() {
 
         if (!emails || !emails.length) {
           // Update last checked timestamp
-          await updateWebhookLastChecked(webhookId, now.toISOString())
+          await updateWebhookLastChecked(webhookData, now.toISOString())
           logger.info(`[${requestId}] No new emails found for webhook ${webhookId}`)
           return { success: true, webhookId, status: 'no_emails' }
         }
@@ -188,7 +189,7 @@ export async function pollOutlookWebhooks() {
         )
 
         // Update webhook with latest timestamp
-        await updateWebhookLastChecked(webhookId, now.toISOString())
+        await updateWebhookLastChecked(webhookData, now.toISOString())
 
         return {
           success: true,
@@ -197,9 +198,9 @@ export async function pollOutlookWebhooks() {
           emailsProcessed: processed,
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const outlookWebhookFailureDetail = error instanceof Error ? error.message : 'Unknown error'
         logger.error(`[${requestId}] Error processing Outlook webhook ${webhookId}:`, error)
-        return { success: false, webhookId, error: errorMessage }
+        return { success: false, webhookId, error: outlookWebhookFailureDetail }
       }
     }
 
@@ -300,8 +301,8 @@ async function fetchNewOutlookEmails(
 
     return { emails: filteredEmails }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    logger.error(`[${requestId}] Error fetching new Outlook emails:`, errorMessage)
+    const outlookFetchFailureDetail = error instanceof Error ? error.message : 'Unknown error'
+    logger.error(`[${requestId}] Error fetching new Outlook emails:`, outlookFetchFailureDetail)
     return { emails: [] }
   }
 }
@@ -533,34 +534,25 @@ async function markOutlookEmailAsRead(accessToken: string, messageId: string) {
   }
 }
 
-async function updateWebhookLastChecked(webhookId: string, timestamp: string) {
-  try {
-    // Get current config first
-    const currentWebhook = await db
-      .select({ providerConfig: webhook.providerConfig })
-      .from(webhook)
-      .where(eq(webhook.id, webhookId))
-      .limit(1)
-
-    if (!currentWebhook.length) {
-      logger.error(`Webhook ${webhookId} not found`)
-      return
-    }
-
-    const currentConfig = (currentWebhook[0].providerConfig as any) || {}
-    const updatedConfig = {
-      ...currentConfig, // Preserve ALL existing config including userId
-      lastCheckedTimestamp: timestamp,
-    }
-
-    await db
-      .update(webhook)
-      .set({
-        providerConfig: updatedConfig,
-        updatedAt: new Date(),
-      })
-      .where(eq(webhook.id, webhookId))
-  } catch (error) {
-    logger.error(`Error updating webhook ${webhookId} last checked timestamp:`, error)
-  }
+async function updateWebhookLastChecked(
+  current: Pick<typeof webhook.$inferSelect, 'id' | 'providerConfig' | 'updatedAt'>,
+  timestamp: string
+) {
+  const revision = getWebhookRevision(
+    current,
+    eq(webhook.provider, 'outlook'),
+    eq(webhook.isActive, true)
+  )
+  const [updated] = await db
+    .update(webhook)
+    .set({
+      providerConfig: {
+        ...((current.providerConfig as Record<string, unknown>) || {}),
+        lastCheckedTimestamp: timestamp,
+      },
+      updatedAt: revision.updatedAt,
+    })
+    .where(revision.where)
+    .returning({ id: webhook.id })
+  if (!updated) throw new WebhookRevisionConflictError()
 }

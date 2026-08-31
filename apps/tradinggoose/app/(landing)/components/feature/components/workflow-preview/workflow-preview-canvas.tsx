@@ -1,21 +1,21 @@
 'use client'
 
 import { useCallback, useMemo } from 'react'
-import { Minus, Plus } from 'lucide-react'
 import {
   Background,
   ConnectionLineType,
-  ReactFlow,
   type EdgeTypes,
   type NodeTypes,
+  ReactFlow,
   ReactFlowProvider,
   useReactFlow,
   useStore,
 } from '@xyflow/react'
+import { Minus, Plus } from 'lucide-react'
 import '@xyflow/react/dist/style.css'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useMessages } from 'next-intl'
 import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
 import { PreviewNode } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-node'
 import type { PreviewPayloadAdapterResult } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter'
@@ -142,7 +142,11 @@ export function WorkflowPreviewCanvas({
 }: WorkflowPreviewCanvasProps) {
   return (
     <ReactFlowProvider>
-      <WorkflowPreviewFlow key={workflowKey} previewPayload={previewPayload} className={className} />
+      <WorkflowPreviewFlow
+        key={workflowKey}
+        previewPayload={previewPayload}
+        className={className}
+      />
     </ReactFlowProvider>
   )
 }

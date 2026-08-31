@@ -10,26 +10,43 @@ export const getCustomIndicatorConnectionKey = (workspaceId: string, entityId: s
   `${workspaceId}:${entityId}`
 
 type ConnectionChange = (key: string, indicator: IndicatorDocumentRuntimeSource | null) => void
+type ConnectionFailureChange = (
+  key: string,
+  recovery: { retry: () => void; isRetrying: boolean } | null
+) => void
 
 function CustomIndicatorDocumentConnection({
   workspaceId,
   entityId,
   onChange,
+  onFailureChange,
 }: {
   workspaceId: string
   entityId: string
   onChange: ConnectionChange
+  onFailureChange?: ConnectionFailureChange
 }) {
-  const { doc } = useSavedEntityYjsSession('indicator', entityId, workspaceId, null, 'read')
+  const { doc, error, isRetrying, retry } = useSavedEntityYjsSession(
+    'indicator',
+    entityId,
+    workspaceId,
+    null,
+    'read'
+  )
   const [pineCode] = useYjsStringField(doc, 'pineCode')
   const connectionKey = getCustomIndicatorConnectionKey(workspaceId, entityId)
 
   useEffect(
     () => () => {
       onChange(connectionKey, null)
+      onFailureChange?.(connectionKey, null)
     },
-    [connectionKey, onChange]
+    [connectionKey, onChange, onFailureChange]
   )
+
+  useEffect(() => {
+    onFailureChange?.(connectionKey, error ? { retry, isRetrying } : null)
+  }, [connectionKey, error, isRetrying, onFailureChange, retry])
 
   useEffect(() => {
     if (!doc) return
@@ -48,11 +65,13 @@ export function CustomIndicatorDocumentConnections({
   indicatorIds,
   members,
   onChange,
+  onFailureChange,
 }: {
   workspaceId: string | null
   indicatorIds: string[]
   members: EntityListMember[]
   onChange: ConnectionChange
+  onFailureChange?: ConnectionFailureChange
 }) {
   if (!workspaceId) return null
   const selectedIds = new Set(indicatorIds)
@@ -65,6 +84,7 @@ export function CustomIndicatorDocumentConnections({
         workspaceId={workspaceId}
         entityId={member.entityId}
         onChange={onChange}
+        onFailureChange={onFailureChange}
       />
     ))
 }

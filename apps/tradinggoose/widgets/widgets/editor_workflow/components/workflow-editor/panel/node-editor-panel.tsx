@@ -442,7 +442,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
                       handleCancelRename()
                     }
                   }}
-                  className='min-w-0 flex-1 truncate bg-transparent pr-[8px] font-medium text-sm outline-none'
+                  className='min-w-0 flex-1 truncate bg-transparent pr-[8px] font-medium text-sm'
                 />
               ) : (
                 <h3
@@ -480,15 +480,18 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
         {isSubflow ? (
           <div className='space-y-4'>
             <div className='space-y-1'>
-              <Label className='font-medium text-muted-foreground text-xs'>
+              <Label htmlFor='subflow-type' className='font-medium text-muted-foreground text-xs'>
                 {selectedBlock.type === 'loop' ? 'Loop Type' : 'Parallel Type'}
               </Label>
               <Select
-                value={subflowCurrentType || undefined}
-                onValueChange={handleSubflowTypeChange}
+                value={subflowCurrentType ?? null}
+                items={selectedBlock.type === 'loop' ? LOOP_TYPE_OPTIONS : PARALLEL_TYPE_OPTIONS}
+                onValueChange={(value) => {
+                  if (value !== null) handleSubflowTypeChange(value)
+                }}
                 disabled={shouldDisableWrite}
               >
-                <SelectTrigger>
+                <SelectTrigger id='subflow-type'>
                   <SelectValue placeholder='Select type' />
                 </SelectTrigger>
                 <SelectContent>

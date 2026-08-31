@@ -1,39 +1,30 @@
-import { createLogger } from '@/lib/logs/console/logger'
+import type { ListingIdentity } from '@/lib/listing/identity'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
-import {
-  toListingValueObject,
-  type ListingInputValue,
-} from '@/lib/listing/identity'
+import { createLogger } from '@/lib/logs/console/logger'
 import { MarketProviderError } from '@/providers/market/errors'
 import type { AssetClass } from '@/providers/market/types'
-import type { ListingContext, MarketProviderConfig, MarketSymbolRule, RuleScopeKey } from './providers'
+import type {
+  ListingContext,
+  MarketProviderConfig,
+  MarketSymbolRule,
+  RuleScopeKey,
+} from './providers'
 
 const logger = createLogger('MarketProviderUtils')
 
-export async function resolveListingContext(listing: ListingInputValue): Promise<ListingContext> {
-  const normalizedListing = toListingValueObject(listing)
-  if (!normalizedListing) {
-    throw new MarketProviderError({
-      code: 'LISTING RESOLVE FAILED',
-      message: 'listing is required',
-      status: 400,
-    })
-  }
-
+export async function resolveListingContext(listing: ListingIdentity): Promise<ListingContext> {
   let resolved: Awaited<ReturnType<typeof resolveListingIdentity>>
   try {
-    resolved = await resolveListingIdentity(normalizedListing)
+    resolved = await resolveListingIdentity(listing)
   } catch (error) {
     const message =
-      error instanceof Error && error.message
-        ? `${error.message}`
-        : 'Listing resolution failed'
+      error instanceof Error && error.message ? `${error.message}` : 'Listing resolution failed'
     throw new MarketProviderError({
       code: 'LISTING RESOLVE FAILED',
       message,
       status: 502,
       details: {
-        listing: normalizedListing,
+        listing,
       },
     })
   }
@@ -43,19 +34,18 @@ export async function resolveListingContext(listing: ListingInputValue): Promise
       message: 'Listing could not be resolved',
       status: 422,
       details: {
-        listing: normalizedListing,
+        listing,
       },
     })
   }
 
-  const assetClass =
-    (resolved.assetClass ??
-      (normalizedListing.listing_type === 'default'
-        ? undefined
-        : normalizedListing.listing_type)) as AssetClass | undefined
+  const assetClass = (resolved.assetClass ??
+    (listing.listing_type === 'default' ? undefined : listing.listing_type)) as
+    | AssetClass
+    | undefined
 
   return {
-    listing: normalizedListing,
+    listing,
     base: resolved.base,
     quote: resolved.quote ?? undefined,
     assetClass,
@@ -71,9 +61,7 @@ export function resolveProviderSymbol(
   context: ListingContext
 ): string {
   const marketCode = context.marketCode?.trim().toUpperCase()
-  const exchangeCode = marketCode
-    ? config.marketToExchangeCode[marketCode]
-    : undefined
+  const exchangeCode = marketCode ? config.marketToExchangeCode[marketCode] : undefined
   const exchangeSuffix = exchangeCode ? `.${exchangeCode}` : ''
   const enrichedContext: ListingContext = {
     ...context,

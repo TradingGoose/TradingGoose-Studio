@@ -1,8 +1,6 @@
-import { useMutation } from '@tanstack/react-query'
+import { create } from 'zustand'
 import type { IndicatorsImportFile, IndicatorTransferRecord } from '@/lib/indicators/import-export'
-import { createLogger } from '@/lib/logs/console/logger'
 
-const logger = createLogger('IndicatorsQueries')
 const API_ENDPOINT = '/api/indicators/custom'
 
 interface CreateIndicatorParams {
@@ -10,34 +8,22 @@ interface CreateIndicatorParams {
   indicator: IndicatorTransferRecord
 }
 
-export function useCreateIndicator() {
-  return useMutation({
-    mutationFn: async ({ workspaceId, indicator }: CreateIndicatorParams) => {
-      logger.info(`Creating indicator: ${indicator.name} in workspace ${workspaceId}`)
-
-      const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          indicators: [indicator],
-          workspaceId,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create indicator')
-      }
-
-      if (!data.data || !Array.isArray(data.data)) {
-        throw new Error('Invalid API response: missing indicators data')
-      }
-
-      logger.info(`Created indicator: ${indicator.name}`)
-      return data.data
-    },
+export async function createIndicator({ workspaceId, indicator }: CreateIndicatorParams) {
+  const response = await fetch(API_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      indicators: [indicator],
+      workspaceId,
+    }),
   })
+
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.error || 'Failed to create indicator')
+  if (!Array.isArray(data.data)) {
+    throw new Error('Invalid API response: missing indicators data')
+  }
+  return data.data
 }
 
 interface ImportIndicatorsParams {
@@ -45,29 +31,19 @@ interface ImportIndicatorsParams {
   file: IndicatorsImportFile
 }
 
-export function useImportIndicators() {
-  return useMutation({
-    mutationFn: async ({ workspaceId, file }: ImportIndicatorsParams) => {
-      logger.info(`Importing indicators into workspace ${workspaceId}`)
-
-      const response = await fetch(`${API_ENDPOINT}/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workspaceId,
-          file,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to import indicators')
-      }
-
-      return data
-    },
+export async function importIndicators({ workspaceId, file }: ImportIndicatorsParams) {
+  const response = await fetch(`${API_ENDPOINT}/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workspaceId,
+      file,
+    }),
   })
+
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.error || 'Failed to import indicators')
+  return data
 }
 
 interface DeleteIndicatorParams {
@@ -75,25 +51,44 @@ interface DeleteIndicatorParams {
   indicatorId: string
 }
 
-export function useDeleteIndicator() {
-  return useMutation({
-    mutationFn: async ({ workspaceId, indicatorId }: DeleteIndicatorParams) => {
-      logger.info(`Deleting indicator: ${indicatorId}`)
-
-      const url = `${API_ENDPOINT}?id=${indicatorId}&workspaceId=${workspaceId}`
-
-      const response = await fetch(url, {
-        method: 'DELETE',
-      })
-
-      const data = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete indicator')
-      }
-
-      logger.info(`Deleted indicator: ${indicatorId}`)
-      return true
-    },
+export async function deleteIndicator({ workspaceId, indicatorId }: DeleteIndicatorParams) {
+  const response = await fetch(`${API_ENDPOINT}?id=${indicatorId}&workspaceId=${workspaceId}`, {
+    method: 'DELETE',
   })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to delete indicator')
+  }
 }
+
+export type IndicatorWrite =
+  | { kind: 'create' | 'import'; workspaceId: string; ownerId: string }
+  | {
+      kind: 'copy' | 'rename' | 'delete'
+      workspaceId: string
+      ownerId: string
+      indicatorId: string
+    }
+
+interface IndicatorWriteState {
+  activeWrite: IndicatorWrite | null
+  failedWrite: IndicatorWrite | null
+  runWrite: (write: IndicatorWrite, effect: () => Promise<void>) => Promise<boolean>
+}
+
+export const useIndicatorWriteStore = create<IndicatorWriteState>((set, get) => ({
+  activeWrite: null,
+  failedWrite: null,
+  runWrite: async (write, effect) => {
+    if (get().activeWrite) return false
+    set({ activeWrite: write, failedWrite: null })
+    try {
+      await effect()
+      set({ activeWrite: null })
+      return true
+    } catch {
+      set({ activeWrite: null, failedWrite: write })
+      return false
+    }
+  },
+}))

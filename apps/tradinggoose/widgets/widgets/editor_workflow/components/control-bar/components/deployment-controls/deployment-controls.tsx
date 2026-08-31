@@ -89,37 +89,39 @@ export function DeploymentControls({
   return (
     <>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <div className='relative'>
-            <Button
-              variant='outline'
-              onClick={handleDeployClick}
-              disabled={isDisabled}
-              className={cn(
-                buttonBaseClass,
-                'hover:border-primary hover:bg-primary hover:text-black',
-                'transition-all duration-200',
-                isDeployed && !isPreviousVersionActive && 'text-primary-hover',
-                isPreviousVersionActive && 'border-primary bg-primary-hover/5 text-primary',
-                isDisabled &&
-                  'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
-              )}
-            >
-              <Rocket className='h-5 w-5' />
-              <span className='sr-only'>{copy.deployApi}</span>
-            </Button>
+        <TooltipTrigger
+          render={
+            <div className='relative'>
+              <Button
+                variant='outline'
+                onClick={handleDeployClick}
+                disabled={isDisabled}
+                className={cn(
+                  buttonBaseClass,
+                  'hover:border-primary hover:bg-primary hover:text-black',
+                  'transition-all duration-200',
+                  isDeployed && !isPreviousVersionActive && 'text-primary-hover',
+                  isPreviousVersionActive && 'border-primary bg-primary-hover/5 text-primary',
+                  isDisabled &&
+                    'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
+                )}
+              >
+                <Rocket className='h-5 w-5' />
+                <span className='sr-only'>{copy.deployApi}</span>
+              </Button>
 
-            {isDeployed && workflowNeedsRedeployment && (
-              <div className='pointer-events-none absolute right-1 bottom-1 flex items-center justify-center'>
-                <div className='relative'>
-                  <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
-                  <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />
+              {isDeployed && workflowNeedsRedeployment && (
+                <div className='pointer-events-none absolute right-1 bottom-1 flex items-center justify-center'>
+                  <div className='relative'>
+                    <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
+                    <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />
+                  </div>
+                  <span className='sr-only'>{copy.needsRedeployment}</span>
                 </div>
-                <span className='sr-only'>{copy.needsRedeployment}</span>
-              </div>
-            )}
-          </div>
-        </TooltipTrigger>
+              )}
+            </div>
+          }
+        />
         <TooltipContent>{getTooltipText()}</TooltipContent>
       </Tooltip>
 

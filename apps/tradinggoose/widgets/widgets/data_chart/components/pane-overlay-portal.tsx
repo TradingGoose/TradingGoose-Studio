@@ -65,7 +65,7 @@ export const PaneOverlayPortal = ({
   if (!container) return null
 
   return createPortal(
-    <div className='relative h-full w-full pointer-events-none'>{children}</div>,
+    <div className='pointer-events-none relative h-full w-full'>{children}</div>,
     container
   )
 }

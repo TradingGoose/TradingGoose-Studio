@@ -20,7 +20,6 @@ import {
 } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { useRouter } from '@/i18n/navigation'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -35,7 +34,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { SearchHighlight } from '@/components/ui/search-highlight'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { formatFileSize as formatLocalizedFileSize } from '@/i18n/formatters'
 import type { DocumentSortField, SortOrder } from '@/lib/knowledge/documents/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -52,6 +50,8 @@ import {
 } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useKnowledgeBase, useKnowledgeBaseDocuments } from '@/hooks/use-knowledge'
+import { formatFileSize as formatLocalizedFileSize } from '@/i18n/formatters'
+import { useRouter } from '@/i18n/navigation'
 import type { DocumentData } from '@/stores/knowledge/store'
 
 const logger = createLogger('KnowledgeBase')
@@ -645,23 +645,26 @@ export function KnowledgeBase({
         value={searchQuery}
         onChange={handleSearchChange}
         placeholder={t('header.searchDocumentsPlaceholder')}
-        isLoading={isLoadingDocuments}
+        busy={isLoadingDocuments}
+        busyLabel={t('loading.status')}
         className='flex-1'
       />
 
       <div className='flex items-center gap-2'>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span>
-              <PrimaryButton
-                onClick={handleAddDocuments}
-                disabled={userPermissions.canEdit !== true}
-              >
-                <Plus className='h-3.5 w-3.5' />
-                {t('header.addDocuments')}
-              </PrimaryButton>
-            </span>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <span>
+                <PrimaryButton
+                  onClick={handleAddDocuments}
+                  disabled={userPermissions.canEdit !== true}
+                >
+                  <Plus className='h-3.5 w-3.5' />
+                  {t('header.addDocuments')}
+                </PrimaryButton>
+              </span>
+            }
+          />
           {userPermissions.canEdit !== true && (
             <TooltipContent>Write permission required to add documents</TooltipContent>
           )}
@@ -678,11 +681,11 @@ export function KnowledgeBase({
   // Show error state for knowledge base fetch
   if (error && !knowledgeBase) {
     const errorBreadcrumbs = [
-    {
-      id: 'knowledge-root',
-      label: t('title'),
-      href: `/workspace/${workspaceId}/knowledge`,
-    },
+      {
+        id: 'knowledge-root',
+        label: t('title'),
+        href: `/workspace/${workspaceId}/knowledge`,
+      },
       {
         id: 'error',
         label: 'Error',
@@ -729,7 +732,7 @@ export function KnowledgeBase({
                   onCheckedChange={handleSelectAll}
                   disabled={!userPermissions.canEdit}
                   aria-label='Select all documents'
-                  className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:bg-primary[&>*]:h-3 data-[state=checked]:border-primary [&>*]:w-3'
+                  className='size-6 border-gray-300 focus-visible:ring-primary/20 data-[checked]:border-primary data-[checked]:bg-primary [&>*]:h-3 [&>*]:w-3'
                 />
               </th>
               {renderSortableHeader('filename', 'Name')}
@@ -840,24 +843,24 @@ export function KnowledgeBase({
                     <td className='px-4 py-3'>
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={(checked) =>
-                          handleSelectDocument(doc.id, checked as boolean)
-                        }
+                        onCheckedChange={(checked) => handleSelectDocument(doc.id, checked)}
                         disabled={!userPermissions.canEdit}
                         onClick={(e) => e.stopPropagation()}
                         aria-label={`Select ${doc.filename}`}
-                        className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:bg-primary[&>*]:h-3 data-[state=checked]:border-primary [&>*]:w-3'
+                        className='size-6 border-gray-300 focus-visible:ring-primary/20 data-[checked]:border-primary data-[checked]:bg-primary [&>*]:h-3 [&>*]:w-3'
                       />
                     </td>
                     <td className='px-4 py-3'>
                       <div className='flex items-center gap-2'>
                         {getFileIcon(doc.mimeType, doc.filename)}
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className='block truncate text-sm' title={doc.filename}>
-                              <SearchHighlight text={doc.filename} searchQuery={searchQuery} />
-                            </span>
-                          </TooltipTrigger>
+                          <TooltipTrigger
+                            render={
+                              <span className='block truncate text-sm' title={doc.filename}>
+                                <SearchHighlight text={doc.filename} searchQuery={searchQuery} />
+                              </span>
+                            }
+                          />
                           <TooltipContent side='top'>{doc.filename}</TooltipContent>
                         </Tooltip>
                       </div>
@@ -889,11 +892,13 @@ export function KnowledgeBase({
                     <td className='px-4 py-3'>
                       {doc.processingStatus === 'failed' && doc.processingError ? (
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className={statusDisplay.className} style={{ cursor: 'help' }}>
-                              {statusDisplay.text}
-                            </div>
-                          </TooltipTrigger>
+                          <TooltipTrigger
+                            render={
+                              <div className={statusDisplay.className} style={{ cursor: 'help' }}>
+                                {statusDisplay.text}
+                              </div>
+                            }
+                          />
                           <TooltipContent side='top'>{doc.processingError}</TooltipContent>
                         </Tooltip>
                       ) : (
@@ -904,45 +909,58 @@ export function KnowledgeBase({
                       <div className='flex items-center gap-1'>
                         {doc.processingStatus === 'failed' && (
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant='ghost'
-                                size='sm'
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleRetryDocument(doc.id)
-                                }}
-                                className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700'
-                              >
-                                <RotateCcw className='h-4 w-4' />
-                              </Button>
-                            </TooltipTrigger>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  variant='ghost'
+                                  size='sm'
+                                  aria-label={t('document.retryDocument', {
+                                    name: doc.filename,
+                                  })}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRetryDocument(doc.id)
+                                  }}
+                                  className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700'
+                                >
+                                  <RotateCcw className='h-4 w-4' />
+                                </Button>
+                              }
+                            />
                             <TooltipContent side='top'>Retry processing</TooltipContent>
                           </Tooltip>
                         )}
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant='ghost'
-                              size='sm'
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleToggleEnabled(doc.id)
-                              }}
-                              disabled={
-                                doc.processingStatus === 'processing' ||
-                                doc.processingStatus === 'pending' ||
-                                !userPermissions.canEdit
-                              }
-                              className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700 disabled:opacity-50'
-                            >
-                              {doc.enabled ? (
-                                <Circle className='h-4 w-4' />
-                              ) : (
-                                <CircleOff className='h-4 w-4' />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant='ghost'
+                                size='sm'
+                                aria-label={t(
+                                  doc.enabled
+                                    ? 'document.disableDocument'
+                                    : 'document.enableDocument',
+                                  { name: doc.filename }
+                                )}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleToggleEnabled(doc.id)
+                                }}
+                                disabled={
+                                  doc.processingStatus === 'processing' ||
+                                  doc.processingStatus === 'pending' ||
+                                  !userPermissions.canEdit
+                                }
+                                className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700 disabled:opacity-50'
+                              >
+                                {doc.enabled ? (
+                                  <Circle className='h-4 w-4' />
+                                ) : (
+                                  <CircleOff className='h-4 w-4' />
+                                )}
+                              </Button>
+                            }
+                          />
                           <TooltipContent side='top'>
                             {doc.processingStatus === 'processing' ||
                             doc.processingStatus === 'pending'
@@ -956,39 +974,49 @@ export function KnowledgeBase({
                         </Tooltip>
                         {userPermissions.canEdit && (
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant='ghost'
-                                size='sm'
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  openTagEditor(doc)
-                                }}
-                                className='h-8 w-8 p-0 text-gray-500 hover:text-primary'
-                              >
-                                <Tag className='h-4 w-4' />
-                              </Button>
-                            </TooltipTrigger>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  variant='ghost'
+                                  size='sm'
+                                  aria-label={t('document.manageDocumentTags', {
+                                    name: doc.filename,
+                                  })}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    openTagEditor(doc)
+                                  }}
+                                  className='h-8 w-8 p-0 text-gray-500 hover:text-primary'
+                                >
+                                  <Tag className='h-4 w-4' />
+                                </Button>
+                              }
+                            />
                             <TooltipContent side='top'>Manage Tags</TooltipContent>
                           </Tooltip>
                         )}
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant='ghost'
-                              size='sm'
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteDocument(doc.id)
-                              }}
-                              disabled={
-                                doc.processingStatus === 'processing' || !userPermissions.canEdit
-                              }
-                              className='h-8 w-8 p-0 text-gray-500 hover:text-red-600 disabled:opacity-50'
-                            >
-                              <Trash2 className='h-4 w-4' />
-                            </Button>
-                          </TooltipTrigger>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant='ghost'
+                                size='sm'
+                                aria-label={t('document.deleteDocument', {
+                                  name: doc.filename,
+                                })}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteDocument(doc.id)
+                                }}
+                                disabled={
+                                  doc.processingStatus === 'processing' || !userPermissions.canEdit
+                                }
+                                className='h-8 w-8 p-0 text-gray-500 hover:text-red-600 disabled:opacity-50'
+                              >
+                                <Trash2 className='h-4 w-4' />
+                              </Button>
+                            }
+                          />
                           <TooltipContent side='top'>
                             {doc.processingStatus === 'processing'
                               ? 'Cannot delete while processing'
@@ -1013,6 +1041,7 @@ export function KnowledgeBase({
             <Button
               variant='ghost'
               size='sm'
+              aria-label={t('document.previousPage')}
               onClick={prevPage}
               disabled={!hasPrevPage || isLoadingDocuments}
               className='h-8 w-8 p-0'
@@ -1051,6 +1080,7 @@ export function KnowledgeBase({
             <Button
               variant='ghost'
               size='sm'
+              aria-label={t('document.nextPage')}
               onClick={nextPage}
               disabled={!hasNextPage || isLoadingDocuments}
               className='h-8 w-8 p-0'
@@ -1071,7 +1101,12 @@ export function KnowledgeBase({
     <div className='flex h-full min-h-0 flex-col rounded-lg border border-border bg-card shadow-sm'>
       <div className='flex items-center justify-between border-b px-4 py-3'>
         <div className='font-medium text-sm'>Manage Tags — {tagEditorDocument.filename}</div>
-        <Button variant='ghost' size='sm' onClick={() => handleTagEditorOpenChange(false)}>
+        <Button
+          variant='ghost'
+          size='sm'
+          aria-label={t('document.closeTags')}
+          onClick={() => handleTagEditorOpenChange(false)}
+        >
           <X className='h-4 w-4' />
         </Button>
       </div>
@@ -1151,18 +1186,17 @@ export function KnowledgeBase({
         onDelete={handleBulkDelete}
         enabledCount={enabledCount}
         disabledCount={disabledCount}
-        isLoading={isBulkOperating || isDeletingDocuments}
+        busy={isBulkOperating || isDeletingDocuments}
       />
 
       <AlertDialog
         open={documentsPendingDelete.length > 0}
-        onOpenChange={(open) => {
-          if (!open && !isDeletingDocuments) {
-            setDocumentsPendingDelete([])
-          }
+        onOpenChange={(open, details) => {
+          if (!open && isDeletingDocuments) return details.cancel()
+          if (!open) setDocumentsPendingDelete([])
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent hideCloseButton={isDeletingDocuments}>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {documentsPendingDelete.length === 1

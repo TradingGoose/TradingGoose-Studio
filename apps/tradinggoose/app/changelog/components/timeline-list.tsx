@@ -1,14 +1,13 @@
 'use client'
 
 import React from 'react'
+import type { Messages } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
-import type { Messages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
-import { type LocaleCode } from '@/i18n/utils'
+import { formatTemplate, type LocaleCode } from '@/i18n/utils'
 import type { ChangelogEntry } from './changelog-content'
 
 type Props = {
@@ -44,6 +43,32 @@ function stripContributors(body: string): string {
 
 function isContributorsLabel(nodeChildren: React.ReactNode): boolean {
   return /^\s*contributors\s*:?\s*$/i.test(String(nodeChildren))
+}
+
+function OmittedMarkdownImage() {
+  return null
+}
+
+function hasAccessibleLinkContent(children: React.ReactNode): boolean {
+  return React.Children.toArray(children).some((child) => {
+    if (typeof child === 'string' || typeof child === 'number') {
+      return String(child).trim().length > 0
+    }
+    if (!React.isValidElement(child) || child.type === OmittedMarkdownImage) {
+      return false
+    }
+
+    const childProps = child.props as {
+      'aria-label'?: string
+      alt?: string
+      children?: React.ReactNode
+    }
+    return (
+      Boolean(childProps['aria-label']?.trim()) ||
+      Boolean(childProps.alt?.trim()) ||
+      hasAccessibleLinkContent(childProps.children)
+    )
+  })
 }
 
 function stripPrReferences(body: string): string {
@@ -108,12 +133,12 @@ export default function ChangelogList({ initialEntries, copy, locale }: Props) {
         <div key={entry.tag} className='relative flex justify-end gap-2'>
           {/* Left: sticky version + date (desktop) */}
           <div className='sticky top-19 flex w-36 flex-col items-end gap-2 self-start pb-4 max-md:hidden'>
-            <Badge className='flex w-auto justify-end rounded-sm text-sm font-medium'>
+            <Badge className='flex w-auto justify-end rounded-sm font-medium text-sm'>
               <a href={entry.url} target='_blank' rel='noopener noreferrer'>
                 {entry.tag}
               </a>
             </Badge>
-            <div className={`${inter.className} text-right text-sm text-muted-foreground`}>
+            <div className={`${inter.className} text-right text-muted-foreground text-sm`}>
               {new Date(entry.date).toLocaleDateString(locale, {
                 year: 'numeric',
                 month: 'short',
@@ -188,7 +213,7 @@ export default function ChangelogList({ initialEntries, copy, locale }: Props) {
                   </div>
                 )}
               </div>
-              <div className={`${inter.className} text-sm text-muted-foreground`}>
+              <div className={`${inter.className} text-muted-foreground text-sm`}>
                 {new Date(entry.date).toLocaleDateString(locale, {
                   year: 'numeric',
                   month: 'short',
@@ -257,15 +282,18 @@ export default function ChangelogList({ initialEntries, copy, locale }: Props) {
                       {children}
                     </code>
                   ),
-                  img: () => null,
-                  a: ({ className, ...props }: any) => (
-                    <a
-                      {...props}
-                      className={`underline ${className ?? ''}`}
-                      target='_blank'
-                      rel='noreferrer'
-                    />
-                  ),
+                  img: OmittedMarkdownImage,
+                  a: ({ children, className, ...props }: any) =>
+                    hasAccessibleLinkContent(children) ? (
+                      <a
+                        {...props}
+                        className={`underline ${className ?? ''}`}
+                        target='_blank'
+                        rel='noreferrer'
+                      >
+                        {children}
+                      </a>
+                    ) : null,
                 }}
               >
                 {cleanMarkdown(entry.content)}

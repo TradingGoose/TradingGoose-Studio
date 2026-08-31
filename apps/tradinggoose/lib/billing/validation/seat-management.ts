@@ -40,10 +40,7 @@ export async function getSeatOccupancy(organizationId: string): Promise<{
   occupied: number
 }> {
   const [memberCount, pendingInvitationCount] = await Promise.all([
-    db
-      .select({ count: count() })
-      .from(member)
-      .where(eq(member.organizationId, organizationId)),
+    db.select({ count: count() }).from(member).where(eq(member.organizationId, organizationId)),
     db
       .select({ count: count() })
       .from(invitation)
@@ -287,7 +284,10 @@ export async function updateOrganizationSeats(
       subscriptionRecord.tier.ownerType !== 'organization' ||
       subscriptionRecord.tier.seatMode !== 'adjustable'
     ) {
-      return { success: false, error: 'Seat changes are only available for adjustable organization tiers' }
+      return {
+        success: false,
+        error: 'Seat changes are only available for adjustable organization tiers',
+      }
     }
 
     const occupiedSeats = await getOccupiedSeatCount(organizationId)

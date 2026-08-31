@@ -6,9 +6,9 @@ import { decryptSecret, encryptSecret } from '@/lib/utils-server'
 import {
   getSystemServiceDefinition,
   getSystemServiceDefinitions,
-  type SystemServiceSettingFieldDefinition,
   isSystemServiceCredentialKey,
   isSystemServiceSettingKey,
+  type SystemServiceSettingFieldDefinition,
 } from './catalog'
 
 const logger = createLogger('SystemServicesService')
@@ -96,7 +96,9 @@ async function resolveSystemServiceCredentials(serviceId: string): Promise<Recor
   const rows = await db
     .select()
     .from(systemServiceValue)
-    .where(and(eq(systemServiceValue.service, serviceId), eq(systemServiceValue.kind, 'credential')))
+    .where(
+      and(eq(systemServiceValue.service, serviceId), eq(systemServiceValue.kind, 'credential'))
+    )
 
   const resolvedEntries = await Promise.all(
     rows.map(async (row) => {
@@ -200,7 +202,9 @@ export async function upsertSystemServiceConfig(input: {
         }
 
         if (credential.hasValue) {
-          const existing = existingRowsByCompositeKey.get(buildCompositeKey('credential', credential.key))
+          const existing = existingRowsByCompositeKey.get(
+            buildCompositeKey('credential', credential.key)
+          )
           if (existing?.value?.trim()) {
             return {
               id: existing.id,
@@ -372,9 +376,7 @@ function normalizeSettingInputValue(
   switch (field.type) {
     case 'boolean': {
       if (value !== 'true' && value !== 'false') {
-        throw new SystemServiceValidationError(
-          `Setting "${field.key}" must be "true" or "false"`
-        )
+        throw new SystemServiceValidationError(`Setting "${field.key}" must be "true" or "false"`)
       }
       return value
     }
@@ -393,7 +395,6 @@ function normalizeSettingInputValue(
         throw new SystemServiceValidationError(`Setting "${field.key}" must be a valid URL`)
       }
     }
-    case 'text':
     default:
       return value
   }
@@ -408,10 +409,8 @@ function parseSettingValue(
       return storedValue === 'true'
     case 'number': {
       const parsed = Number(storedValue)
-      return Number.isFinite(parsed) ? parsed : field.defaultValue ?? 0
+      return Number.isFinite(parsed) ? parsed : (field.defaultValue ?? 0)
     }
-    case 'text':
-    case 'url':
     default:
       return storedValue
   }

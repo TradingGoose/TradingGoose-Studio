@@ -24,19 +24,23 @@ describe('Email Validation', () => {
       expect(result.checks.disposable).toBe(false)
     })
 
-    it.concurrent('should accept legitimate business emails', async () => {
-      const legitimateEmails = [
-        'test@gmail.com',
-        'no-reply@yahoo.com',
-        'user12345@outlook.com',
-        'longusernamehere@gmail.com',
-      ]
+    it.concurrent(
+      'should accept legitimate business emails',
+      async () => {
+        const legitimateEmails = [
+          'test@gmail.com',
+          'no-reply@yahoo.com',
+          'user12345@outlook.com',
+          'longusernamehere@gmail.com',
+        ]
 
-      for (const email of legitimateEmails) {
-        const result = await validateEmail(email)
-        expect(result.isValid).toBe(true)
-      }
-    }, 15_000)
+        for (const email of legitimateEmails) {
+          const result = await validateEmail(email)
+          expect(result.isValid).toBe(true)
+        }
+      },
+      15_000
+    )
 
     it.concurrent('should reject consecutive dots (RFC violation)', async () => {
       const result = await validateEmail('user..name@example.com')

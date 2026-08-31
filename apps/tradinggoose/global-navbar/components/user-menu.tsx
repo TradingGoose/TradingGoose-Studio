@@ -40,14 +40,9 @@ import { signOut } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOrganizationAccessState } from '@/lib/organization/access'
-import { getUserRole } from '@/lib/organization/helpers'
-import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { cn } from '@/lib/utils'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
-import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
-import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { replaceLocaleDocument, usePathname, useRouter } from '@/i18n/navigation'
 import { getLocaleDisplayName, isLocaleCode, type LocaleCode, locales } from '@/i18n/utils'
 import { clearUserData } from '@/stores'
@@ -74,6 +69,9 @@ interface UserMenuProps {
   userAvatarVersion?: number | string | null
   userId?: string | null
   onOpenSettings: (section: SettingsSection) => void
+  billingEnabled: boolean
+  canOpenTeamSettings: boolean
+  canConfigureSso: boolean
   canAccessSystemAdmin?: boolean
   sidebarTrigger?: boolean
 }
@@ -85,6 +83,9 @@ export function UserMenu({
   userAvatarVersion,
   userId,
   onOpenSettings,
+  billingEnabled,
+  canOpenTeamSettings,
+  canConfigureSso,
   canAccessSystemAdmin = false,
   sidebarTrigger = false,
 }: UserMenuProps) {
@@ -108,7 +109,6 @@ export function UserMenu({
   const updateSetting = useGeneralStore((state) => state.updateSetting)
   const isGeneralLoading = useGeneralStore((state) => state.isLoading)
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
-  const { data: organizationsData } = useOrganizations()
   const userMenuCopy = useMemo(
     () => ({
       accountDetail: tUserMenu('accountDetail'),
@@ -121,7 +121,6 @@ export function UserMenu({
       singleSignOn: tUserMenu('singleSignOn'),
       logOut: tUserMenu('logOut'),
       loggingOut: tUserMenu('loggingOut'),
-      billingPortalSelectOrganization: tUserMenu('billingPortalSelectOrganization'),
       billingPortalFailed: tUserMenu('billingPortalFailed'),
       languageLabel: tUserMenu('languageLabel'),
       themeOptions: {
@@ -139,35 +138,6 @@ export function UserMenu({
   const currentThemeLabel = themeOptionLabels[currentThemeOption.value]
   const currentThemeAriaLabel = tUserMenu('themeLabel', { theme: currentThemeLabel })
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
-  const activeOrganization = organizationsData?.activeOrganization
-  const activeOrganizationId = activeOrganization?.id
-  const { data: organizationBillingData } = useOrganizationBilling(activeOrganizationId || '')
-  const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionData()
-  const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
-  const organizationBillingPayload =
-    (organizationBillingData as any)?.data ?? organizationBillingData ?? null
-  const billingEnabled =
-    organizationBillingPayload?.billingEnabled ??
-    billingPayload?.billingEnabled ??
-    organizationsData?.billingData?.data?.billingEnabled ??
-    true
-  const subscription = getSubscriptionStatus(billingPayload)
-  const isOrganizationPlan = subscription.tier.ownerType === 'organization'
-  const userRole = useMemo(
-    () => getUserRole(activeOrganization, userEmail),
-    [activeOrganization, userEmail]
-  )
-  const isOwner = userRole === 'owner'
-  const isAdmin = userRole === 'admin'
-  const organizationAccess = getOrganizationAccessState({
-    billingEnabled,
-    hasOrganization: Boolean(activeOrganizationId),
-    isOrganizationAdmin: isOwner || isAdmin,
-    userTier: billingPayload?.tier,
-    organizationTier: organizationBillingPayload?.subscriptionTier,
-  })
-  const canOpenTeamSettings = organizationAccess.canOpenTeamSettings
-  const canManageSSOSettings = organizationAccess.canConfigureSso
 
   useEffect(() => {
     if (!userId || typeof window === 'undefined') {
@@ -307,23 +277,11 @@ export function UserMenu({
 
   const handleOpenBillingPortal = async () => {
     if (!billingEnabled) return
-    if (isOpeningBillingPortal || isSubscriptionLoading) return
-
-    const context = isOrganizationPlan ? ('organization' as const) : ('user' as const)
-    if (context === 'organization' && !activeOrganizationId) {
-      logger.error('Cannot open billing portal without an active organization', {
-        tier: subscription.tier.displayName,
-      })
-      alert(userMenuCopy.billingPortalSelectOrganization)
-      return
-    }
+    if (isOpeningBillingPortal) return
 
     setIsOpeningBillingPortal(true)
     try {
-      await openBillingPortal({
-        context,
-        organizationId: context === 'organization' ? activeOrganizationId : undefined,
-      })
+      await openBillingPortal()
     } catch (error) {
       logger.error('Failed to open billing portal from user menu', { error })
       alert(error instanceof Error ? error.message : userMenuCopy.billingPortalFailed)
@@ -347,9 +305,9 @@ export function UserMenu({
   const menuContent = (
     <DropdownMenuContent
       className={cn(
-        'max-h-(--radix-dropdown-menu-content-available-height) overflow-y-auto overflow-x-hidden',
+        'max-h-[var(--available-height)] overflow-y-auto overflow-x-hidden',
         sidebarTrigger
-          ? 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 max-w-[calc(100vw-2rem)] rounded-md'
+          ? 'w-[var(--anchor-width)] min-w-56 max-w-[calc(100vw-2rem)] rounded-md'
           : 'w-64 rounded-lg'
       )}
       sideOffset={6}
@@ -357,29 +315,31 @@ export function UserMenu({
       <DropdownMenuGroup>
         <div className='flex items-center gap-1.5 px-2 pt-0.5 pb-1.5'>
           <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                aria-haspopup='menu'
-                aria-label={currentThemeAriaLabel}
-                className={widgetHeaderControlClassName(
-                  'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm'
-                )}
-                disabled={isThemeLoading || isGeneralLoading}
-                title={currentThemeLabel}
-              >
-                <span className='flex min-w-0 items-center gap-1.5'>
-                  <currentThemeOption.Icon
-                    className='h-4 w-4 shrink-0 text-muted-foreground'
-                    aria-hidden='true'
-                  />
-                  <span className='min-w-0 truncate text-left'>{currentThemeLabel}</span>
-                </span>
-                <ChevronDown
-                  className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type='button'
+                  aria-haspopup='menu'
+                  aria-label={currentThemeAriaLabel}
+                  className={widgetHeaderControlClassName(
+                    'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                  )}
+                  disabled={isThemeLoading || isGeneralLoading}
+                  title={currentThemeLabel}
+                />
+              }
+            >
+              <span className='flex min-w-0 items-center gap-1.5'>
+                <currentThemeOption.Icon
+                  className='h-4 w-4 shrink-0 text-muted-foreground'
                   aria-hidden='true'
                 />
-              </button>
+                <span className='min-w-0 truncate text-left'>{currentThemeLabel}</span>
+              </span>
+              <ChevronDown
+                className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[popup-open]:rotate-180'
+                aria-hidden='true'
+              />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               sideOffset={6}
@@ -394,11 +354,8 @@ export function UserMenu({
                     key={value}
                     className={cn(widgetHeaderMenuItemClassName, 'items-center')}
                     disabled={isThemeLoading || isGeneralLoading}
-                    onSelect={(event) => {
-                      if (isActive) {
-                        event.preventDefault()
-                        return
-                      }
+                    closeOnClick={!isActive}
+                    onClick={() => {
                       void handleThemeChange(value)
                     }}
                   >
@@ -414,22 +371,24 @@ export function UserMenu({
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                aria-haspopup='menu'
-                aria-label={`${userMenuCopy.languageLabel}: ${getLocaleDisplayName(locale)}`}
-                className={widgetHeaderControlClassName(
-                  'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm'
-                )}
-                title={getLocaleDisplayName(locale)}
-              >
-                <span className='min-w-0 truncate text-left'>{getLocaleDisplayName(locale)}</span>
-                <ChevronDown
-                  className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
-                  aria-hidden='true'
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type='button'
+                  aria-haspopup='menu'
+                  aria-label={`${userMenuCopy.languageLabel}: ${getLocaleDisplayName(locale)}`}
+                  className={widgetHeaderControlClassName(
+                    'group flex h-7 min-w-0 flex-1 justify-between gap-1.5 rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                  )}
+                  title={getLocaleDisplayName(locale)}
                 />
-              </button>
+              }
+            >
+              <span className='min-w-0 truncate text-left'>{getLocaleDisplayName(locale)}</span>
+              <ChevronDown
+                className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[popup-open]:rotate-180'
+                aria-hidden='true'
+              />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               sideOffset={6}
@@ -442,11 +401,8 @@ export function UserMenu({
                   <DropdownMenuItem
                     key={code}
                     className={cn(widgetHeaderMenuItemClassName, 'items-center')}
-                    onSelect={(event) => {
-                      if (isActive) {
-                        event.preventDefault()
-                        return
-                      }
+                    closeOnClick={!isActive}
+                    onClick={() => {
                       handleLocaleChange(code)
                     }}
                   >
@@ -462,8 +418,8 @@ export function UserMenu({
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuItem
-          onSelect={(event) => {
-            event.preventDefault()
+          closeOnClick={false}
+          onClick={() => {
             onOpenSettings('account')
           }}
         >
@@ -472,8 +428,8 @@ export function UserMenu({
         </DropdownMenuItem>
         {isHosted ? (
           <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault()
+            closeOnClick={false}
+            onClick={() => {
               onOpenSettings('service')
             }}
           >
@@ -487,8 +443,8 @@ export function UserMenu({
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault()
+              closeOnClick={false}
+              onClick={() => {
                 onOpenSettings('subscription')
               }}
             >
@@ -496,9 +452,9 @@ export function UserMenu({
               {userMenuCopy.subscription}
             </DropdownMenuItem>
             <DropdownMenuItem
-              disabled={isOpeningBillingPortal || isSubscriptionLoading}
-              onSelect={(event) => {
-                event.preventDefault()
+              disabled={isOpeningBillingPortal}
+              closeOnClick={false}
+              onClick={() => {
                 void handleOpenBillingPortal()
               }}
             >
@@ -508,14 +464,14 @@ export function UserMenu({
           </DropdownMenuGroup>
         </>
       ) : null}
-      {canOpenTeamSettings || canManageSSOSettings ? (
+      {canOpenTeamSettings || canConfigureSso ? (
         <>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             {canOpenTeamSettings ? (
               <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault()
+                closeOnClick={false}
+                onClick={() => {
                   onOpenSettings('team')
                 }}
               >
@@ -523,10 +479,10 @@ export function UserMenu({
                 {userMenuCopy.teamManagement}
               </DropdownMenuItem>
             ) : null}
-            {canManageSSOSettings ? (
+            {canConfigureSso ? (
               <DropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault()
+                closeOnClick={false}
+                onClick={() => {
                   onOpenSettings('sso')
                 }}
               >
@@ -542,8 +498,8 @@ export function UserMenu({
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault()
+              closeOnClick={false}
+              onClick={() => {
                 router.push('/admin')
               }}
             >
@@ -556,8 +512,8 @@ export function UserMenu({
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuItem
-          onSelect={(event) => {
-            event.preventDefault()
+          closeOnClick={false}
+          onClick={() => {
             setIsHelpModalOpen(true)
           }}
         >
@@ -568,8 +524,8 @@ export function UserMenu({
       <DropdownMenuSeparator />
       <DropdownMenuItem
         disabled={isSigningOut}
-        onSelect={(event) => {
-          event.preventDefault()
+        closeOnClick={false}
+        onClick={() => {
           void handleSignOut()
         }}
         className='text-destructive focus:text-destructive'
@@ -586,32 +542,36 @@ export function UserMenu({
         {sidebarTrigger ? (
           <SidebarMenu>
             <SidebarMenuItem>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  variant='default'
-                  size='lg'
-                  aria-label={triggerLabel}
-                  className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
-                >
-                  {avatar}
-                  <div className='grid flex-1 text-left text-sm leading-tight'>
-                    <span className='truncate font-semibold'>{displayUserName}</span>
-                    <span className='truncate text-xs'>{userEmail}</span>
-                  </div>
-                  <ChevronsUpDown className='ml-auto size-4' />
-                </SidebarMenuButton>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton
+                    variant='default'
+                    size='lg'
+                    aria-label={triggerLabel}
+                    className='data-[popup-open]:bg-sidebar-accent data-[popup-open]:text-sidebar-accent-foreground'
+                  />
+                }
+              >
+                {avatar}
+                <div className='grid flex-1 text-left text-sm leading-tight'>
+                  <span className='truncate font-semibold'>{displayUserName}</span>
+                  <span className='truncate text-xs'>{userEmail}</span>
+                </div>
+                <ChevronsUpDown className='ml-auto size-4' />
               </DropdownMenuTrigger>
             </SidebarMenuItem>
           </SidebarMenu>
         ) : (
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              aria-label={triggerLabel}
-              className='inline-flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-            >
-              {avatar}
-            </button>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type='button'
+                aria-label={triggerLabel}
+                className='inline-flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+              />
+            }
+          >
+            {avatar}
           </DropdownMenuTrigger>
         )}
         {menuContent}

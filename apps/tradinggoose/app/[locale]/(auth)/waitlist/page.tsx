@@ -1,11 +1,11 @@
 import { getLocale } from 'next-intl/server'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
+import { getRegistrationModeForRender } from '@/lib/registration/service'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { WaitlistForm } from '@/app/(auth)/waitlist/waitlist-form'
-import { getRegistrationModeForRender } from '@/lib/registration/service'
 import { Link, redirect } from '@/i18n/navigation'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { type LocaleCode } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,12 +32,12 @@ export default async function WaitlistPage() {
           description={disabledCopy.description}
         />
         <div className='flex items-center justify-center gap-3'>
-          <Button asChild>
-            <Link href='/login'>{commonCopy.backToLogin}</Link>
-          </Button>
-          <Button variant='outline' asChild>
-            <Link href='/'>{commonCopy.returnHome}</Link>
-          </Button>
+          <Link href='/login' className={buttonVariants()}>
+            {commonCopy.backToLogin}
+          </Link>
+          <Link href='/' className={buttonVariants({ variant: 'outline' })}>
+            {commonCopy.returnHome}
+          </Link>
         </div>
       </div>
     )

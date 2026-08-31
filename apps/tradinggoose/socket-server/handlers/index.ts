@@ -13,8 +13,4 @@ export function setupAllHandlers(socket: AuthenticatedSocket) {
   setupTradingPortfolioHandlers(socket)
 }
 
-export {
-  setupConnectionHandlers,
-  setupMarketHandlers,
-  setupTradingPortfolioHandlers,
-}
+export { setupConnectionHandlers, setupMarketHandlers, setupTradingPortfolioHandlers }

@@ -3,8 +3,8 @@
  */
 import { NextResponse } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockRequest, setupCommonApiMocks } from '@/app/api/__test-utils__/utils'
 import { EDIT_REPLAY_BLOCKED_MESSAGE } from '@/lib/copilot/chat-replay-safety'
+import { createMockRequest, setupCommonApiMocks } from '@/app/api/__test-utils__/utils'
 
 describe('Copilot Chat Update Messages', () => {
   const mockAuthenticate = vi.fn()

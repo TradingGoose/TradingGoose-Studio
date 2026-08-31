@@ -2,7 +2,6 @@
  * Utility functions for generating names for all entities (workspaces, folders, workflows)
  */
 
-import type { WorkflowFolder } from '@/stores/folders/store'
 import type { Workspace } from '@/stores/organization/types'
 
 export interface NameableEntity {
@@ -11,10 +10,6 @@ export interface NameableEntity {
 
 interface WorkspacesApiResponse {
   workspaces: Workspace[]
-}
-
-interface FoldersApiResponse {
-  folders: WorkflowFolder[]
 }
 
 const ADJECTIVES = [
@@ -203,37 +198,6 @@ export async function generateWorkspaceName(): Promise<string> {
   const workspaces = data.workspaces || []
 
   return generateIncrementalName(workspaces, 'Workspace')
-}
-
-/**
- * Generates the next folder name for a workspace
- */
-export async function generateFolderName(workspaceId: string): Promise<string> {
-  const response = await fetch(`/api/folders?workspaceId=${workspaceId}`)
-  const data = (await response.json()) as FoldersApiResponse
-  const folders = data.folders || []
-
-  // Filter to only root-level folders (parentId is null)
-  const rootFolders = folders.filter((folder) => folder.parentId === null)
-
-  return generateIncrementalName(rootFolders, 'Folder')
-}
-
-/**
- * Generates the next subfolder name for a parent folder
- */
-export async function generateSubfolderName(
-  workspaceId: string,
-  parentFolderId: string
-): Promise<string> {
-  const response = await fetch(`/api/folders?workspaceId=${workspaceId}`)
-  const data = (await response.json()) as FoldersApiResponse
-  const folders = data.folders || []
-
-  // Filter to only subfolders of the specified parent
-  const subfolders = folders.filter((folder) => folder.parentId === parentFolderId)
-
-  return generateIncrementalName(subfolders, 'Subfolder')
 }
 
 /**

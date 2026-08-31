@@ -1,6 +1,6 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
-import type { MarketBar } from './sereis'
 import type { MarketRequestBase } from './base'
+import type { MarketBar } from './sereis'
 
 export interface MarketLiveRequest extends MarketRequestBase {
   kind: 'live'

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest, mockAuth, setupCommonApiMocks } from '@/app/api/__test-utils__/utils'
 
@@ -94,6 +94,31 @@ describe('Copilot Chat POST Generic Sessions', () => {
   const mockInsertValues = vi.fn(() => ({ returning: mockInsertReturning }))
   const mockInsert = vi.fn(() => ({ values: mockInsertValues }))
 
+  const buildExistingReviewSession = (overrides: Record<string, unknown> = {}) => ({
+    id: 'review-session-1',
+    userId: 'creator-user',
+    entityKind: 'copilot',
+    entityId: null,
+    workspaceId: 'workspace-1',
+    title: 'Shared skill review',
+    conversationId: null,
+    ...overrides,
+  })
+
+  const buildPersistedReviewSession = (id: string, title: string) => ({
+    id,
+    userId: 'collaborator-user',
+    workspaceId: 'workspace-1',
+    entityKind: 'copilot',
+    entityId: null,
+    draftSessionId: null,
+    title,
+    model: 'anthropic/claude-fable-5',
+    conversationId: null,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+  })
+
   const txInsertValues = vi.fn().mockResolvedValue(undefined)
   const txInsert = vi.fn(() => ({ values: txInsertValues }))
   const txUpdateWhere = vi.fn().mockResolvedValue(undefined)
@@ -143,6 +168,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         content: 'Saved response',
       }),
     })
+    mockLoadReviewSessionForUser.mockResolvedValue(buildExistingReviewSession())
     mockProcessContextsServer.mockResolvedValue([])
 
     vi.doMock('@tradinggoose/db', () => ({
@@ -202,12 +228,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
       ),
     }))
 
-    vi.doMock('@/lib/copilot/config', () => ({
-      getCopilotModel: vi.fn(() => ({
-        model: 'claude-sonnet-4.6',
-      })),
-    }))
-
     vi.doMock('@/lib/copilot/completion-usage-billing', () => ({
       mirrorLocalCopilotCompletionUsageReports: mockMirrorLocalCopilotCompletionUsageReports,
     }))
@@ -238,6 +258,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
       ENTITY_KIND_CUSTOM_TOOL: 'custom_tool',
       ENTITY_KIND_DASHBOARD_LAYOUT: 'dashboard_layout',
       ENTITY_KIND_INDICATOR: 'indicator',
+      ENTITY_KIND_KNOWLEDGE_BASE: 'knowledge_base',
       ENTITY_KIND_MCP_SERVER: 'mcp_server',
       ENTITY_KIND_SKILL: 'skill',
       ENTITY_KIND_WATCHLIST: 'watchlist',
@@ -250,19 +271,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
         'indicator',
         'knowledge_base',
       ],
-    }))
-
-    vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
-      buildCopilotRuntimeProviderConfig: vi.fn(
-        async ({ model, provider }: { model: string; provider?: string }) => ({
-          provider: provider ?? 'openai',
-          providerConfig: {
-            provider: provider ?? 'openai',
-            model,
-            apiKey: 'test-copilot-key',
-          },
-        })
-      ),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -326,20 +334,13 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('persists a collaborator reply on an existing generic copilot session', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValue({
-      id: 'review-session-1',
-      userId: 'creator-user',
-      entityKind: 'copilot',
-      entityId: null,
-      workspaceId: 'workspace-1',
-      title: 'Shared skill review',
-      conversationId: null,
-    })
-
+    mockLoadReviewSessionForUser.mockResolvedValueOnce(
+      buildExistingReviewSession({ conversationId: 'conversation-1' })
+    )
     const request = createMockRequest('POST', {
       message: 'Please update the summary',
       reviewSessionId: 'review-session-1',
-      model: 'gpt-5.4',
+      model: 'openai/gpt-5.6-terra',
       stream: false,
     })
 
@@ -362,12 +363,10 @@ describe('Copilot Chat POST Generic Sessions', () => {
         body: expect.objectContaining({
           message: 'Please update the summary',
           userId: 'collaborator-user',
-          model: 'gpt-5.4',
-          provider: {
-            provider: 'openai',
-            model: 'gpt-5.4',
-            apiKey: 'test-copilot-key',
-          },
+          model: 'openai/gpt-5.6-terra',
+          conversationId: 'conversation-1',
+          workspaceId: 'workspace-1',
+          context: [],
           chatId: 'review-session-1',
           toolManifest: expect.objectContaining({
             version: 'v1',
@@ -391,15 +390,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('persists non-streaming tool-only assistant turns', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValue({
-      id: 'review-session-1',
-      userId: 'creator-user',
-      entityKind: 'copilot',
-      entityId: null,
-      workspaceId: 'workspace-1',
-      title: 'Shared skill review',
-      conversationId: null,
-    })
     mockProxyCopilotRequest.mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({
@@ -419,7 +409,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Use the tool output only',
       reviewSessionId: 'review-session-1',
-      model: 'gpt-5.4',
+      model: 'openai/gpt-5.6-terra',
       stream: false,
     })
 
@@ -456,19 +446,10 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('accepts live entity contexts and forwards processed supporting context to copilot', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValue({
-      id: 'review-session-1',
-      userId: 'creator-user',
-      entityKind: 'copilot',
-      entityId: null,
-      workspaceId: 'workspace-1',
-      title: 'Shared skill review',
-      conversationId: null,
-    })
     mockProcessContextsServer.mockResolvedValue([
       {
-        type: 'current_indicator',
-        content: '{"entityId":"indicator-1"}',
+        type: 'current_monitor',
+        content: '{"entityId":"monitor-1"}',
       },
     ])
     mockProxyCopilotRequest.mockResolvedValue({
@@ -479,16 +460,15 @@ describe('Copilot Chat POST Generic Sessions', () => {
     })
 
     const request = createMockRequest('POST', {
-      message: 'Update the current indicator',
+      message: 'Inspect the current monitor',
       reviewSessionId: 'review-session-1',
-      workspaceId: 'workspace-1',
       stream: false,
       contexts: [
         {
-          kind: 'current_indicator',
-          indicatorId: 'indicator-1',
+          kind: 'current_monitor',
+          monitorId: 'monitor-1',
           workspaceId: 'workspace-1',
-          label: 'Current Indicator',
+          label: 'Current Monitor',
         },
       ],
     })
@@ -497,40 +477,132 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const response = await POST(request)
 
     expect(response.status).toBe(200)
+    const contextSignal = mockProcessContextsServer.mock.calls[0]?.[4]?.signal
+    expect(contextSignal).toBeInstanceOf(AbortSignal)
     expect(mockProcessContextsServer).toHaveBeenCalledWith(
       [
         {
-          kind: 'current_indicator',
-          indicatorId: 'indicator-1',
+          kind: 'current_monitor',
+          monitorId: 'monitor-1',
           workspaceId: 'workspace-1',
-          label: 'Current Indicator',
+          label: 'Current Monitor',
         },
       ],
       'collaborator-user',
-      'Update the current indicator',
-      'workspace-1'
+      'Inspect the current monitor',
+      'workspace-1',
+      { signal: contextSignal }
     )
     expect(mockProxyCopilotRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         endpoint: '/api/copilot',
         body: expect.objectContaining({
-          message: 'Update the current indicator',
+          message: 'Inspect the current monitor',
           userId: 'collaborator-user',
-          model: 'claude-sonnet-4.6',
+          model: 'anthropic/claude-fable-5',
           chatId: 'review-session-1',
           toolManifest: expect.objectContaining({
             version: 'v1',
           }),
           context: [
             {
-              type: 'current_indicator',
-              content: '{"entityId":"indicator-1"}',
+              type: 'current_monitor',
+              content: '{"entityId":"monitor-1"}',
             },
           ],
         }),
-        signal: expect.any(AbortSignal),
+        signal: contextSignal,
       })
     )
+  })
+
+  it('rejects a request workspace that differs from the existing chat workspace', async () => {
+    const request = createMockRequest('POST', {
+      message: 'Read this monitor',
+      reviewSessionId: 'review-session-1',
+      workspaceId: 'workspace-2',
+      stream: false,
+      contexts: [
+        {
+          kind: 'current_monitor',
+          monitorId: 'monitor-2',
+          workspaceId: 'workspace-2',
+          label: 'Current monitor',
+        },
+      ],
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'workspaceId does not match the review session workspace',
+    })
+    expect(mockProcessContextsServer).not.toHaveBeenCalled()
+    expect(mockProxyCopilotRequest).not.toHaveBeenCalled()
+  })
+
+  it('does not create a new chat when context hydration is aborted', async () => {
+    const controller = new AbortController()
+    mockProcessContextsServer.mockImplementation(
+      (...args: unknown[]) =>
+        new Promise((_resolve, reject) => {
+          const signal = (args[4] as { signal: AbortSignal }).signal
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+        })
+    )
+    const request = new NextRequest('http://localhost:3000/api/copilot/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        message: 'Read the current monitor',
+        model: 'anthropic/claude-fable-5',
+        stream: false,
+        workspaceId: 'workspace-1',
+        contexts: [
+          {
+            kind: 'current_monitor',
+            monitorId: 'monitor-1',
+            workspaceId: 'workspace-1',
+            label: 'Current monitor',
+          },
+        ],
+      }),
+      signal: controller.signal,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const pending = POST(request)
+    await vi.waitFor(() => expect(mockProcessContextsServer).toHaveBeenCalled())
+    expect(mockInsert).not.toHaveBeenCalled()
+
+    controller.abort()
+    const response = await pending
+
+    expect(response.status).toBe(204)
+    expect(mockInsert).not.toHaveBeenCalled()
+    expect(mockProxyCopilotRequest).not.toHaveBeenCalled()
+  })
+
+  it('rejects context arrays above the per-turn limit before creating a chat', async () => {
+    const request = createMockRequest('POST', {
+      message: 'Read these contexts',
+      model: 'anthropic/claude-fable-5',
+      stream: false,
+      workspaceId: 'workspace-1',
+      contexts: Array.from({ length: 17 }, (_, index) => ({
+        kind: 'blocks',
+        blockTypes: [`block-${index}`],
+        label: `Block ${index}`,
+      })),
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(400)
+    expect(mockProcessContextsServer).not.toHaveBeenCalled()
+    expect(mockInsert).not.toHaveBeenCalled()
   })
 
   it('keeps entity labels in the saved message but sends ordered ids to the model', async () => {
@@ -551,15 +623,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     ]
     const message = '@Workflow @Skill @Indicator @Tool @MCP @Watchlist @Layout'
     const modelMessage = '@workflow-1 @skill-1 @indicator-1 @tool-1 @mcp-1 @watchlist-1 @layout-1'
-    mockLoadReviewSessionForUser.mockResolvedValue({
-      id: 'review-session-1',
-      userId: 'creator-user',
-      entityKind: 'copilot',
-      entityId: null,
-      workspaceId: 'workspace-1',
-      title: null,
-      conversationId: null,
-    })
+    mockLoadReviewSessionForUser.mockResolvedValue(buildExistingReviewSession({ title: null }))
     mockProcessContextsServer.mockResolvedValue([
       { type: 'workflow', content: '{"entityId":"workflow-1"}' },
     ])
@@ -591,15 +655,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('preserves tool-call metadata for non-streaming text responses', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValue({
-      id: 'review-session-1',
-      userId: 'creator-user',
-      entityKind: 'copilot',
-      entityId: null,
-      workspaceId: 'workspace-1',
-      title: 'Shared skill review',
-      conversationId: null,
-    })
     mockProxyCopilotRequest.mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({
@@ -618,7 +673,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Summarize the tool result',
       reviewSessionId: 'review-session-1',
-      model: 'gpt-5.4',
+      model: 'openai/gpt-5.6-terra',
       stream: false,
     })
 
@@ -653,15 +708,6 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('derives append sequences from the latest in-transaction session history', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValue({
-      id: 'review-session-1',
-      userId: 'creator-user',
-      entityKind: 'copilot',
-      entityId: null,
-      workspaceId: 'workspace-1',
-      title: 'Shared skill review',
-      conversationId: null,
-    })
     txSelectOrderBy.mockResolvedValue([
       {
         itemId: 'message-existing',
@@ -698,15 +744,9 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('rewrites an already-persisted user turn with finalized assistant content', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValue({
-      id: 'review-session-1',
-      userId: 'creator-user',
-      entityKind: 'copilot',
-      entityId: null,
-      workspaceId: 'workspace-1',
-      title: 'Shared skill review',
-      conversationId: 'conversation-1',
-    })
+    mockLoadReviewSessionForUser.mockResolvedValue(
+      buildExistingReviewSession({ conversationId: 'conversation-1' })
+    )
     txSelectOrderBy.mockResolvedValueOnce([
       {
         itemId: 'user-message-duplicate',
@@ -784,15 +824,14 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('returns 404 when the supplied reviewSessionId is entity-bound', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValue({
-      id: 'entity-review-session-1',
-      userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
-      workspaceId: 'workspace-1',
-      title: 'Skill review',
-      conversationId: null,
-    })
+    mockLoadReviewSessionForUser.mockResolvedValue(
+      buildExistingReviewSession({
+        id: 'entity-review-session-1',
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        title: 'Skill review',
+      })
+    )
 
     const request = createMockRequest('POST', {
       message: 'Please update the summary',
@@ -826,7 +865,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         entityId: null,
         draftSessionId: null,
         title: null,
-        model: 'claude-sonnet-4.6',
+        model: 'anthropic/claude-fable-5',
         conversationId: null,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -836,7 +875,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Start a fresh generic copilot chat',
       workspaceId: 'workspace-1',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: false,
     })
 
@@ -862,7 +901,8 @@ describe('Copilot Chat POST Generic Sessions', () => {
         body: expect.objectContaining({
           message: 'Start a fresh generic copilot chat',
           userId: 'collaborator-user',
-          model: 'claude-sonnet-4.6',
+          model: 'anthropic/claude-fable-5',
+          workspaceId: 'workspace-1',
           chatId: 'review-session-channel-1',
           toolManifest: expect.objectContaining({
             version: 'v1',
@@ -883,7 +923,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         entityId: null,
         draftSessionId: null,
         title: null,
-        model: 'claude-sonnet-4.6',
+        model: 'anthropic/claude-fable-5',
         conversationId: null,
         createdAt: new Date('2026-01-02T00:00:00.000Z'),
         updatedAt: new Date('2026-01-02T00:00:00.000Z'),
@@ -893,7 +933,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Create another chat in the same workspace',
       workspaceId: 'workspace-1',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: false,
     })
 
@@ -926,19 +966,9 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('persists the finalized assistant item text from a streamed reply', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValueOnce({
-      id: 'review-session-finalized-stream',
-      userId: 'collaborator-user',
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      title: 'Finalized stream chat',
-      model: 'claude-sonnet-4.6',
-      conversationId: null,
-      createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    })
+    mockLoadReviewSessionForUser.mockResolvedValueOnce(
+      buildPersistedReviewSession('review-session-finalized-stream', 'Finalized stream chat')
+    )
     mockProxyCopilotRequest.mockResolvedValueOnce({
       ok: true,
       body: createSseStream([
@@ -972,7 +1002,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Persist the final text, not the draft',
       reviewSessionId: 'review-session-finalized-stream',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
@@ -996,19 +1026,9 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('persists streamed reasoning content blocks from a streamed reply', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValueOnce({
-      id: 'review-session-reasoning-stream',
-      userId: 'collaborator-user',
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      title: 'Reasoning stream chat',
-      model: 'claude-sonnet-4.6',
-      conversationId: null,
-      createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    })
+    mockLoadReviewSessionForUser.mockResolvedValueOnce(
+      buildPersistedReviewSession('review-session-reasoning-stream', 'Reasoning stream chat')
+    )
     mockProxyCopilotRequest.mockResolvedValueOnce({
       ok: true,
       body: createSseStream([
@@ -1068,7 +1088,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Persist the reasoning blocks too',
       reviewSessionId: 'review-session-reasoning-stream',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
@@ -1105,19 +1125,9 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('marks rewritten streamed error replies as error turns instead of completed turns', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValueOnce({
-      id: 'review-session-error-stream',
-      userId: 'collaborator-user',
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      title: 'Error stream chat',
-      model: 'claude-sonnet-4.6',
-      conversationId: null,
-      createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    })
+    mockLoadReviewSessionForUser.mockResolvedValueOnce(
+      buildPersistedReviewSession('review-session-error-stream', 'Error stream chat')
+    )
     mockProxyCopilotRequest.mockResolvedValueOnce({
       ok: true,
       body: createSseStream([{ type: 'error', error: 'Model exploded.' }]),
@@ -1126,7 +1136,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Handle the stream failure',
       reviewSessionId: 'review-session-error-stream',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
@@ -1151,19 +1161,12 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('normalizes JSON-string function call arguments before persisting streamed tool calls', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValueOnce({
-      id: 'review-session-stringified-tool-args',
-      userId: 'collaborator-user',
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      title: 'Stringified tool args chat',
-      model: 'claude-sonnet-4.6',
-      conversationId: null,
-      createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    })
+    mockLoadReviewSessionForUser.mockResolvedValueOnce(
+      buildPersistedReviewSession(
+        'review-session-stringified-tool-args',
+        'Stringified tool args chat'
+      )
+    )
     mockProxyCopilotRequest.mockResolvedValueOnce({
       ok: true,
       body: createSseStream([
@@ -1183,7 +1186,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Get the current workflow',
       reviewSessionId: 'review-session-stringified-tool-args',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
@@ -1222,7 +1225,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
         entityId: null,
         draftSessionId: null,
         title: null,
-        model: 'claude-sonnet-4.6',
+        model: 'anthropic/claude-fable-5',
         conversationId: null,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -1236,7 +1239,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Keep my user message even if the assistant is empty',
       workspaceId: 'workspace-1',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 
@@ -1252,19 +1255,12 @@ describe('Copilot Chat POST Generic Sessions', () => {
   })
 
   it('does not delete an existing generic copilot chat selected by reviewSessionId after an empty streamed reply', async () => {
-    mockLoadReviewSessionForUser.mockResolvedValueOnce({
-      id: 'review-session-existing-scope',
-      userId: 'collaborator-user',
-      workspaceId: 'workspace-1',
-      entityKind: 'copilot',
-      entityId: null,
-      draftSessionId: null,
-      title: 'Existing workspace copilot chat',
-      model: 'claude-sonnet-4.6',
-      conversationId: null,
-      createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    })
+    mockLoadReviewSessionForUser.mockResolvedValueOnce(
+      buildPersistedReviewSession(
+        'review-session-existing-scope',
+        'Existing workspace copilot chat'
+      )
+    )
     mockProxyCopilotRequest.mockResolvedValueOnce({
       ok: true,
       body: createSseStream([{ type: 'response.completed', response: { id: 'response-empty-2' } }]),
@@ -1273,7 +1269,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const request = createMockRequest('POST', {
       message: 'Do not wipe existing history on an empty reply',
       reviewSessionId: 'review-session-existing-scope',
-      model: 'claude-sonnet-4.6',
+      model: 'anthropic/claude-fable-5',
       stream: true,
     })
 

@@ -1,19 +1,20 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useLocale, useMessages } from 'next-intl'
+import { useIsMutating } from '@tanstack/react-query'
+import { useMessages } from 'next-intl'
 import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import { TradingProviderControls } from '@/components/trading-selector/provider-controls'
 import { Button } from '@/components/ui/button'
 import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import type { LocaleCode } from '@/i18n/utils'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { useWidgetConfigRuntimeActions } from '@/widgets/widget-config-runtime'
 import {
   getQuickOrderMarketProviderOptions,
   getQuickOrderProviderAvailabilityIds,
   getQuickOrderProviderOptions,
+  getQuickOrderSubmitMutationKey,
   resolveQuickOrderMarketProviderId,
   resolveQuickOrderProviderId,
 } from '@/widgets/widgets/quick_order/components/shared'
@@ -22,7 +23,6 @@ import type { QuickOrderSide, QuickOrderWidgetParams } from '@/widgets/widgets/q
 type HeaderControlProps = {
   workspaceId?: string
   panelId?: string
-  widgetKey: string
   params: QuickOrderWidgetParams | null
 }
 
@@ -31,14 +31,10 @@ const usePatchQuickOrderParams = () => {
   return actions.patchWidgetParams
 }
 
-export function QuickOrderHeaderControls({
-  workspaceId,
-  panelId,
-  widgetKey,
-  params,
-}: HeaderControlProps) {
-  const locale = useLocale() as LocaleCode
+export function QuickOrderHeaderControls({ workspaceId, panelId, params }: HeaderControlProps) {
   const copy = useMessages().workspace.widgets.quickOrder.header
+  const mutationKey = getQuickOrderSubmitMutationKey(panelId)
+  const isPending = useIsMutating({ mutationKey, exact: true }) > 0
   const providerAvailabilityQuery = useOAuthProviderAvailability(
     getQuickOrderProviderAvailabilityIds()
   )
@@ -61,8 +57,9 @@ export function QuickOrderHeaderControls({
       <MarketProviderControls
         value={marketProviderId}
         options={marketProviderOptions}
+        disabled={isPending}
         onChange={(nextProvider) => {
-          if (!nextProvider || nextProvider === marketProviderId) return
+          if (isPending || !nextProvider || nextProvider === marketProviderId) return
           patchParams({
             marketProvider: nextProvider,
             marketProviderParams: null,
@@ -73,6 +70,7 @@ export function QuickOrderHeaderControls({
         authParams={params?.marketAuth}
         workspaceId={workspaceId}
         onSettingsSave={({ providerParams, auth }) => {
+          if (isPending) return
           patchParams({
             marketProviderParams: providerParams,
             marketAuth: auth,
@@ -87,8 +85,9 @@ export function QuickOrderHeaderControls({
           serviceId={params?.serviceId}
           portfolioIdentity={params?.portfolioIdentity}
           toolName={copy.title}
+          disabled={isPending}
           onProviderChange={(nextProvider) => {
-            if (!nextProvider || nextProvider === providerId) return
+            if (isPending || !nextProvider || nextProvider === providerId) return
 
             patchParams({
               provider: nextProvider,
@@ -97,6 +96,7 @@ export function QuickOrderHeaderControls({
             })
           }}
           onAccountSelect={({ serviceId, portfolioIdentity }) => {
+            if (isPending) return
             patchParams({
               portfolioIdentity,
               ...(serviceId ? { serviceId } : {}),
@@ -108,9 +108,10 @@ export function QuickOrderHeaderControls({
   )
 }
 
-function QuickOrderSideTabs({ panelId, widgetKey, params }: HeaderControlProps) {
-  const locale = useLocale() as LocaleCode
+function QuickOrderSideTabs({ panelId, params }: HeaderControlProps) {
   const copy = useMessages().workspace.widgets.quickOrder.header
+  const mutationKey = getQuickOrderSubmitMutationKey(panelId)
+  const isPending = useIsMutating({ mutationKey, exact: true }) > 0
   const patchParams = usePatchQuickOrderParams()
   const side = params?.side === 'sell' ? 'sell' : 'buy'
   const sides: Array<{ id: QuickOrderSide; label: string }> = [
@@ -131,8 +132,9 @@ function QuickOrderSideTabs({ panelId, widgetKey, params }: HeaderControlProps) 
             variant={isSelected ? 'default' : 'ghost'}
             size='sm'
             className='h-5 min-w-14 rounded-xs px-3 text-sm'
+            disabled={isPending}
             onClick={() => {
-              if (option.id === side) return
+              if (isPending || option.id === side) return
               patchParams({ side: option.id })
             }}
           >
@@ -153,14 +155,12 @@ export const renderQuickOrderHeader: DashboardWidgetDefinition['renderHeader'] =
     <QuickOrderHeaderControls
       workspaceId={context?.workspaceId}
       panelId={panelId}
-      widgetKey={widget?.key ?? 'quick_order'}
       params={(widget?.params as QuickOrderWidgetParams | null | undefined) ?? null}
     />
   ),
   center: (
     <QuickOrderSideTabs
       panelId={panelId}
-      widgetKey={widget?.key ?? 'quick_order'}
       params={(widget?.params as QuickOrderWidgetParams | null | undefined) ?? null}
     />
   ),

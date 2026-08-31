@@ -4,11 +4,12 @@ import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, Paperclip, Send, Square, X } from 'lucide-react'
+import type { Messages } from 'next-intl'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatTemplate } from '@/i18n/utils'
-import type { Messages } from 'next-intl'
 
 type ChatMessages = Messages['chat']
+
 import { VoiceInput } from '@/app/chat/components/input/voice-input'
 
 const MAX_TEXTAREA_HEIGHT = 120 // Max height in pixels (e.g., for about 3-4 lines)
@@ -25,12 +26,21 @@ interface AttachedFile {
 
 export const ChatInput: React.FC<{
   onSubmit?: (value: string, isVoiceInput?: boolean, files?: AttachedFile[]) => void
+  isLoading: boolean
   isStreaming?: boolean
   onStopStreaming?: () => void
   onVoiceStart?: () => void
   voiceOnly?: boolean
   copy: ChatMessages
-}> = ({ onSubmit, isStreaming = false, onStopStreaming, onVoiceStart, voiceOnly = false, copy }) => {
+}> = ({
+  onSubmit,
+  isLoading,
+  isStreaming = false,
+  onStopStreaming,
+  onVoiceStart,
+  voiceOnly = false,
+  copy,
+}) => {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -161,7 +171,7 @@ export const ChatInput: React.FC<{
   }
 
   const handleSubmit = () => {
-    if (!inputValue.trim() && attachedFiles.length === 0) return
+    if (isLoading || (!inputValue.trim() && attachedFiles.length === 0)) return
     onSubmit?.(inputValue.trim(), false, attachedFiles)
     setInputValue('')
     setAttachedFiles([])
@@ -187,16 +197,18 @@ export const ChatInput: React.FC<{
         {isSttAvailable && (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <VoiceInput
-                    onVoiceStart={handleVoiceStart}
-                    disabled={isStreaming}
-                    large={true}
-                    title={copy.input.startVoiceConversation}
-                  />
-                </div>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <div>
+                    <VoiceInput
+                      onVoiceStart={handleVoiceStart}
+                      disabled={isStreaming}
+                      large={true}
+                      title={copy.input.startVoiceConversation}
+                    />
+                  </div>
+                }
+              />
               <TooltipContent side='top'>
                 <p>{copy.input.startVoiceConversation}</p>
               </TooltipContent>
@@ -293,7 +305,11 @@ export const ChatInput: React.FC<{
                       title=''
                     >
                       {file.dataUrl ? (
-                        <img src={file.dataUrl} alt={file.name} className='h-full w-full object-cover' />
+                        <img
+                          src={file.dataUrl}
+                          alt={file.name}
+                          className='h-full w-full object-cover'
+                        />
                       ) : (
                         <>
                           <div className='flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-gray-100 md:h-10 md:w-10 dark:bg-gray-700'>
@@ -315,7 +331,8 @@ export const ChatInput: React.FC<{
                       <button
                         type='button'
                         onClick={() => handleRemoveFile(file.id)}
-                        className='absolute top-1 right-1 rounded-full bg-gray-800/80 p-1 text-white opacity-0 transition-opacity hover:bg-gray-800/80 hover:text-white group-hover:opacity-100 dark:bg-black/70 dark:hover:bg-black/70 dark:hover:text-white'
+                        aria-label={formatTemplate(copy.input.removeFile, { name: file.name })}
+                        className='absolute top-1 right-1 rounded-full bg-gray-800/80 p-1 text-white opacity-0 transition-opacity hover:bg-gray-800/80 hover:text-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white group-hover:opacity-100 dark:bg-black/70 dark:hover:bg-black/70 dark:hover:text-white'
                       >
                         <X size={12} />
                       </button>
@@ -328,16 +345,19 @@ export const ChatInput: React.FC<{
             <div className='flex items-center gap-2 p-3 md:p-4'>
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type='button'
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isStreaming || attachedFiles.length >= 5}
-                      className='flex items-center justify-center rounded-full p-1.5 text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 md:p-2'
-                    >
-                      <Paperclip size={16} className='md:h-5 md:w-5' />
-                    </button>
-                  </TooltipTrigger>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type='button'
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isStreaming || attachedFiles.length >= 5}
+                        aria-label={copy.input.attachFiles}
+                        className='flex items-center justify-center rounded-full p-1.5 text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 md:p-2'
+                      >
+                        <Paperclip size={16} className='md:h-5 md:w-5' />
+                      </button>
+                    }
+                  />
                   <TooltipContent side='top'>
                     <p>{copy.input.attachFiles}</p>
                   </TooltipContent>
@@ -347,6 +367,7 @@ export const ChatInput: React.FC<{
               <input
                 ref={fileInputRef}
                 type='file'
+                aria-label={copy.input.attachFiles}
                 multiple
                 accept='.pdf,.csv,.doc,.docx,.txt,.md,.xlsx,.xls,.html,.htm,.pptx,.ppt,.json,.xml,.rtf,image/*'
                 onChange={(e) => {
@@ -362,9 +383,10 @@ export const ChatInput: React.FC<{
               <div className='relative flex-1'>
                 <textarea
                   ref={textareaRef}
+                  aria-label={copy.input.placeholderDesktop}
                   value={inputValue}
                   onChange={handleInputChange}
-                  className='flex w-full resize-none items-center overflow-hidden bg-transparent text-base outline-none placeholder:text-gray-400 md:font-[330]'
+                  className='flex w-full resize-none items-center overflow-hidden rounded-sm bg-transparent text-base placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:font-[330]'
                   placeholder={isDragOver ? copy.input.dropFilesHere : isActive ? '' : ''}
                   rows={1}
                   style={{
@@ -404,16 +426,18 @@ export const ChatInput: React.FC<{
               {isSttAvailable && (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <VoiceInput
-                          onVoiceStart={handleVoiceStart}
-                          disabled={isStreaming}
-                          minimal
-                          title={copy.input.startVoiceConversation}
-                        />
-                      </div>
-                    </TooltipTrigger>
+                    <TooltipTrigger
+                      render={
+                        <div>
+                          <VoiceInput
+                            onVoiceStart={handleVoiceStart}
+                            disabled={isStreaming}
+                            minimal
+                            title={copy.input.startVoiceConversation}
+                          />
+                        </div>
+                      }
+                    />
                     <TooltipContent side='top'>
                       <p>{copy.input.startVoiceConversation}</p>
                     </TooltipContent>
@@ -428,6 +452,9 @@ export const ChatInput: React.FC<{
                     : 'cursor-default bg-gray-300 hover:bg-gray-400'
                 }`}
                 title={isStreaming ? copy.input.stop : copy.input.send}
+                aria-label={isStreaming ? copy.input.stop : copy.input.send}
+                aria-busy={isLoading && !isStreaming}
+                disabled={isLoading && !isStreaming}
                 type='button'
                 onClick={(e) => {
                   e.stopPropagation()

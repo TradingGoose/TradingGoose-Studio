@@ -1,18 +1,12 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { client, useSession, useSubscription } from '@/lib/auth-client'
+import { useSession, useSubscription } from '@/lib/auth-client'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
-import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { organizationKeys } from '@/hooks/queries/organization'
 import { resolveOrganizationUpgradeReference } from './upgrade-target'
 
 const logger = createLogger('SubscriptionUpgrade')
-const ENTITLED_SUBSCRIPTION_STATUSES = [
-  ...BILLING_ACTIVE_SUBSCRIPTION_STATUSES,
-  'past_due',
-] as const
-
 export interface BillingUpgradeTarget {
   billingTierId: string
   displayName: string
@@ -40,26 +34,13 @@ export function useSubscriptionUpgrade() {
         throw new Error('User not authenticated')
       }
 
-      let currentPersonalStripeSubscriptionId: string | undefined
-      let allSubscriptions: any[] = []
-      try {
-        const listResult = await client.subscription.list()
-        allSubscriptions = listResult.data || []
-        const activePersonalSubscription = listResult.data?.find(
-          (sub: any) =>
-            ENTITLED_SUBSCRIPTION_STATUSES.includes(
-              sub.status as (typeof ENTITLED_SUBSCRIPTION_STATUSES)[number]
-            ) && sub.referenceId === userId
-        )
-        currentPersonalStripeSubscriptionId =
-          activePersonalSubscription?.stripeSubscriptionId || undefined
-      } catch (_e) {
-        currentPersonalStripeSubscriptionId = undefined
-      }
-
       let referenceId = userId
 
       if (targetTier.ownerType === 'organization') {
+        if (!options?.organizationId) {
+          throw new Error('Select the organization whose subscription you want to change.')
+        }
+
         try {
           const orgsResponse = await fetch('/api/organizations')
           if (!orgsResponse.ok) {
@@ -69,43 +50,11 @@ export function useSubscriptionUpgrade() {
 
           const orgsData = await orgsResponse.json()
           const organizationReference = resolveOrganizationUpgradeReference({
-            userId,
-            organizationId: options?.organizationId,
+            organizationId: options.organizationId,
             organizationAccess: orgsData,
-            subscriptions: allSubscriptions,
           })
 
           referenceId = organizationReference.referenceId
-
-          if (organizationReference.activateOrganizationId) {
-            logger.info('Using existing organization for organization-tier upgrade', {
-              userId,
-              organizationId: organizationReference.activateOrganizationId,
-            })
-
-            try {
-              await client.organization.setActive({
-                organizationId: organizationReference.activateOrganizationId,
-              })
-
-              logger.info('Set organization as active', {
-                organizationId: organizationReference.activateOrganizationId,
-                oldReferenceId: userId,
-                newReferenceId: referenceId,
-              })
-            } catch (error) {
-              logger.warn('Failed to set organization as active, but proceeding with upgrade', {
-                organizationId: organizationReference.activateOrganizationId,
-                error: error instanceof Error ? error.message : 'Unknown error',
-              })
-            }
-          } else {
-            logger.info('Will create organization after payment succeeds', {
-              userId,
-              billingTierId: targetTier.billingTierId,
-              billingTier: targetTier.displayName,
-            })
-          }
         } catch (error) {
           logger.error('Failed to prepare organization for organization-tier upgrade', error)
           throw error instanceof Error
@@ -128,26 +77,18 @@ export function useSubscriptionUpgrade() {
           ...(targetTier.ownerType === 'organization' && { seats: initialSeats }),
         } as const
 
-        const finalParams =
-          targetTier.ownerType === 'user' && currentPersonalStripeSubscriptionId
-            ? { ...upgradeParams, subscriptionId: currentPersonalStripeSubscriptionId }
-            : upgradeParams
+        logger.info('Requesting subscription upgrade', {
+          billingTierId: targetTier.billingTierId,
+          billingTier: targetTier.displayName,
+          usageScope: targetTier.usageScope,
+          seatMode: targetTier.seatMode,
+          referenceId,
+        })
 
-        logger.info(
-          targetTier.ownerType === 'user' && currentPersonalStripeSubscriptionId
-            ? 'Upgrading existing subscription'
-            : 'Creating new subscription',
-          {
-            billingTierId: targetTier.billingTierId,
-            billingTier: targetTier.displayName,
-            stripeSubscriptionId: currentPersonalStripeSubscriptionId,
-            usageScope: targetTier.usageScope,
-            seatMode: targetTier.seatMode,
-            referenceId,
-          }
-        )
-
-        await betterAuthSubscription.upgrade(finalParams)
+        const upgradeResult = await betterAuthSubscription.upgrade(upgradeParams)
+        if (upgradeResult.error) {
+          throw new Error(upgradeResult.error.message || 'Failed to initiate subscription upgrade')
+        }
 
         if (targetTier.ownerType === 'organization') {
           try {

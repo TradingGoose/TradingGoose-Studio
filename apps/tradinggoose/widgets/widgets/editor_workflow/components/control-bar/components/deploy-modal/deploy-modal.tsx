@@ -65,8 +65,11 @@ import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { getTrigger, isNativeTrigger } from '@/triggers'
 import { isConfigurableTriggerDeploySubBlock } from '@/triggers/constants'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
+import {
+  type ApiKey,
+  ApiKeySelector,
+} from '@/widgets/widgets/editor_workflow/components/control-bar/components/api-key-selector/api-key-selector'
 import { ChatDeploy } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/chat-deploy'
-import { DeployForm } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deploy-form/deploy-form'
 import { DeployStatus } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/deploy-status/deploy-status'
 import { DeploymentInfo } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/deployment-info'
 import { DeployedWorkflowModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-modal'
@@ -78,6 +81,7 @@ import { SubBlockEditRows } from '@/widgets/widgets/editor_workflow/components/w
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import {
   useDeploymentCopy,
+  useWorkflowApiKeyCopy,
   useWorkflowEditorCopy,
   useWorkflowI18n,
 } from '@/widgets/widgets/editor_workflow/copy'
@@ -97,15 +101,6 @@ interface DeployModalProps {
   refetchDeploymentStatus: () => Promise<boolean>
 }
 
-interface ApiKey {
-  id: string
-  name: string
-  key: string
-  lastUsed?: string
-  createdAt: string
-  expiresAt?: string
-}
-
 interface WorkflowDeploymentInfo {
   isDeployed: boolean
   deployedAt?: string
@@ -115,11 +110,6 @@ interface WorkflowDeploymentInfo {
   exampleCommand: string
   needsRedeployment: boolean
   hasReusableApiKey: boolean
-}
-
-interface DeployFormValues {
-  apiKey: string
-  newKeyName?: string
 }
 
 interface PublishedChatDeployment {
@@ -249,6 +239,7 @@ export function DeployModal({
   refetchDeploymentStatus,
 }: DeployModalProps) {
   const copy = useDeploymentCopy()
+  const apiKeyCopy = useWorkflowApiKeyCopy()
   const workflowEditorCopy = useWorkflowEditorCopy()
   const { workflowInspectorCopy } = useWorkflowI18n()
   const workspaceId = useWorkspaceId()
@@ -850,14 +841,13 @@ export function DeployModal({
     fetchDeploymentInfo()
   }, [open, workflowId, needsRedeployment, deploymentInfo?.isDeployed])
 
-  const onDeploy = async (data: DeployFormValues) => {
+  const handleDeploy = async () => {
     setApiDeployError(null)
 
     try {
       setIsSubmitting(true)
 
-      const apiKeyToUse = data.apiKey || selectedApiKeyId
-      const normalizedApiKey = apiKeyToUse?.trim() ? apiKeyToUse : undefined
+      const normalizedApiKey = selectedApiKeyId.trim() || undefined
 
       let deployEndpoint = `/api/workflows/${workflowId}/deploy`
       if (versionToActivate !== null) {
@@ -1124,7 +1114,7 @@ export function DeployModal({
       return
     }
 
-    void onDeploy({ apiKey: selectedApiKeyId })
+    void handleDeploy()
   }
 
   const handleFooterUndeploy = () => {
@@ -1271,8 +1261,8 @@ export function DeployModal({
 
             return (
               <Tooltip key={tab.key}>
-                <TooltipTrigger asChild>{button}</TooltipTrigger>
-                <TooltipContent side='right' container={overlayContainer} className='z-[1001]'>
+                <TooltipTrigger render={button} />
+                <TooltipContent side='right' container={overlayContainer} zIndex={1001}>
                   {tab.label}
                 </TooltipContent>
               </Tooltip>
@@ -1338,7 +1328,11 @@ export function DeployModal({
                   </Button>
                 </div>
                 {apiDeployError && (
-                  <div className='rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm'>
+                  <div
+                    role='alert'
+                    aria-atomic='true'
+                    className='rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm'
+                  >
                     <div className='font-semibold'>{copy.deploymentError}</div>
                     <div>{apiDeployError}</div>
                   </div>
@@ -1405,7 +1399,7 @@ export function DeployModal({
                                 <TabsTrigger
                                   key={tab.key}
                                   value={tab.key}
-                                  className='h-8 rounded-md bg-background px-3 text-muted-foreground data-[state=active]:bg-sidebar-accent data-[state=active]:font-medium data-[state=active]:text-sidebar-accent-foreground'
+                                  className='h-8 rounded-md bg-background px-3 text-muted-foreground data-[active]:bg-sidebar-accent data-[active]:font-medium data-[active]:text-sidebar-accent-foreground'
                                 >
                                   {tab.label}
                                 </TabsTrigger>
@@ -1431,7 +1425,7 @@ export function DeployModal({
                                 <TabsTrigger
                                   key={tab.key}
                                   value={tab.key}
-                                  className='h-8 rounded-md bg-background px-3 text-muted-foreground data-[state=active]:bg-sidebar-accent data-[state=active]:font-medium data-[state=active]:text-sidebar-accent-foreground'
+                                  className='h-8 rounded-md bg-background px-3 text-muted-foreground data-[active]:bg-sidebar-accent data-[active]:font-medium data-[active]:text-sidebar-accent-foreground'
                                 >
                                   {tab.label}
                                 </TabsTrigger>
@@ -1472,15 +1466,12 @@ export function DeployModal({
                             <div className='mb-3 rounded-md border p-3 text-muted-foreground text-sm'>
                               {copy.chooseSharedApiKeyDescription}
                             </div>
-                            <DeployForm
+                            <ApiKeySelector
+                              value={selectedApiKeyId}
+                              onChange={setSelectedApiKeyId}
                               apiKeys={apiKeys}
-                              selectedApiKeyId={selectedApiKeyId}
-                              onApiKeyChange={setSelectedApiKeyId}
-                              onSubmit={onDeploy}
                               onApiKeyCreated={fetchApiKeys}
-                              formId='deploy-api-form'
-                              isDeployed={false}
-                              deployedApiKeyDisplay={deploymentInfo?.apiKey}
+                              label={apiKeyCopy.selectApiKey}
                             />
                           </div>
                         </>
@@ -1631,19 +1622,22 @@ export function DeployModal({
                                                 setOpenDropdown(open ? v.version : null)
                                               }
                                             >
-                                              <DropdownMenuTrigger asChild>
-                                                <Button
-                                                  variant='ghost'
-                                                  size='icon'
-                                                  className='h-8 w-8'
-                                                  disabled={activatingVersion === v.version}
-                                                >
-                                                  <MoreVertical className='h-4 w-4' />
-                                                </Button>
+                                              <DropdownMenuTrigger
+                                                render={
+                                                  <Button
+                                                    variant='ghost'
+                                                    size='icon'
+                                                    className='h-8 w-8'
+                                                    disabled={activatingVersion === v.version}
+                                                  />
+                                                }
+                                              >
+                                                <MoreVertical className='h-4 w-4' />
                                               </DropdownMenuTrigger>
                                               <DropdownMenuContent
                                                 align='end'
-                                                onCloseAutoFocus={(event) => event.preventDefault()}
+                                                container={overlayContainer}
+                                                zIndex={1001}
                                               >
                                                 <DropdownMenuItem
                                                   onClick={() => openVersionPreview(v.version)}

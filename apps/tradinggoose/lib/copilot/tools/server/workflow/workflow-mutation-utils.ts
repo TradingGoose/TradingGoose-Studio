@@ -111,17 +111,19 @@ export function buildWorkflowMutationResult(params: {
     throw new Error(`Invalid edited workflow: ${nonCanonicalSubBlockErrors.join('; ')}`)
   }
 
-  const validation = validateWorkflowState(nextWorkflowState, { sanitize: true })
-  if (!validation.valid) {
-    throw new Error(`Invalid edited workflow: ${validation.errors.join('; ')}`)
+  const workflowStateValidation = validateWorkflowState(nextWorkflowState, { sanitize: true })
+  const workflowStateFailures = workflowStateValidation.errors
+  if (!workflowStateValidation.valid) {
+    throw new Error(`Invalid edited workflow: ${workflowStateFailures.join('; ')}`)
   }
 
   const finalWorkflowState = createWorkflowSnapshot(
-    (validation.sanitizedState as Partial<WorkflowSnapshot> | undefined) ?? nextWorkflowState
+    (workflowStateValidation.sanitizedState as Partial<WorkflowSnapshot> | undefined) ??
+      nextWorkflowState
   )
 
   const preview = buildWorkflowDocumentPreviewDiff(baseWorkflowState, finalWorkflowState)
-  const warnings = Array.from(new Set([...preview.warnings, ...validation.warnings]))
+  const warnings = Array.from(new Set([...preview.warnings, ...workflowStateValidation.warnings]))
   const entityDocument = params.renderEntityDocument(finalWorkflowState)
 
   return {

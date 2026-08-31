@@ -22,7 +22,6 @@ import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('StripeInvoiceWebhooks')
 
@@ -41,25 +40,6 @@ function parseDecimal(value: string | number | null | undefined): number {
 type SubscriptionUsageScope = {
   referenceId: string
   tier?: BillingTierRecord | null
-}
-
-/**
- * Create a billing portal URL for a Stripe customer
- */
-async function createBillingPortalUrl(stripeCustomerId: string): Promise<string> {
-  try {
-    const stripe = requireStripeClient()
-    const baseUrl = getBaseUrl()
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: stripeCustomerId,
-      return_url: `${baseUrl}/workspace?billing=updated`,
-    })
-    return portal.url
-  } catch (error) {
-    logger.error('Failed to create billing portal URL', { error, stripeCustomerId })
-    // Fallback to generic billing page
-    return `${getBaseUrl()}/workspace?tab=subscription`
-  }
 }
 
 /**
@@ -152,11 +132,14 @@ async function getPaymentMethodDetails(
  */
 async function sendPaymentFailureEmails(
   sub: SubscriptionUsageScope,
-  invoice: Stripe.Invoice,
-  stripeCustomerId: string
+  invoice: Stripe.Invoice
 ): Promise<void> {
   try {
-    const billingPortalUrl = await createBillingPortalUrl(stripeCustomerId)
+    const paymentUrl = invoice.hosted_invoice_url
+    if (!paymentUrl) {
+      logger.warn('Failed invoice has no hosted payment URL', { invoiceId: invoice.id })
+      return
+    }
     const amountDue = invoice.amount_due / 100 // Convert cents to dollars
     const { lastFourDigits, failureReason } = await getPaymentMethodDetails(invoice)
 
@@ -164,7 +147,7 @@ async function sendPaymentFailureEmails(
     let usersToNotify: Array<{ id: string; email: string; name: string | null }> = []
 
     if (isOrganizationSubscription(sub)) {
-      // For organization-scoped tiers, notify all owners and admins
+      // For organization-scoped tiers, notify owners
       const members = await db
         .select({
           userId: member.userId,
@@ -173,16 +156,13 @@ async function sendPaymentFailureEmails(
         .from(member)
         .where(eq(member.organizationId, sub.referenceId))
 
-      // Get owner/admin user details
-      const ownerAdminIds = members
-        .filter((m) => m.role === 'owner' || m.role === 'admin')
-        .map((m) => m.userId)
+      const ownerIds = members.filter((m) => m.role === 'owner').map((m) => m.userId)
 
-      if (ownerAdminIds.length > 0) {
+      if (ownerIds.length > 0) {
         const users = await db
           .select({ id: user.id, email: user.email, name: user.name })
           .from(user)
-          .where(inArray(user.id, ownerAdminIds))
+          .where(inArray(user.id, ownerIds))
 
         usersToNotify = users.filter((u) => u.email && quickValidateEmail(u.email).isValid)
       }
@@ -210,7 +190,7 @@ async function sendPaymentFailureEmails(
           userName: userToNotify.name || undefined,
           amountDue,
           lastFourDigits,
-          billingPortalUrl,
+          paymentUrl,
           failureReason,
           locale,
         })
@@ -473,11 +453,7 @@ export async function handleInvoicePaymentFailed(event: Stripe.Event) {
         // Only send on FIRST failure (attempt_count === 1), not on Stripe's automatic retries
         // This prevents spamming users with duplicate emails every 3-5-7 days
         if (attemptCount === 1) {
-          await sendPaymentFailureEmails(sub, invoice, customerId)
-          logger.info('Payment failure email sent on first attempt', {
-            invoiceId: invoice.id,
-            customerId,
-          })
+          await sendPaymentFailureEmails(sub, invoice)
         } else {
           logger.info('Skipping payment failure email on retry attempt', {
             invoiceId: invoice.id,

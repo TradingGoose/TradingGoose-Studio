@@ -173,7 +173,7 @@ export const MonacoEditor = forwardRef<MonacoEditorHandle, MonacoEditorProps>(
                     ? 'txt'
                     : 'js'
       const current = modelPathRef.current
-      if (current && current.endsWith(`.${extension}`)) return current
+      if (current?.endsWith(`.${extension}`)) return current
       const id =
         typeof crypto !== 'undefined' && 'randomUUID' in crypto
           ? crypto.randomUUID()

@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
-import { formatCompletionModel, readCompletionDeltaText, readCompletionError } from '@/lib/copilot/completion'
+import { readCompletionDeltaText, readCompletionError } from '@/lib/copilot/completion'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
-import { resolveCopilotRuntimeProvider } from '@/lib/copilot/runtime-provider'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { proxyCopilotCompletionRequest } from '@/app/api/copilot/proxy'
@@ -163,7 +162,6 @@ export async function POST(req: NextRequest) {
 
   const { prompt, systemPrompt, generationType, history } = parsed.data
   const configuredModel = DEFAULT_COPILOT_RUNTIME_MODEL
-  const configuredProvider = resolveCopilotRuntimeProvider(configuredModel)
   const finalSystemPrompt = buildWandSystemPrompt(systemPrompt, generationType)
   const messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }> = [
     ...(finalSystemPrompt ? [{ role: 'system' as const, content: finalSystemPrompt }] : []),
@@ -178,7 +176,7 @@ export async function POST(req: NextRequest) {
   try {
     copilotResponse = await proxyCopilotCompletionRequest({
       body: {
-        model: formatCompletionModel(configuredModel, configuredProvider),
+        model: configuredModel,
         stream: true,
         messages,
       },

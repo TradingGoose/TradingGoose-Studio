@@ -61,10 +61,7 @@ export async function GET(request: NextRequest) {
   const endDate = parsed.data.endDate?.trim()
 
   if (!listingId || !listingTypeRaw) {
-    return NextResponse.json(
-      { error: 'listing_id and listingType are required.' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'listing_id and listingType are required.' }, { status: 400 })
   }
 
   if (!listingType || !allowedListingTypes.has(listingType)) {
@@ -108,10 +105,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (date && !parseDateYmd(date)) {
-    return NextResponse.json(
-      { error: 'date must be in YYYY-MM-DD format.' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'date must be in YYYY-MM-DD format.' }, { status: 400 })
   }
 
   const searchParams = new URLSearchParams()

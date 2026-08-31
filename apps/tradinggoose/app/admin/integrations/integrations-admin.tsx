@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react'
-import { useLocale, useMessages, type Messages } from 'next-intl'
+import { useEffect, useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ChevronDown, ChevronRight, Loader2, ShieldCheck } from 'lucide-react'
+import { type Messages, useLocale, useMessages } from 'next-intl'
 import {
   Alert,
   AlertDescription,
@@ -24,11 +25,12 @@ import { ADMIN_META_BADGE_CLASSNAME, ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/
 import { AdminPageShell } from '@/app/admin/page-shell'
 import { SearchInput } from '@/app/workspace/[workspaceId]/knowledge/components'
 import {
+  adminIntegrationsKeys,
+  saveAdminIntegrationBundle,
   useAdminIntegrationsSnapshot,
-  useSaveAdminIntegrationBundle,
 } from '@/hooks/queries/admin-integrations'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 
 const EMPTY_SNAPSHOT: AdminIntegrationsSnapshot = {
   definitions: [],
@@ -51,8 +53,16 @@ const INTEGRATION_SECTION_STATUS_BADGE_CLASSNAME = {
 export function AdminIntegrations() {
   const locale = useLocale() as LocaleCode
   const copy = useMessages().admin.integrations
+  const queryClient = useQueryClient()
   const integrationsQuery = useAdminIntegrationsSnapshot()
-  const saveBundleMutation = useSaveAdminIntegrationBundle()
+  const saveBundleMutation = useMutation({
+    mutationFn: ({
+      controlId: _controlId,
+      ...input
+    }: Parameters<typeof saveAdminIntegrationBundle>[0] & { controlId: string }) =>
+      saveAdminIntegrationBundle(input),
+  })
+  const writeLockRef = useRef(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [draft, setDraft] = useState<AdminIntegrationsSnapshot | null>(null)
   const [expandedBundles, setExpandedBundles] = useState<Record<string, boolean>>({})
@@ -133,6 +143,7 @@ export function AdminIntegrations() {
           value={searchTerm}
           onChange={setSearchTerm}
           placeholder={copy.searchPlaceholder}
+          clearLabel={copy.clearSearch}
           className='w-full'
         />
       </div>
@@ -174,7 +185,12 @@ export function AdminIntegrations() {
         </Alert>
 
         {!draft && integrationsQuery.isPending ? (
-          <div className='flex min-h-[280px] items-center justify-center rounded-lg border bg-background'>
+          <div
+            role='status'
+            aria-live='polite'
+            aria-atomic='true'
+            className='flex min-h-[280px] items-center justify-center rounded-lg border bg-background'
+          >
             <p className='text-muted-foreground text-sm'>{copy.loading}</p>
           </div>
         ) : null}
@@ -206,6 +222,7 @@ export function AdminIntegrations() {
                     return (
                       <section
                         key={bundle.id}
+                        aria-busy={isSavingBundle || undefined}
                         className='border-border/60 border-b last:border-b-0'
                       >
                         <Collapsible
@@ -217,27 +234,45 @@ export function AdminIntegrations() {
                             }))
                           }
                         >
-                          <CollapsibleTrigger asChild>
-                            <Button
-                              type='button'
-                              variant='ghost'
-                              className='flex h-auto w-full items-start justify-between gap-4 rounded-none px-4 py-4 text-left hover:bg-muted/30 sm:px-5'
-                            >
-                              <div className='min-w-0 flex-1 space-y-1'>
-                                <p className='text-[11px] text-muted-foreground uppercase tracking-[0.18em]'>
-                                  {copy.providerLabel}
-                                </p>
-                                <div className='flex flex-wrap items-center gap-2'>
-                                  <h3 className='font-medium text-sm'>{bundle.displayName}</h3>
-                                  <Badge variant='outline' className={ADMIN_META_BADGE_CLASSNAME}>
-                                    {formatTemplate(copy.summary.serviceCount, {
-                                      count: bundleServices.length,
-                                      plural:
-                                        bundleServices.length === 1
-                                          ? ''
-                                          : copy.summary.servicePlural,
+                          <CollapsibleTrigger
+                            render={
+                              <Button
+                                type='button'
+                                variant='ghost'
+                                className='flex h-auto w-full items-start justify-between gap-4 rounded-none px-4 py-4 text-left hover:bg-muted/30 sm:px-5'
+                              />
+                            }
+                          >
+                            <div className='min-w-0 flex-1 space-y-1'>
+                              <p className='text-[11px] text-muted-foreground uppercase tracking-[0.18em]'>
+                                {copy.providerLabel}
+                              </p>
+                              <div className='flex flex-wrap items-center gap-2'>
+                                <h3 className='font-medium text-sm'>{bundle.displayName}</h3>
+                                <Badge variant='outline' className={ADMIN_META_BADGE_CLASSNAME}>
+                                  {formatTemplate(copy.summary.serviceCount, {
+                                    count: bundleServices.length,
+                                    plural:
+                                      bundleServices.length === 1 ? '' : copy.summary.servicePlural,
+                                  })}
+                                </Badge>
+                                {isSavingBundle ? (
+                                  <Badge
+                                    role='status'
+                                    aria-live='polite'
+                                    aria-atomic='true'
+                                    variant='outline'
+                                    className={ADMIN_STATUS_BADGE_CLASSNAME}
+                                  >
+                                    <Loader2
+                                      aria-hidden='true'
+                                      className='size-3 animate-spin motion-reduce:animate-none'
+                                    />
+                                    {formatTemplate(copy.status.saving, {
+                                      name: bundle.displayName,
                                     })}
                                   </Badge>
+                                ) : (
                                   <Badge
                                     variant='outline'
                                     className={`${ADMIN_STATUS_BADGE_CLASSNAME} ${INTEGRATION_SECTION_STATUS_BADGE_CLASSNAME[summary.status]}`}
@@ -246,24 +281,24 @@ export function AdminIntegrations() {
                                       ? copy.status.ready
                                       : copy.status.review}
                                   </Badge>
-                                </div>
-                                <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
-                                  {summary.preview}
-                                </p>
-                                {summary.missing ? (
-                                  <p className='max-w-3xl text-[11px] text-muted-foreground/80 leading-relaxed'>
-                                    {summary.missing}
-                                  </p>
-                                ) : null}
-                              </div>
-                              <div className='flex items-center pt-0.5'>
-                                {isOpen ? (
-                                  <ChevronDown className='h-4 w-4 text-muted-foreground' />
-                                ) : (
-                                  <ChevronRight className='h-4 w-4 text-muted-foreground' />
                                 )}
                               </div>
-                            </Button>
+                              <p className='max-w-3xl text-muted-foreground text-xs leading-relaxed'>
+                                {summary.preview}
+                              </p>
+                              {summary.missing ? (
+                                <p className='max-w-3xl text-[11px] text-muted-foreground/80 leading-relaxed'>
+                                  {summary.missing}
+                                </p>
+                              ) : null}
+                            </div>
+                            <div className='flex items-center pt-0.5'>
+                              {isOpen ? (
+                                <ChevronDown className='h-4 w-4 text-muted-foreground' />
+                              ) : (
+                                <ChevronRight className='h-4 w-4 text-muted-foreground' />
+                              )}
+                            </div>
                           </CollapsibleTrigger>
 
                           <CollapsibleContent className='border-border/60 border-t bg-muted/10 px-4 py-4 sm:px-5'>
@@ -303,7 +338,7 @@ export function AdminIntegrations() {
                                           hasValue={isSecretConfigured}
                                           statusClassName={ADMIN_STATUS_BADGE_CLASSNAME}
                                           isSensitive={credentialField.isSensitive}
-                                          disabled={isSavingBundle}
+                                          disabled={saveBundleMutation.isPending}
                                           placeholder={
                                             isSecretConfigured
                                               ? formatTemplate(copy.placeholders.replaceValue, {
@@ -312,16 +347,40 @@ export function AdminIntegrations() {
                                               : credentialField.placeholder
                                           }
                                           onSave={(value) =>
-                                            persistSecretPatch(bundle.id, secret.id, {
-                                              value,
-                                              hasValue: true,
-                                            })
+                                            persistBundleChange(
+                                              bundle.id,
+                                              `secret:${secret.id}:save`,
+                                              (current) => ({
+                                                ...current,
+                                                secrets: current.secrets.map((candidate) =>
+                                                  candidate.id === secret.id
+                                                    ? {
+                                                        ...candidate,
+                                                        value,
+                                                        hasValue: true,
+                                                      }
+                                                    : candidate
+                                                ),
+                                              })
+                                            )
                                           }
                                           onClear={() =>
-                                            persistSecretPatch(bundle.id, secret.id, {
-                                              value: '',
-                                              hasValue: false,
-                                            })
+                                            persistBundleChange(
+                                              bundle.id,
+                                              `secret:${secret.id}:clear`,
+                                              (current) => ({
+                                                ...current,
+                                                secrets: current.secrets.map((candidate) =>
+                                                  candidate.id === secret.id
+                                                    ? {
+                                                        ...candidate,
+                                                        value: '',
+                                                        hasValue: false,
+                                                      }
+                                                    : candidate
+                                                ),
+                                              })
+                                            )
                                           }
                                         />
                                       )
@@ -378,17 +437,46 @@ export function AdminIntegrations() {
                                               })}
                                             </p>
                                           </div>
-                                          <Switch
-                                            checked={Boolean(isConfigured && service.isEnabled)}
-                                            disabled={!isConfigured || isSavingBundle}
-                                            onCheckedChange={(checked) =>
-                                              toggleDefinitionEnabled(
-                                                bundle.id,
-                                                service.id,
-                                                checked
-                                              )
-                                            }
-                                          />
+                                          <div className='flex items-center gap-2'>
+                                            {saveBundleMutation.isPending &&
+                                            saveBundleMutation.variables?.controlId ===
+                                              `service:${service.id}` ? (
+                                              <Loader2
+                                                aria-hidden='true'
+                                                className='size-4 animate-spin text-muted-foreground motion-reduce:animate-none'
+                                              />
+                                            ) : null}
+                                            <Switch
+                                              aria-label={service.displayName}
+                                              aria-busy={
+                                                saveBundleMutation.isPending &&
+                                                saveBundleMutation.variables?.controlId ===
+                                                  `service:${service.id}`
+                                              }
+                                              checked={Boolean(isConfigured && service.isEnabled)}
+                                              disabled={
+                                                !isConfigured || saveBundleMutation.isPending
+                                              }
+                                              onCheckedChange={(checked) => {
+                                                void persistBundleChange(
+                                                  bundle.id,
+                                                  `service:${service.id}`,
+                                                  (current) => ({
+                                                    ...current,
+                                                    definitions: current.definitions.map(
+                                                      (definition) =>
+                                                        definition.id === service.id
+                                                          ? {
+                                                              ...definition,
+                                                              isEnabled: checked,
+                                                            }
+                                                          : definition
+                                                    ),
+                                                  })
+                                                )
+                                              }}
+                                            />
+                                          </div>
                                         </div>
                                       )
                                     })}
@@ -410,84 +498,44 @@ export function AdminIntegrations() {
     </AdminPageShell>
   )
 
-  function updateDraftSnapshot(
+  async function persistBundleChange(
+    bundleId: string,
+    controlId: string,
     transform: (current: AdminIntegrationsSnapshot) => AdminIntegrationsSnapshot
-  ) {
-    let nextSnapshot: AdminIntegrationsSnapshot | null = null
-
-    setDraft((current) => {
-      const base = current ?? cloneSnapshot(integrationsQuery.data ?? EMPTY_SNAPSHOT)
-      nextSnapshot = transform(base)
-      return nextSnapshot
-    })
-
-    return nextSnapshot
-  }
-
-  function resetDraftToPersisted() {
-    setDraft(integrationsQuery.data ? cloneSnapshot(integrationsQuery.data) : null)
-  }
-
-  async function persistBundleSnapshot(bundleId: string, nextSnapshot: AdminIntegrationsSnapshot) {
-    const definition = nextSnapshot.definitions.find((candidate) => candidate.id === bundleId)
-    if (!definition) {
-      return
+  ): Promise<boolean> {
+    if (writeLockRef.current) {
+      return false
     }
 
+    writeLockRef.current = true
+    const previousSnapshot = cloneSnapshot(draft ?? integrationsQuery.data ?? EMPTY_SNAPSHOT)
+    const nextSnapshot = transform(cloneSnapshot(previousSnapshot))
+
     try {
+      const definition = nextSnapshot.definitions.find((candidate) => candidate.id === bundleId)
+      if (!definition) {
+        return false
+      }
+
+      setDraft(nextSnapshot)
+
       const serverSnapshot = await saveBundleMutation.mutateAsync({
         bundleId,
+        controlId,
         definition,
         services: nextSnapshot.definitions.filter((candidate) => candidate.parentId === bundleId),
         secrets: nextSnapshot.secrets.filter((secret) => secret.definitionId === bundleId),
       })
 
-      setDraft((current) =>
-        current
-          ? mergeBundleIntoDraft(current, serverSnapshot, bundleId)
-          : cloneSnapshot(serverSnapshot)
-      )
-    } catch (error) {
-      resetDraftToPersisted()
-      throw error
+      queryClient.setQueryData(adminIntegrationsKeys.snapshot(), serverSnapshot)
+      setDraft(cloneSnapshot(serverSnapshot))
+      return true
+    } catch {
+      setDraft(previousSnapshot)
+      return false
+    } finally {
+      writeLockRef.current = false
     }
-  }
-
-  function updateDefinition(definitionId: string, updates: Partial<AdminIntegrationDefinition>) {
-    return updateDraftSnapshot((current) => ({
-      ...current,
-      definitions: current.definitions.map((definition) =>
-        definition.id === definitionId ? { ...definition, ...updates } : definition
-      ),
-    }))
-  }
-
-  function toggleDefinitionEnabled(bundleId: string, definitionId: string, isEnabled: boolean) {
-    const nextSnapshot = updateDefinition(definitionId, { isEnabled })
-    if (!nextSnapshot) {
-      return
-    }
-
-    void persistBundleSnapshot(bundleId, nextSnapshot)
-  }
-
-  function persistSecretPatch(
-    bundleId: string,
-    secretId: string,
-    patch: { value: string; hasValue: boolean }
-  ) {
-    const nextSnapshot = updateDraftSnapshot((current) => ({
-      ...current,
-      secrets: current.secrets.map((candidate) =>
-        candidate.id === secretId ? { ...candidate, ...patch } : candidate
-      ),
-    }))
-
-    if (!nextSnapshot) {
-      return Promise.resolve()
-    }
-
-    return persistBundleSnapshot(bundleId, nextSnapshot)
   }
 }
 
@@ -500,72 +548,6 @@ function cloneSnapshot(snapshot: AdminIntegrationsSnapshot): AdminIntegrationsSn
 
 function hasSecretValue(secret: AdminIntegrationSecret) {
   return secret.hasValue || Boolean(secret.value.trim())
-}
-
-function mergeBundleIntoDraft(
-  draft: AdminIntegrationsSnapshot,
-  nextSnapshot: AdminIntegrationsSnapshot,
-  bundleId: string
-) {
-  return {
-    ...draft,
-    definitions: [
-      ...draft.definitions.filter(
-        (definition) => definition.id !== bundleId && definition.parentId !== bundleId
-      ),
-      ...nextSnapshot.definitions
-        .filter((definition) => definition.id === bundleId || definition.parentId === bundleId)
-        .map((definition) => ({ ...definition })),
-    ].sort(compareDefinitionsForComparison),
-    secrets: [
-      ...draft.secrets.filter((secret) => secret.definitionId !== bundleId),
-      ...nextSnapshot.secrets
-        .filter((secret) => secret.definitionId === bundleId)
-        .map((secret) => ({ ...secret })),
-    ].sort(compareSecretsForComparison),
-  }
-}
-
-function normalizeDefinitionForComparison(definition: AdminIntegrationDefinition) {
-  return {
-    id: definition.id,
-    parentId: definition.parentId,
-    displayName: definition.displayName,
-    isEnabled: definition.isEnabled,
-  }
-}
-
-function compareDefinitionsForComparison(
-  left: AdminIntegrationDefinition,
-  right: AdminIntegrationDefinition
-) {
-  return (
-    (left.parentId ?? '').localeCompare(right.parentId ?? '') ||
-    left.id.localeCompare(right.id) ||
-    left.displayName.localeCompare(right.displayName)
-  )
-}
-
-function normalizeSecretForComparison(secret: AdminIntegrationSecret) {
-  return {
-    id: secret.id,
-    definitionId: secret.definitionId,
-    credentialKey: secret.credentialKey,
-    hasValue: secret.hasValue,
-    value: secret.value,
-  }
-}
-
-function compareSecretsForComparison(
-  left: ReturnType<typeof normalizeSecretForComparison>,
-  right: ReturnType<typeof normalizeSecretForComparison>
-) {
-  return (
-    left.definitionId.localeCompare(right.definitionId) ||
-    left.credentialKey.localeCompare(right.credentialKey) ||
-    left.id.localeCompare(right.id) ||
-    left.value.localeCompare(right.value)
-  )
 }
 
 function getCredentialFieldConfig(

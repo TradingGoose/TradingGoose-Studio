@@ -203,7 +203,7 @@ describe('checkAndBillOverageThreshold', () => {
         customer: 'cus_123',
         description: 'Usage overage ($4.00)',
       }),
-      expect.any(Object),
+      expect.any(Object)
     )
     expect(updatedStats).toEqual([
       expect.objectContaining({
@@ -267,7 +267,7 @@ describe('checkAndBillOverageThreshold', () => {
         billingUserId: 'user-1',
         workspaceId: 'workspace-1',
         workflowId: undefined,
-      },
+      }
     )
     expect(mockLogger.error).not.toHaveBeenCalled()
     expect(mockDb.transaction).not.toHaveBeenCalled()

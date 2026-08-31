@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronDown, FileText, RefreshCw } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -15,9 +15,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { SubBlockConfig } from '@/blocks/types'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 
@@ -182,24 +181,27 @@ export function DocumentSelector({
   return (
     <div className='w-full'>
       <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <Button
-            variant='outline'
-            role='combobox'
-            aria-expanded={open}
-            className='relative w-full justify-between'
-            disabled={isDisabled}
-          >
-            <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
-              <FileText className='h-4 w-4 text-muted-foreground' />
-              {selectedDocument ? (
-                <span className='truncate font-normal'>{formatDocumentName(selectedDocument)}</span>
-              ) : (
-                <span className='truncate text-muted-foreground'>{label}</span>
-              )}
-            </div>
-            <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
-          </Button>
+        <PopoverTrigger
+          disabled={isDisabled}
+          render={
+            <Button
+              variant='outline'
+              role='combobox'
+              aria-expanded={open}
+              className='relative w-full justify-between'
+              disabled={isDisabled}
+            />
+          }
+        >
+          <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
+            <FileText className='h-4 w-4 text-muted-foreground' />
+            {selectedDocument ? (
+              <span className='truncate font-normal'>{formatDocumentName(selectedDocument)}</span>
+            ) : (
+              <span className='truncate text-muted-foreground'>{label}</span>
+            )}
+          </div>
+          <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
         </PopoverTrigger>
         <PopoverContent className='w-[300px] p-0' align='start'>
           <Command>

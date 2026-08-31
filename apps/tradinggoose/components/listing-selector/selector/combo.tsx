@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react'
 import { ListingSearchInput } from '@/components/listing-selector/selector/input'
-import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
+import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 
 export interface ListingSelectorProps {
@@ -15,10 +15,10 @@ export interface ListingSelectorProps {
   providerType?: 'market' | 'trading'
   marketProviderId?: string
   tradingProviderId?: string
-  candidateListings?: ListingOption[]
+  candidateListings?: ListingResolved[]
   candidateListingsLoading?: boolean
   candidateListingsError?: string
-  onListingChange?: (listing: ListingOption | null) => void
+  onListingChange?: (listing: ListingResolved | null) => void
   onListingValueChange?: (value: string | null) => void
   onListingTagSelect?: (value: string) => void
   listingRequired?: boolean

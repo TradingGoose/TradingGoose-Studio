@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Check, Pencil, Trash2, X } from 'lucide-react'
+import { Check, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import { Badge, Button, Input } from '@/components/ui'
 
 const MASKED_SECRET_VALUE = '************'
@@ -17,8 +17,8 @@ interface AdminInlineSecretFieldProps {
   editStartValue?: string
   isSensitive?: boolean
   disabled?: boolean
-  onSave: (value: string) => Promise<void> | void
-  onClear?: () => Promise<void> | void
+  onSave: (value: string) => unknown
+  onClear?: () => unknown
 }
 
 export function AdminInlineSecretField({
@@ -37,7 +37,7 @@ export function AdminInlineSecretField({
 }: AdminInlineSecretFieldProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editingValue, setEditingValue] = useState(editStartValue)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [pendingAction, setPendingAction] = useState<'save' | 'clear' | null>(null)
 
   useEffect(() => {
     if (!isEditing) {
@@ -45,15 +45,20 @@ export function AdminInlineSecretField({
     }
   }, [editStartValue, isEditing])
 
-  const isBusy = disabled || isSubmitting
+  const isBusy = disabled || pendingAction !== null
   const badgeLabel = hasValue ? 'Configured' : required ? 'Incomplete' : 'Optional'
   const badgeVariant = hasValue ? 'default' : required ? 'secondary' : 'outline'
 
   return (
-    <div className='rounded-md border border-border/60 bg-muted/20 p-3'>
+    <div
+      aria-busy={pendingAction !== null || undefined}
+      className='rounded-md border border-border/60 bg-muted/20 p-3'
+    >
       <div className='mb-3 flex flex-wrap items-center justify-between gap-2'>
         <div className='min-w-0 space-y-1'>
-          <div className='font-medium text-sm'>{label}</div>
+          <label htmlFor={id} className='font-medium text-sm'>
+            {label}
+          </label>
           <div className='text-muted-foreground text-xs leading-relaxed'>{description}</div>
         </div>
         <Badge variant={badgeVariant} className={statusClassName}>
@@ -73,7 +78,14 @@ export function AdminInlineSecretField({
               void handleSave()
             }}
           >
-            <Check className='h-4 w-4' />
+            {pendingAction === 'save' ? (
+              <Loader2
+                aria-hidden='true'
+                className='size-4 animate-spin motion-reduce:animate-none'
+              />
+            ) : (
+              <Check className='h-4 w-4' />
+            )}
             <span className='sr-only'>Save {label}</span>
           </Button>
           <div className='flex min-w-0 flex-1 items-center gap-2 rounded-md bg-background px-2 py-2'>
@@ -143,7 +155,14 @@ export function AdminInlineSecretField({
                 void handleClear()
               }}
             >
-              <Trash2 className='h-4 w-4' />
+              {pendingAction === 'clear' ? (
+                <Loader2
+                  aria-hidden='true'
+                  className='size-4 animate-spin motion-reduce:animate-none'
+                />
+              ) : (
+                <Trash2 className='h-4 w-4' />
+              )}
               <span className='sr-only'>Clear {label}</span>
             </Button>
           ) : null}
@@ -158,14 +177,15 @@ export function AdminInlineSecretField({
       return
     }
 
-    setIsSubmitting(true)
+    setPendingAction('save')
     let didSucceed = false
 
     try {
-      await onSave(editingValue)
-      didSucceed = true
+      didSucceed = (await onSave(editingValue)) !== false
+    } catch {
+      didSucceed = false
     } finally {
-      setIsSubmitting(false)
+      setPendingAction(null)
       if (didSucceed) {
         setIsEditing(false)
       }
@@ -177,14 +197,15 @@ export function AdminInlineSecretField({
       return
     }
 
-    setIsSubmitting(true)
+    setPendingAction('clear')
     let didSucceed = false
 
     try {
-      await onClear()
-      didSucceed = true
+      didSucceed = (await onClear()) !== false
+    } catch {
+      didSucceed = false
     } finally {
-      setIsSubmitting(false)
+      setPendingAction(null)
       if (didSucceed) {
         setIsEditing(false)
       }

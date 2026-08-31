@@ -51,7 +51,12 @@ export async function getCopilotApiUrl(endpoint: string, query?: CopilotQuery) {
   return url.toString()
 }
 
-export async function proxyCopilotRequest({ endpoint, body, signal, headers }: CopilotProxyRequest) {
+export async function proxyCopilotRequest({
+  endpoint,
+  body,
+  signal,
+  headers,
+}: CopilotProxyRequest) {
   return fetch(
     await getCopilotApiUrl(endpoint),
     await createRequestInit(

@@ -11,7 +11,7 @@ const triggerProjectId = env.TRIGGER_PROJECT_ID || process.env.TRIGGER_PROJECT_I
 
 export default defineConfig({
   project: triggerProjectId!,
-  runtime: 'node',
+  runtime: 'node-24',
   logLevel: 'log',
   maxDuration: 600,
   retries: {

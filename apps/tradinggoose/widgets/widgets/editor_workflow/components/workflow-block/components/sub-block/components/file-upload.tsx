@@ -560,19 +560,22 @@ export function FileUpload({
                 if (open) void loadWorkspaceFiles()
               }}
             >
-              <PopoverTrigger asChild>
-                <Button
-                  variant='outline'
-                  role='combobox'
-                  aria-expanded={addMoreOpen}
-                  className='relative w-full justify-between'
-                  disabled={disabled || loadingWorkspaceFiles}
-                >
-                  <span className='truncate font-normal'>
-                    {translateWorkflowLabel(locale, 'addMore')}
-                  </span>
-                  <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
-                </Button>
+              <PopoverTrigger
+                disabled={disabled || loadingWorkspaceFiles}
+                render={
+                  <Button
+                    variant='outline'
+                    role='combobox'
+                    aria-expanded={addMoreOpen}
+                    className='relative w-full justify-between'
+                    disabled={disabled || loadingWorkspaceFiles}
+                  />
+                }
+              >
+                <span className='truncate font-normal'>
+                  {translateWorkflowLabel(locale, 'addMore')}
+                </span>
+                <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
               </PopoverTrigger>
               <PopoverContent className='w-[320px] p-0' align='start'>
                 <Command>
@@ -636,21 +639,24 @@ export function FileUpload({
               if (open) void loadWorkspaceFiles()
             }}
           >
-            <PopoverTrigger asChild>
-              <Button
-                variant='outline'
-                role='combobox'
-                aria-expanded={pickerOpen}
-                className='relative w-full justify-between'
-                disabled={disabled || loadingWorkspaceFiles}
-              >
-                <span className='truncate font-normal'>
-                  {loadingWorkspaceFiles
-                    ? translateWorkflowLabel(locale, 'loadingFiles')
-                    : translateWorkflowLabel(locale, 'selectOrUploadFile')}
-                </span>
-                <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
-              </Button>
+            <PopoverTrigger
+              disabled={disabled || loadingWorkspaceFiles}
+              render={
+                <Button
+                  variant='outline'
+                  role='combobox'
+                  aria-expanded={pickerOpen}
+                  className='relative w-full justify-between'
+                  disabled={disabled || loadingWorkspaceFiles}
+                />
+              }
+            >
+              <span className='truncate font-normal'>
+                {loadingWorkspaceFiles
+                  ? translateWorkflowLabel(locale, 'loadingFiles')
+                  : translateWorkflowLabel(locale, 'selectOrUploadFile')}
+              </span>
+              <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
             </PopoverTrigger>
             <PopoverContent className='w-[320px] p-0' align='start'>
               <Command>

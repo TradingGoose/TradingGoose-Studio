@@ -12,17 +12,16 @@ export interface SubscriptionState {
 }
 
 export interface UserRole {
-  isTeamAdmin: boolean
+  isOrganizationOwner: boolean
 }
 
 export interface SubscriptionSurfaceState {
   currentTier: PublicBillingTierDisplay | null
   isOrganizationPlan: boolean
-  isAdjustableSeatPlan: boolean
   isCustomOrganizationPlan: boolean
   canManageOrganizationPlan: boolean
   canEditUsageLimit: boolean
-  showTeamMemberView: boolean
+  showNonOwnerOrganizationView: boolean
   visiblePlanTiers: PublicBillingTierDisplay[]
   showEnterprisePlaceholder: boolean
   enterprisePlaceholder: EnterprisePlaceholderDisplay | null
@@ -35,6 +34,24 @@ interface SubscriptionSurfaceInput {
   enterprisePlaceholder: EnterprisePlaceholderDisplay | null
 }
 
+export const mergeAccessibleBillingTiers = (
+  publicTiers: readonly PublicBillingTierDisplay[] = [],
+  privateTiers: readonly PublicBillingTierDisplay[] = []
+) =>
+  [...publicTiers, ...privateTiers].sort(
+    (left, right) => left.displayOrder - right.displayOrder || left.id.localeCompare(right.id)
+  )
+
+export function getSubscriptionTierAlternatives(
+  tiers: PublicBillingTierDisplay[],
+  ownerType: PublicBillingTierDisplay['ownerType'],
+  currentTierId?: string | null
+) {
+  return tiers.filter(
+    (tier) => !tier.isDefault && tier.id !== currentTierId && tier.ownerType === ownerType
+  )
+}
+
 function getCurrentTier(
   subscription: SubscriptionState,
   publicTiers: PublicBillingTierDisplay[]
@@ -44,6 +61,15 @@ function getCurrentTier(
     : null
   if (matchedTier) {
     return matchedTier
+  }
+
+  if (subscription.tier.id) {
+    return {
+      ...subscription.tier,
+      id: subscription.tier.id,
+      description: '',
+      isDefault: subscription.isFree,
+    }
   }
 
   if (!subscription.isFree) {
@@ -60,44 +86,40 @@ export function getSubscriptionSurfaceState({
   enterprisePlaceholder,
 }: SubscriptionSurfaceInput): SubscriptionSurfaceState {
   const currentTier = getCurrentTier(subscription, publicTiers)
-  const effectiveTier = currentTier ?? subscription.tier
-  const isCurrentOrganizationPlan = effectiveTier.ownerType === 'organization'
+  const isCurrentOrganizationPlan = subscription.tier.ownerType === 'organization'
   const isCurrentCustomOrganizationPlan =
-    isCurrentOrganizationPlan && !currentTier && !subscription.isFree
-  const isCurrentAdjustableSeatPlan =
-    isCurrentOrganizationPlan && effectiveTier.seatMode === 'adjustable'
-  const canEditUsageLimit = canTierEditUsageLimit(effectiveTier)
-  const isTeamMemberView = isCurrentOrganizationPlan && !userRole.isTeamAdmin
+    isCurrentOrganizationPlan && subscription.isPaid && !subscription.tier.hasStripeMonthlyPriceId
+  const canEditUsageLimit = canTierEditUsageLimit(subscription.tier)
+  const isNonOwnerOrganizationPlan = isCurrentOrganizationPlan && !userRole.isOrganizationOwner
 
   let visiblePlanTiers: PublicBillingTierDisplay[] = []
 
-  if (!isTeamMemberView && !isCurrentCustomOrganizationPlan) {
-    const currentDisplayOrder = currentTier?.displayOrder ?? (subscription.isFree ? -1 : null)
-    const upgradableTiers = subscription.isFree
-      ? publicTiers.filter((tier) => !tier.isDefault)
-      : currentDisplayOrder !== null
-        ? publicTiers.filter(
-            (tier) => tier.id !== currentTier?.id && tier.displayOrder > currentDisplayOrder
-          )
-        : []
+  if (isNonOwnerOrganizationPlan) {
+    visiblePlanTiers = []
+  } else if (isCurrentCustomOrganizationPlan) {
+    visiblePlanTiers = currentTier ? [currentTier] : []
+  } else {
+    const alternativeTiers = getSubscriptionTierAlternatives(
+      publicTiers,
+      subscription.tier.ownerType,
+      currentTier?.id
+    )
 
-    visiblePlanTiers = currentTier
-      ? [currentTier, ...upgradableTiers.filter((tier) => tier.id !== currentTier.id)]
-      : upgradableTiers
+    visiblePlanTiers = currentTier ? [currentTier, ...alternativeTiers] : alternativeTiers
   }
 
   const showEnterprisePlaceholder = Boolean(
-    enterprisePlaceholder && !isCurrentCustomOrganizationPlan && !isTeamMemberView
+    enterprisePlaceholder && !isCurrentCustomOrganizationPlan && !isNonOwnerOrganizationPlan
   )
 
   return {
     currentTier,
     isOrganizationPlan: isCurrentOrganizationPlan,
-    isAdjustableSeatPlan: isCurrentAdjustableSeatPlan,
     isCustomOrganizationPlan: isCurrentCustomOrganizationPlan,
-    canManageOrganizationPlan: isCurrentOrganizationPlan && userRole.isTeamAdmin,
-    canEditUsageLimit: canEditUsageLimit && (!isCurrentOrganizationPlan || userRole.isTeamAdmin),
-    showTeamMemberView: isTeamMemberView && !isCurrentCustomOrganizationPlan,
+    canManageOrganizationPlan: isCurrentOrganizationPlan && userRole.isOrganizationOwner,
+    canEditUsageLimit:
+      canEditUsageLimit && (!isCurrentOrganizationPlan || userRole.isOrganizationOwner),
+    showNonOwnerOrganizationView: isNonOwnerOrganizationPlan,
     visiblePlanTiers,
     showEnterprisePlaceholder,
     enterprisePlaceholder,

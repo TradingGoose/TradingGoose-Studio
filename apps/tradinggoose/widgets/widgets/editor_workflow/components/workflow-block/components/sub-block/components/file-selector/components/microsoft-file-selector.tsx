@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { MicrosoftExcelIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
@@ -25,9 +25,8 @@ import {
   type OAuthProvider,
   parseProvider,
 } from '@/lib/oauth'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import type { PlannerTask } from '@/tools/microsoft_planner/types'
 
 const logger = createLogger('MicrosoftFileSelector')
@@ -715,36 +714,41 @@ export function MicrosoftFileSelector({
             }
           }}
         >
-          <PopoverTrigger asChild>
-            <Button
-              variant='outline'
-              role='combobox'
-              aria-expanded={open}
-              className='h-10 w-full min-w-0 justify-between'
-              disabled={
-                disabled || isForeignCredential || (serviceId === 'microsoft-planner' && !planId)
-              }
-            >
-              <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-                {canShowPreview ? (
-                  <>
-                    {getFileIcon(selectedFile, 'sm')}
-                    <span className='truncate font-normal'>{selectedFile.name}</span>
-                  </>
-                ) : selectedFileId && isLoadingSelectedFile && selectedCredentialId ? (
-                  <>
-                    <RefreshCw className='h-4 w-4 animate-spin' />
-                    <span className='truncate text-muted-foreground'>{copy.loadingDocument}</span>
-                  </>
-                ) : (
-                  <>
-                    {getProviderIcon(provider)}
-                    <span className='truncate text-muted-foreground'>{labelText}</span>
-                  </>
-                )}
-              </div>
-              <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-            </Button>
+          <PopoverTrigger
+            disabled={
+              disabled || isForeignCredential || (serviceId === 'microsoft-planner' && !planId)
+            }
+            render={
+              <Button
+                variant='outline'
+                role='combobox'
+                aria-expanded={open}
+                className='h-10 w-full min-w-0 justify-between'
+                disabled={
+                  disabled || isForeignCredential || (serviceId === 'microsoft-planner' && !planId)
+                }
+              />
+            }
+          >
+            <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
+              {canShowPreview ? (
+                <>
+                  {getFileIcon(selectedFile, 'sm')}
+                  <span className='truncate font-normal'>{selectedFile.name}</span>
+                </>
+              ) : selectedFileId && isLoadingSelectedFile && selectedCredentialId ? (
+                <>
+                  <RefreshCw className='h-4 w-4 animate-spin' />
+                  <span className='truncate text-muted-foreground'>{copy.loadingDocument}</span>
+                </>
+              ) : (
+                <>
+                  {getProviderIcon(provider)}
+                  <span className='truncate text-muted-foreground'>{labelText}</span>
+                </>
+              )}
+            </div>
+            <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
           </PopoverTrigger>
           {!isForeignCredential && (
             <PopoverContent className='w-[300px] p-0' align='start'>
@@ -891,11 +895,11 @@ export function MicrosoftFileSelector({
                       <CommandItem onSelect={handleAddCredential}>
                         <div className='flex items-center gap-1 text-foreground'>
                           {getProviderIcon(provider)}
-                        <span>
-                          {formatTemplate(copy.connectProviderAccount, {
-                            providerName: getProviderName(provider),
-                          })}
-                        </span>
+                          <span>
+                            {formatTemplate(copy.connectProviderAccount, {
+                              providerName: getProviderName(provider),
+                            })}
+                          </span>
                         </div>
                       </CommandItem>
                     </CommandGroup>

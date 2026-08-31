@@ -32,9 +32,7 @@ describe('email utils', () => {
 
     const { getFromEmailAddress } = await import('./utils')
 
-    await expect(getFromEmailAddress()).resolves.toBe(
-      'TradingGoose <noreply@mail.example.com>'
-    )
+    await expect(getFromEmailAddress()).resolves.toBe('TradingGoose <noreply@mail.example.com>')
   })
 
   it('builds the default from email address from the configured domain when unset', async () => {

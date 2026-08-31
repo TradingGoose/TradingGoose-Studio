@@ -42,17 +42,11 @@ describe('copilot entity documents', () => {
     ).toThrow(/settings/i)
   })
 
-  it('round-trips dashboard layout documents with canonical crypto and currency listing identities', () => {
+  it('round-trips dashboard layout documents with canonical listing identities', () => {
     const cryptoListing = {
       listing_type: 'crypto',
       listing_id: '',
       base_id: 'BTC',
-      quote_id: 'USD',
-    }
-    const currencyListing = {
-      listing_type: 'currency',
-      listing_id: '',
-      base_id: 'EUR',
       quote_id: 'USD',
     }
     const document = {
@@ -64,12 +58,8 @@ describe('copilot entity documents', () => {
       },
       widgets: {
         'widget-chart': {
-          pairColor: 'gray',
           params: { listing: cryptoListing },
         },
-      },
-      colorPairs: {
-        pairs: [{ color: 'red', listing: currencyListing }],
       },
     }
 
@@ -79,7 +69,6 @@ describe('copilot entity documents', () => {
     const serialized = JSON.parse(serializeEntityDocument('dashboard_layout', document))
     expect(serialized).toEqual(document)
     expect(serialized.widgets['widget-chart'].params.listing.base).toBeUndefined()
-    expect(serialized.colorPairs.pairs[0].listing.quote).toBeUndefined()
   })
 
   it('rejects non-canonical dashboard widget keys', () => {
@@ -95,11 +84,9 @@ describe('copilot entity documents', () => {
           },
           widgets: {
             'widget-chart': {
-              pairColor: 'gray',
               params: null,
             },
           },
-          colorPairs: { pairs: [] },
         })
       )
     ).toThrow(/widgetKey/)
@@ -115,11 +102,9 @@ describe('copilot entity documents', () => {
       },
       widgets: {
         'widget-empty': {
-          pairColor: 'gray',
           params: null,
         },
       },
-      colorPairs: { pairs: [] },
     }
 
     expect(parseEntityDocument('dashboard_layout', JSON.stringify(document))).toEqual(document)
@@ -135,10 +120,7 @@ describe('copilot entity documents', () => {
     }
 
     expect(() =>
-      parseEntityDocument(
-        'dashboard_layout',
-        JSON.stringify({ layout, widgets: {}, colorPairs: { pairs: [] } })
-      )
+      parseEntityDocument('dashboard_layout', JSON.stringify({ layout, widgets: {} }))
     ).toThrow(/widget widget-empty is missing/i)
     expect(() =>
       parseEntityDocument(
@@ -146,9 +128,8 @@ describe('copilot entity documents', () => {
         JSON.stringify({
           layout,
           widgets: {
-            'widget-empty': { pairColor: 'gray', params: { workflowId: 'workflow-1' } },
+            'widget-empty': { params: { workflowId: 'workflow-1' } },
           },
-          colorPairs: { pairs: [] },
         })
       )
     ).toThrow(/null-key dashboard widget/i)
@@ -175,11 +156,9 @@ describe('copilot entity documents', () => {
           },
           widgets: {
             'widget-1': {
-              pairColor: 'gray',
               params,
             },
           },
-          colorPairs: { pairs: [] },
         })
       )
     ).toThrow(expectedMessage)

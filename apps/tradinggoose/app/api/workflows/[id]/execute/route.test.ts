@@ -135,7 +135,7 @@ describe('/api/workflows/[id]/execute', () => {
     })
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'completed',
-      errorMessage: null,
+      failureReason: null,
       events: [],
       result: {
         success: true,
@@ -287,7 +287,7 @@ describe('/api/workflows/[id]/execute', () => {
     vi.useFakeTimers()
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'processing',
-      errorMessage: null,
+      failureReason: null,
       events: [],
       result: null,
     })
@@ -324,7 +324,7 @@ describe('/api/workflows/[id]/execute', () => {
   it('returns queued workflow failure messages for non-stream API executions', async () => {
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'failed',
-      errorMessage: 'Missing required symbol input',
+      failureReason: 'Missing required symbol input',
       events: [],
       result: null,
     })
@@ -445,7 +445,7 @@ describe('/api/workflows/[id]/execute', () => {
     }
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'completed',
-      errorMessage: null,
+      failureReason: null,
       events: [],
       result: responseResult,
     })
@@ -502,13 +502,13 @@ describe('/api/workflows/[id]/execute', () => {
     readWorkflowExecutionEventStateMock
       .mockResolvedValueOnce({
         status: 'processing',
-        errorMessage: null,
+        failureReason: null,
         events: [],
         result: null,
       })
       .mockResolvedValueOnce({
         status: 'completed',
-        errorMessage: null,
+        failureReason: null,
         events: [],
         result: {
           success: true,

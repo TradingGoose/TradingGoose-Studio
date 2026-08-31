@@ -92,6 +92,9 @@ export async function getEffectiveDecryptedEnv(
   userId: string,
   workspaceId?: string
 ): Promise<Record<string, string>> {
-  const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(userId, workspaceId)
+  const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
+    userId,
+    workspaceId
+  )
   return decryptAll({ ...personalEncrypted, ...workspaceEncrypted })
 }

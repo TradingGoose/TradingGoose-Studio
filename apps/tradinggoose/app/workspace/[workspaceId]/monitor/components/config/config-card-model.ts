@@ -1,4 +1,4 @@
-import type { ListingIdentity } from '@/lib/listing/identity'
+import { getListingIdentitySymbol, type ListingIdentity } from '@/lib/listing/identity'
 import { PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import type { MonitorExecutionOutcome } from '../data/execution-ordering'
 import type { MonitorExecutionSummary } from '../data/use-monitor-execution-summaries'
@@ -50,18 +50,6 @@ const VALID_OUTCOMES = new Set<MonitorExecutionOutcome>([
 ])
 
 const readWorkflowTargetKey = (workflowId: string, blockId: string) => `${workflowId}:${blockId}`
-
-const formatListingLabel = (listing: unknown, unknownListingLabel = 'Unknown listing') => {
-  const record = listing as Partial<ListingIdentity> | null | undefined
-  if (!record) return unknownListingLabel
-
-  if (record.listing_type === 'default') {
-    return record.listing_id || unknownListingLabel
-  }
-
-  const pair = [record.base_id, record.quote_id].filter(Boolean).join('/')
-  return pair || record.listing_id || unknownListingLabel
-}
 
 const normalizeSummaryOutcome = (value: unknown): MonitorExecutionOutcome | null =>
   typeof value === 'string' && VALID_OUTCOMES.has(value as MonitorExecutionOutcome)
@@ -120,7 +108,9 @@ export const buildConfigMonitorCards = (
       listingValue,
       listingLabel: isPortfolio
         ? (monitorConfig.accountId ?? 'Portfolio account')
-        : formatListingLabel(monitorConfig.listing, options?.unknownListingLabel),
+        : monitorConfig.listing
+          ? getListingIdentitySymbol(monitorConfig.listing)
+          : (options?.unknownListingLabel ?? 'Unknown listing'),
       isActive: monitor.isActive,
       status: monitor.isActive ? 'active' : 'paused',
       createdAt: monitor.createdAt,

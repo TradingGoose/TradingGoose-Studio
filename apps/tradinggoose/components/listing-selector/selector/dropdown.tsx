@@ -7,20 +7,20 @@ import {
   type SidebarDropdownItem,
   SidebarDropdownMenuContent,
 } from '@/components/ui/sidebar-dropdown-menu'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 import { useWorkspaceWidgetsMessages } from '@/i18n/workspace-widget-hooks'
 
 type ListingSelectorDropdownContentProps = {
   groups: SidebarDropdownGroup[]
   activeGroupId: string
   onActiveGroupChange: (groupId: string) => void
-  results: ListingOption[]
-  isLoading: boolean
+  results: ListingResolved[]
+  busy: boolean
   error?: string
   highlightedIndex: number
   onHighlightChange: (index: number) => void
-  onSelect: (listing: ListingOption) => void
-  renderListing?: (listing: ListingOption) => ReactNode
+  onSelect: (listing: ListingResolved) => void
+  renderListing?: (listing: ListingResolved) => ReactNode
   onWheelCapture?: (event: WheelEvent<HTMLDivElement>) => void
   onTouchMove?: (event: TouchEvent<HTMLDivElement>) => void
 }
@@ -30,7 +30,7 @@ export function ListingSelectorDropdownContent({
   activeGroupId,
   onActiveGroupChange,
   results,
-  isLoading,
+  busy,
   error,
   highlightedIndex,
   onHighlightChange,
@@ -79,7 +79,7 @@ export function ListingSelectorDropdownContent({
           const listing = results[Number(item.id)]
           if (listing) onSelect(listing)
         }}
-        loadingContent={isLoading ? copy.searching : null}
+        loadingContent={busy ? copy.searching : null}
         emptyContent={error || copy.noListingsFound}
       />
     </div>

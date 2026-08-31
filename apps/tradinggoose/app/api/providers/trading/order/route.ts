@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { ListingIdentitySchema, ListingResolvedSchema } from '@/lib/listing/identity'
 import { createTradingRequestId } from '@/lib/trading/context'
 import { isTradingServiceError } from '@/lib/trading/errors'
 import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
@@ -9,14 +10,7 @@ import { submitTradingOrder } from '@/lib/trading/orders'
 const positiveNumberSchema = z.number().positive().finite()
 const nonEmptyStringSchema = z.string().trim().min(1)
 
-const orderListingSchema = z
-  .object({
-    listing_type: z.enum(['default', 'crypto', 'currency']),
-    listing_id: z.string().optional(),
-    base_id: z.string().optional(),
-    quote_id: z.string().optional(),
-  })
-  .passthrough()
+const orderListingSchema = z.union([ListingIdentitySchema, ListingResolvedSchema])
 
 const portfolioIdentitySchema = z
   .object({

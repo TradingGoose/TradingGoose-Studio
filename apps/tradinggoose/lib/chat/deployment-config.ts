@@ -1,5 +1,5 @@
-import type { BlockState } from '@/stores/workflows/workflow/types'
 import { normalizeStringArray } from '@/lib/utils'
+import type { BlockState } from '@/stores/workflows/workflow/types'
 
 export const CHAT_PRIMARY_COLOR = 'var(--primary-hover)'
 export const DEFAULT_CHAT_WELCOME_MESSAGE = 'Hi there! How can I help you today?'

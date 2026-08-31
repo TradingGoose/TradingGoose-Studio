@@ -165,7 +165,7 @@ export function WorkflowDropdown({
               key={workflow.id}
               className={cn(widgetHeaderMenuItemClassName, 'justify-between')}
               data-active={isSelected ? '' : undefined}
-              onSelect={() => {
+              onClick={() => {
                 if (isSelected) return
                 handleSelect(workflow)
               }}
@@ -197,7 +197,7 @@ export function WorkflowDropdown({
   }
 
   const chevronClassName =
-    'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+    'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[popup-open]:rotate-180'
   const selectedWorkflowColor = selectedWorkflow?.color ?? '#64748b'
   const colorBadge = (
     <div
@@ -223,27 +223,31 @@ export function WorkflowDropdown({
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                disabled={isDropdownDisabled}
-                className={widgetHeaderControlClassName(
-                  cn(
-                    'group flex min-w-[240px] items-center justify-between gap-1',
-                    triggerClassName
-                  )
-                )}
-                aria-haspopup='listbox'
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type='button'
+                    disabled={isDropdownDisabled}
+                    className={widgetHeaderControlClassName(
+                      cn(
+                        'group flex min-w-[240px] items-center justify-between gap-1',
+                        triggerClassName
+                      )
+                    )}
+                    aria-haspopup='listbox'
+                  />
+                }
               >
                 {colorBadge}
                 {labelContent}
                 <ChevronDown className={chevronClassName} aria-hidden='true' />
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent

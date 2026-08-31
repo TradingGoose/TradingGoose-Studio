@@ -7,10 +7,7 @@ import { getSession } from '@/lib/auth'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import {
-  getOccupiedSeatCount,
-  getSeatOccupancy,
-} from '@/lib/billing/validation/seat-management'
+import { getOccupiedSeatCount, getSeatOccupancy } from '@/lib/billing/validation/seat-management'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('OrganizationSeatsAPI')
@@ -47,7 +44,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const { seats: newSeatCount } = validation.data
 
-    // Verify user has admin access to this organization
     const memberEntry = await db
       .select()
       .from(member)
@@ -61,8 +57,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
-    if (!['owner', 'admin'].includes(memberEntry[0].role)) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
+    if (memberEntry[0].role !== 'owner') {
+      return NextResponse.json(
+        { error: 'Forbidden - Organization owner access required' },
+        { status: 403 }
+      )
     }
 
     // Get the organization's subscription

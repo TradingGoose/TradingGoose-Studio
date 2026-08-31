@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import type {
   MarketBar,
   MarketSeries,
@@ -6,12 +7,11 @@ import type {
   NormalizationMode,
 } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 
 const logger = createLogger('MarketProvider:AlphaVantage')
 
 const PROVIDER_UTC_OFFSET = Number.isFinite(alphaVantageProviderConfig.utcOffset)
-  ? alphaVantageProviderConfig.utcOffset ?? 0
+  ? (alphaVantageProviderConfig.utcOffset ?? 0)
   : 0
 
 const DEFAULT_INTERVAL = '1d'
@@ -36,18 +36,23 @@ const OUTPUTSIZE_FUNCTIONS = new Set([
 type SeriesType = 'equity' | 'fx' | 'crypto' | 'digital'
 
 function resolveInterval(request: MarketSeriesRequest): string {
-  return request.interval || (request.providerParams?.interval as string | undefined) || DEFAULT_INTERVAL
+  return (
+    request.interval || (request.providerParams?.interval as string | undefined) || DEFAULT_INTERVAL
+  )
 }
 
 function isIntradayInterval(interval: string): interval is keyof typeof INTRADAY_INTERVAL_MAP {
-  return Object.prototype.hasOwnProperty.call(INTRADAY_INTERVAL_MAP, interval)
+  return Object.hasOwn(INTRADAY_INTERVAL_MAP, interval)
 }
 
 function shouldUseAdjusted(mode?: NormalizationMode): boolean {
   return Boolean(mode && mode !== 'raw')
 }
 
-function resolveEquityFunction(interval: string, useAdjusted: boolean): {
+function resolveEquityFunction(
+  interval: string,
+  useAdjusted: boolean
+): {
   functionName: string
   intervalParam?: string
 } {
@@ -77,9 +82,17 @@ function resolveFxFunction(interval: string): { functionName: string; intervalPa
   return { functionName: 'FX_DAILY' }
 }
 
-function resolveCryptoFunction(interval: string): { functionName: string; intervalParam?: string; type: SeriesType } {
+function resolveCryptoFunction(interval: string): {
+  functionName: string
+  intervalParam?: string
+  type: SeriesType
+} {
   if (isIntradayInterval(interval)) {
-    return { functionName: 'CRYPTO_INTRADAY', intervalParam: INTRADAY_INTERVAL_MAP[interval], type: 'crypto' }
+    return {
+      functionName: 'CRYPTO_INTRADAY',
+      intervalParam: INTRADAY_INTERVAL_MAP[interval],
+      type: 'crypto',
+    }
   }
 
   if (interval === '1w') return { functionName: 'DIGITAL_CURRENCY_WEEKLY', type: 'digital' }
@@ -155,10 +168,10 @@ function parseStandardBar(
 ): { open?: number; high?: number; low?: number; close?: number; volume?: number } {
   const closeRaw = readField(entry, '4. close')
   const adjustedClose = readField(entry, '5. adjusted close')
-  const close = useAdjusted ? adjustedClose ?? closeRaw : closeRaw
+  const close = useAdjusted ? (adjustedClose ?? closeRaw) : closeRaw
 
   const volume = useAdjusted
-    ? readField(entry, '6. volume') ?? readField(entry, '5. volume')
+    ? (readField(entry, '6. volume') ?? readField(entry, '5. volume'))
     : readField(entry, '5. volume')
 
   return {
@@ -259,9 +272,7 @@ function filterBarsByRange(
   })
 }
 
-export async function fetchAlphaVantageSeries(
-  request: MarketSeriesRequest
-): Promise<MarketSeries> {
+export async function fetchAlphaVantageSeries(request: MarketSeriesRequest): Promise<MarketSeries> {
   const apiKey = request.auth?.apiKey
   if (!apiKey) {
     throw new Error('Alpha Vantage API key is required')

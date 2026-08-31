@@ -96,8 +96,7 @@ function isMcpInstallScriptPath(pathname: string) {
 
   const target = segments[2]
   return (
-    segments.length === 2 ||
-    (segments.length === 3 && !!target && MCP_INSTALL_TARGETS.has(target))
+    segments.length === 2 || (segments.length === 3 && !!target && MCP_INSTALL_TARGETS.has(target))
   )
 }
 

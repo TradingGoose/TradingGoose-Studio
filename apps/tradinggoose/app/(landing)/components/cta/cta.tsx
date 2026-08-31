@@ -1,9 +1,9 @@
 'use client'
 
+import { useMessages } from 'next-intl'
 import { DiscordIcon } from '@/components/icons/icons'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
-import { Button } from '@/components/ui/button'
-import { useMessages } from 'next-intl'
+import { buttonVariants } from '@/components/ui/button'
 
 export default function CallToAction() {
   const copy = useMessages()
@@ -34,12 +34,15 @@ export default function CallToAction() {
             </p>
           </div>
           <div className='flex items-center justify-center'>
-            <Button variant='outline' className='bg-background' asChild>
-              <a href='https://discord.gg/wavf5JWhuT' target='_blank' rel='noopener noreferrer'>
-                <DiscordIcon className='size-4' />
-                {copy.landing.cta.joinDiscord}
-              </a>
-            </Button>
+            <a
+              href='https://discord.gg/wavf5JWhuT'
+              target='_blank'
+              rel='noopener noreferrer'
+              className={buttonVariants({ variant: 'outline', className: 'bg-background' })}
+            >
+              <DiscordIcon className='size-4' />
+              {copy.landing.cta.joinDiscord}
+            </a>
           </div>
         </div>
       </div>

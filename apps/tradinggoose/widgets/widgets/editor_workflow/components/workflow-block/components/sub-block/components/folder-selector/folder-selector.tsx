@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { GmailIcon, OutlookIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
@@ -17,9 +17,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
 import { type Credential, getProviderIdFromServiceId, getServiceIdFromScopes } from '@/lib/oauth'
-import { useMessages } from 'next-intl'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { formatTemplate } from '@/i18n/utils'
-import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('FolderSelector')
 
@@ -29,6 +28,14 @@ export interface FolderInfo {
   type: string
   messagesTotal?: number
   messagesUnread?: number
+}
+
+type FolderLoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'failure' | 'reconnect-required'
+
+async function readFolderResponse(response: Response) {
+  if (response.ok) return response.json()
+  const failure = (await response.json().catch(() => null)) as { authRequired?: boolean } | null
+  throw new Error('Folder request failed', { cause: failure?.authRequired === true })
 }
 
 interface FolderSelectorProps {
@@ -60,400 +67,321 @@ export function FolderSelector({
   workspaceId,
   isForeignCredential = false,
 }: FolderSelectorProps) {
-  const locale = useLocale() as LocaleCode
   const copy = useMessages().workspace.widgets.workflowLabels
   const [open, setOpen] = useState(false)
-  const [credentials, setCredentials] = useState<Credential[]>([])
-  const [folders, setFolders] = useState<FolderInfo[]>([])
-  const [selectedCredentialId, setSelectedCredentialId] = useState<Credential['id'] | ''>(
-    credentialId || ''
-  )
-  const [selectedFolderId, setSelectedFolderId] = useState('')
-  const [selectedFolder, setSelectedFolder] = useState<FolderInfo | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
-  const initialFetchRef = useRef(false)
+  const feedbackId = useId()
   const labelText = label ?? copy.selectFolder
+  const effectiveServiceId = serviceId || getServiceIdFromScopes(provider, requiredScopes)
+  const providerId = getProviderIdFromServiceId(effectiveServiceId)
+  const requestScope = workflowId ? `workflow:${workflowId}` : `workspace:${workspaceId ?? ''}`
+  const credentialsContext = JSON.stringify([providerId, requestScope])
+  const [localCredential, setLocalCredential] = useState({ context: credentialsContext, id: '' })
+  const suppliedCredentialId = credentialId?.trim() || ''
+  const selectedCredentialId =
+    suppliedCredentialId ||
+    (localCredential.context === credentialsContext ? localCredential.id : '')
+  const listContext = JSON.stringify([
+    provider,
+    selectedCredentialId,
+    requestScope,
+    isForeignCredential,
+  ])
+  const metaContext = JSON.stringify([listContext, value])
+  const [credentialRequest, setCredentialRequest] = useState({
+    context: credentialsContext,
+    credentials: [] as Credential[],
+    status: 'idle' as FolderLoadState,
+  })
+  const [folderRequest, setFolderRequest] = useState({
+    context: listContext,
+    folders: [] as FolderInfo[],
+    query: '',
+    status: 'idle' as FolderLoadState,
+  })
+  const [meta, setMeta] = useState({ context: metaContext, folder: null as FolderInfo | null })
+  const requests = useRef({ credentials: 0, list: 0, metadata: 0 })
+  const latest = useLatestRef({
+    credentials: credentialsContext,
+    list: listContext,
+    metadata: metaContext,
+    onFolderInfoChange,
+  })
+  const loadState = selectedCredentialId
+    ? folderRequest.context === listContext
+      ? folderRequest.status
+      : 'idle'
+    : credentialRequest.context === credentialsContext
+      ? credentialRequest.status
+      : 'idle'
+  const visibleCredentials =
+    credentialRequest.context === credentialsContext ? credentialRequest.credentials : []
+  const visibleFolders = folderRequest.context === listContext ? folderRequest.folders : []
+  const visibleSelectedFolder = meta.context === metaContext ? meta.folder : null
 
-  // Initialize selectedFolderId with the effective value
+  useEffect(
+    () => () => {
+      for (const key of ['credentials', 'list', 'metadata'] as const) requests.current[key] += 1
+    },
+    []
+  )
   useEffect(() => {
-    setSelectedFolderId(value)
-  }, [value])
+    if (selectedCredentialId) return
+    const defaultCredential =
+      visibleCredentials.find((candidate) => candidate.isDefault) ??
+      (visibleCredentials.length === 1 ? visibleCredentials[0] : undefined)
+    if (defaultCredential)
+      setLocalCredential({ context: credentialsContext, id: defaultCredential.id })
+  }, [credentialsContext, selectedCredentialId, visibleCredentials])
 
-  // Keep internal credential in sync with prop
-  useEffect(() => {
-    if (credentialId && credentialId !== selectedCredentialId) {
-      setSelectedCredentialId(credentialId)
-    }
-  }, [credentialId, selectedCredentialId])
-
-  // Determine the appropriate service ID based on provider and scopes
-  const getServiceId = (): string => {
-    if (serviceId) return serviceId
-    return getServiceIdFromScopes(provider, requiredScopes)
-  }
-
-  // Determine the appropriate provider ID based on service and scopes
-  const getProviderId = (): string => {
-    const effectiveServiceId = getServiceId()
-    return getProviderIdFromServiceId(effectiveServiceId)
-  }
-
-  // Fetch available credentials for this provider
   const fetchCredentials = useCallback(async () => {
-    setIsLoading(true)
+    const requestGeneration = ++requests.current.credentials
+    const requestContext = latest.current.credentials
+    const ownsRequest = () =>
+      requestGeneration === requests.current.credentials &&
+      requestContext === latest.current.credentials
+    setCredentialRequest({ context: requestContext, credentials: [], status: 'loading' })
     try {
-      const providerId = getProviderId()
       const query = new URLSearchParams({ provider: providerId })
       if (workflowId) query.set('workflowId', workflowId)
       else if (workspaceId) query.set('workspaceId', workspaceId)
       const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
+      if (!ownsRequest()) return
 
-      if (response.ok) {
-        const data = await response.json()
-        setCredentials(data.credentials)
-
-        // Auto-select logic for credentials
-        if (data.credentials.length > 0) {
-          if (
-            !selectedCredentialId ||
-            !data.credentials.some((cred: Credential) => cred.id === selectedCredentialId)
-          ) {
-            // Otherwise, select the default or first credential
-            const defaultCred = data.credentials.find((cred: Credential) => cred.isDefault)
-            if (defaultCred) {
-              setSelectedCredentialId(defaultCred.id)
-            } else if (data.credentials.length === 1) {
-              setSelectedCredentialId(data.credentials[0].id)
-            }
-          }
-        }
-      }
+      if (!response.ok) throw new Error('Credential request failed')
+      const data = await response.json()
+      if (!ownsRequest()) return
+      const nextCredentials = Array.isArray(data.credentials) ? data.credentials : []
+      setCredentialRequest({
+        context: requestContext,
+        credentials: nextCredentials,
+        status: nextCredentials.length > 0 ? 'ready' : 'empty',
+      })
     } catch (error) {
+      if (!ownsRequest()) return
       logger.error('Error fetching credentials:', { error })
-    } finally {
-      setIsLoading(false)
+      setCredentialRequest({ context: requestContext, credentials: [], status: 'failure' })
     }
-  }, [provider, getProviderId, selectedCredentialId, workflowId, workspaceId])
+  }, [providerId, workflowId, workspaceId])
 
-  // Fetch a single folder by ID when we have a selectedFolderId but no metadata
-  const fetchFolderById = useCallback(
-    async (folderId: string) => {
-      if (!selectedCredentialId || !folderId) return null
-
-      try {
-        const queryParams = new URLSearchParams({
-          credentialId: selectedCredentialId,
-        })
-        if (workflowId) queryParams.set('workflowId', workflowId)
-        else if (workspaceId) queryParams.set('workspaceId', workspaceId)
-
-        const response =
-          provider === 'outlook'
-            ? await fetch(
-                `/api/tools/outlook/folders?${new URLSearchParams({
-                  ...Object.fromEntries(queryParams),
-                  folderId,
-                }).toString()}`
-              )
-            : await fetch(
-                `/api/tools/gmail/label?${new URLSearchParams({
-                  ...Object.fromEntries(queryParams),
-                  labelId: folderId,
-                }).toString()}`
-              )
-
-        if (response.ok) {
-          const data = await response.json()
-          const folderInfo = provider === 'outlook' ? data.folder : data.label
-          if (folderInfo) {
-            setSelectedFolder(folderInfo)
-            onFolderInfoChange?.(folderInfo)
-            return folderInfo
-          }
-        } else {
-          logger.error('Error fetching folder by ID:', {
-            error: await response.text(),
-          })
-        }
-        return null
-      } catch (error) {
-        logger.error('Error fetching folder by ID:', { error })
-        return null
-      }
-    },
-    [selectedCredentialId, onFolderInfoChange, provider, workflowId, workspaceId]
-  )
-
-  // Fetch folders from Gmail or Outlook
   const fetchFolders = useCallback(
-    async (searchQuery?: string) => {
+    async (searchQuery = '') => {
       if (!selectedCredentialId) return
 
-      setIsLoading(true)
+      const requestGeneration = ++requests.current.list
+      const requestContext = listContext
+      const ownsRequest = () =>
+        requestGeneration === requests.current.list && requestContext === latest.current.list
+      setFolderRequest({
+        context: requestContext,
+        folders: [],
+        query: searchQuery,
+        status: 'loading',
+      })
       try {
-        // Construct query parameters
-        const queryParams = new URLSearchParams({
-          credentialId: selectedCredentialId,
+        const queryParams = new URLSearchParams({ credentialId: selectedCredentialId })
+        if (workflowId) queryParams.set('workflowId', workflowId)
+        else if (workspaceId) queryParams.set('workspaceId', workspaceId)
+        if (searchQuery) queryParams.set('query', searchQuery)
+
+        let folderList: FolderInfo[] = []
+        if (!(provider === 'outlook' && isForeignCredential)) {
+          const endpoint =
+            provider === 'outlook'
+              ? `/api/tools/outlook/folders?${queryParams.toString()}`
+              : `/api/tools/gmail/labels?${queryParams.toString()}`
+          const data = await readFolderResponse(await fetch(endpoint))
+          if (!ownsRequest()) return
+          folderList = (provider === 'outlook' ? data.folders : data.labels) || []
+        }
+        if (!ownsRequest()) return
+        setFolderRequest({
+          context: requestContext,
+          folders: folderList,
+          query: searchQuery,
+          status: folderList.length > 0 ? 'ready' : 'empty',
         })
-
-        if (searchQuery) {
-          queryParams.append('query', searchQuery)
-        }
-        if (workflowId) {
-          queryParams.append('workflowId', workflowId)
-        } else if (workspaceId) {
-          queryParams.append('workspaceId', workspaceId)
-        }
-
-        // Determine the API endpoint based on provider
-        let apiEndpoint: string
-        if (provider === 'outlook') {
-          // Skip list fetch for collaborators; only show selected
-          if (isForeignCredential) {
-            setFolders([])
-            setIsLoading(false)
-            return
-          }
-          apiEndpoint = `/api/tools/outlook/folders?${queryParams.toString()}`
-        } else {
-          // Default to Gmail
-          apiEndpoint = `/api/tools/gmail/labels?${queryParams.toString()}`
-        }
-
-        const response = await fetch(apiEndpoint)
-
-        if (response.ok) {
-          const data = await response.json()
-          const folderList = provider === 'outlook' ? data.folders : data.labels
-          setFolders(folderList || [])
-
-          // If we have a selected folder ID, find the folder info
-          if (selectedFolderId) {
-            const folderInfo = folderList.find(
-              (folder: FolderInfo) => folder.id === selectedFolderId
-            )
-            if (folderInfo) {
-              setSelectedFolder(folderInfo)
-              onFolderInfoChange?.(folderInfo)
-            } else if (!searchQuery && provider !== 'outlook') {
-              // Only try to fetch by ID for Gmail if this is not a search query
-              // and we couldn't find the folder in the list
-              fetchFolderById(selectedFolderId)
-            }
-          }
-        } else {
-          const text = await response.text()
-          if (response.status === 401 || response.status === 403) {
-            logger.info('Folder list fetch unauthorized (expected for collaborator)')
-          } else {
-            logger.warn('Error fetching folders', { status: response.status, text })
-          }
-          setFolders([])
-        }
       } catch (error) {
+        if (!ownsRequest()) return
         logger.error('Error fetching folders:', { error })
-        setFolders([])
-      } finally {
-        setIsLoading(false)
+        const status =
+          error instanceof Error && error.cause === true ? 'reconnect-required' : 'failure'
+        setFolderRequest({ context: requestContext, folders: [], query: searchQuery, status })
       }
     },
-    [
-      selectedCredentialId,
-      selectedFolderId,
-      onFolderInfoChange,
-      fetchFolderById,
-      provider,
-      isForeignCredential,
-      workflowId,
-      workspaceId,
-    ]
+    [provider, isForeignCredential, workflowId, workspaceId, selectedCredentialId, listContext]
   )
 
-  // Fetch credentials on initial mount
-  useEffect(() => {
-    if (disabled) return
-    if (!initialFetchRef.current) {
-      fetchCredentials()
-      initialFetchRef.current = true
-    }
-  }, [fetchCredentials, disabled])
+  const fetchSelectedFolder = useCallback(async () => {
+    const requestGeneration = ++requests.current.metadata
+    const requestContext = metaContext
+    const ownsRequest = () =>
+      requestGeneration === requests.current.metadata && requestContext === latest.current.metadata
+    setMeta({ context: requestContext, folder: null })
+    latest.current.onFolderInfoChange?.(null)
+    if (disabled || !selectedCredentialId || !value) return
 
-  // Fetch folders when credential is selected
-  useEffect(() => {
-    if (disabled) return
-    if (selectedCredentialId) {
-      fetchFolders()
+    try {
+      const query = new URLSearchParams({ credentialId: selectedCredentialId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      query.set(provider === 'outlook' ? 'folderId' : 'labelId', value)
+      const endpoint =
+        provider === 'outlook'
+          ? `/api/tools/outlook/folders?${query.toString()}`
+          : `/api/tools/gmail/label?${query.toString()}`
+      const data = await readFolderResponse(await fetch(endpoint))
+      if (!ownsRequest()) return
+      const folderInfo = provider === 'outlook' ? data.folder : data.label
+      if (!folderInfo) return
+      setMeta({ context: requestContext, folder: folderInfo })
+      latest.current.onFolderInfoChange?.(folderInfo)
+    } catch (error) {
+      if (ownsRequest()) logger.error('Error fetching selected folder:', { error })
     }
-  }, [selectedCredentialId, fetchFolders, disabled])
+  }, [disabled, metaContext, provider, selectedCredentialId, value, workflowId, workspaceId])
 
-  // Keep internal selectedFolderId in sync with the value prop
   useEffect(() => {
-    if (disabled) return
-    if (value !== selectedFolderId) {
-      setSelectedFolderId(value || '')
+    if (disabled) {
+      requests.current.credentials += 1
+      setCredentialRequest({ context: credentialsContext, credentials: [], status: 'idle' })
+      return
     }
-  }, [value, selectedFolderId, disabled])
+    void fetchCredentials()
+  }, [disabled, fetchCredentials])
 
-  // Fetch the selected folder metadata once credentials are ready or value changes
   useEffect(() => {
-    if (disabled) return
-    if (value && selectedCredentialId && (!selectedFolder || selectedFolder.id !== value)) {
-      fetchFolderById(value)
+    if (disabled || !selectedCredentialId) {
+      requests.current.list += 1
+      setFolderRequest({ context: listContext, folders: [], query: '', status: 'idle' })
+      return
     }
-  }, [value, selectedCredentialId, selectedFolder, fetchFolderById, disabled])
+    void fetchFolders()
+  }, [disabled, selectedCredentialId, listContext, fetchFolders])
 
-  // Handle folder selection
+  useEffect(() => {
+    void fetchSelectedFolder()
+  }, [fetchSelectedFolder])
+
   const handleSelectFolder = (folder: FolderInfo) => {
-    setSelectedFolderId(folder.id)
-    setSelectedFolder(folder)
+    requests.current.metadata += 1
     onChange(folder.id, folder)
-    onFolderInfoChange?.(folder)
     setOpen(false)
   }
 
-  // Handle adding a new credential
+  const handleSelectCredential = (nextCredentialId: string) => {
+    if (suppliedCredentialId || nextCredentialId === selectedCredentialId) return
+    requests.current.list += 1
+    requests.current.metadata += 1
+    latest.current.onFolderInfoChange?.(null)
+    setLocalCredential({ context: credentialsContext, id: nextCredentialId })
+  }
+
   const handleAddCredential = () => {
-    // Show the OAuth modal
     setShowOAuthModal(true)
     setOpen(false)
   }
 
-  const handleSearch = (value: string) => {
-    if (value.length > 2) {
-      fetchFolders(value)
-    } else if (value.length === 0) {
-      fetchFolders()
+  const handleSearch = (query: string) => {
+    if (query.length > 2 || query.length === 0) {
+      void fetchFolders(query)
+      return
     }
+    requests.current.list += 1
+    setFolderRequest({ context: listContext, folders: [], query, status: 'idle' })
   }
 
-  const getFolderIcon = (size: 'sm' | 'md' = 'sm') => {
-    const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'
-    if (provider === 'gmail') {
-      return <GmailIcon className={iconSize} />
-    }
-    if (provider === 'outlook') {
-      return <OutlookIcon className={iconSize} />
-    }
-    return null
-  }
-
-  const getProviderName = () => {
-    if (provider === 'outlook') return 'Outlook'
-    return 'Gmail'
-  }
-
-  const getFolderLabel = () => {
-    if (provider === 'outlook') return copy.folders
-    return copy.labels
-  }
+  const providerName = provider === 'outlook' ? 'Outlook' : 'Gmail'
+  const folderLabel = provider === 'outlook' ? copy.folders : copy.labels
+  const FolderIcon = provider === 'gmail' ? GmailIcon : provider === 'outlook' ? OutlookIcon : null
+  const itemName = folderLabel.toLowerCase()
+  const emptyTitle = selectedCredentialId
+    ? formatTemplate(copy.noItemsFound, { itemName })
+    : copy.noAccountsConnected
+  const feedback =
+    loadState === 'loading'
+      ? formatTemplate(copy.loadingItems, { itemName })
+      : loadState === 'empty'
+        ? emptyTitle
+        : loadState === 'failure'
+          ? formatTemplate(copy.failedToLoadItems, { itemName })
+          : loadState === 'reconnect-required'
+            ? formatTemplate(copy.reconnectProviderAccount, {
+                providerName,
+                itemName,
+              })
+            : null
+  const feedbackIsError = loadState === 'failure' || loadState === 'reconnect-required'
+  const emptyDetail = selectedCredentialId
+    ? copy.tryDifferentSearchOrAccount
+    : formatTemplate(copy.connectProviderAccountToContinue, { providerName })
+  const searchPlaceholder = formatTemplate(copy.searchItems, { itemName })
 
   return (
     <>
       <div className='space-y-2'>
         <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant='outline'
-              role='combobox'
-              aria-expanded={open}
-              className='w-full justify-between'
-              disabled={disabled || isForeignCredential}
-            >
-              {selectedFolder ? (
-                <div className='flex items-center gap-1 overflow-hidden'>
-                  {getFolderIcon('sm')}
-                  <span className='truncate font-normal'>{selectedFolder.name}</span>
-                </div>
-              ) : (
-                <div className='flex items-center gap-1'>
-                  {getFolderIcon('sm')}
-                  <span className='text-muted-foreground'>{labelText}</span>
-                </div>
-              )}
-              <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-            </Button>
+          <PopoverTrigger
+            disabled={disabled || isForeignCredential}
+            render={
+              <Button
+                variant='outline'
+                role='combobox'
+                aria-expanded={open}
+                aria-describedby={feedback ? feedbackId : undefined}
+                className='w-full justify-between'
+                disabled={disabled || isForeignCredential}
+              />
+            }
+          >
+            {visibleSelectedFolder ? (
+              <div className='flex items-center gap-1 overflow-hidden'>
+                {FolderIcon && <FolderIcon className='h-4 w-4' />}
+                <span className='truncate font-normal'>{visibleSelectedFolder.name}</span>
+              </div>
+            ) : (
+              <div className='flex items-center gap-1'>
+                {FolderIcon && <FolderIcon className='h-4 w-4' />}
+                <span className='text-muted-foreground'>{labelText}</span>
+              </div>
+            )}
+            <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
           </PopoverTrigger>
           {!isForeignCredential && (
             <PopoverContent className='w-[300px] p-0' align='start'>
-              {/* Current account indicator */}
-              {selectedCredentialId && credentials.length > 0 && (
-                <div className='flex items-center justify-between border-b px-3 py-2'>
-                  <div className='flex items-center gap-1'>
-                    <span className='text-muted-foreground text-xs'>
-                      {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
-                        copy.unknown}
-                    </span>
-                  </div>
-                  {credentials.length > 1 && (
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      className='h-6 px-2 text-xs'
-                      onClick={() => setOpen(true)}
-                    >
-                      {copy.switch}
-                    </Button>
-                  )}
+              {selectedCredentialId && visibleCredentials.length > 0 && (
+                <div className='border-b px-3 py-2 text-muted-foreground text-xs'>
+                  {visibleCredentials.find((cred) => cred.id === selectedCredentialId)?.name ||
+                    copy.unknown}
                 </div>
               )}
 
               <Command>
-                <CommandInput
-                  placeholder={formatTemplate(copy.searchItems, {
-                    itemName: getFolderLabel().toLowerCase(),
-                  })}
-                  onValueChange={handleSearch}
-                />
+                <CommandInput placeholder={searchPlaceholder} onValueChange={handleSearch} />
                 <CommandList>
                   <CommandEmpty>
-                    {isLoading ? (
+                    {loadState === 'loading' ? (
                       <div className='flex items-center justify-center p-4'>
                         <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>
-                          {formatTemplate(copy.loadingItems, {
-                            itemName: getFolderLabel().toLowerCase(),
-                          })}
-                        </span>
-                      </div>
-                    ) : credentials.length === 0 ? (
-                      <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>{copy.noAccountsConnected}</p>
-                        <p className='text-muted-foreground text-xs'>
-                          {formatTemplate(copy.connectProviderAccountToContinue, {
-                            providerName: getProviderName(),
-                          })}
-                        </p>
+                        <span className='ml-2'>{feedback}</span>
                       </div>
                     ) : (
                       <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>
-                          {formatTemplate(copy.noItemsFound, {
-                            itemName: getFolderLabel().toLowerCase(),
-                          })}
-                        </p>
-                        <p className='text-muted-foreground text-xs'>
-                          {copy.tryDifferentSearchOrAccount}
-                        </p>
+                        <p className='font-medium text-sm'>{emptyTitle}</p>
+                        <p className='text-muted-foreground text-xs'>{emptyDetail}</p>
                       </div>
                     )}
                   </CommandEmpty>
 
-                  {/* Account selection - only show if we have multiple accounts */}
-                  {credentials.length > 1 && (
-                    <CommandGroup>
-                      <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        {copy.switchAccount}
-                      </div>
-                      {credentials.map((cred) => (
+                  {!suppliedCredentialId && visibleCredentials.length > 1 && (
+                    <CommandGroup heading={copy.switchAccount}>
+                      {visibleCredentials.map((cred) => (
                         <CommandItem
                           key={cred.id}
                           value={`account-${cred.id}`}
-                          onSelect={() => setSelectedCredentialId(cred.id)}
+                          onSelect={() => handleSelectCredential(cred.id)}
                         >
-                          <div className='flex items-center gap-1'>
-                            <span className='font-normal'>{cred.name}</span>
-                          </div>
+                          {cred.name}
                           {cred.id === selectedCredentialId && (
                             <Check className='ml-auto h-4 w-4' />
                           )}
@@ -462,41 +390,27 @@ export function FolderSelector({
                     </CommandGroup>
                   )}
 
-                  {/* Folders list */}
-                  {folders.length > 0 && (
-                    <CommandGroup>
-                      <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        {getFolderLabel()}
-                      </div>
-                      {folders.map((folder) => (
+                  {visibleFolders.length > 0 && (
+                    <CommandGroup heading={folderLabel}>
+                      {visibleFolders.map((folder) => (
                         <CommandItem
                           key={folder.id}
                           value={`folder-${folder.id}-${folder.name}`}
                           onSelect={() => handleSelectFolder(folder)}
+                          className='w-full overflow-hidden'
                         >
-                          <div className='flex w-full items-center gap-2 overflow-hidden'>
-                            {getFolderIcon('sm')}
-                            <span className='truncate font-normal'>{folder.name}</span>
-                            {folder.id === selectedFolderId && (
-                              <Check className='ml-auto h-4 w-4' />
-                            )}
-                          </div>
+                          {FolderIcon && <FolderIcon className='h-4 w-4' />}
+                          <span className='truncate font-normal'>{folder.name}</span>
+                          {folder.id === value && <Check className='ml-auto h-4 w-4' />}
                         </CommandItem>
                       ))}
                     </CommandGroup>
                   )}
 
-                  {/* Connect account option - only show if no credentials */}
-                  {credentials.length === 0 && (
+                  {!selectedCredentialId && visibleCredentials.length === 0 && (
                     <CommandGroup>
                       <CommandItem onSelect={handleAddCredential}>
-                        <div className='flex items-center gap-1 text-foreground'>
-                          <span>
-                            {formatTemplate(copy.connectProviderAccount, {
-                              providerName: getProviderName(),
-                            })}
-                          </span>
-                        </div>
+                        {formatTemplate(copy.connectProviderAccount, { providerName })}
                       </CommandItem>
                     </CommandGroup>
                   )}
@@ -505,6 +419,44 @@ export function FolderSelector({
             </PopoverContent>
           )}
         </Popover>
+        {feedback && (
+          <div
+            id={feedbackId}
+            role={feedbackIsError ? 'alert' : 'status'}
+            aria-atomic='true'
+            className='flex items-center justify-between gap-2 text-muted-foreground text-xs'
+          >
+            <span className={feedbackIsError ? 'text-destructive' : undefined}>{feedback}</span>
+            {loadState === 'failure' && (
+              <Button
+                type='button'
+                variant='ghost'
+                size='sm'
+                className='h-7 shrink-0 px-2 text-xs'
+                onClick={() => {
+                  if (selectedCredentialId) void fetchFolders(folderRequest.query)
+                  else void fetchCredentials()
+                }}
+              >
+                {copy.tryAgain}
+              </Button>
+            )}
+            {(loadState === 'reconnect-required' ||
+              (loadState === 'empty' && !selectedCredentialId)) && (
+              <Button
+                type='button'
+                variant='ghost'
+                size='sm'
+                className='h-7 shrink-0 px-2 text-xs'
+                onClick={handleAddCredential}
+              >
+                {formatTemplate(copy.connectProviderAccount, {
+                  providerName,
+                })}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {showOAuthModal && (
@@ -512,9 +464,9 @@ export function FolderSelector({
           isOpen={showOAuthModal}
           onClose={() => setShowOAuthModal(false)}
           provider={provider}
-          toolName={getProviderName()}
+          toolName={providerName}
           requiredScopes={requiredScopes}
-          serviceId={getServiceId()}
+          serviceId={effectiveServiceId}
         />
       )}
     </>

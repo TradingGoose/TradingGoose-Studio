@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import { ListingIdentitySchema, toListingValueObject } from '@/lib/listing/identity'
+import type { ListingIdentity } from '@/lib/listing/identity'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import { MAX_SYMBOLS_PER_WATCHLIST } from '@/lib/watchlists/constants'
 import type {
   WatchlistDocumentFields,
@@ -131,11 +131,6 @@ export const normalizeWatchlistSettings = (value: unknown): WatchlistSettings =>
   }
 }
 
-const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
-  if (!isPlainRecord(value)) return null
-  return toListingValueObject(value as ListingInputValue) ?? null
-}
-
 const normalizeOptionalId = (value: unknown): string | undefined => {
   const id = normalizeString(value)
   return id || undefined
@@ -173,14 +168,14 @@ const normalizeWatchlistDocumentListingInputItem = (
   if (normalizeString(value.type) !== 'listing') return null
   if (!hasOnlyKeys(value, listingItemKeys)) return null
 
-  const listing = normalizeListingIdentity(value.listing)
-  if (!listing) return null
+  const listing = ListingIdentitySchema.safeParse(value.listing)
+  if (!listing.success) return null
 
   return {
     ...(normalizeOptionalId(value.id) ? { id: normalizeOptionalId(value.id) } : {}),
     type: 'listing',
     parentId: normalizeNullableParentId(value.parentId),
-    listing,
+    listing: listing.data,
   }
 }
 
@@ -232,13 +227,13 @@ const normalizeWatchlistItem = (value: unknown): WatchlistItem | null => {
 
   if (type === 'listing') {
     if (!hasOnlyKeys(value, listingItemKeys)) return null
-    const listing = normalizeListingIdentity(value.listing)
-    if (!listing) return null
+    const listing = ListingIdentitySchema.safeParse(value.listing)
+    if (!listing.success) return null
     return {
       id,
       type: 'listing',
       parentId: normalizeNullableParentId(value.parentId),
-      listing,
+      listing: listing.data,
     }
   }
 

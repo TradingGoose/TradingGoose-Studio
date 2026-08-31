@@ -29,21 +29,23 @@ export function EntityEditorHeaderButton({
 }: EntityEditorHeaderButtonProps) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span className='inline-flex'>
-          <Button
-            type='button'
-            variant={variant}
-            size='sm'
-            className='h-7 w-7 text-xs'
-            onClick={onClick}
-            disabled={disabled}
-          >
-            <Icon className='h-4 w-4' />
-            <span className='sr-only'>{label}</span>
-          </Button>
-        </span>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <span className='inline-flex'>
+            <Button
+              type='button'
+              variant={variant}
+              size='sm'
+              className='h-7 w-7 text-xs'
+              onClick={onClick}
+              disabled={disabled}
+            >
+              <Icon className='h-4 w-4' />
+              <span className='sr-only'>{label}</span>
+            </Button>
+          </span>
+        }
+      />
       <TooltipContent side='top'>{tooltip}</TooltipContent>
     </Tooltip>
   )

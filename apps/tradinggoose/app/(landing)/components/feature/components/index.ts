@@ -1,5 +1,8 @@
 export { DotPattern } from './landing-canvas/dot-pattern'
-export type { LandingBlockProps, LandingCardData } from './landing-canvas/landing-block/landing-block'
+export type {
+  LandingBlockProps,
+  LandingCardData,
+} from './landing-canvas/landing-block/landing-block'
 export { LandingBlock } from './landing-canvas/landing-block/landing-block'
 export type { LoopNodeData } from './landing-canvas/landing-block/landing-loop-node'
 export { LandingLoopNode } from './landing-canvas/landing-block/landing-loop-node'
@@ -20,4 +23,3 @@ export { CARD_HEIGHT, CARD_WIDTH, LandingCanvas } from './landing-canvas/landing
 export { LandingEdge } from './landing-canvas/landing-edge/landing-edge'
 export type { LandingFlowProps } from './landing-canvas/landing-flow'
 export { LandingFlow } from './landing-canvas/landing-flow'
-

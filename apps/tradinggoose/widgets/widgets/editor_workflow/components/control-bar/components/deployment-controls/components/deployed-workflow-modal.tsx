@@ -15,9 +15,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { createLogger } from '@/lib/logs/console/logger'
-import { DeployedWorkflowCard } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-card'
+import {
+  useWorkflowBlocks,
+  useWorkflowEdges,
+  useWorkflowLoops,
+  useWorkflowParallels,
+} from '@/lib/yjs/use-workflow-doc'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { useWorkflowBlocks, useWorkflowEdges, useWorkflowLoops, useWorkflowParallels } from '@/lib/yjs/use-workflow-doc'
+import { DeployedWorkflowCard } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-card'
 import { useDeploymentCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 const logger = createLogger('DeployedWorkflowModal')
@@ -133,13 +138,15 @@ export function DeployedWorkflowModal({
           <div className='flex items-center gap-1'>
             {(needsRedeployment || selectedVersion !== undefined) && (
               <AlertDialog open={showRevertDialog} onOpenChange={setShowRevertDialog}>
-                <AlertDialogTrigger asChild>
-                  <Button variant='outline'>{copy.loadDeployment}</Button>
-                </AlertDialogTrigger>
+                <AlertDialogTrigger
+                  render={<Button variant='outline'>{copy.loadDeployment}</Button>}
+                />
                 <AlertDialogContent style={{ zIndex: 1001 }} className='sm:max-w-[425px]'>
                   <AlertDialogHeader>
                     <AlertDialogTitle>{copy.loadThisDeployment}</AlertDialogTitle>
-                    <AlertDialogDescription>{copy.loadDeploymentDescription}</AlertDialogDescription>
+                    <AlertDialogDescription>
+                      {copy.loadDeploymentDescription}
+                    </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>{copy.cancel}</AlertDialogCancel>

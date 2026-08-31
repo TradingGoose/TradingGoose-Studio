@@ -17,17 +17,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { getEntityIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import type { EntityListMember } from '@/lib/yjs/entity-session'
+import { useIndicatorWriteStore } from '@/hooks/queries/indicators'
 
 interface IndicatorListItemProps {
   indicator: EntityListMember
   isSelected: boolean
   onSelect: (indicatorId: string) => void
-  onCopy: (indicator: EntityListMember) => Promise<void>
-  onDelete: (indicatorId: string) => Promise<void>
-  onRename: (indicatorId: string, name: string) => Promise<void>
+  onCopy: (indicator: EntityListMember) => Promise<boolean>
+  onDelete: (indicatorId: string) => Promise<boolean>
+  onRename: (indicatorId: string, name: string) => Promise<boolean>
   canEdit: boolean
   canDelete?: boolean
-  isCopying: boolean
+  writesDisabled: boolean
   isDeleting: boolean
 }
 
@@ -40,15 +41,15 @@ export function IndicatorListItem({
   onRename,
   canEdit,
   canDelete = true,
-  isCopying,
+  writesDisabled,
   isDeleting,
 }: IndicatorListItemProps) {
   const locale = useLocale()
-  const copy = useMessages().workspace.widgets.indicatorList.listItem
+  const messages = useMessages().workspace.widgets.indicatorList
+  const copy = messages.listItem
   const [isHovered, setIsHovered] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(indicator.entityName)
-  const [isRenaming, setIsRenaming] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const nameLabel = indicator.entityName || copy.untitledIndicator
@@ -66,12 +67,13 @@ export function IndicatorListItem({
   }, [isEditing])
 
   const handleStartEdit = () => {
-    if (!canEdit) return
+    if (!canEdit || writesDisabled) return
     setIsEditing(true)
     setEditValue(indicator.entityName)
   }
 
   const handleSaveEdit = async () => {
+    if (useIndicatorWriteStore.getState().activeWrite) return
     const trimmed = editValue.trim()
     if (!trimmed || trimmed === indicator.entityName) {
       setIsEditing(false)
@@ -79,19 +81,12 @@ export function IndicatorListItem({
       return
     }
 
-    setIsRenaming(true)
-    try {
-      await onRename(indicator.entityId, trimmed)
-      setIsEditing(false)
-    } catch (error) {
-      console.error('Failed to rename indicator', error)
-      setEditValue(indicator.entityName)
-    } finally {
-      setIsRenaming(false)
-    }
+    const saved = await onRename(indicator.entityId, trimmed)
+    if (saved) setIsEditing(false)
   }
 
   const handleCancelEdit = () => {
+    if (useIndicatorWriteStore.getState().activeWrite) return
     setIsEditing(false)
     setEditValue(indicator.entityName)
   }
@@ -111,22 +106,14 @@ export function IndicatorListItem({
   }
 
   const handleConfirmDelete = async () => {
-    if (isDeleting || !canDelete) return
-    try {
-      await onDelete(indicator.entityId)
-      setShowDeleteDialog(false)
-    } catch (error) {
-      console.error('Failed to delete indicator', error)
-    }
+    if (useIndicatorWriteStore.getState().activeWrite || !canDelete) return
+    const deleted = await onDelete(indicator.entityId)
+    if (deleted) setShowDeleteDialog(false)
   }
 
   const handleCopyIndicator = async () => {
-    if (isCopying) return
-    try {
-      await onCopy(indicator)
-    } catch (error) {
-      console.error('Failed to copy indicator', error)
-    }
+    if (useIndicatorWriteStore.getState().activeWrite) return
+    await onCopy(indicator)
   }
 
   const interactiveChildren = (
@@ -143,7 +130,7 @@ export function IndicatorListItem({
             isSelected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
           )}
           maxLength={100}
-          disabled={isRenaming}
+          disabled={writesDisabled}
           onClick={(event) => event.preventDefault()}
           autoComplete='off'
           autoCorrect='off'
@@ -151,17 +138,22 @@ export function IndicatorListItem({
           spellCheck='false'
         />
       ) : (
-        <Tooltip delayDuration={1000}>
-          <TooltipTrigger asChild>
-            <span
-              className={cn(
-                'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
-                isSelected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'
-              )}
-            >
-              {nameLabel}
-            </span>
-          </TooltipTrigger>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                className={cn(
+                  'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
+                  isSelected
+                    ? 'text-foreground'
+                    : 'text-muted-foreground group-hover:text-foreground'
+                )}
+              >
+                {nameLabel}
+              </span>
+            }
+            delay={1000}
+          />
           <TooltipContent side='top' align='start' sideOffset={10}>
             <p>{nameLabel}</p>
           </TooltipContent>
@@ -212,7 +204,7 @@ export function IndicatorListItem({
             <Button
               variant='ghost'
               size='icon'
-              disabled={isCopying || isDeleting}
+              disabled={writesDisabled}
               className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
               onClick={(event) => {
                 event.stopPropagation()
@@ -225,6 +217,7 @@ export function IndicatorListItem({
             <Button
               variant='ghost'
               size='icon'
+              disabled={writesDisabled}
               className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
               onClick={(event) => {
                 event.stopPropagation()
@@ -239,7 +232,7 @@ export function IndicatorListItem({
                 variant='ghost'
                 size='icon'
                 onClick={() => setShowDeleteDialog(true)}
-                disabled={isDeleting}
+                disabled={writesDisabled}
                 className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground disabled:opacity-50'
               >
                 <Trash2 className='!h-3.5 !w-3.5' />
@@ -252,13 +245,15 @@ export function IndicatorListItem({
 
       <AlertDialog
         open={showDeleteDialog}
-        onOpenChange={(open) => {
-          if (!isDeleting) {
-            setShowDeleteDialog((prev) => (prev === open ? prev : open))
+        onOpenChange={(open, details) => {
+          if (!open && useIndicatorWriteStore.getState().activeWrite) {
+            details.cancel()
+            return
           }
+          setShowDeleteDialog(open)
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent hideCloseButton={isDeleting}>
           <AlertDialogHeader>
             <AlertDialogTitle>{copy.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -278,10 +273,11 @@ export function IndicatorListItem({
                 handleConfirmDelete()
               }}
               disabled={isDeleting}
+              aria-busy={isDeleting || undefined}
               variant='destructive'
               className='h-9 w-full rounded-sm'
             >
-              {copy.delete}
+              {isDeleting ? messages.body.writePending : copy.delete}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

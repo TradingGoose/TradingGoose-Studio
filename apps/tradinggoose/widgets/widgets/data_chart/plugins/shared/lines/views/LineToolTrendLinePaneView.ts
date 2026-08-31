@@ -152,8 +152,6 @@ export class LineToolTrendLinePaneView<HorzScaleItem> extends LineToolPaneView<H
       case OffScreenState.FullyOffScreen:
         shouldCull = true
         break
-
-      case OffScreenState.Visible:
       default:
         shouldCull = false
         break

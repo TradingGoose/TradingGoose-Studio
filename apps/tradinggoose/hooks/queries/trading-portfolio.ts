@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type {
   TradingOrderSubmitRequest,
   TradingOrderSubmitResponse,
 } from '@/lib/trading/order-types'
 import { useSocket } from '@/contexts/socket-context'
-import { recordsOrderKeys } from '@/hooks/queries/records-orders'
 import {
-  arePortfolioIdentitiesEqual,
   getPortfolioIdentityKey,
   type PortfolioDetail,
   type PortfolioIdentity,
@@ -45,6 +42,7 @@ type TradingPortfolioSubscribedPayload = {
   clientSubscriptionId?: string
   portfolioIdentity?: PortfolioIdentity | null
   window?: TradingPortfolioPerformanceWindow
+  refreshId?: string
 }
 
 type TradingPortfolioErrorPayload = TradingPortfolioSubscribedPayload & {
@@ -72,10 +70,12 @@ type TradingSocketQueryResult<T> = {
   error: Error | null
   isLoading: boolean
   isFetching: boolean
-  refetch: () => Promise<{ data: T | undefined }>
+  refetch: () => Promise<{ data: T | undefined; error: Error | null }>
 }
 
 type SocketSubscriptionRef = {
+  requestKey: string
+  ended: boolean
   subscriptionId?: string
   clientSubscriptionId: string
   workspaceId?: string
@@ -84,6 +84,16 @@ type SocketSubscriptionRef = {
   channel: TradingPortfolioChannel
   portfolioIdentity?: PortfolioIdentity
 }
+
+type PendingSocketRefetch<T> = {
+  requestKey: string
+  refreshId: string
+  promise: Promise<{ data: T | undefined; error: Error | null }>
+  resolve: (result: { data: T | undefined; error: Error | null }) => void
+  timeout: ReturnType<typeof setTimeout>
+}
+
+const PORTFOLIO_REFRESH_TIMEOUT_MS = 30_000
 
 const getAccountsPayloadData = (payload: TradingPortfolioAccountsPayload) =>
   payload.portfolioIdentities
@@ -146,9 +156,27 @@ function useTradingPortfolioSocketData<T>({
   })
   const [error, setError] = useState<Error | null>(null)
   const [isFetching, setIsFetching] = useState(false)
-  const [refetchNonce, setRefetchNonce] = useState(0)
   const runIdRef = useRef(0)
+  const instanceIdRef = useRef<string | null>(null)
+  if (!instanceIdRef.current) instanceIdRef.current = crypto.randomUUID()
   const subscriptionRef = useRef<SocketSubscriptionRef | null>(null)
+  const pendingRefetchRef = useRef<PendingSocketRefetch<T> | null>(null)
+
+  const settleRefetch = useCallback(
+    (
+      settledRequestKey: string,
+      result: { data: T | undefined; error: Error | null },
+      refreshId?: string
+    ) => {
+      const pending = pendingRefetchRef.current
+      if (!pending || pending.requestKey !== settledRequestKey) return
+      if (refreshId !== undefined && pending.refreshId !== refreshId) return
+      clearTimeout(pending.timeout)
+      pendingRefetchRef.current = null
+      pending.resolve(result)
+    },
+    []
+  )
 
   const normalizedProvider = provider?.trim()
   const normalizedWorkspaceId = workspaceId?.trim()
@@ -175,7 +203,13 @@ function useTradingPortfolioSocketData<T>({
   const isCurrentRequestResolved = dataState.key === requestKey
 
   useEffect(() => {
-    subscriptionRef.current = null
+    const pendingRefetch = pendingRefetchRef.current
+    if (pendingRefetch && (pendingRefetch.requestKey !== requestKey || !shouldSubscribe)) {
+      settleRefetch(pendingRefetch.requestKey, {
+        data: undefined,
+        error: new Error('Trading portfolio request changed before refresh completed'),
+      })
+    }
 
     if (!shouldSubscribe) {
       setDataState({ key: requestKey, data: undefined })
@@ -193,16 +227,10 @@ function useTradingPortfolioSocketData<T>({
     let disposed = false
     runIdRef.current += 1
     const runId = runIdRef.current
-    const clientSubscriptionId = [
-      'trading-portfolio',
-      channel,
-      runId,
-      normalizedProvider,
-      normalizedPortfolioIdentityKey || 'accounts',
-      window ?? '',
-    ].join(':')
-
-    subscriptionRef.current = {
+    const clientSubscriptionId = `trading-portfolio:${instanceIdRef.current}:${runId}`
+    const subscription: SocketSubscriptionRef = {
+      requestKey,
+      ended: false,
       clientSubscriptionId,
       workspaceId: normalizedWorkspaceId,
       provider: normalizedProvider as string,
@@ -210,37 +238,19 @@ function useTradingPortfolioSocketData<T>({
       channel,
       portfolioIdentity: normalizedPortfolioIdentity ?? undefined,
     }
+    subscriptionRef.current = subscription
 
     setDataState({ key: requestKey, data: undefined })
     setError(null)
     setIsFetching(true)
 
-    const isRelevantPayload = (payload: TradingPortfolioSubscribedPayload) => {
-      if (payload.channel && payload.channel !== channel) return false
-      if (payload.workspaceId && payload.workspaceId !== normalizedWorkspaceId) return false
-      if (payload.provider && payload.provider !== normalizedProvider) return false
-      if (payload.serviceId && normalizedServiceId && payload.serviceId !== normalizedServiceId) {
-        return false
-      }
-      const payloadPortfolioIdentity = toPortfolioValueObject(payload.portfolioIdentity)
-      if (
-        payloadPortfolioIdentity &&
-        normalizedPortfolioIdentity &&
-        !arePortfolioIdentitiesEqual(payloadPortfolioIdentity, normalizedPortfolioIdentity)
-      ) {
-        return false
-      }
-      if (payload.clientSubscriptionId) {
-        return payload.clientSubscriptionId === clientSubscriptionId
-      }
-      const currentSubscriptionId = subscriptionRef.current?.subscriptionId
-      if (payload.subscriptionId && currentSubscriptionId) {
-        return payload.subscriptionId === currentSubscriptionId
-      }
-      return false
-    }
+    const isRelevantPayload = (payload: TradingPortfolioSubscribedPayload) =>
+      payload.clientSubscriptionId === clientSubscriptionId &&
+      (!subscription.subscriptionId || payload.subscriptionId === subscription.subscriptionId)
 
     const subscribe = (forceRefresh = false) => {
+      if (subscription.ended) return
+      setIsFetching(true)
       socket.emit('trading-portfolio-subscribe', {
         provider: normalizedProvider,
         workspaceId: normalizedWorkspaceId,
@@ -254,20 +264,30 @@ function useTradingPortfolioSocketData<T>({
     }
 
     const handleSubscribed = (payload: TradingPortfolioSubscribedPayload) => {
-      if (disposed || !isRelevantPayload(payload) || !payload.subscriptionId) return
-      subscriptionRef.current = {
-        ...(subscriptionRef.current as SocketSubscriptionRef),
-        subscriptionId: payload.subscriptionId,
-      }
+      if (
+        disposed ||
+        subscription.ended ||
+        payload.clientSubscriptionId !== clientSubscriptionId ||
+        !payload.subscriptionId
+      )
+        return
+      subscription.subscriptionId = payload.subscriptionId
     }
 
     const handleData = (payload: unknown) => {
       if (disposed || !isRelevantPayload(payload as TradingPortfolioSubscribedPayload)) return
       const nextData = getData(payload)
       if (nextData === undefined) return
+      const refreshId = (payload as TradingPortfolioSubscribedPayload).refreshId
+      const pending = pendingRefetchRef.current
+      const settlesPending = pending?.requestKey === requestKey && pending.refreshId === refreshId
+      if (refreshId !== undefined && !settlesPending) return
       setDataState({ key: requestKey, data: nextData })
       setError(null)
-      setIsFetching(false)
+      if (!pending || settlesPending) setIsFetching(false)
+      if (settlesPending) {
+        settleRefetch(requestKey, { data: nextData, error: null }, refreshId)
+      }
     }
 
     const handleError = (payload: TradingPortfolioErrorPayload) => {
@@ -278,42 +298,98 @@ function useTradingPortfolioSocketData<T>({
           : typeof payload.error === 'string' && payload.error.trim()
             ? payload.error
             : 'Failed to load trading portfolio data'
-      setError(new Error(message))
+      const nextError = new Error(message)
+      const pending = pendingRefetchRef.current
+      const settlesPending =
+        pending?.requestKey === requestKey && pending.refreshId === payload.refreshId
+      if (payload.refreshId !== undefined && !settlesPending) return
+      setError(nextError)
+      if (!pending || settlesPending) setIsFetching(false)
+      if (settlesPending) {
+        settleRefetch(requestKey, { data: undefined, error: nextError }, payload.refreshId)
+      }
+    }
+
+    const handleSubscribeError = (payload: TradingPortfolioErrorPayload) => {
+      if (disposed || !isRelevantPayload(payload)) return
+      const message =
+        typeof payload.message === 'string' && payload.message.trim()
+          ? payload.message
+          : typeof payload.error === 'string' && payload.error.trim()
+            ? payload.error
+            : 'Failed to subscribe to trading portfolio data'
+      const nextError = new Error(message)
+      setError(nextError)
       setIsFetching(false)
+      settleRefetch(requestKey, { data: undefined, error: nextError })
+    }
+
+    const failTransport = (message: string) => {
+      if (disposed || subscription.ended) return
+      const nextError = new Error(message)
+      setError(nextError)
+      setIsFetching(false)
+      settleRefetch(requestKey, { data: undefined, error: nextError })
+    }
+
+    const handleConnect = () => {
+      if (disposed || subscription.ended) return
+      subscription.subscriptionId = undefined
+      setError(null)
+      subscribe(true)
+    }
+    const handleDisconnect = () => {
+      subscription.subscriptionId = undefined
+      failTransport('Trading portfolio connection was lost')
+    }
+    const handleConnectError = () => {
+      subscription.subscriptionId = undefined
+      failTransport('Trading portfolio connection failed')
     }
 
     socket.on('trading-portfolio-subscribed', handleSubscribed)
     socket.on(dataEvent, handleData)
     socket.on('trading-portfolio-error', handleError)
-    socket.on('trading-portfolio-subscribe-error', handleError)
-    socket.on('connect', subscribe)
-    subscribe(refreshKey != null || refetchNonce > 0)
+    socket.on('trading-portfolio-subscribe-error', handleSubscribeError)
+    socket.on('connect', handleConnect)
+    socket.on('disconnect', handleDisconnect)
+    socket.on('connect_error', handleConnectError)
+    if (socket.connected) subscribe(refreshKey != null)
 
     return () => {
       disposed = true
+      subscription.ended = true
       socket.off('trading-portfolio-subscribed', handleSubscribed)
       socket.off(dataEvent, handleData)
       socket.off('trading-portfolio-error', handleError)
-      socket.off('trading-portfolio-subscribe-error', handleError)
-      socket.off('connect', subscribe)
+      socket.off('trading-portfolio-subscribe-error', handleSubscribeError)
+      socket.off('connect', handleConnect)
+      socket.off('disconnect', handleDisconnect)
+      socket.off('connect_error', handleConnectError)
 
-      const current = subscriptionRef.current
-      if (!current || current.clientSubscriptionId !== clientSubscriptionId) return
-      if (current.subscriptionId) {
-        socket.emit('trading-portfolio-unsubscribe', {
-          subscriptionId: current.subscriptionId,
-        })
-      } else {
-        socket.emit('trading-portfolio-unsubscribe', {
-          provider: current.provider,
-          workspaceId: current.workspaceId,
-          serviceId: current.serviceId,
-          channel: current.channel,
-          portfolioIdentity: current.portfolioIdentity,
-          clientSubscriptionId: current.clientSubscriptionId,
+      if (pendingRefetchRef.current?.requestKey === requestKey) {
+        settleRefetch(requestKey, {
+          data: undefined,
+          error: new Error('Trading portfolio request changed before refresh completed'),
         })
       }
-      subscriptionRef.current = null
+
+      if (socket.connected) {
+        socket.emit(
+          'trading-portfolio-unsubscribe',
+          subscription.subscriptionId
+            ? { subscriptionId: subscription.subscriptionId }
+            : {
+                provider: subscription.provider,
+                workspaceId: subscription.workspaceId,
+                serviceId: subscription.serviceId,
+                channel: subscription.channel,
+                portfolioIdentity: subscription.portfolioIdentity,
+                clientSubscriptionId: subscription.clientSubscriptionId,
+              }
+        )
+      }
+      if (subscriptionRef.current === subscription) subscriptionRef.current = null
     }
   }, [
     channel,
@@ -323,32 +399,68 @@ function useTradingPortfolioSocketData<T>({
     normalizedPortfolioIdentityKey,
     normalizedProvider,
     normalizedWorkspaceId,
-    refetchNonce,
     refreshKey,
     requestKey,
+    settleRefetch,
     shouldSubscribe,
     socket,
     window,
   ])
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(() => {
     const current = subscriptionRef.current
-    if (socket && current) {
-      setIsFetching(true)
-      socket.emit('trading-portfolio-refresh', {
-        subscriptionId: current.subscriptionId,
-        clientSubscriptionId: current.clientSubscriptionId,
-        provider: current.provider,
-        workspaceId: current.workspaceId,
-        serviceId: current.serviceId,
-        channel: current.channel,
-        portfolioIdentity: current.portfolioIdentity,
+    if (
+      !shouldSubscribe ||
+      !socket?.connected ||
+      !current ||
+      current.ended ||
+      current.requestKey !== requestKey
+    ) {
+      return Promise.resolve({
+        data,
+        error: new Error('Trading portfolio subscription is unavailable'),
       })
-    } else {
-      setRefetchNonce((value) => value + 1)
     }
-    return { data }
-  }, [data, socket])
+
+    const existing = pendingRefetchRef.current
+    if (existing?.requestKey === requestKey) {
+      return existing.promise
+    }
+
+    if (existing) {
+      settleRefetch(existing.requestKey, {
+        data: undefined,
+        error: new Error('Trading portfolio request changed before refresh completed'),
+      })
+    }
+
+    let resolvePending: PendingSocketRefetch<T>['resolve'] = () => undefined
+    const promise = new Promise<{ data: T | undefined; error: Error | null }>((resolve) => {
+      resolvePending = resolve
+    })
+    const refreshId = crypto.randomUUID()
+    const timeout = setTimeout(() => {
+      const timeoutError = new Error('Trading portfolio refresh timed out')
+      setError(timeoutError)
+      setIsFetching(false)
+      settleRefetch(requestKey, { data: undefined, error: timeoutError }, refreshId)
+    }, PORTFOLIO_REFRESH_TIMEOUT_MS)
+    pendingRefetchRef.current = {
+      requestKey,
+      refreshId,
+      promise,
+      resolve: resolvePending,
+      timeout,
+    }
+
+    setIsFetching(true)
+    socket.emit('trading-portfolio-refresh', {
+      subscriptionId: current.subscriptionId,
+      clientSubscriptionId: current.clientSubscriptionId,
+      refreshId,
+    })
+    return promise
+  }, [data, requestKey, settleRefetch, shouldSubscribe, socket])
 
   return {
     data,
@@ -400,14 +512,5 @@ export function usePortfolioPerformance(request: TradingPerformanceRequest) {
   })
 }
 
-export function useSubmitTradingOrder() {
-  const queryClient = useQueryClient()
-
-  return useMutation<TradingOrderSubmitResponse, Error, TradingOrderSubmitRequest>({
-    mutationFn: (request) =>
-      postJson<TradingOrderSubmitResponse>('/api/providers/trading/order', request),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: recordsOrderKeys.all })
-    },
-  })
-}
+export const submitTradingOrder = (request: TradingOrderSubmitRequest) =>
+  postJson<TradingOrderSubmitResponse>('/api/providers/trading/order', request)

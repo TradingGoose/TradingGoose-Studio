@@ -174,16 +174,8 @@ describe('Copilot Chat Review Session GET', () => {
       requestCopilotTitle: vi.fn(),
     }))
 
-    vi.doMock('@/lib/copilot/config', () => ({
-      getCopilotModel: vi.fn(),
-    }))
-
     vi.doMock('@/lib/copilot/completion-usage-billing', () => ({
       mirrorLocalCopilotCompletionUsageReports: vi.fn().mockResolvedValue(undefined),
-    }))
-
-    vi.doMock('@/lib/copilot/runtime-provider.server', () => ({
-      buildCopilotRuntimeProviderConfig: vi.fn(),
     }))
 
     vi.doMock('@/lib/copilot/review-sessions/thread-history', () => ({
@@ -238,6 +230,7 @@ describe('Copilot Chat Review Session GET', () => {
       ENTITY_KIND_CUSTOM_TOOL: 'custom_tool',
       ENTITY_KIND_DASHBOARD_LAYOUT: 'dashboard_layout',
       ENTITY_KIND_INDICATOR: 'indicator',
+      ENTITY_KIND_KNOWLEDGE_BASE: 'knowledge_base',
       ENTITY_KIND_MCP_SERVER: 'mcp_server',
       ENTITY_KIND_SKILL: 'skill',
       ENTITY_KIND_WATCHLIST: 'watchlist',

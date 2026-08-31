@@ -43,22 +43,24 @@ export default function Trigger() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button ref={triggerRef} variant='outline' size='sm' className={filterButtonClass}>
-          {getSelectedTriggersText()}
-          <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button ref={triggerRef} variant='outline' size='sm' className={filterButtonClass} />
+        }
+      >
+        {getSelectedTriggersText()}
+        <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align='start'
         side='bottom'
-        avoidCollisions={false}
+        collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
         sideOffset={4}
         className={dropdownContentClass}
       >
         <div className='py-1'>
           <DropdownMenuItem
-            onSelect={() => clearSelections()}
+            onClick={() => clearSelections()}
             className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-secondary/50 focus:bg-secondary/50'
           >
             <span>{t('allTriggers')}</span>
@@ -68,7 +70,7 @@ export default function Trigger() {
           {logTriggerOptions.map((triggerItem) => (
             <DropdownMenuItem
               key={triggerItem.value}
-              onSelect={() => toggleTrigger(triggerItem.value)}
+              onClick={() => toggleTrigger(triggerItem.value)}
               className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-secondary/50 focus:bg-secondary/50'
             >
               <div className='flex items-center'>

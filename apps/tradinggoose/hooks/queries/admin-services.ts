@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import type {
   AdminSystemService,
   AdminSystemServicesSnapshot,
@@ -59,9 +59,7 @@ function normalizeSnapshot(payload: unknown): AdminSystemServicesSnapshot {
                     label: typeof field.label === 'string' ? field.label : '',
                     description: typeof field.description === 'string' ? field.description : '',
                     type:
-                      field.type === 'url' ||
-                      field.type === 'number' ||
-                      field.type === 'boolean'
+                      field.type === 'url' || field.type === 'number' || field.type === 'boolean'
                         ? field.type
                         : 'text',
                     value: typeof field.value === 'string' ? field.value : '',
@@ -102,44 +100,31 @@ export function useAdminServicesSnapshot() {
   })
 }
 
-export function useSaveAdminService() {
-  const queryClient = useQueryClient()
+export type SaveAdminServiceInput = {
+  serviceId: string
+  credentials: Array<{ key: string; value: string; hasValue: boolean }>
+  settings: Array<{ key: string; value: string; hasValue: boolean }>
+}
 
-  return useMutation({
-    mutationFn: async (input: {
-      serviceId: string
-      credentials: Array<{
-        key: string
-        value: string
-        hasValue: boolean
-      }>
-      settings: Array<{
-        key: string
-        value: string
-        hasValue: boolean
-      }>
-    }): Promise<AdminSystemServicesSnapshot> => {
-      const response = await fetch(ADMIN_SERVICES_ENDPOINT, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(input),
-      })
-      const payload = await parseResponse(response)
-
-      if (!response.ok) {
-        const message =
-          payload && typeof payload === 'object' && 'error' in payload
-            ? String(payload.error)
-            : 'Failed to save services'
-        throw new Error(message)
-      }
-
-      return normalizeSnapshot(payload)
+export async function saveAdminService(
+  input: SaveAdminServiceInput
+): Promise<AdminSystemServicesSnapshot> {
+  const response = await fetch(ADMIN_SERVICES_ENDPOINT, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
     },
-    onSuccess: async (snapshot) => {
-      queryClient.setQueryData(adminServicesKeys.snapshot(), snapshot)
-    },
+    body: JSON.stringify(input),
   })
+  const payload = await parseResponse(response)
+
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === 'object' && 'error' in payload
+        ? String(payload.error)
+        : 'Failed to save services'
+    throw new Error(message)
+  }
+
+  return normalizeSnapshot(payload)
 }

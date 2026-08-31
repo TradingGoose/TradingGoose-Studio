@@ -136,65 +136,65 @@ function validateWorkflowState(input: unknown): {
   data: ExportWorkflowState['state'] | null
   errors: string[]
 } {
-  const errors: string[] = []
+  const stateValidationFailures: string[] = []
 
   if (!input || typeof input !== 'object') {
-    errors.push('Invalid workflow state: state must be an object')
-    return { data: null, errors }
+    stateValidationFailures.push('Invalid workflow state: state must be an object')
+    return { data: null, errors: stateValidationFailures }
   }
 
   const workflowState = input as Record<string, any>
 
   if (!workflowState.blocks || typeof workflowState.blocks !== 'object') {
-    errors.push('Missing or invalid field: blocks')
-    return { data: null, errors }
+    stateValidationFailures.push('Missing or invalid field: blocks')
+    return { data: null, errors: stateValidationFailures }
   }
 
   if (!Array.isArray(workflowState.edges)) {
-    errors.push('Missing or invalid field: edges (must be an array)')
-    return { data: null, errors }
+    stateValidationFailures.push('Missing or invalid field: edges (must be an array)')
+    return { data: null, errors: stateValidationFailures }
   }
 
   Object.entries(workflowState.blocks).forEach(([blockId, block]: [string, any]) => {
     if (!block || typeof block !== 'object') {
-      errors.push(`Invalid block ${blockId}: must be an object`)
+      stateValidationFailures.push(`Invalid block ${blockId}: must be an object`)
       return
     }
 
     if (!block.id) {
-      errors.push(`Block ${blockId} missing required field: id`)
+      stateValidationFailures.push(`Block ${blockId} missing required field: id`)
     }
     if (!block.type) {
-      errors.push(`Block ${blockId} missing required field: type`)
+      stateValidationFailures.push(`Block ${blockId} missing required field: type`)
     }
     if (
       !block.position ||
       typeof block.position.x !== 'number' ||
       typeof block.position.y !== 'number'
     ) {
-      errors.push(`Block ${blockId} missing or invalid position`)
+      stateValidationFailures.push(`Block ${blockId} missing or invalid position`)
     }
   })
 
   workflowState.edges.forEach((edge: any, index: number) => {
     if (!edge || typeof edge !== 'object') {
-      errors.push(`Invalid edge at index ${index}: must be an object`)
+      stateValidationFailures.push(`Invalid edge at index ${index}: must be an object`)
       return
     }
 
     if (!edge.id) {
-      errors.push(`Edge at index ${index} missing required field: id`)
+      stateValidationFailures.push(`Edge at index ${index} missing required field: id`)
     }
     if (!edge.source) {
-      errors.push(`Edge at index ${index} missing required field: source`)
+      stateValidationFailures.push(`Edge at index ${index} missing required field: source`)
     }
     if (!edge.target) {
-      errors.push(`Edge at index ${index} missing required field: target`)
+      stateValidationFailures.push(`Edge at index ${index} missing required field: target`)
     }
   })
 
-  if (errors.length > 0) {
-    return { data: null, errors }
+  if (stateValidationFailures.length > 0) {
+    return { data: null, errors: stateValidationFailures }
   }
 
   return {
@@ -213,12 +213,14 @@ function normalizeWorkflowTransferRecord(
   workflow: WorkflowTransferInput
 ): ParseWorkflowImportResult {
   const workflowName = normalizeInlineWhitespace(workflow.name)
-  const stateResult = validateWorkflowState(workflow.state)
+  const { data: validatedState, errors: stateValidationFailures } = validateWorkflowState(
+    workflow.state
+  )
 
-  if (stateResult.errors.length > 0 || !stateResult.data) {
+  if (stateValidationFailures.length > 0 || !validatedState) {
     return {
       data: null,
-      errors: stateResult.errors,
+      errors: stateValidationFailures,
       matched: true,
     }
   }
@@ -227,7 +229,7 @@ function normalizeWorkflowTransferRecord(
     data: {
       name: workflowName,
       description: normalizeString(workflow.description ?? ''),
-      state: stateResult.data,
+      state: validatedState,
       skills: [],
     },
     errors: [],
@@ -457,18 +459,22 @@ export function parseImportedWorkflowFile(input: unknown): {
   data: WorkflowTransferRecord | null
   errors: string[]
 } {
-  const unifiedResult = parseUnifiedWorkflowImport(input)
-  if (unifiedResult.data) {
+  const {
+    data: unifiedData,
+    errors: unifiedFailures,
+    matched: unifiedMatched,
+  } = parseUnifiedWorkflowImport(input)
+  if (unifiedData) {
     return {
-      data: unifiedResult.data,
+      data: unifiedData,
       errors: [],
     }
   }
 
-  if (unifiedResult.matched && unifiedResult.errors.length > 0) {
+  if (unifiedMatched && unifiedFailures.length > 0) {
     return {
       data: null,
-      errors: unifiedResult.errors,
+      errors: unifiedFailures,
     }
   }
 

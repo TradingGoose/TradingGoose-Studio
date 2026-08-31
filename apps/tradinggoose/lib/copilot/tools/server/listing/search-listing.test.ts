@@ -1,52 +1,66 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { searchListingServerTool } from '@/lib/copilot/tools/server/listing/search-listing'
-import { searchListingIdentities } from '@/lib/listing/search'
+import { fetchListings } from '@/lib/listing/search'
 
 vi.mock('@/lib/listing/search', () => ({
-  searchListingIdentities: vi.fn(),
+  fetchListings: vi.fn(),
 }))
 
-const mockSearchListingIdentities = vi.mocked(searchListingIdentities)
+const mockFetchListings = vi.mocked(fetchListings)
 
 describe('searchListingServerTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('returns only canonical listing identities from the shared listing search helper', async () => {
+  it('returns resolved listings containing canonical listing identities', async () => {
     const signal = new AbortController().signal
-    const listings = [
-      {
+    const listing = {
+      listingIdentity: {
         listing_id: 'AAPL',
         base_id: '',
         quote_id: '',
         listing_type: 'default' as const,
       },
-    ]
-    mockSearchListingIdentities.mockResolvedValue(listings)
+      base: 'AAPL',
+      quote: null,
+      name: 'Apple Inc.',
+      iconUrl: 'https://example.com/apple.png',
+      assetClass: 'stock',
+    }
+    mockFetchListings.mockResolvedValue([listing, listing])
 
-    await expect(
-      searchListingServerTool.execute({ query: '  Apple  ' }, { userId: 'user-1', signal })
-    ).resolves.toEqual({ results: listings })
+    const result = await searchListingServerTool.execute(
+      { query: '  Apple  ' },
+      { userId: 'user-1', signal }
+    )
 
-    expect(mockSearchListingIdentities).toHaveBeenCalledWith('Apple', signal)
+    expect(result).toEqual({ results: [listing] })
+    expect(ToolResultSchemas.search_listing.parse(result)).toEqual(result)
+    expect(() =>
+      ToolResultSchemas.search_listing.parse({
+        results: [{ ...listing, listing_id: 'AAPL' }],
+      })
+    ).toThrow()
+    expect(mockFetchListings).toHaveBeenCalledWith({ search_query: 'Apple' }, signal)
   })
 
   it('rejects blank queries before calling the listing search helper', async () => {
     await expect(searchListingServerTool.execute({ query: '   ' })).rejects.toThrow(
       'query is required'
     )
-    expect(mockSearchListingIdentities).not.toHaveBeenCalled()
+    expect(mockFetchListings).not.toHaveBeenCalled()
   })
 
   it('maps listing backend failures to a structured retryable tool error', async () => {
-    mockSearchListingIdentities.mockRejectedValue(new Error('backend unavailable'))
+    mockFetchListings.mockRejectedValue(new Error('backend unavailable'))
 
     await expect(searchListingServerTool.execute({ query: 'AAPL' })).rejects.toMatchObject({
       status: 502,
       code: 'search_listing_backend_failed',
       retryable: true,
-      hint: expect.stringContaining('under the listing key'),
+      hint: expect.stringContaining('listingIdentity under the listing key'),
     })
   })
 })

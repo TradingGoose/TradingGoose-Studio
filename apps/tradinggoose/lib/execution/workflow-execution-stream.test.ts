@@ -62,7 +62,7 @@ describe('openWorkflowExecutionEventStream', () => {
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'completed',
       result: { success: true, output: { ok: true }, logs: [] },
-      errorMessage: null,
+      failureReason: null,
       events: [],
     })
 
@@ -91,7 +91,7 @@ describe('openWorkflowExecutionEventStream', () => {
         error: 'Workflow execution was cancelled',
         logs: [],
       },
-      errorMessage: 'Workflow execution was cancelled',
+      failureReason: 'Workflow execution was cancelled',
       events: [],
     })
 

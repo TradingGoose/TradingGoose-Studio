@@ -6,8 +6,8 @@ import { NextIntlClientProvider } from 'next-intl'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import { HelpModal } from './help-modal'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -35,13 +35,7 @@ vi.mock('next/image', () => ({
 }))
 
 vi.mock('../../settings-modal', () => ({
-  SettingsModal: ({
-    title,
-    children,
-  }: {
-    title: string
-    children: React.ReactNode
-  }) => (
+  SettingsModal: ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div>
       <h1>{title}</h1>
       {children}
@@ -103,13 +97,7 @@ vi.mock('@/components/ui/select', async () => {
       return <span>{value || placeholder}</span>
     },
     SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-    SelectItem: ({
-      value,
-      children,
-    }: {
-      value: string
-      children: React.ReactNode
-    }) => {
+    SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) => {
       const { onValueChange } = React.useContext(SelectContext)
       return (
         <button type='button' onClick={() => onValueChange(value)}>
@@ -151,7 +139,9 @@ function createSizedFile(name: string, type: string, size: number) {
 
 function setFieldValue(field: HTMLInputElement | HTMLTextAreaElement, value: string) {
   const prototype =
-    field instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+    field instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype
   const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
 
   setter?.call(field, value)
@@ -168,10 +158,13 @@ describe('HelpModal localization', () => {
     URL.createObjectURL = vi.fn(() => 'blob:preview-1')
     URL.revokeObjectURL = vi.fn()
     HTMLElement.prototype.scrollTo = vi.fn()
-    vi.mocked(global.fetch).mockImplementation(async () => ({
-      ok: true,
-      json: async () => ({}),
-    }) as Response)
+    vi.mocked(global.fetch).mockImplementation(
+      async () =>
+        ({
+          ok: true,
+          json: async () => ({}),
+        }) as Response
+    )
 
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -274,7 +267,9 @@ describe('HelpModal localization', () => {
     })
 
     expect(container.textContent).toContain(copy.uploadedImages)
-    expect(container.querySelector(`img[alt="${formatTemplate(copy.previewAlt, { index: 1 })}"]`)).not.toBeNull()
+    expect(
+      container.querySelector(`img[alt="${formatTemplate(copy.previewAlt, { index: 1 })}"]`)
+    ).not.toBeNull()
 
     const subjectInput = container.querySelector('#subject')
     const messageInput = container.querySelector('#message')

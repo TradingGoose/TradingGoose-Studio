@@ -203,7 +203,7 @@ export function buildCopilotServerToolErrorResponse(
       body: {
         code: 'invalid_widget_config',
         error: error.message,
-        hint: 'Use get_widgets_metadata for editable params, pair colors, and linked color-pair fields. Use edit_layout with a key from get_available_widgets to add, replace, or remove widget bindings.',
+        hint: 'Use get_widgets_metadata for editable params. Use edit_layout with a key from get_available_widgets to add, replace, or remove widget bindings.',
         retryable: true,
         issues: error.issues,
       },

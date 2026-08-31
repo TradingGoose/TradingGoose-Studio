@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { MONITOR_ASSET_TYPES } from '@/lib/monitors/sources'
 import { createSearchClause } from './query-parser'
 import { LOGS_QUERY_POLICY, MONITOR_QUERY_POLICY } from './query-policy'
 import { SearchSuggestions } from './search-suggestions'
@@ -42,6 +43,12 @@ describe('SearchSuggestions', () => {
       true
     )
     expect(result?.suggestions.some((suggestion) => suggestion.value === 'has:endedAt')).toBe(true)
+  })
+
+  it('suggests every emitted monitor asset type', () => {
+    expect(
+      engine.getSuggestions('assetType:')?.suggestions.map((suggestion) => suggestion.value)
+    ).toEqual(MONITOR_ASSET_TYPES.map((assetType) => `assetType:${assetType}`))
   })
 
   it('keeps partial presence suggestions available after the colon', () => {

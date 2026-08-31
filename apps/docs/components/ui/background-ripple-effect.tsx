@@ -2,7 +2,6 @@
 
 // React Imports
 import { useEffect, useMemo, useRef, useState } from 'react'
-
 // Util Imports
 import { cn } from '@/lib/utils'
 
@@ -11,7 +10,7 @@ const BackgroundRippleEffect = ({
   cols = 27,
   cellSize = 56.815,
   maskClassName = 'mask-radial-from-20% mask-radial-at-top',
-  interactive = true
+  interactive = true,
 }: {
   rows?: number
   cols?: number
@@ -51,7 +50,7 @@ const BackgroundRippleEffect = ({
 
     const handlePointerMove = (event: PointerEvent) => {
       const cell = getCellFromPointer(event)
-      setHoveredCell(prev => {
+      setHoveredCell((prev) => {
         const isSameCell = prev?.row === cell?.row && prev?.col === cell?.col
         return isSameCell ? prev : cell
       })
@@ -62,7 +61,7 @@ const BackgroundRippleEffect = ({
       if (!cell) return
 
       setClickedCell(cell)
-      setRippleKey(k => k + 1)
+      setRippleKey((k) => k + 1)
     }
 
     window.addEventListener('pointermove', handlePointerMove)
@@ -75,12 +74,7 @@ const BackgroundRippleEffect = ({
   }, [cellSize, cols, rows, interactive])
 
   return (
-    <div
-      ref={ref}
-      className={cn(
-        'absolute z-[-1] inset-0 h-full w-full object-center'
-      )}
-    >
+    <div ref={ref} className={cn('absolute inset-0 z-[-1] h-full w-full object-center')}>
       <div className='relative flex h-auto w-auto justify-center overflow-hidden'>
         <div className='pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-hidden' />
         <DivGrid
@@ -91,10 +85,14 @@ const BackgroundRippleEffect = ({
           cellSize={cellSize}
           clickedCell={clickedCell}
           hoveredCell={hoveredCell}
-          onCellClick={interactive ? (row, col) => {
-            setClickedCell({ row, col })
-            setRippleKey(k => k + 1)
-          } : undefined}
+          onCellClick={
+            interactive
+              ? (row, col) => {
+                  setClickedCell({ row, col })
+                  setRippleKey((k) => k + 1)
+                }
+              : undefined
+          }
           interactive={interactive}
           gridRef={gridRef}
         />
@@ -116,8 +114,8 @@ type DivGridProps = {
 }
 
 type CellStyle = React.CSSProperties & {
-  ['--delay']?: string
-  ['--duration']?: string
+  '--delay'?: string
+  '--duration'?: string
 }
 
 const DivGrid = ({
@@ -126,10 +124,10 @@ const DivGrid = ({
   cols = 30,
   cellSize = 56.815,
   clickedCell = null,
-  onCellClick = () => { },
+  onCellClick = () => {},
   interactive = true,
   hoveredCell = null,
-  gridRef
+  gridRef,
 }: DivGridProps) => {
   const cells = useMemo(() => Array.from({ length: rows * cols }, (_, idx) => idx), [rows, cols])
 
@@ -139,25 +137,27 @@ const DivGrid = ({
     gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
     width: cols * cellSize,
     height: rows * cellSize,
-    marginInline: 'auto'
+    marginInline: 'auto',
   }
 
   return (
     <div ref={gridRef} className={cn('relative z-[3]', className)} style={gridStyle}>
-      {cells.map(idx => {
+      {cells.map((idx) => {
         const rowIdx = Math.floor(idx / cols)
         const colIdx = idx % cols
 
-        const distance = clickedCell ? Math.hypot(clickedCell.row - rowIdx, clickedCell.col - colIdx) : 0
+        const distance = clickedCell
+          ? Math.hypot(clickedCell.row - rowIdx, clickedCell.col - colIdx)
+          : 0
 
         const delay = clickedCell ? Math.max(0, distance * 55) : 0 // ms
         const duration = 200 + distance * 80 // ms
 
         const style: CellStyle = clickedCell
           ? {
-            '--delay': `${delay}ms`,
-            '--duration': `${duration}ms`
-          }
+              '--delay': `${delay}ms`,
+              '--duration': `${duration}ms`,
+            }
           : {}
         const isHovered = hoveredCell?.row === rowIdx && hoveredCell?.col === colIdx
 
@@ -165,15 +165,15 @@ const DivGrid = ({
           <div
             key={idx}
             className={cn(
-              'cell relative border-[1px] opacity-50 transition-all duration-150 will-change-transform shadow-inner shadow-lg',
-              'bg-fd-primary/10 border-neutral-500',
+              'cell relative border-[1px] opacity-50 shadow-inner shadow-lg transition-all duration-150 will-change-transform',
+              'border-neutral-500 bg-fd-primary/10',
               '',
               clickedCell && 'animate-cell-ripple [animation-fill-mode:none]',
               !interactive && 'pointer-events-none',
-              isHovered && 'opacity-90 border-fd-primary brightness-95'
+              isHovered && 'border-fd-primary opacity-90 brightness-95'
             )}
             style={{
-              ...style
+              ...style,
             }}
             onClick={interactive ? () => onCellClick?.(rowIdx, colIdx) : undefined}
           />

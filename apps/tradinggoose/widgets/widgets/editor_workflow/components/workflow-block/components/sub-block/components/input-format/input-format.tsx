@@ -343,17 +343,19 @@ export function FieldFormat({
                     <div className='space-y-1.5'>
                       <Label className='text-xs'>{copy.type}</Label>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant='outline'
-                            disabled={isPreview || disabled}
-                            className='h-9 w-full justify-between font-normal'
-                          >
-                            <div className='flex items-center'>
-                              <span>{getFieldTypeLabel(field.type)}</span>
-                            </div>
-                            <ChevronDown className='h-4 w-4 opacity-50' />
-                          </Button>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant='outline'
+                              disabled={isPreview || disabled}
+                              className='h-9 w-full justify-between font-normal'
+                            />
+                          }
+                        >
+                          <div className='flex items-center'>
+                            <span>{getFieldTypeLabel(field.type)}</span>
+                          </div>
+                          <ChevronDown className='h-4 w-4 opacity-50' />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align='end' className='w-[200px]'>
                           <DropdownMenuItem
@@ -420,10 +422,19 @@ export function FieldFormat({
                       <div className='relative'>
                         {field.type === 'boolean' ? (
                           <Select
-                            value={stringifyFieldValue(field.value)}
-                            onValueChange={(v) => updateField(field.id, 'value', v)}
+                            value={stringifyFieldValue(field.value) || null}
+                            items={[
+                              { value: 'true', label: copy.trueValue },
+                              { value: 'false', label: copy.falseValue },
+                            ]}
+                            onValueChange={(value) => {
+                              if (value !== null) updateField(field.id, 'value', value)
+                            }}
                           >
-                            <SelectTrigger className='h-9 w-full justify-between font-normal'>
+                            <SelectTrigger
+                              aria-label={copy.value}
+                              className='h-9 w-full justify-between font-normal'
+                            >
                               <SelectValue placeholder={copy.selectValue} className='truncate' />
                             </SelectTrigger>
                             <SelectContent>

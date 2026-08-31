@@ -1,15 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { type MonitorCopy, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
-import { fetchOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import { getLocalizedDefaultBlockName } from '@/i18n/block-editor'
 import {
   INDICATOR_MONITOR_PROVIDER,
   INDICATOR_MONITOR_TRIGGER_ID,
   PORTFOLIO_MONITOR_PROVIDER,
   PORTFOLIO_MONITOR_TRIGGER_ID,
 } from '@/lib/monitors/sources'
+import { type MonitorCopy, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
+import { fetchOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
+import { getLocalizedDefaultBlockName } from '@/i18n/block-editor'
 import {
   getMarketMonitorProviderParamDefinitions,
   getMarketProviderIntervals,
@@ -56,7 +56,7 @@ const buildReferenceData = ({
   workflowOptions,
   indicatorOptions,
   tradingProviderAvailability,
-  isLoading,
+  isLoading: requirementsPending,
   warning,
 }: {
   copy: MonitorCopy
@@ -101,13 +101,12 @@ const buildReferenceData = ({
   )
   const defaultMarketProviderId = marketProviders[0]?.id ?? ''
   const defaultPortfolioProviderId = tradingProviders[0]?.id ?? ''
-  const defaultDraftInterval =
-    providerIntervalsByProviderId[defaultMarketProviderId]?.[0] ?? '1m'
+  const defaultDraftInterval = providerIntervalsByProviderId[defaultMarketProviderId]?.[0] ?? '1m'
   const canCreateIndicatorMonitor =
     indicatorWorkflowTargets.length > 0 && indicatorOptions.length > 0
   const canCreatePortfolioMonitor =
     portfolioWorkflowTargets.length > 0 && tradingProviders.length > 0
-  const createDisabledReason = isLoading
+  const createDisabledReason = requirementsPending
     ? copy.loadingRequirements
     : canCreateIndicatorMonitor || canCreatePortfolioMonitor
       ? null
@@ -133,7 +132,7 @@ const buildReferenceData = ({
     defaultPortfolioProviderId,
     defaultDraftInterval,
     createDisabledReason,
-    isLoading,
+    isLoading: requirementsPending,
     warning,
   }
 }

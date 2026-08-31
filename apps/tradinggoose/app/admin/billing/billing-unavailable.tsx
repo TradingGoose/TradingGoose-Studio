@@ -1,16 +1,12 @@
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Link } from '@/i18n/navigation'
-import type { AdminBillingCopy } from './tier-editor'
 import { ADMIN_META_BADGE_CLASSNAME } from '../badge-styles'
 import { AdminPageShell } from '../page-shell'
+import type { AdminBillingCopy } from './tier-editor'
 
-export function AdminBillingUnavailable({
-  copy,
-}: {
-  copy: AdminBillingCopy['unavailable']
-}) {
+export function AdminBillingUnavailable({ copy }: { copy: AdminBillingCopy['unavailable'] }) {
   return (
     <AdminPageShell
       left={
@@ -30,9 +26,9 @@ export function AdminBillingUnavailable({
           </CardHeader>
           <CardContent className='flex items-center justify-between gap-4'>
             <p className='text-muted-foreground text-sm'>{copy.requirement}</p>
-            <Button asChild variant='outline'>
-              <Link href='/admin'>{copy.back}</Link>
-            </Button>
+            <Link href='/admin' className={buttonVariants({ variant: 'outline' })}>
+              {copy.back}
+            </Link>
           </CardContent>
         </Card>
       </div>

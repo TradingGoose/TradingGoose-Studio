@@ -44,19 +44,19 @@ export function ConnectionStatus({ isConnected }: ConnectionStatusProps) {
         </div>
       </div>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            onClick={handleRefresh}
-            variant='ghost'
-            size='sm'
-            className='h-7 w-7 p-0 text-red-700 hover:bg-red-100 hover:text-red-800'
-          >
-            <RefreshCw className='h-4 w-4' />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent className='z-[9999]'>
-          {copy.refreshPageToContinueEditing}
-        </TooltipContent>
+        <TooltipTrigger
+          render={
+            <Button
+              onClick={handleRefresh}
+              variant='ghost'
+              size='sm'
+              className='h-7 w-7 p-0 text-red-700 hover:bg-red-100 hover:text-red-800'
+            >
+              <RefreshCw className='h-4 w-4' />
+            </Button>
+          }
+        />
+        <TooltipContent zIndex={9999}>{copy.refreshPageToContinueEditing}</TooltipContent>
       </Tooltip>
     </div>
   )

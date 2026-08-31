@@ -1,4 +1,5 @@
 import type { QueryFieldPolicy, QueryPolicy } from '@/lib/logs/query-types'
+import { MONITOR_ASSET_TYPE_LABELS, MONITOR_ASSET_TYPES } from '@/lib/monitors/sources'
 
 const makePolicy = (key: QueryPolicy['key'], fields: QueryFieldPolicy[]): QueryPolicy => ({
   key,
@@ -27,13 +28,10 @@ const TRIGGER_OPTIONS = [
   { value: 'schedule', label: 'Schedule' },
 ]
 
-const ASSET_TYPE_OPTIONS = [
-  { value: 'stock', label: 'Stock' },
-  { value: 'crypto', label: 'Crypto' },
-  { value: 'currency', label: 'Currency' },
-  { value: 'default', label: 'Default' },
-  { value: 'unknown', label: 'Unknown' },
-]
+const ASSET_TYPE_OPTIONS = MONITOR_ASSET_TYPES.map((value) => ({
+  value,
+  label: MONITOR_ASSET_TYPE_LABELS[value],
+}))
 
 const COMMON_MONITOR_FIELDS: QueryFieldPolicy[] = [
   {

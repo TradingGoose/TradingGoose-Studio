@@ -127,27 +127,30 @@ export function LinearProjectSelector({
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          variant='outline'
-          role='combobox'
-          aria-expanded={open}
-          className='w-full justify-between'
-          disabled={disabled || !credential || !teamId}
-        >
-          {selectedProject ? (
-            <div className='flex items-center gap-1 overflow-hidden'>
-              <LinearIcon className='h-4 w-4' />
-              <span className='truncate font-normal'>{selectedProject.name}</span>
-            </div>
-          ) : (
-            <div className='flex items-center gap-1'>
-              <LinearIcon className='h-4 w-4' />
-              <span className='text-muted-foreground'>{labelText}</span>
-            </div>
-          )}
-          <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-        </Button>
+      <PopoverTrigger
+        disabled={disabled || !credential || !teamId}
+        render={
+          <Button
+            variant='outline'
+            role='combobox'
+            aria-expanded={open}
+            className='w-full justify-between'
+            disabled={disabled || !credential || !teamId}
+          />
+        }
+      >
+        {selectedProject ? (
+          <div className='flex items-center gap-1 overflow-hidden'>
+            <LinearIcon className='h-4 w-4' />
+            <span className='truncate font-normal'>{selectedProject.name}</span>
+          </div>
+        ) : (
+          <div className='flex items-center gap-1'>
+            <LinearIcon className='h-4 w-4' />
+            <span className='text-muted-foreground'>{labelText}</span>
+          </div>
+        )}
+        <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
       </PopoverTrigger>
       <PopoverContent className='w-[300px] p-0' align='start'>
         <Command>

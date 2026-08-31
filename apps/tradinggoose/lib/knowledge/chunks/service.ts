@@ -206,71 +206,87 @@ export async function batchChunkOperation(
     `[${requestId}] Starting batch ${operation} operation on ${chunkIds.length} chunks for document ${documentId}`
   )
 
-  const errors: string[] = []
-  let successCount = 0
+  const updatedChunkIds: string[] = []
+  const failures: BatchOperationResult['failures'] = []
 
   if (operation === 'delete') {
     // Handle batch delete with transaction for consistency
     await db.transaction(async (tx) => {
-      // Get chunks to delete for statistics update
-      const chunksToDelete = await tx
-        .select({
+      const deletedChunks = await tx
+        .delete(embedding)
+        .where(and(eq(embedding.documentId, documentId), inArray(embedding.id, chunkIds)))
+        .returning({
           id: embedding.id,
           tokenCount: embedding.tokenCount,
           contentLength: embedding.contentLength,
         })
-        .from(embedding)
-        .where(and(eq(embedding.documentId, documentId), inArray(embedding.id, chunkIds)))
 
-      if (chunksToDelete.length === 0) {
-        errors.push('No matching chunks found to delete')
+      if (deletedChunks.length === 0) {
+        failures.push(
+          ...chunkIds.map((chunkId) => ({
+            chunkId,
+            message: 'Chunk was not found',
+          }))
+        )
         return
       }
 
-      const totalTokensToRemove = chunksToDelete.reduce((sum, chunk) => sum + chunk.tokenCount, 0)
-      const totalCharsToRemove = chunksToDelete.reduce((sum, chunk) => sum + chunk.contentLength, 0)
-
-      // Delete chunks
-      const deleteResult = await tx
-        .delete(embedding)
-        .where(and(eq(embedding.documentId, documentId), inArray(embedding.id, chunkIds)))
+      const totalTokensToRemove = deletedChunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0)
+      const totalCharsToRemove = deletedChunks.reduce((sum, chunk) => sum + chunk.contentLength, 0)
 
       // Update document statistics
       await tx
         .update(document)
         .set({
-          chunkCount: sql`${document.chunkCount} - ${chunksToDelete.length}`,
+          chunkCount: sql`${document.chunkCount} - ${deletedChunks.length}`,
           tokenCount: sql`${document.tokenCount} - ${totalTokensToRemove}`,
           characterCount: sql`${document.characterCount} - ${totalCharsToRemove}`,
         })
         .where(eq(document.id, documentId))
 
-      successCount = chunksToDelete.length
+      updatedChunkIds.push(...deletedChunks.map((chunk) => chunk.id))
+      const deletedChunkIds = new Set(deletedChunks.map((chunk) => chunk.id))
+      failures.push(
+        ...chunkIds
+          .filter((chunkId) => !deletedChunkIds.has(chunkId))
+          .map((chunkId) => ({
+            chunkId,
+            message: 'Chunk was not found',
+          }))
+      )
     })
   } else {
     // Handle enable/disable operations
     const enabled = operation === 'enable'
 
-    await db
+    const updatedChunks = await db
       .update(embedding)
       .set({
         enabled,
         updatedAt: new Date(),
       })
       .where(and(eq(embedding.documentId, documentId), inArray(embedding.id, chunkIds)))
+      .returning({ id: embedding.id })
 
-    // For enable/disable, we assume all chunks were processed successfully
-    successCount = chunkIds.length
+    updatedChunkIds.push(...updatedChunks.map((chunk) => chunk.id))
+    const updatedChunkIdSet = new Set(updatedChunkIds)
+    failures.push(
+      ...chunkIds
+        .filter((chunkId) => !updatedChunkIdSet.has(chunkId))
+        .map((chunkId) => ({
+          chunkId,
+          message: 'Chunk was not found',
+        }))
+    )
   }
 
   logger.info(
-    `[${requestId}] Batch ${operation} completed: ${successCount} chunks processed, ${errors.length} errors`
+    `[${requestId}] Batch ${operation} completed: ${updatedChunkIds.length} chunks processed, ${failures.length} failures`
   )
 
   return {
-    success: errors.length === 0,
-    processed: successCount,
-    errors,
+    updatedChunkIds,
+    failures,
   }
 }
 

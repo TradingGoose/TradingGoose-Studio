@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,6 +24,7 @@ interface TeamSeatsProps {
   currentSeats?: number
   initialSeats?: number
   isLoading: boolean
+  error?: string | null
   onConfirm: (seats: number) => Promise<void>
   confirmButtonText: string
   showCostBreakdown?: boolean
@@ -40,6 +42,7 @@ export function TeamSeats({
   currentSeats,
   initialSeats = 1,
   isLoading,
+  error,
   onConfirm,
   confirmButtonText,
   showCostBreakdown = false,
@@ -60,8 +63,14 @@ export function TeamSeats({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen, details) => {
+        if (!nextOpen && isLoading) return details.cancel()
+        onOpenChange(nextOpen)
+      }}
+    >
+      <DialogContent hideCloseButton={isLoading}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -89,6 +98,7 @@ export function TeamSeats({
               setSelectedSeats(nextValue)
             }}
             className='rounded-sm'
+            disabled={isLoading}
           />
 
           <p className='mt-2 text-muted-foreground text-sm'>
@@ -121,33 +131,43 @@ export function TeamSeats({
           )}
         </div>
 
+        {error ? (
+          <Alert role='alert' variant='destructive'>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
         <DialogFooter>
           <Button variant='outline' onClick={() => onOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    onClick={handleConfirm}
-                    disabled={
-                      isLoading ||
-                      (showCostBreakdown && selectedSeats === currentSeats) ||
-                      isCancelledAtPeriodEnd
-                    }
-                  >
-                    {isLoading ? (
-                      <div className='flex items-center space-x-2'>
-                        <div className='h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent' />
-                        <span>Loading...</span>
-                      </div>
-                    ) : (
-                      <span>{confirmButtonText}</span>
-                    )}
-                  </Button>
-                </span>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <span>
+                    <Button
+                      onClick={handleConfirm}
+                      disabled={
+                        isLoading ||
+                        (showCostBreakdown && selectedSeats === currentSeats) ||
+                        isCancelledAtPeriodEnd
+                      }
+                      focusableWhenDisabled={isLoading}
+                      aria-busy={isLoading || undefined}
+                    >
+                      {isLoading ? (
+                        <div className='flex items-center space-x-2'>
+                          <div className='h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent' />
+                          <span>Updating…</span>
+                        </div>
+                      ) : (
+                        <span>{confirmButtonText}</span>
+                      )}
+                    </Button>
+                  </span>
+                }
+              />
               {isCancelledAtPeriodEnd && (
                 <TooltipContent>
                   <p>

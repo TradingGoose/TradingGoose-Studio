@@ -8,7 +8,7 @@ export interface EnterpriseSubscriptionMetadata {
   referenceType: 'organization'
   referenceId: string
   // Hidden organization tier to map the contract subscription onto
-  billingTierId?: string
+  billingTierId: string
   // The fixed monthly price for this enterprise customer (as string from Stripe metadata)
   // This will be used to set the organization's usage limit
   monthlyPrice: string
@@ -39,6 +39,7 @@ export interface UsageLimitInfo {
 export interface BillingTierSummary {
   id: string | null
   displayName: string
+  status: 'active' | 'draft' | 'archived' | null
   ownerType: 'user' | 'organization'
   usageScope: 'individual' | 'pooled'
   seatMode: 'fixed' | 'adjustable'

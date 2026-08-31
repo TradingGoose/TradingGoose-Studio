@@ -196,7 +196,7 @@ describe('orders export route', () => {
     const csv = await response.text()
 
     expect(response.status).toBe(200)
-    expect(csv).toContain("\"'+SUM(1,1)\"")
-    expect(csv).toContain("\"'=1+1\"")
+    expect(csv).toContain('"\'+SUM(1,1)"')
+    expect(csv).toContain('"\'=1+1"')
   })
 })

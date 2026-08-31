@@ -34,7 +34,9 @@ export function EditorIndicatorWidgetBody({
   const {
     members: indicatorMembers,
     isLoading: isIndicatorListLoading,
+    isRetrying: isIndicatorListRetrying,
     error: indicatorListError,
+    retry: retryIndicatorList,
   } = useEntityList('indicator', workspaceId)
   const requestedIndicatorMember = hasRequestedIndicator
     ? indicatorMembers.find((member) => member.entityId === normalizedRequestedIndicatorId)
@@ -59,7 +61,14 @@ export function EditorIndicatorWidgetBody({
   }
 
   if (indicatorListError && indicatorMembers.length === 0) {
-    return <WidgetStateMessage message={indicatorListError} />
+    return (
+      <WidgetStateMessage
+        message={copy.failedToLoadIndicators}
+        variant='error'
+        onRetry={retryIndicatorList}
+        isRetrying={isIndicatorListRetrying}
+      />
+    )
   }
 
   if (
@@ -73,7 +82,14 @@ export function EditorIndicatorWidgetBody({
   }
 
   if (indicatorSession.error) {
-    return <WidgetStateMessage message={indicatorSession.error} />
+    return (
+      <WidgetStateMessage
+        message={copy.failedToLoadIndicators}
+        variant='error'
+        onRetry={indicatorSession.retry}
+        isRetrying={indicatorSession.isRetrying}
+      />
+    )
   }
 
   if (isIndicatorListLoading || indicatorSession.isLoading) {

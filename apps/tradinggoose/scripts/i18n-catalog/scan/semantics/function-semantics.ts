@@ -19,11 +19,7 @@ import { buildImportedCallableDescriptorMap, buildImportedSemanticsMap } from '.
 import { resolveExpressionDescriptor } from './expression-resolution'
 import { bindFunctionParameters } from './parameters'
 
-function collectReturnDescriptors(
-  body: ts.Block,
-  scope: Scope,
-  env: ResolverEnv
-): Descriptor[] {
+function collectReturnDescriptors(body: ts.Block, scope: Scope, env: ResolverEnv): Descriptor[] {
   const descriptors: Descriptor[] = []
 
   const visit = (currentNode: ts.Node, currentScope: Scope) => {

@@ -1,5 +1,4 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createLogger } from '@/lib/logs/console/logger'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type {
   ChunkData,
   ChunksPagination,
@@ -7,8 +6,6 @@ import type {
   DocumentsPagination,
   KnowledgeBaseData,
 } from '@/stores/knowledge/store'
-
-const logger = createLogger('KnowledgeQueries')
 
 export type KnowledgeQueryErrorCode =
   | 'failedToFetchKnowledgeBases'
@@ -280,63 +277,5 @@ export function useKnowledgeChunksQuery(
     queryFn: () => fetchKnowledgeChunks(params),
     enabled: (options?.enabled ?? true) && Boolean(params.knowledgeBaseId && params.documentId),
     placeholderData: keepPreviousData,
-  })
-}
-
-interface UpdateDocumentPayload {
-  knowledgeBaseId: string
-  documentId: string
-  updates: Partial<DocumentData>
-}
-
-export function useMutateKnowledgeDocument() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ knowledgeBaseId, documentId, updates }: UpdateDocumentPayload) => {
-      const response = await fetch(`/api/knowledge/${knowledgeBaseId}/documents/${documentId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to update document')
-      }
-
-      const result = await response.json()
-      if (!result?.success) {
-        throw new Error(result?.error || 'Failed to update document')
-      }
-
-      return result
-    },
-    onMutate: async ({ knowledgeBaseId, documentId, updates }) => {
-      await queryClient.cancelQueries({ queryKey: knowledgeKeys.detail(knowledgeBaseId) })
-
-      const documentQueries = queryClient
-        .getQueriesData<KnowledgeDocumentsResponse>({
-          queryKey: knowledgeKeys.detail(knowledgeBaseId),
-        })
-        .filter(([key]) => Array.isArray(key) && key.includes('documents'))
-
-      documentQueries.forEach(([key, data]) => {
-        if (!data) return
-        queryClient.setQueryData(key, {
-          ...data,
-          documents: data.documents.map((doc) =>
-            doc.id === documentId ? { ...doc, ...updates } : doc
-          ),
-        })
-      })
-    },
-    onError: (error) => {
-      logger.error('Failed to mutate document', error)
-    },
-    onSettled: (_data, _error, variables) => {
-      queryClient.invalidateQueries({ queryKey: knowledgeKeys.detail(variables.knowledgeBaseId) })
-    },
   })
 }

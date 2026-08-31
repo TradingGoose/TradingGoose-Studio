@@ -1,11 +1,16 @@
+import { MONITOR_ASSET_TYPE_LABELS, MONITOR_ASSET_TYPES } from '@/lib/monitors/sources'
 import {
-  sortExecutionGroups,
   getExecutionAggregate,
   getExecutionGroupValue,
   type MonitorExecutionGroupLabels,
   type MonitorExecutionItem,
+  sortExecutionGroups,
 } from '../data/execution-ordering'
-import type { ExecutionMonitorFieldSum, ExecutionMonitorGroupField, ExecutionMonitorViewConfig } from '../view/view-config'
+import type {
+  ExecutionMonitorFieldSum,
+  ExecutionMonitorGroupField,
+  ExecutionMonitorViewConfig,
+} from '../view/view-config'
 
 export type MonitorBoardColumn = {
   id: string
@@ -80,13 +85,11 @@ const EMPTY_COLUMN_VALUES: Partial<
     { id: 'schedule', label: 'Schedule', sortValue: 'schedule' },
     { id: 'unknown', label: 'Unknown', sortValue: 'unknown' },
   ],
-  assetType: [
-    { id: 'stock', label: 'Stock', sortValue: 'stock' },
-    { id: 'crypto', label: 'Crypto', sortValue: 'crypto' },
-    { id: 'currency', label: 'Currency', sortValue: 'currency' },
-    { id: 'default', label: 'Default', sortValue: 'default' },
-    { id: 'unknown', label: 'Unknown', sortValue: 'unknown' },
-  ],
+  assetType: MONITOR_ASSET_TYPES.map((id) => ({
+    id,
+    label: MONITOR_ASSET_TYPE_LABELS[id],
+    sortValue: id,
+  })),
 }
 
 const DEFAULT_BOARD_LABELS: MonitorBoardLabels = {
@@ -94,13 +97,7 @@ const DEFAULT_BOARD_LABELS: MonitorBoardLabels = {
   emptyColumnValues: EMPTY_COLUMN_VALUES,
   groupFieldLabels: GROUP_FIELD_LABELS,
   groupValueLabels: {
-    assetTypeLabels: {
-      stock: 'Stock',
-      crypto: 'Crypto',
-      currency: 'Currency',
-      default: 'Default',
-      unknown: 'Unknown',
-    },
+    assetTypeLabels: MONITOR_ASSET_TYPE_LABELS,
     outcomeLabels: {
       running: 'Running',
       success: 'Success',

@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button'
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   getListingIdentityKey,
+  getListingIdentitySymbol,
   type ListingIdentity,
-  toListingValueObject,
 } from '@/lib/listing/identity'
 import type { OrdersFilterState } from '@/lib/records/order-filters'
 import { cn } from '@/lib/utils'
@@ -23,7 +23,6 @@ import {
   formatMoney,
   formatNumber,
   getExecutionPrice,
-  getOrderListingFallback,
   titleCase,
   uppercase,
 } from './order-formatters'
@@ -124,7 +123,7 @@ function collectListingIdentities(orders: RecordsOrder[]): ListingIdentity[] {
   const listings: ListingIdentity[] = []
 
   for (const order of orders) {
-    const listing = toListingValueObject(order.listingIdentity)
+    const listing = order.listingIdentity
     if (!listing) continue
     const key = getListingIdentityKey(listing)
     if (seen.has(key)) continue
@@ -294,13 +293,12 @@ export function OrdersTable({
                             executionPrice: t('executionPrice'),
                             submittedLimit: t('submittedLimit'),
                           })
-                          const listingIdentity = toListingValueObject(order.listingIdentity)
+                          const listingIdentity = order.listingIdentity
                           const resolvedListing = listingIdentity
                             ? (resolvedListingsQuery.data?.[
                                 getListingIdentityKey(listingIdentity)
                               ] ?? null)
                             : null
-                          const displayListing = resolvedListing ?? getOrderListingFallback(order)
                           const providerOrderDetailUrl =
                             getTradingProviderDefinition(order.provider)?.orderDetailSiteUrl?.({
                               environment: order.environment,
@@ -317,16 +315,21 @@ export function OrdersTable({
                               onClick={() => onOrderClick(order)}
                             >
                               <TableCell className={cn(tableCellClassName, 'text-left')}>
-                                {displayListing ? (
-                                  <MarketListingRow
-                                    listing={{ ...displayListing, countryCode: null }}
-                                    className='w-full min-w-0 justify-start pr-0 text-left'
-                                  />
-                                ) : (
-                                  <span className='block truncate text-muted-foreground text-sm'>
-                                    {listingIdentity ? 'Resolving listing' : t('unknownListing')}
-                                  </span>
-                                )}
+                                <MarketListingRow
+                                  listing={
+                                    resolvedListing
+                                      ? { ...resolvedListing, countryCode: null }
+                                      : null
+                                  }
+                                  placeholderTitle={
+                                    order.listing.symbol ??
+                                    (listingIdentity
+                                      ? getListingIdentitySymbol(listingIdentity)
+                                      : t('unknownListing'))
+                                  }
+                                  placeholderSubtitle={order.listing.name ?? '—'}
+                                  className='w-full min-w-0 justify-start pr-0 text-left'
+                                />
                               </TableCell>
                               <TableCell className={tableCellClassName}>
                                 <Badge variant='secondary'>

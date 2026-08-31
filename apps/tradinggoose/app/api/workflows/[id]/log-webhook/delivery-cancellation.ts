@@ -8,7 +8,7 @@ export async function cancelActiveWebhookDeliveries(workflowId: string, webhookI
     .set({
       status: 'cancelled',
       nextAttemptAt: null,
-      errorMessage: 'Webhook subscription deleted',
+      failureReason: 'Webhook subscription deleted',
       updatedAt: new Date(),
     })
     .where(

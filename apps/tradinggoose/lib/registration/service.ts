@@ -6,9 +6,8 @@ import {
   renderWaitlistApprovedEmail,
   renderWaitlistConfirmationEmail,
 } from '@/components/emails/render-email'
-import { type EmailOptions, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
 import { normalizeEmailLocale } from '@/lib/email/locale'
-import { localizeUrl } from '@/i18n/utils'
+import { type EmailOptions, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -17,6 +16,7 @@ import {
   upsertSystemSettings,
 } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { localizeUrl } from '@/i18n/utils'
 import { DEFAULT_REGISTRATION_MODE, type RegistrationMode, type WaitlistStatus } from './shared'
 
 const logger = createLogger('RegistrationService')

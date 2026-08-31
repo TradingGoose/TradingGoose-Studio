@@ -1,4 +1,3 @@
-import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { cn } from '@/lib/utils'
 
 type AuthBackgroundProps = {

@@ -2,13 +2,47 @@ import { describe, expect, it } from 'vitest'
 import {
   DASHBOARD_CREDENTIAL_PLACEHOLDER,
   preserveDashboardLayoutCredentialPlaceholders,
-  projectDashboardLayoutValueForCopilot,
+  redactDashboardLayoutCredentials,
+  serializeDashboardLayoutForCopilot,
 } from './read-projection'
 
-describe('dashboard Copilot credential projection', () => {
+describe('dashboard Copilot projection', () => {
+  it('projects effective widget params without exposing color-pair ownership', () => {
+    const listing = (listing_id: string) => ({
+      listing_id,
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default' as const,
+    })
+    const projected = JSON.parse(
+      serializeDashboardLayoutForCopilot({
+        layout: {
+          id: 'panel-1',
+          type: 'panel',
+          identityId: 'chart-1',
+          widgetKey: 'data_chart',
+        },
+        widgets: {
+          'chart-1': {
+            pairColor: 'blue',
+            params: { listing: listing('LOCAL'), data: { provider: 'yahoo-finance' } },
+          },
+        },
+        colorPairs: { pairs: [{ color: 'blue', listing: listing('SHARED') }] },
+      })
+    )
+
+    expect(projected.widgets['chart-1'].params).toEqual({
+      listing: listing('SHARED'),
+      data: { provider: 'yahoo-finance' },
+    })
+    expect(projected).not.toHaveProperty('colorPairs')
+    expect(projected.widgets['chart-1']).not.toHaveProperty('pairColor')
+  })
+
   it('redacts stored provider credentials recursively while preserving environment references', () => {
     expect(
-      projectDashboardLayoutValueForCopilot({
+      redactDashboardLayoutCredentials({
         apiKey: 'plain-key',
         nested: [{ apiSecret: 'plain-secret' }, { apiKey: '{{MARKET_API_KEY}}' }],
       })

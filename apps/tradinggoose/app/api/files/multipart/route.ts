@@ -113,7 +113,9 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ presignedUrls })
         }
         if (storageProvider === 'azure') {
-          const { getMultipartPartUrls } = await import('@/lib/uploads/providers/azure/azure-client')
+          const { getMultipartPartUrls } = await import(
+            '@/lib/uploads/providers/azure/azure-client'
+          )
 
           const presignedUrls = await getMultipartPartUrls(key, uploadId, partNumbers, {
             containerName: config.containerName!,
@@ -243,7 +245,9 @@ export async function POST(request: NextRequest) {
 
           logger.info(`Aborted S3 multipart upload for key ${key} (context: ${context})`)
         } else if (storageProvider === 'azure') {
-          const { abortMultipartUpload } = await import('@/lib/uploads/providers/azure/azure-client')
+          const { abortMultipartUpload } = await import(
+            '@/lib/uploads/providers/azure/azure-client'
+          )
 
           await abortMultipartUpload(key, uploadId, {
             containerName: config.containerName!,

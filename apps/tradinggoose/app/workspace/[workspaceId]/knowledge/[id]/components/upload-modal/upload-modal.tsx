@@ -3,11 +3,11 @@
 import { useRef, useState } from 'react'
 import { AlertCircle, Check, Loader2, X } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { useTranslations } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   ACCEPT_ATTRIBUTE,
@@ -130,6 +130,9 @@ export function UploadModal({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       processFiles(e.target.files)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
@@ -186,66 +189,61 @@ export function UploadModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className='flex max-h-[95vh] flex-col overflow-hidden sm:max-w-[600px]'>
         <DialogHeader>
-        <DialogTitle>{t('title')}</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
         </DialogHeader>
 
         <div className='flex-1 space-y-6 overflow-auto'>
           {/* File Upload Section */}
           <div className='space-y-3'>
-            <Label>{t('selectFiles')}</Label>
+            <Label htmlFor='knowledge-upload-files'>{t('selectFiles')}</Label>
+            <input
+              ref={fileInputRef}
+              id='knowledge-upload-files'
+              type='file'
+              accept={ACCEPT_ATTRIBUTE}
+              onChange={handleFileChange}
+              className='hidden'
+              multiple
+            />
 
             {files.length === 0 ? (
-              <div
+              <button
+                type='button'
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                className={`relative flex w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
                   isDragging
                     ? 'border-primary bg-[var(--primary)]/5'
                     : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/40'
                 }`}
               >
-                <input
-                  ref={fileInputRef}
-                  type='file'
-                  accept={ACCEPT_ATTRIBUTE}
-                  onChange={handleFileChange}
-                  className='hidden'
-                  multiple
-                />
                 <div className='space-y-2'>
                   <p className='font-medium text-sm'>
                     {isDragging ? t('dropFilesHere') : t('dropFilesHereOrClickToBrowse')}
                   </p>
                   <p className='text-muted-foreground text-xs'>{t('supportedFormats')}</p>
                 </div>
-              </div>
+              </button>
             ) : (
               <div className='space-y-2'>
-                <div
+                <button
+                  type='button'
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`cursor-pointer rounded-md border border-dashed p-3 text-center transition-colors ${
+                  className={`w-full cursor-pointer rounded-md border border-dashed p-3 text-center transition-colors ${
                     isDragging
                       ? 'border-primary bg-[var(--primary)]/5'
                       : 'border-muted-foreground/25 hover:border-muted-foreground/40'
                   }`}
                 >
-                  <input
-                    ref={fileInputRef}
-                    type='file'
-                    accept={ACCEPT_ATTRIBUTE}
-                    onChange={handleFileChange}
-                    className='hidden'
-                    multiple
-                  />
                   <p className='text-sm'>
                     {isDragging ? t('dropMoreFilesHere') : t('dropMoreFilesOrClickToBrowse')}
                   </p>
-                </div>
+                </button>
 
                 <div className='max-h-80 space-y-2 overflow-auto'>
                   {files.map((file, index) => {
@@ -283,6 +281,7 @@ export function UploadModal({
                           </div>
                           <Button
                             type='button'
+                            aria-label={t('removeFile', { name: file.name })}
                             variant='ghost'
                             size='sm'
                             onClick={() => removeFile(index)}
@@ -306,7 +305,10 @@ export function UploadModal({
             )}
 
             {uploadError && (
-              <div className='rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2'>
+              <div
+                className='rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2'
+                role='alert'
+              >
                 <div className='flex items-start gap-2'>
                   <AlertCircle className='mt-0.5 h-4 w-4 shrink-0 text-destructive' />
                   <div className='flex-1 text-destructive text-sm'>{uploadError.message}</div>

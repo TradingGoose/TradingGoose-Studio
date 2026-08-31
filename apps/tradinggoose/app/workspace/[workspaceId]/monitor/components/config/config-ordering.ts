@@ -1,7 +1,4 @@
-import type {
-  ConfigMonitorSortField,
-  ConfigMonitorSortRule,
-} from '../view/view-config'
+import type { ConfigMonitorSortField, ConfigMonitorSortRule } from '../view/view-config'
 import type { ConfigMonitorCard } from './config-card-model'
 
 const compareStrings = (left: string, right: string) =>

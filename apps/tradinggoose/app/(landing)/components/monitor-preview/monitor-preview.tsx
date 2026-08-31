@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useLocale, useMessages } from 'next-intl'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -13,13 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { ListingOption } from '@/lib/listing/identity'
-import { useMessages } from 'next-intl'
-import { type LocaleCode } from '@/i18n/utils'
+import type { ListingResolved } from '@/lib/listing/identity'
+import type { LocaleCode } from '@/i18n/utils'
 
 type MonitorEntry = {
   id: string
-  stock: ListingOption
+  stock: ListingResolved
   indicator: string
   indicatorColor: string
   workflow: string
@@ -42,17 +41,16 @@ const MAX_ROWS = 20
 type MonitorOption = { name: string; color: string }
 
 function createRandomEntry(
-  stocks: ListingOption[],
+  stocks: ListingResolved[],
   indicators: MonitorOption[],
-  workflows: MonitorOption[],
-  counter: number
+  workflows: MonitorOption[]
 ): MonitorEntry {
   const stock = stocks[Math.floor(Math.random() * stocks.length)]
   const indicator = indicators[Math.floor(Math.random() * indicators.length)]
   const workflow = workflows[Math.floor(Math.random() * workflows.length)]
 
   return {
-    id: `entry-${counter}`,
+    id: crypto.randomUUID(),
     stock,
     indicator: indicator.name,
     indicatorColor: indicator.color,
@@ -72,13 +70,17 @@ function advanceStatus(status: MonitorEntry['status']): MonitorEntry['status'] {
   return status
 }
 
-function seedEntries(stocks: ListingOption[], indicators: MonitorOption[], workflows: MonitorOption[]): MonitorEntry[] {
+function seedEntries(
+  stocks: ListingResolved[],
+  indicators: MonitorOption[],
+  workflows: MonitorOption[]
+): MonitorEntry[] {
   return stocks.slice(0, INITIAL_ROWS).map((stock, index) => {
     const indicator = indicators[index % indicators.length]
     const workflow = workflows[(index * 2) % workflows.length]
 
     return {
-      id: `initial-${index}-${stock.listing_type}-${stock.listing_id || stock.base_id}`,
+      id: `initial-${index}-${stock.listingIdentity.listing_type}-${stock.listingIdentity.listing_id || stock.listingIdentity.base_id}`,
       stock,
       indicator: indicator.name,
       indicatorColor: indicator.color,
@@ -89,7 +91,7 @@ function seedEntries(stocks: ListingOption[], indicators: MonitorOption[], workf
   })
 }
 
-export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) {
+export default function MonitorPreview({ stocks }: { stocks: ListingResolved[] }) {
   const locale = useLocale() as LocaleCode
   const copy = useMessages()
   const monitorCopy = copy.landing.monitorSection
@@ -137,15 +139,18 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
     let timeoutId: ReturnType<typeof setTimeout>
 
     const tick = () => {
+      const nextEntry = createRandomEntry(
+        liveStocks,
+        monitorCopy.indicatorOptions,
+        monitorCopy.workflowOptions
+      )
+
       setEntries((prev) => {
         const updated = prev.map((entry) => ({
           ...entry,
           status: advanceStatus(entry.status),
         }))
-        const nextEntries = [
-          createRandomEntry(liveStocks, monitorCopy.indicatorOptions, monitorCopy.workflowOptions, Date.now()),
-          ...updated,
-        ]
+        const nextEntries = [nextEntry, ...updated]
         return nextEntries.slice(0, MAX_ROWS)
       })
 

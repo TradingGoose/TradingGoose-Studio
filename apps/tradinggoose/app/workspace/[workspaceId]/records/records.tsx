@@ -41,6 +41,7 @@ import {
   syncOrdersStateToUrl,
   syncRecordsTabToUrl,
 } from '@/app/workspace/[workspaceId]/records/utils'
+import { GlobalCopilotContextPublisher } from '@/global-navbar/copilot-context'
 import { useFolders } from '@/hooks/queries/folders'
 import { buildLogsRequestParams, useLogDetail, useLogsList } from '@/hooks/queries/logs'
 import {
@@ -49,6 +50,7 @@ import {
   useOrdersList,
 } from '@/hooks/queries/records-orders'
 import { useDebounce } from '@/hooks/use-debounce'
+import type { ChatContext } from '@/stores/copilot/types'
 import { useFolderStore } from '@/stores/folders/store'
 import { useFilterStore } from '@/stores/logs/filters/store'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
@@ -338,12 +340,32 @@ export default function Records() {
   )
   const logsHasMore = Boolean(logsQuery.hasNextPage)
   const logsLoading = logsQuery.isLoading && !logsQuery.data
-  const logsError =
-    logsQuery.error instanceof Error
-      ? logsQuery.error.message
-      : logsQuery.error
-        ? tLogs('errors.fetchLogs')
-        : null
+  const logsFailureMode = logsQuery.error
+    ? logsQuery.data
+      ? ('background' as const)
+      : ('initial' as const)
+    : null
+  const currentLogContext = useMemo<ChatContext | null>(() => {
+    const logId =
+      activeTab === 'logs' && isLogDetailOpen
+        ? selectedLog?.id
+        : activeTab === 'orders' && isOrderDetailOpen && orderDetailMode === 'log'
+          ? selectedOrder?.logId
+          : null
+
+    return logId
+      ? { kind: 'current_logs', logId, workspaceId, label: tLogs('details.currentLog') }
+      : null
+  }, [
+    activeTab,
+    isLogDetailOpen,
+    isOrderDetailOpen,
+    orderDetailMode,
+    selectedLog?.id,
+    selectedOrder?.logId,
+    tLogs,
+    workspaceId,
+  ])
 
   useEffect(() => {
     if (activeTab === 'orders' && selectedOrderRowRef.current) {
@@ -618,12 +640,16 @@ export default function Records() {
           ) : activeTab === 'stats' ? (
             <div className='flex w-full flex-1'>
               <div className='relative flex h-9 w-full items-center rounded-md border border-border bg-card/60 px-2 text-sm transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring'>
-                <Search className='mr-2 h-4 w-4 flex-shrink-0 text-muted-foreground' />
+                <Search
+                  aria-hidden='true'
+                  className='mr-2 h-4 w-4 flex-shrink-0 text-muted-foreground'
+                />
                 <input
                   value={statsSearchQuery}
                   onChange={(event) => setStatsSearchQuery(event.target.value)}
+                  aria-label={tLogs('dashboard.searchPlaceholder')}
                   placeholder={tLogs('dashboard.searchPlaceholder')}
-                  className='h-full min-w-[120px] flex-1 bg-transparent outline-none placeholder:text-muted-foreground'
+                  className='h-full min-w-[120px] flex-1 bg-transparent placeholder:text-muted-foreground'
                   autoComplete='off'
                   autoCorrect='off'
                   autoCapitalize='off'
@@ -674,16 +700,18 @@ export default function Records() {
           ) : activeTab === 'stats' ? (
             <>
               <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    className='h-9 gap-2 rounded-md border-border bg-background px-3'
-                  >
-                    <Filter className='h-4 w-4' />
-                    <span className='hidden lg:inline'>{tLogs('dashboard.filters.title')}</span>
-                    <span className='sr-only lg:hidden'>{tLogs('dashboard.filters.title')}</span>
-                  </Button>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      className='h-9 gap-2 rounded-md border-border bg-background px-3'
+                    />
+                  }
+                >
+                  <Filter className='h-4 w-4' />
+                  <span className='hidden lg:inline'>{tLogs('dashboard.filters.title')}</span>
+                  <span className='sr-only lg:hidden'>{tLogs('dashboard.filters.title')}</span>
                 </PopoverTrigger>
                 <PopoverContent className='w-[320px] p-0' align='end'>
                   <div className='h-[360px]'>
@@ -709,22 +737,24 @@ export default function Records() {
           ) : null}
           {activeTab === 'stats' ? (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  onClick={handleStatsRefresh}
-                  className='h-9 rounded-md hover:bg-secondary'
-                  disabled={statsIsRefetching}
-                >
-                  {statsIsRefetching ? (
-                    <Loader2 className='h-5 w-5 animate-spin' />
-                  ) : (
-                    <RefreshCw className='h-5 w-5' />
-                  )}
-                  <span className='sr-only'>{tLogs('dashboard.refresh')}</span>
-                </Button>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    onClick={handleStatsRefresh}
+                    className='h-9 rounded-md hover:bg-secondary'
+                    disabled={statsIsRefetching}
+                  >
+                    {statsIsRefetching ? (
+                      <Loader2 className='h-5 w-5 animate-spin' />
+                    ) : (
+                      <RefreshCw className='h-5 w-5' />
+                    )}
+                    <span className='sr-only'>{tLogs('dashboard.refresh')}</span>
+                  </Button>
+                }
+              />
               <TooltipContent>
                 {statsIsRefetching ? tLogs('dashboard.refreshing') : tLogs('dashboard.refresh')}
               </TooltipContent>
@@ -732,36 +762,40 @@ export default function Records() {
           ) : (
             <>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    onClick={() => void handleRefresh()}
-                    className='h-9 rounded-md hover:bg-secondary'
-                    disabled={ordersQuery.isRefetching || logsQuery.isRefetching}
-                  >
-                    {ordersQuery.isRefetching || logsQuery.isRefetching ? (
-                      <Loader2 className='h-5 w-5 animate-spin' />
-                    ) : (
-                      <RefreshCw className='h-5 w-5' />
-                    )}
-                    <span className='sr-only'>{tLogs('actions.refresh')}</span>
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => void handleRefresh()}
+                      className='h-9 rounded-md hover:bg-secondary'
+                      disabled={ordersQuery.isRefetching || logsQuery.isRefetching}
+                    >
+                      {ordersQuery.isRefetching || logsQuery.isRefetching ? (
+                        <Loader2 className='h-5 w-5 animate-spin' />
+                      ) : (
+                        <RefreshCw className='h-5 w-5' />
+                      )}
+                      <span className='sr-only'>{tLogs('actions.refresh')}</span>
+                    </Button>
+                  }
+                />
                 <TooltipContent>{tLogs('actions.refresh')}</TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    onClick={handleExport}
-                    className='h-9 rounded-md hover:bg-secondary'
-                  >
-                    <Download className='h-5 w-5' />
-                    <span className='sr-only'>{tLogs('actions.exportCsv')}</span>
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={handleExport}
+                      className='h-9 rounded-md hover:bg-secondary'
+                    >
+                      <Download className='h-5 w-5' />
+                      <span className='sr-only'>{tLogs('actions.exportCsv')}</span>
+                    </Button>
+                  }
+                />
                 <TooltipContent>{tLogs('actions.exportCsv')}</TooltipContent>
               </Tooltip>
             </>
@@ -795,7 +829,7 @@ export default function Records() {
       selectedLogId={selectedLog?.id ?? null}
       onLogClick={selectLog}
       loading={logsLoading}
-      error={logsError}
+      failureMode={logsFailureMode}
       hasMore={logsHasMore}
       isFetchingMore={logsQuery.isFetchingNextPage}
       loaderRef={logsLoaderRef}
@@ -876,7 +910,7 @@ export default function Records() {
       <LogDetails
         log={logDetailQuery.data ?? null}
         isOpen={isLogDetailOpen}
-        isLoading={logDetailQuery.isLoading && !logDetailQuery.data}
+        busy={logDetailQuery.isLoading && !logDetailQuery.data}
         stateContent={
           logDetailQuery.isLoading && !logDetailQuery.data
             ? tLogs('details.loading')
@@ -898,6 +932,7 @@ export default function Records() {
 
   return (
     <div className='flex h-full min-h-0 flex-col'>
+      <GlobalCopilotContextPublisher context={currentLogContext} />
       <style jsx global>
         {selectedRowAnimation}
       </style>

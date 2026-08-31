@@ -55,7 +55,6 @@
   }
 }
 
-
 /* Hero ripple helpers */
 @keyframes cell-ripple {
   0% {
@@ -86,10 +85,20 @@
 .mask-radial-from-20\% {
   --mask-radial-position: 50% 50%;
   --mask-radial-inner: 60%;
-  mask-image: radial-gradient(circle at var(--mask-radial-position), rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.0) var(--mask-radial-inner), transparent 100%);
+  mask-image: radial-gradient(
+    circle at var(--mask-radial-position),
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0) var(--mask-radial-inner),
+    transparent 100%
+  );
   mask-size: 100%;
   mask-repeat: no-repeat;
-  -webkit-mask-image: radial-gradient(circle at var(--mask-radial-position), rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.0) var(--mask-radial-inner), transparent 100%);
+  -webkit-mask-image: radial-gradient(
+    circle at var(--mask-radial-position),
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0) var(--mask-radial-inner),
+    transparent 100%
+  );
   -webkit-mask-size: 100%;
   -webkit-mask-repeat: no-repeat;
 }
@@ -98,8 +107,8 @@
   --mask-radial-position: 50% 0%;
 }
 
-#nd-sidebar [data-radix-scroll-area-viewport]>div,
-#nd-sidebar-mobile [data-radix-scroll-area-viewport]>div {
+#nd-sidebar [data-radix-scroll-area-viewport] > div,
+#nd-sidebar-mobile [data-radix-scroll-area-viewport] > div {
   min-width: 0 !important;
   display: block !important;
 }

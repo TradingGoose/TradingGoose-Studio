@@ -1,6 +1,6 @@
-import { cache } from 'react'
 import fs from 'fs'
 import path from 'path'
+import { cache } from 'react'
 import matter from 'gray-matter'
 import { resolveGitHubBlogSourceConfig } from '@/lib/system-services/runtime'
 import { normalizeHeadingText, textToSlug } from './heading-slugs'
@@ -140,9 +140,7 @@ function parsePost(
 
   if (!published) return null
 
-  const resolvedImage = frontmatter.image
-    ? resolveImageUrl(frontmatter.image, postDir, source)
-    : ''
+  const resolvedImage = frontmatter.image ? resolveImageUrl(frontmatter.image, postDir, source) : ''
   const resolvedContent = resolveContentImages(content, postDir, source)
 
   return {

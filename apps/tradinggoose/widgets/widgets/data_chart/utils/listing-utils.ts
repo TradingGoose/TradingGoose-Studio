@@ -1,4 +1,4 @@
-import type { ListingOption, ListingResolved } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 
 export type ListingSymbolParts = {
   base: string
@@ -28,7 +28,7 @@ export const splitListingSymbol = (symbol: string): ListingSymbolParts => {
   return { base: symbol, quote: '' }
 }
 
-export const buildListingDisplay = (listing: ListingOption | null) => {
+export const buildListingDisplay = (listing: ListingResolved | null) => {
   const listingSymbol = listing ? getListingSymbol(listing) : 'Symbol'
   const base = listing?.base?.trim() ?? ''
   const quote = listing?.quote?.trim() ?? ''

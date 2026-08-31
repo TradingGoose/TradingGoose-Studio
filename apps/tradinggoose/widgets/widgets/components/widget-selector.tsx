@@ -1,6 +1,6 @@
 'use client'
 
-import { cloneElement, isValidElement, memo, type ReactElement, useMemo } from 'react'
+import { cloneElement, memo, type ReactElement, useMemo } from 'react'
 import { ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
@@ -83,12 +83,10 @@ export function WidgetSelectorComponent({
     : null
 
   const triggerContent = customTrigger ?? defaultTrigger
-  const triggerElement = isValidElement<TriggerElementProps>(triggerContent)
-    ? cloneElement(triggerContent, {
-        disabled: triggerDisabled || triggerContent.props.disabled,
-        'aria-disabled': triggerDisabled || triggerContent.props.disabled ? true : undefined,
-      })
-    : triggerContent
+  const triggerElement = cloneElement<TriggerElementProps>(triggerContent, {
+    disabled: triggerDisabled || triggerContent.props.disabled,
+    'aria-disabled': triggerDisabled || triggerContent.props.disabled ? true : undefined,
+  })
 
   const tooltipText = triggerDisabled
     ? selectorCopy.widgetSelectionUnavailable
@@ -97,13 +95,13 @@ export function WidgetSelectorComponent({
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex' data-disabled={triggerDisabled ? true : undefined}>
-            <DropdownMenuTrigger asChild disabled={triggerDisabled}>
-              {triggerElement}
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <span className='inline-flex' data-disabled={triggerDisabled ? true : undefined}>
+              <DropdownMenuTrigger render={triggerElement} disabled={triggerDisabled} />
+            </span>
+          }
+        />
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
@@ -122,7 +120,7 @@ export function WidgetSelectorComponent({
                     <DropdownMenuItem
                       key={widget.key}
                       className={cn(widgetHeaderMenuItemClassName, 'items-start items-center')}
-                      onSelect={() => {
+                      onClick={() => {
                         if (!onSelect || widget.key === currentKey) return
                         onSelect(widget.key)
                       }}

@@ -55,7 +55,7 @@ const resolveIndicatorForPaneIndex = ({
     }
 
     let score = 0
-    if (runtimeEntry.errorMessage) {
+    if (runtimeEntry.executionFailure) {
       score -= 100
     }
 

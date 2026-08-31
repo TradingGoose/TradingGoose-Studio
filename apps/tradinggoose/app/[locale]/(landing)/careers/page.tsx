@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import { getLocale } from 'next-intl/server'
+import { CareersForm } from '@/app/(landing)/careers/careers-form'
 import LegalLayout from '@/app/(landing)/components/legal-layout'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { buildLocalizedAlternates, type LocaleCode } from '@/i18n/utils'
-import { CareersForm } from '@/app/(landing)/careers/careers-form'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = (await getLocale()) as LocaleCode

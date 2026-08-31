@@ -1,16 +1,12 @@
 'use client'
 
-import { cn } from '../../../lib/cn'
 import { type ComponentProps, type ReactNode, useMemo } from 'react'
-import { useSidebar } from 'fumadocs-ui/contexts/sidebar'
-import { buttonVariants } from '../../ui/button'
-import { Sidebar as SidebarIcon } from 'lucide-react'
-import Link from 'fumadocs-core/link'
 import { usePathname } from 'fumadocs-core/framework'
-import { isTabActive } from '../../../lib/is-active'
-import type { Option } from '../../root-toggle'
-import { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree'
+import Link from 'fumadocs-core/link'
 import type * as PageTree from 'fumadocs-core/page-tree'
+import { useSidebar } from 'fumadocs-ui/contexts/sidebar'
+import { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree'
+import { Sidebar as SidebarIcon } from 'lucide-react'
 import {
   findFolderPathBySegments,
   getFolderHref,
@@ -19,14 +15,18 @@ import {
   humanizeSlug,
   supportedLanguages,
 } from '@/lib/page-tree'
+import { cn } from '../../../lib/cn'
+import { isTabActive } from '../../../lib/is-active'
+import type { Option } from '../../root-toggle'
+import { buttonVariants } from '../../ui/button'
 
 export function Navbar(props: ComponentProps<'header'>) {
   return (
     <header
       {...props}
       className={cn(
-        'sticky top-0 z-20 flex flex-col border-b border-fd-border bg-fd-background/40 backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm',
-        props.className,
+        'sticky top-0 z-20 flex flex-col border-fd-border border-b bg-fd-background/40 backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm',
+        props.className
       )}
     >
       {props.children}
@@ -43,10 +43,7 @@ export function LayoutBody({ sidebar, navbar, children, className, ...props }: L
   return (
     <div
       {...props}
-      className={cn(
-        'relative flex min-h-screen w-full text-fd-foreground',
-        className,
-      )}
+      className={cn('relative flex min-h-screen w-full text-fd-foreground', className)}
     >
       {sidebar}
       <div
@@ -71,7 +68,7 @@ export function NavbarSidebarTrigger({ className, ...props }: ComponentProps<'bu
       className={cn(
         buttonVariants({ color: 'ghost', size: 'icon-sm' }),
         'rounded-full border border-transparent transition-colors hover:border-fd-border',
-        className,
+        className
       )}
       onClick={() => setOpen((prev) => !prev)}
     >
@@ -90,8 +87,8 @@ export function LayoutTabs({ options, ...props }: ComponentProps<'div'> & { opti
     <div
       {...props}
       className={cn(
-        'flex flex-row items-center gap-3 overflow-auto px-4 text-sm text-fd-muted-foreground',
-        props.className,
+        'flex flex-row items-center gap-3 overflow-auto px-4 text-fd-muted-foreground text-sm',
+        props.className
       )}
     >
       {options.map((option) => (
@@ -101,18 +98,24 @@ export function LayoutTabs({ options, ...props }: ComponentProps<'div'> & { opti
   )
 }
 
-function LayoutTab({ option: { title, url, unlisted, props }, selected = false }: { option: Option; selected?: boolean }) {
+function LayoutTab({
+  option: { title, url, unlisted, props },
+  selected = false,
+}: {
+  option: Option
+  selected?: boolean
+}) {
   return (
     <Link
       href={url}
       {...props}
       className={cn(
-        'inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 text-sm font-medium text-fd-muted-foreground transition-colors',
+        'inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 font-medium text-fd-muted-foreground text-sm transition-colors',
         unlisted && !selected && 'hidden',
         selected
           ? 'bg-fd-accent text-fd-accent-foreground shadow-sm'
           : 'hover:border-fd-border hover:bg-fd-accent hover:text-fd-accent-foreground',
-        props?.className,
+        props?.className
       )}
     >
       {title}
@@ -137,7 +140,7 @@ export function DocsBreadcrumb({ icon, label, href = '/', className }: DocsBread
   const nodes = useMemo(() => {
     const filtered = path.filter(
       (node): node is Exclude<PageTree.Node, PageTree.Separator> =>
-        node.type === 'folder' || node.type === 'page',
+        node.type === 'folder' || node.type === 'page'
     )
 
     if (filtered.length > 0) return filtered
@@ -149,12 +152,12 @@ export function DocsBreadcrumb({ icon, label, href = '/', className }: DocsBread
 
   return (
     <div
-      className={cn(
-        'flex min-w-0 items-center gap-1 text-xs text-fd-muted-foreground',
-        className,
-      )}
+      className={cn('flex min-w-0 items-center gap-1 text-fd-muted-foreground text-xs', className)}
     >
-      <Link href={href} className='flex shrink-0 items-center gap-2 text-sm text-fd-foreground font-medium'>
+      <Link
+        href={href}
+        className='flex shrink-0 items-center gap-2 font-medium text-fd-foreground text-sm'
+      >
         {icon}
         <span className='truncate'>{label}</span>
       </Link>
@@ -169,12 +172,12 @@ export function DocsBreadcrumb({ icon, label, href = '/', className }: DocsBread
             {href && !isLast ? (
               <Link
                 href={href}
-                className='truncate text-xs text-fd-muted-foreground transition-colors hover:text-fd-foreground'
+                className='truncate text-fd-muted-foreground text-xs transition-colors hover:text-fd-foreground'
               >
                 {label}
               </Link>
             ) : (
-              <span className='truncate text-xs text-fd-muted-foreground'>{label}</span>
+              <span className='truncate text-fd-muted-foreground text-xs'>{label}</span>
             )}
           </div>
         )

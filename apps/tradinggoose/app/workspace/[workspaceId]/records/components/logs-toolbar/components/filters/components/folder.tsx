@@ -93,16 +93,18 @@ export default function FolderFilter() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button ref={triggerRef} variant='outline' size='sm' className={filterButtonClass}>
-          {foldersLoading ? t('loadingFolders') : getSelectedFoldersText()}
-          <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button ref={triggerRef} variant='outline' size='sm' className={filterButtonClass} />
+        }
+      >
+        {foldersLoading ? t('loadingFolders') : getSelectedFoldersText()}
+        <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align='start'
         side='bottom'
-        avoidCollisions={false}
+        collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
         sideOffset={4}
         className={dropdownContentClass}
       >

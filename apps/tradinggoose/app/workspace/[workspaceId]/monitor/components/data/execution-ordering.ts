@@ -1,5 +1,5 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
-import type { WorkflowLog } from '@/stores/logs/filters/types'
+import { MONITOR_ASSET_TYPE_LABELS } from '@/lib/monitors/sources'
 import type {
   ExecutionMonitorFieldSum,
   ExecutionMonitorGroupField,
@@ -8,13 +8,6 @@ import type {
 } from '../view/view-config'
 
 export type MonitorExecutionOutcome = 'running' | 'success' | 'error' | 'skipped' | 'unknown'
-
-type MonitorExecutionSourceLog =
-  | WorkflowLog
-  | (Omit<Partial<WorkflowLog>, 'workflow'> & {
-      id: string
-      workflow?: object | null
-    } & Record<string, unknown>)
 
 export type MonitorExecutionItem = {
   logId: string
@@ -26,7 +19,6 @@ export type MonitorExecutionItem = {
   outcome: MonitorExecutionOutcome
   trigger: string | null
   workflowName: string
-  workflowColor: string
   monitorId: string | null
   source: string | null
   providerId: string | null
@@ -40,7 +32,6 @@ export type MonitorExecutionItem = {
   cost: number | null
   isOrphaned: boolean
   isPartial: boolean
-  sourceLog: MonitorExecutionSourceLog
 }
 
 export type MonitorExecutionGroupLabels = {
@@ -69,13 +60,7 @@ const OUTCOME_ORDER: Record<MonitorExecutionItem['outcome'], number> = {
 const normalize = (value: string | null | undefined) => value?.trim() || ''
 
 const DEFAULT_GROUP_LABELS: MonitorExecutionGroupLabels = {
-  assetTypeLabels: {
-    stock: 'Stock',
-    crypto: 'Crypto',
-    currency: 'Currency',
-    default: 'Default',
-    unknown: 'Unknown',
-  },
+  assetTypeLabels: MONITOR_ASSET_TYPE_LABELS,
   outcomeLabels: {
     running: 'Running',
     success: 'Success',
@@ -127,7 +112,9 @@ export const getExecutionGroupValue = (
       return {
         id: item.trigger || 'unknown',
         label:
-          (item.trigger && labels.triggerLabels[item.trigger]) || item.trigger || labels.unknownLabel,
+          (item.trigger && labels.triggerLabels[item.trigger]) ||
+          item.trigger ||
+          labels.unknownLabel,
         sortValue: item.trigger || 'unknown',
       }
     case 'listing':

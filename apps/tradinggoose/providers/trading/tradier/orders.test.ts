@@ -4,10 +4,12 @@ import { buildTradierOrderDetailRequest } from '@/providers/trading/tradier/orde
 import { buildTradierOrderRequest } from '@/providers/trading/tradier/orders'
 
 const stockListing: ListingResolved = {
-  listing_type: 'default' as const,
-  listing_id: 'AAPL',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default' as const,
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'AAPL',
   quote: 'USD',
   assetClass: 'stock' as const,

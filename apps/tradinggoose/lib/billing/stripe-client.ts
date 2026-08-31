@@ -1,8 +1,5 @@
 import type Stripe from 'stripe'
-import {
-  getCurrentStripeClient,
-  hasStripeSecretKey,
-} from '@/lib/system-services/stripe-runtime'
+import { getCurrentStripeClient, hasStripeSecretKey } from '@/lib/system-services/stripe-runtime'
 
 /**
  * Check if deployment-owned Stripe credentials are configured.

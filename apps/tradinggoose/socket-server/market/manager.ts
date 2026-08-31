@@ -1,7 +1,11 @@
 import { createHash, randomUUID } from 'crypto'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
+import {
+  areListingIdentitiesEqual,
+  type ListingIdentity,
+  ListingIdentitySchema,
+} from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   createEmptyMarketQuoteSnapshot,
@@ -140,7 +144,8 @@ export class MarketStreamManager {
       return []
     }
 
-    const matches = this.findMatchingSubscriptions(socketMap, payload)
+    const listing = payload.listing ? ListingIdentitySchema.parse(payload.listing) : undefined
+    const matches = this.findMatchingSubscriptions(socketMap, { ...payload, listing })
     if (!matches.length) {
       return []
     }
@@ -170,10 +175,7 @@ export class MarketStreamManager {
     socket: AuthenticatedSocket,
     payload: MarketSubscribePayload
   ): Promise<MarketSubscriptionInfo> {
-    const listing = payload.listing
-    if (!listing) {
-      throw new Error('listing is required to subscribe to market data')
-    }
+    const listing = ListingIdentitySchema.parse(payload.listing)
 
     const channel = payload.channel ?? 'bars'
     if (
@@ -286,10 +288,7 @@ export class MarketStreamManager {
     socket: AuthenticatedSocket,
     payload: MarketSubscribePayload
   ): Promise<MarketSubscriptionInfo> {
-    const listing = payload.listing
-    if (!listing) {
-      throw new Error('listing is required to subscribe to market data')
-    }
+    const listing = ListingIdentitySchema.parse(payload.listing)
 
     const channel = payload.channel ?? 'trades'
     if (channel !== 'bars' && channel !== 'trades' && channel !== 'quote-snapshots') {
@@ -385,10 +384,7 @@ export class MarketStreamManager {
     socket: AuthenticatedSocket,
     payload: MarketSubscribePayload & { provider: PollingMarketProviderId }
   ): Promise<MarketSubscriptionInfo> {
-    const listing = payload.listing
-    if (!listing) {
-      throw new Error('listing is required to subscribe to market data')
-    }
+    const listing = ListingIdentitySchema.parse(payload.listing)
 
     const channel = payload.channel ?? 'quote-snapshots'
     if (channel !== 'quote-snapshots' && channel !== 'bars') {

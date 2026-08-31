@@ -18,7 +18,7 @@ import {
   normalizeBarsMs,
 } from '@/lib/indicators/series-data'
 import type { BarMs, InputMetaMap } from '@/lib/indicators/types'
-import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
+import { type ListingIdentity, ListingIdentitySchema } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   INDICATOR_MONITOR_PROVIDER,
@@ -91,6 +91,7 @@ type IndicatorMonitorSubscription = {
   config: MonitorRuntimeConfig
   indicator: IndicatorDefinition
   inputsMap: Record<string, unknown>
+  assetType: string
   bars: BarMs[]
   stream: { close: () => void }
   symbol: string
@@ -132,11 +133,11 @@ const normalizeProviderConfig = (
   const providerId = toTrimmedString(monitor.providerId)
   const interval = toTrimmedString(monitor.interval)
   const indicatorId = toTrimmedString(monitor.indicatorId)
-  const listing = toListingValueObject(monitor.listing as any)
+  const listing = ListingIdentitySchema.safeParse(monitor.listing)
   const triggerBlockId = toTrimmedString(monitor.triggerBlockId)
 
   if (!providerId || !getMarketProviderConfig(providerId)) return null
-  if (!interval || !indicatorId || !listing) return null
+  if (!interval || !indicatorId || !listing.success) return null
   if (!triggerBlockId) return null
 
   const intervalMs = resolveDispatchIntervalMs(interval)
@@ -166,7 +167,7 @@ const normalizeProviderConfig = (
     interval,
     intervalMs,
     indicatorId,
-    listing,
+    listing: listing.data,
     providerParams,
     indicatorInputs,
     auth,
@@ -648,6 +649,7 @@ export class IndicatorMonitorRuntime {
       config: monitor,
       indicator,
       inputsMap,
+      assetType: listingContext.assetClass ?? 'unknown',
       bars: cappedBars,
       stream,
       symbol,
@@ -822,6 +824,7 @@ export class IndicatorMonitorRuntime {
           interval: monitor.interval,
           intervalMs: monitor.intervalMs,
           indicatorId: monitor.indicatorId,
+          assetType: subscription.assetType,
           listing: monitor.listing,
         },
         indicator: {

@@ -2,55 +2,32 @@ import { db } from '@tradinggoose/db'
 import {
   copilotReviewItems,
   copilotReviewSessions,
-  document,
-  knowledgeBase,
   permissions,
-  workflow,
   workflowExecutionLogs,
   workspace,
 } from '@tradinggoose/db/schema'
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import * as Y from 'yjs'
-import { buildSavedEntityDescriptor } from '@/lib/copilot/review-sessions/identity'
+import { buildCopilotContextIdentityKey, isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import {
-  verifyReviewTargetAccess,
-  verifyWorkflowAccess,
-} from '@/lib/copilot/review-sessions/permissions'
+  COPILOT_CONTEXT_PROJECTION_LIMITS,
+  MAX_COPILOT_CONTEXT_BYTES_PER_ITEM,
+  MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
+} from '@/lib/copilot/context-limits'
+import { projectExecutionLogContext } from '@/lib/copilot/execution-log-context'
+import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { ENTITY_KIND_KNOWLEDGE_BASE } from '@/lib/copilot/review-sessions/types'
+import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
+import { stringifyBoundedRedactedJson } from '@/lib/security/redaction'
 import { escapeRegExp } from '@/lib/utils'
-import {
-  ReviewTargetBootstrapError,
-  readBootstrappedReviewTargetSnapshot,
-  readBootstrappedSavedEntityFields,
-} from '@/lib/yjs/server/bootstrap-review-target'
+import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
 import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { ChatContext } from '@/stores/copilot/types'
-import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
-type AgentContextType =
-  | 'past_chat'
-  | 'workflow'
-  | 'current_workflow'
-  | 'skill'
-  | 'current_skill'
-  | 'indicator'
-  | 'current_indicator'
-  | 'custom_tool'
-  | 'current_custom_tool'
-  | 'mcp_server'
-  | 'current_mcp_server'
-  | 'watchlist'
-  | 'current_watchlist'
-  | 'dashboard_layout'
-  | 'current_dashboard_layout'
-  | 'blocks'
-  | 'logs'
-  | 'knowledge'
-  | 'workflow_block'
-  | 'docs'
+type AgentContextType = ChatContext['kind']
 
 interface AgentContext {
   type: AgentContextType
@@ -58,22 +35,104 @@ interface AgentContext {
   content: string
 }
 
+type ProcessContextsServerOptions = {
+  signal?: AbortSignal
+}
+
 const logger = createLogger('ProcessContents')
+
+function throwIfContextProcessingAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return
+  if (signal.reason instanceof Error && signal.reason.name === 'AbortError') throw signal.reason
+  const abortError = new Error('Aborted')
+  abortError.name = 'AbortError'
+  throw abortError
+}
+
+function stringifyBoundedContext(value: unknown, fallback: Record<string, unknown>): string {
+  const content = stringifyBoundedRedactedJson(value, COPILOT_CONTEXT_PROJECTION_LIMITS)
+  return Buffer.byteLength(content, 'utf8') <= MAX_COPILOT_CONTEXT_BYTES_PER_ITEM
+    ? content
+    : JSON.stringify({ ...fallback, contextTruncated: true })
+}
 
 // Server-side variant (recommended for use in API routes)
 export async function processContextsServer(
   contexts: ChatContext[] | undefined,
   userId: string,
   userMessage?: string,
-  workspaceId?: string
+  workspaceId?: string,
+  options: ProcessContextsServerOptions = {}
 ): Promise<AgentContext[]> {
+  throwIfContextProcessingAborted(options.signal)
   if (!Array.isArray(contexts) || contexts.length === 0) return []
-  const tasks = contexts.map(async (ctx) => {
+
+  const uniqueContextsByKey = new Map<string, ChatContext>()
+  for (const context of contexts) {
     try {
+      const key = buildCopilotContextIdentityKey(context)
+      const existing = uniqueContextsByKey.get(key)
+      if (!existing || (isHiddenCopilotContext(existing) && !isHiddenCopilotContext(context))) {
+        uniqueContextsByKey.set(key, context)
+      }
+    } catch (error) {
+      logger.warn('Skipping Copilot context with invalid identity', { context, error })
+    }
+  }
+  const uniqueContexts = [...uniqueContextsByKey.values()]
+
+  const tasks = uniqueContexts.map(async (ctx) => {
+    try {
+      throwIfContextProcessingAborted(options.signal)
       const entityContext = readCopilotWorkspaceEntityContext(ctx)
-      if (entityContext?.entityId) {
+      const contextWorkspaceId =
+        entityContext?.workspaceId ??
+        ('workspaceId' in ctx && typeof ctx.workspaceId === 'string' ? ctx.workspaceId : null)
+      const requiresActiveWorkspace =
+        entityContext?.entityKind === ENTITY_KIND_KNOWLEDGE_BASE ||
+        ctx.kind === 'logs' ||
+        ctx.kind === 'current_logs' ||
+        ctx.kind === 'current_monitor'
+
+      if (requiresActiveWorkspace && (!workspaceId || contextWorkspaceId !== workspaceId)) {
+        return null
+      }
+
+      const currentEntityId =
+        entityContext?.entityId ??
+        (ctx.kind === 'current_logs'
+          ? ctx.logId
+          : ctx.kind === 'current_monitor'
+            ? ctx.monitorId
+            : null)
+      if (isHiddenCopilotContext(ctx) && currentEntityId) {
         return {
-          type: ctx.kind as AgentContextType,
+          type: ctx.kind,
+          tag: `@${currentEntityId}`,
+          content: JSON.stringify({ entityId: currentEntityId }, null, 2),
+        }
+      }
+
+      if (entityContext?.entityId) {
+        if (entityContext.entityKind === ENTITY_KIND_KNOWLEDGE_BASE) {
+          const { readKnowledgeBaseServerTool } = await import(
+            '@/lib/copilot/tools/server/knowledge/knowledge-base'
+          )
+          const knowledgeBase = await readKnowledgeBaseServerTool.execute(
+            { entityId: entityContext.entityId },
+            { userId, workspaceId, ...(options.signal ? { signal: options.signal } : {}) }
+          )
+          throwIfContextProcessingAborted(options.signal)
+          return {
+            type: entityContext.current ? 'current_knowledge_base' : 'knowledge_base',
+            tag: `@${entityContext.entityId}`,
+            content: stringifyBoundedContext(knowledgeBase, {
+              entityId: entityContext.entityId,
+            }),
+          }
+        }
+        return {
+          type: ctx.kind,
           tag: `@${entityContext.entityId}`,
           content: JSON.stringify({ entityId: entityContext.entityId }, null, 2),
         }
@@ -86,20 +145,13 @@ export async function processContextsServer(
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'knowledge' && ctx.knowledgeId) {
-        return await processKnowledgeContext(
-          ctx.knowledgeId,
-          userId,
-          ctx.workspaceId ?? workspaceId ?? null,
-          ctx.label ? `@${ctx.label}` : '@'
-        )
-      }
       if (ctx.kind === 'blocks') {
         return await processBlocksMetadata(ctx.blockTypes ?? [], ctx.label ? `@${ctx.label}` : '@')
       }
-      if (ctx.kind === 'logs' && ctx.executionId) {
-        return await processExecutionLogContext(
-          ctx.executionId,
+      if (ctx.kind === 'logs' && ctx.logId) {
+        return await processLogContext(
+          ctx.logId,
+          ctx.workspaceId,
           userId,
           ctx.label ? `@${ctx.label}` : '@'
         )
@@ -119,20 +171,41 @@ export async function processContextsServer(
       }
       return null
     } catch (error) {
+      throwIfContextProcessingAborted(options.signal)
       logger.error('Failed processing context (server)', { ctx, error })
       return null
     }
   })
   const results = await Promise.all(tasks)
+  throwIfContextProcessingAborted(options.signal)
   const filtered = results.filter(
     (r): r is AgentContext => !!r && typeof r.content === 'string' && r.content.trim().length > 0
   )
+  const bounded: AgentContext[] = []
+  let totalBytes = 2
+  let omittedForSize = 0
+  for (const context of filtered) {
+    const contextBytes = Buffer.byteLength(JSON.stringify(context), 'utf8')
+    const separatorBytes = bounded.length > 0 ? 1 : 0
+    if (totalBytes + separatorBytes + contextBytes > MAX_COPILOT_CONTEXT_BYTES_PER_TURN) {
+      omittedForSize += 1
+      continue
+    }
+    totalBytes += separatorBytes + contextBytes
+    bounded.push(context)
+  }
+  if (omittedForSize > 0) {
+    logger.warn('Omitted Copilot contexts above the aggregate byte limit', {
+      omitted: omittedForSize,
+      limitBytes: MAX_COPILOT_CONTEXT_BYTES_PER_TURN,
+    })
+  }
   logger.info('Processed contexts (server)', {
     totalRequested: contexts.length,
-    totalProcessed: filtered.length,
-    kinds: Array.from(filtered.reduce((s, r) => s.add(r.type), new Set<string>())),
+    totalProcessed: bounded.length,
+    kinds: Array.from(bounded.reduce((s, r) => s.add(r.type), new Set<string>())),
   })
-  return filtered
+  return bounded
 }
 
 async function readBootstrappedCopilotYjsDoc<T>(
@@ -271,73 +344,6 @@ async function processPastChatContext(
   }
 }
 
-async function processKnowledgeContext(
-  knowledgeBaseId: string,
-  userId: string,
-  workspaceId: string | null,
-  tag: string
-): Promise<AgentContext | null> {
-  try {
-    const access = await verifyReviewTargetAccess(
-      userId,
-      buildSavedEntityDescriptor(ENTITY_KIND_KNOWLEDGE_BASE, knowledgeBaseId, workspaceId),
-      'read'
-    )
-    if (!access.hasAccess || !access.workspaceId) {
-      logger.warn('Skipping unauthorized knowledge context', {
-        knowledgeBaseId,
-        workspaceId,
-        userId,
-      })
-      return null
-    }
-
-    const fields = await readBootstrappedSavedEntityFields(
-      ENTITY_KIND_KNOWLEDGE_BASE,
-      knowledgeBaseId,
-      access.workspaceId
-    )
-
-    const [[identity], docRows] = await Promise.all([
-      db
-        .select({ name: knowledgeBase.name })
-        .from(knowledgeBase)
-        .where(
-          and(
-            eq(knowledgeBase.id, knowledgeBaseId),
-            eq(knowledgeBase.workspaceId, access.workspaceId)
-          )
-        )
-        .limit(1),
-      db
-        .select({ filename: document.filename })
-        .from(document)
-        .where(and(eq(document.knowledgeBaseId, knowledgeBaseId), isNull(document.deletedAt)))
-        .limit(20),
-    ])
-    if (!identity) return null
-
-    const sampleDocuments = docRows.map((d: any) => d.filename).filter(Boolean)
-    const summary = {
-      id: knowledgeBaseId,
-      workspaceId: access.workspaceId,
-      name: identity.name,
-      description: fields.description ?? null,
-      chunkingConfig: fields.chunkingConfig ?? null,
-      docCount: sampleDocuments.length,
-      sampleDocuments,
-    }
-    const content = JSON.stringify(summary, null, 2)
-    return { type: 'knowledge', tag, content }
-  } catch (error) {
-    if (error instanceof ReviewTargetBootstrapError && error.status === 404) {
-      logger.warn('Skipping missing knowledge context', { knowledgeBaseId })
-      return null
-    }
-    throw error
-  }
-}
-
 async function processBlocksMetadata(
   blockTypes: string[],
   tag: string
@@ -424,8 +430,9 @@ async function readCopilotWorkflowStateFromYjs(
   return workflowState
 }
 
-async function processExecutionLogContext(
-  executionId: string,
+async function processLogContext(
+  logId: string,
+  contextWorkspaceId: string,
   userId: string,
   tag: string
 ): Promise<AgentContext | null> {
@@ -444,44 +451,25 @@ async function processExecutionLogContext(
         executionData: workflowExecutionLogs.executionData,
         cost: workflowExecutionLogs.cost,
         workflowSummary: workflowExecutionLogs.workflowSummary,
-        entityName: workflow.name,
       })
       .from(workflowExecutionLogs)
-      .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .innerJoin(workspace, workspaceAccess.workspaceJoin)
       .leftJoin(permissions, workspaceAccess.permissionJoin)
-      .where(and(eq(workflowExecutionLogs.executionId, executionId), workspaceAccess.accessFilter))
+      .where(
+        and(
+          eq(workflowExecutionLogs.id, logId),
+          eq(workflowExecutionLogs.workspaceId, contextWorkspaceId),
+          workspaceAccess.accessFilter
+        )
+      )
       .limit(1)
 
     const log = rows?.[0] as any
     if (!log) return null
-    const workflowSummary =
-      log.workflowSummary && typeof log.workflowSummary === 'object' ? log.workflowSummary : {}
-
-    const summary = {
-      id: log.id,
-      workflowId: log.workflowId ?? workflowSummary.id ?? null,
-      executionId: log.executionId,
-      level: log.level,
-      trigger: log.trigger,
-      startedAt: log.startedAt?.toISOString?.() || String(log.startedAt),
-      endedAt: log.endedAt?.toISOString?.() || (log.endedAt ? String(log.endedAt) : null),
-      totalDurationMs: log.totalDurationMs ?? null,
-      entityName: log.entityName || workflowSummary.name || '',
-      // Include trace spans and any available details without being huge
-      executionData: log.executionData
-        ? {
-            traceSpans: (log.executionData as any).traceSpans || undefined,
-            errorDetails: (log.executionData as any).errorDetails || undefined,
-          }
-        : undefined,
-      cost: log.cost || undefined,
-    }
-
-    const content = JSON.stringify(summary)
+    const content = JSON.stringify(projectExecutionLogContext(log, 'explicit'))
     return { type: 'logs', tag, content }
   } catch (error) {
-    logger.error('Error processing execution log context', { executionId, error })
+    logger.error('Error processing log context', { logId, error })
     return null
   }
 }

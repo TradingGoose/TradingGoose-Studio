@@ -1,15 +1,14 @@
 'use client'
 
-import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale, useMessages } from 'next-intl'
 import { v4 as uuidv4 } from 'uuid'
-import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { noop } from '@/lib/utils'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import {
   ChatErrorState,
   ChatHeader,
-  ChatInput,
   ChatLoadingState,
   type ChatMessage,
   ChatMessageContainer,
@@ -18,11 +17,11 @@ import {
   SSOAuth,
   VoiceInterface,
 } from '@/app/chat/components'
+import { ChatInput } from '@/app/chat/components/input/input'
 import { CHAT_ERROR_CODES, CHAT_REQUEST_TIMEOUT_MS } from '@/app/chat/constants'
 import { getChatErrorMessage } from '@/app/chat/errors'
-import { useMessages } from 'next-intl'
-import type { LocaleCode } from '@/i18n/utils'
 import { useAudioStreaming, useChatStreaming } from '@/app/chat/hooks'
+import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('ChatClient')
 
@@ -112,6 +111,7 @@ function throttle<T extends (...args: any[]) => any>(func: T, delay: number): T 
 export default function ChatClient({ identifier }: { identifier: string }) {
   const locale = useLocale() as LocaleCode
   const chatCopy = useMessages().chat
+  const { errors: chatFailureCopy } = chatCopy
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -236,7 +236,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
           }
         }
 
-        throw new Error(`${chatCopy.errors.failedToLoadConfig}: ${response.status}`)
+        throw new Error(`${chatFailureCopy.failedToLoadConfig}: ${response.status}`)
       }
 
       // Reset auth required state when authentication is successful
@@ -259,7 +259,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
       }
     } catch (error) {
       logger.error('Error fetching chat config:', error)
-      setError(chatCopy.errors.chatUnavailable)
+      setError(chatFailureCopy.chatUnavailable)
     }
   }
 
@@ -397,7 +397,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
       }
 
       if (!response.body) {
-        throw new Error(chatCopy.errors.responseBodyMissing)
+        throw new Error(chatFailureCopy.responseBodyMissing)
       }
 
       // Use the streaming hook with audio support
@@ -435,13 +435,14 @@ export default function ChatClient({ identifier }: { identifier: string }) {
 
       logger.error('Error sending message:', error)
       setIsLoading(false)
-      const errorMessage: ChatMessage = {
+      const failedReply: ChatMessage = {
         id: crypto.randomUUID(),
-        content: chatCopy.errors.generic,
+        content: chatFailureCopy.generic,
         type: 'assistant',
         timestamp: new Date(),
+        isError: true,
       }
-      setMessages((prev) => [...prev, errorMessage])
+      setMessages((prev) => [...prev, failedReply])
     }
   }
 
@@ -586,6 +587,7 @@ export default function ChatClient({ identifier }: { identifier: string }) {
             onSubmit={(value, isVoiceInput, files) => {
               void handleSendMessage(value, isVoiceInput, files)
             }}
+            isLoading={isLoading}
             isStreaming={isStreamingResponse}
             onStopStreaming={() => stopStreaming(setMessages)}
             onVoiceStart={handleVoiceStart}

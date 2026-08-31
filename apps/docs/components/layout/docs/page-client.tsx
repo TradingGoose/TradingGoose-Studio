@@ -46,7 +46,7 @@ export function PageTOCPopoverTrigger(props: ComponentProps<'button'>) {
     <CollapsibleTrigger
       {...props}
       className={cn(
-        'flex w-full h-(--fd-tocnav-height) items-center text-sm text-fd-muted-foreground gap-2.5 px-4 py-2.5 text-start focus-visible:outline-none [&_svg]:size-4 md:px-6',
+        'flex h-(--fd-tocnav-height) w-full items-center gap-2.5 px-4 py-2.5 text-start text-fd-muted-foreground text-sm focus-visible:outline-none md:px-6 [&_svg]:size-4',
         props.className
       )}
     >
@@ -55,12 +55,12 @@ export function PageTOCPopoverTrigger(props: ComponentProps<'button'>) {
         max={1}
         className={cn('shrink-0', open && 'text-fd-primary')}
       />
-      <span className='grid flex-1 *:my-auto *:row-start-1 *:col-start-1'>
+      <span className='grid flex-1 *:col-start-1 *:row-start-1 *:my-auto'>
         <span
           className={cn(
             'truncate transition-all',
             open && 'text-fd-foreground',
-            showItem && 'opacity-0 -translate-y-full pointer-events-none'
+            showItem && '-translate-y-full pointer-events-none opacity-0'
           )}
         >
           {path?.name ?? text.toc}
@@ -68,13 +68,13 @@ export function PageTOCPopoverTrigger(props: ComponentProps<'button'>) {
         <span
           className={cn(
             'truncate transition-all',
-            !showItem && 'opacity-0 translate-y-full pointer-events-none'
+            !showItem && 'pointer-events-none translate-y-full opacity-0'
           )}
         >
           {items[selected]?.title}
         </span>
       </span>
-      <ChevronDown className={cn('shrink-0 transition-transform mx-0.5', open && 'rotate-180')} />
+      <ChevronDown className={cn('mx-0.5 shrink-0 transition-transform', open && 'rotate-180')} />
     </CollapsibleTrigger>
   )
 }
@@ -141,7 +141,7 @@ export function PageTOCPopoverContent(props: ComponentProps<'div'>) {
     <CollapsibleContent
       data-toc-popover=''
       {...props}
-      className={cn('flex flex-col px-4 max-h-[50vh] md:px-6', props.className)}
+      className={cn('flex max-h-[50vh] flex-col px-4 md:px-6', props.className)}
     >
       {props.children}
     </CollapsibleContent>
@@ -185,7 +185,7 @@ export function PageTOCPopover(props: ComponentProps<'div'>) {
           id='nd-tocnav'
           {...props}
           className={cn(
-            'fixed pr-(--removed-body-scroll-bar-size,0) z-10 border-b backdrop-blur-sm transition-colors xl:hidden max-xl:on-root:[--fd-tocnav-height:40px]',
+            'fixed z-10 border-b pr-(--removed-body-scroll-bar-size,0) backdrop-blur-sm transition-colors xl:hidden max-xl:on-root:[--fd-tocnav-height:40px]',
             (!isTransparent || open) && 'bg-fd-background',
             open && 'shadow-lg',
             props.className
@@ -219,7 +219,7 @@ export function PageLastUpdate({
   }, [value])
 
   return (
-    <p {...props} className={cn('text-sm text-fd-muted-foreground', props.className)}>
+    <p {...props} className={cn('text-fd-muted-foreground text-sm', props.className)}>
       {text.lastUpdate} {date}
     </p>
   )
@@ -302,7 +302,7 @@ function FooterItem({ item, index }: { item: Item; index: 0 | 1 }) {
     <Link
       href={item.url}
       className={cn(
-        'flex flex-col gap-2 rounded-lg border p-4 text-sm transition-colors hover:bg-fd-accent/80 hover:text-fd-accent-foreground @max-lg:col-span-full hover:backdrop-blur hover:supports-[backdrop-filter]:bg-fd-accent/55',
+        '@max-lg:col-span-full flex flex-col gap-2 rounded-lg border p-4 text-sm transition-colors hover:bg-fd-accent/80 hover:text-fd-accent-foreground hover:backdrop-blur hover:supports-[backdrop-filter]:bg-fd-accent/55',
         index === 1 && 'text-end'
       )}
     >
@@ -315,7 +315,7 @@ function FooterItem({ item, index }: { item: Item; index: 0 | 1 }) {
         <Icon className='-mx-1 size-4 shrink-0 rtl:rotate-180' />
         <p>{item.name}</p>
       </div>
-      <p className='text-fd-muted-foreground truncate'>
+      <p className='truncate text-fd-muted-foreground'>
         {item.description ?? (index === 0 ? text.previousPage : text.nextPage)}
       </p>
     </Link>
@@ -345,7 +345,7 @@ export function PageBreadcrumb({
   return (
     <div
       {...props}
-      className={cn('flex items-center gap-1.5 text-sm text-fd-muted-foreground', props.className)}
+      className={cn('flex items-center gap-1.5 text-fd-muted-foreground text-sm', props.className)}
     >
       {items.map((item, i) => {
         const className = cn('truncate', i === items.length - 1 && 'text-fd-primary font-medium')
@@ -379,7 +379,7 @@ export function PageTOC(props: ComponentProps<'div'>) {
       id='nd-toc'
       {...props}
       className={cn(
-        'fixed bottom-0 pt-12 pb-2 pr-(--removed-body-scroll-bar-size,0) xl:on-root:[--fd-toc-width:286px] max-xl:hidden',
+        'fixed bottom-0 pt-12 pr-(--removed-body-scroll-bar-size,0) pb-2 max-xl:hidden xl:on-root:[--fd-toc-width:286px]',
         props.className
       )}
       style={{

@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import type { ListingIdentity } from '@/lib/listing/identity'
 import type { OrdersFilterState } from '@/lib/records/order-filters'
 import type { TradingProviderOrderDetailResponse } from '@/lib/trading/order-detail'
 
@@ -25,7 +26,7 @@ export type RecordsOrder = {
   submissionSource: string
   logId: string | null
   listing: { symbol: string | null; name: string | null; listingType: string | null }
-  listingIdentity?: unknown
+  listingIdentity: ListingIdentity | null
   providerOrderId: string | null
   clientOrderId: string | null
   side: string | null

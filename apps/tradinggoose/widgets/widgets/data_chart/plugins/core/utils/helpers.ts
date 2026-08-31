@@ -163,7 +163,7 @@ export function generateContrastColors(backgroundColor: string): ContrastColors 
  * @returns `true` if the value is of type 'number' and is not `Infinity` or `NaN`.
  */
 export function isNumber(value: unknown): value is number {
-  return typeof value === 'number' && isFinite(value)
+  return typeof value === 'number' && Number.isFinite(value)
 }
 
 /**
@@ -208,7 +208,7 @@ export function isBoolean(value: unknown): value is boolean {
  */
 export function assert(condition: boolean, message?: string): asserts condition {
   if (!condition) {
-    throw new Error('Assertion failed' + (message ? ': ' + message : ''))
+    throw new Error(`Assertion failed${message ? `: ${message}` : ''}`)
   }
 }
 

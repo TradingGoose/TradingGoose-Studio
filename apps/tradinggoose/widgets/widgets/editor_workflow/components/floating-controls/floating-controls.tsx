@@ -1,11 +1,11 @@
 'use client'
 
-import { Minus, Plus, Redo2, Undo2 } from 'lucide-react'
 import { useReactFlow, useStore } from '@xyflow/react'
+import { Minus, Plus, Redo2, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { cn } from '@/lib/utils'
+import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useWorkflowEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface FloatingControlsProps {
@@ -36,23 +36,25 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
 
   return (
     <div className={cn(positionClass, 'z-10')}>
-      <div className='flex items-center gap-1 rounded-md border bg-card  p-1 shadow-xs'>
+      <div className='flex items-center gap-1 rounded-md border bg-card p-1 shadow-xs'>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={handleZoomOut}
-              disabled={currentZoom <= 10}
-              className={cn(
-                'h-7 w-7 rounded-sm',
-                'hover:bg-background',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
-            >
-              <Minus className='h-2.5 w-2.5' />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={handleZoomOut}
+                disabled={currentZoom <= 10}
+                className={cn(
+                  'h-7 w-7 rounded-sm',
+                  'hover:bg-background',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                <Minus className='h-2.5 w-2.5' />
+              </Button>
+            }
+          />
           <TooltipContent>{copy.floatingControls.zoomOut}</TooltipContent>
         </Tooltip>
 
@@ -61,42 +63,46 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
         </div>
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={handleZoomIn}
-              disabled={currentZoom >= 200}
-              className={cn(
-                'h-7 w-7 rounded-sm',
-                'hover:bg-background',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
-            >
-              <Plus className='h-2.5 w-2.5' />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={handleZoomIn}
+                disabled={currentZoom >= 200}
+                className={cn(
+                  'h-7 w-7 rounded-sm',
+                  'hover:bg-background',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                <Plus className='h-2.5 w-2.5' />
+              </Button>
+            }
+          />
           <TooltipContent>{copy.floatingControls.zoomIn}</TooltipContent>
         </Tooltip>
 
         <div className='mx-1 h-6 w-px bg-border' />
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => workflowSession?.undo()}
-              disabled={!workflowSession?.canUndo}
-              className={cn(
-                'h-7 w-7 rounded-sm',
-                'hover:bg-background',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
-            >
-              <Undo2 className='h-2.5 w-2.5' />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => workflowSession?.undo()}
+                disabled={!workflowSession?.canUndo}
+                className={cn(
+                  'h-7 w-7 rounded-sm',
+                  'hover:bg-background',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                <Undo2 className='h-2.5 w-2.5' />
+              </Button>
+            }
+          />
           <TooltipContent>
             <div className='text-center'>
               <p>{copy.floatingControls.undo}</p>
@@ -106,21 +112,23 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
         </Tooltip>
 
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => workflowSession?.redo()}
-              disabled={!workflowSession?.canRedo}
-              className={cn(
-                'h-7 w-7 rounded-sm',
-                'hover:bg-background',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
-            >
-              <Redo2 className='h-2.5 w-2.5' />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => workflowSession?.redo()}
+                disabled={!workflowSession?.canRedo}
+                className={cn(
+                  'h-7 w-7 rounded-sm',
+                  'hover:bg-background',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                <Redo2 className='h-2.5 w-2.5' />
+              </Button>
+            }
+          />
           <TooltipContent>
             <div className='text-center'>
               <p>{copy.floatingControls.redo}</p>

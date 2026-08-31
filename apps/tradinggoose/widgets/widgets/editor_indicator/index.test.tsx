@@ -30,7 +30,13 @@ vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({
+    children,
+    render,
+  }: {
+    children?: React.ReactNode
+    render?: React.ReactNode
+  }) => <>{render ?? children}</>,
   TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 

@@ -1,21 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
-import { hasLocale, NextIntlClientProvider } from 'next-intl'
+import { hasLocale } from 'next-intl'
 import { setRequestLocale } from 'next-intl/server'
-import { PublicEnvScript } from 'next-runtime-env'
 import { generateBrandedMetadata } from '@/lib/branding/metadata'
-import { PostHogProvider } from '@/lib/posthog/provider'
-import { getClientMessages } from '@/i18n/public-copy'
 import { type AppLocale, routing } from '@/i18n/routing'
-import 'monaco-editor/min/vs/editor/editor.main.css'
-import '@/app/globals.css'
-
-import { AppBootstrap } from '@/app/app-bootstrap'
-import { TooltipProvider } from '@/components/ui/tooltip'
-import { SessionProvider } from '@/lib/session/session-context'
-import { QueryProvider } from '@/app/query-provider'
-import { ThemeProvider } from '@/app/theme-provider'
-import { ZoomPrevention } from '@/app/zoom-prevention'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -39,7 +27,7 @@ export async function generateMetadata({
   )
 }
 
-export default async function RootLayout({
+export default async function LocaleLayout({
   children,
   params,
 }: {
@@ -54,35 +42,5 @@ export default async function RootLayout({
 
   setRequestLocale(locale)
 
-  return (
-    <html lang={locale} suppressHydrationWarning>
-      <head>
-        <PublicEnvScript disableNextScript />
-        {/* Basic head hints that are not covered by the Metadata API */}
-        <meta name='color-scheme' content='light dark' />
-        <meta name='format-detection' content='telephone=no' />
-      </head>
-      <body suppressHydrationWarning>
-        <PostHogProvider>
-          <ThemeProvider>
-            <QueryProvider>
-              <SessionProvider>
-                <NextIntlClientProvider
-                  key={locale}
-                  locale={locale}
-                  messages={getClientMessages(locale)}
-                >
-                  <AppBootstrap />
-                  <TooltipProvider delayDuration={100} skipDelayDuration={0}>
-                    <ZoomPrevention />
-                    {children}
-                  </TooltipProvider>
-                </NextIntlClientProvider>
-              </SessionProvider>
-            </QueryProvider>
-          </ThemeProvider>
-        </PostHogProvider>
-      </body>
-    </html>
-  )
+  return children
 }

@@ -6,7 +6,6 @@ import {
   findDashboardTopologyPanel,
   normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
-import { isPairColor } from '@/widgets/pair-colors'
 import { applyWidgetConfigMutation } from '@/widgets/widget-mutations'
 
 export const TEST_SCOPE = { workspaceId: 'workspace-1', ownerUserId: 'user-1' }
@@ -86,17 +85,11 @@ export function createDashboardToolMocks() {
       const current = currentContent
       const panel = findDashboardTopologyPanel(current.layout, input.panelId)!
       const widget = current.widgets[panel.identityId]!
-      const pairColor = isPairColor(input.patch.pairColor)
-        ? input.patch.pairColor
-        : isPairColor(widget.pairColor)
-          ? widget.pairColor
-          : 'gray'
       const mutation = applyWidgetConfigMutation({
         origin: 'copilot',
         widgetKey: panel.widgetKey!,
         widget,
         colorPairs: current.colorPairs,
-        panelId: input.panelId,
         patch: input.patch,
       })
       currentContent = normalizeDashboardLayoutProjection({

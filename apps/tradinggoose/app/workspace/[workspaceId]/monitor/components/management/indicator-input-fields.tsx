@@ -126,19 +126,22 @@ export function IndicatorInputFields({
 
           if (meta.type === 'bool') {
             return (
-              <Label
+              <div
                 key={title}
                 className='flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm'
               >
-                <span className='min-w-0 truncate font-medium'>{title}</span>
+                <Label htmlFor={inputId} className='min-w-0 truncate font-medium'>
+                  {title}
+                </Label>
                 <Checkbox
+                  id={inputId}
                   checked={Boolean(resolvedValue)}
                   disabled={disabled}
                   onCheckedChange={(checked) =>
                     onChange(patchSparseInput(inputMeta, sparseInputs, title, checked === true))
                   }
                 />
-              </Label>
+              </div>
             )
           }
 
@@ -147,13 +150,19 @@ export function IndicatorInputFields({
               <div key={title} className='space-y-1 text-sm'>
                 <span className='font-medium'>{title}</span>
                 <Select
-                  value={toFieldValue(resolvedValue)}
+                  value={toFieldValue(resolvedValue) || null}
+                  items={meta.options.map((option) => ({
+                    value: String(option),
+                    label: String(option),
+                  }))}
                   disabled={disabled}
-                  onValueChange={(value) =>
-                    onChange(patchSparseInput(inputMeta, sparseInputs, title, value))
-                  }
+                  onValueChange={(value) => {
+                    if (value !== null) {
+                      onChange(patchSparseInput(inputMeta, sparseInputs, title, value))
+                    }
+                  }}
                 >
-                  <SelectTrigger id={inputId}>
+                  <SelectTrigger id={inputId} aria-label={title}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

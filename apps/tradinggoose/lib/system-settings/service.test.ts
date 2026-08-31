@@ -9,6 +9,9 @@ const {
   mockSelectFrom,
   mockSelectLimit,
   mockSelectWhere,
+  mockSql,
+  mockTransaction,
+  mockTransactionExecute,
 } = vi.hoisted(() => ({
   mockEq: vi.fn((left: unknown, right: unknown) => ({ kind: 'eq', left, right })),
   mockInsert: vi.fn(),
@@ -18,12 +21,22 @@ const {
   mockSelectFrom: vi.fn(),
   mockSelectLimit: vi.fn(),
   mockSelectWhere: vi.fn(),
+  mockSql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values })),
+  mockTransaction: vi.fn(),
+  mockTransactionExecute: vi.fn(),
 }))
+
+const transactionStore = {
+  execute: (...args: unknown[]) => mockTransactionExecute(...args),
+  insert: (...args: unknown[]) => mockInsert(...args),
+  select: (...args: unknown[]) => mockSelect(...args),
+}
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: (...args: unknown[]) => mockSelect(...args),
     insert: (...args: unknown[]) => mockInsert(...args),
+    transaction: (...args: unknown[]) => mockTransaction(...args),
   },
 }))
 
@@ -31,13 +44,21 @@ vi.mock('@tradinggoose/db/schema', () => ({
   systemSettings: {
     id: 'system_settings.id',
   },
+  pendingExecution: {
+    id: 'pending_execution.id',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
   eq: (left: unknown, right: unknown) => mockEq(left, right),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => mockSql(strings, ...values),
 }))
 
-import { getResolvedSystemSettings, upsertSystemSettings } from './service'
+import {
+  getResolvedSystemSettings,
+  TriggerExecutionBusyError,
+  upsertSystemSettings,
+} from './service'
 
 describe('system settings service', () => {
   beforeEach(() => {
@@ -47,6 +68,7 @@ describe('system settings service', () => {
       from: mockSelectFrom,
     }))
     mockSelectFrom.mockImplementation(() => ({
+      limit: mockSelectLimit,
       where: mockSelectWhere,
     }))
     mockSelectWhere.mockImplementation(() => ({
@@ -58,6 +80,8 @@ describe('system settings service', () => {
     mockInsertValues.mockImplementation(() => ({
       onConflictDoUpdate: mockInsertOnConflictDoUpdate,
     }))
+    mockTransaction.mockImplementation(async (callback) => callback(transactionStore))
+    mockTransactionExecute.mockResolvedValue(undefined)
   })
 
   it('returns app-owned defaults when no system settings record exists', async () => {
@@ -98,7 +122,7 @@ describe('system settings service', () => {
           id: 'global',
           registrationMode: 'waitlist',
           billingEnabled: true,
-          triggerDevEnabled: true,
+          triggerDevEnabled: false,
           allowPromotionCodes: false,
           emailDomain: 'mail.example.com',
           fromEmailAddress: null,
@@ -109,7 +133,6 @@ describe('system settings service', () => {
 
     const result = await upsertSystemSettings({
       billingEnabled: true,
-      triggerDevEnabled: true,
       emailDomain: 'mail.example.com',
       fromEmailAddress: '',
     })
@@ -121,7 +144,7 @@ describe('system settings service', () => {
       id: 'global',
       registrationMode: 'waitlist',
       billingEnabled: true,
-      triggerDevEnabled: true,
+      triggerDevEnabled: false,
       allowPromotionCodes: false,
       emailDomain: 'mail.example.com',
       fromEmailAddress: null,
@@ -133,7 +156,7 @@ describe('system settings service', () => {
       set: {
         registrationMode: 'waitlist',
         billingEnabled: true,
-        triggerDevEnabled: true,
+        triggerDevEnabled: false,
         allowPromotionCodes: false,
         emailDomain: 'mail.example.com',
         fromEmailAddress: null,
@@ -143,11 +166,36 @@ describe('system settings service', () => {
     expect(result).toMatchObject({
       registrationMode: 'waitlist',
       billingEnabled: true,
-      triggerDevEnabled: true,
+      triggerDevEnabled: false,
       allowPromotionCodes: false,
       emailDomain: 'mail.example.com',
       fromEmailAddress: null,
     })
+    expect(mockTransactionExecute).toHaveBeenCalledOnce()
+    expect(mockTransactionExecute.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSelect.mock.invocationCallOrder[0]
+    )
+    expect(mockSelect.mock.invocationCallOrder[0]).toBeLessThan(
+      mockInsert.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('rejects an execution-mode switch under the lock before writing when work exists', async () => {
+    mockSelectLimit
+      .mockResolvedValueOnce([
+        {
+          id: 'global',
+          triggerDevEnabled: false,
+        },
+      ])
+      .mockResolvedValueOnce([{ id: 'pending-1' }])
+
+    await expect(upsertSystemSettings({ triggerDevEnabled: true })).rejects.toBeInstanceOf(
+      TriggerExecutionBusyError
+    )
+
+    expect(mockTransactionExecute).toHaveBeenCalledOnce()
+    expect(mockInsert).not.toHaveBeenCalled()
   })
 })
 
@@ -159,6 +207,8 @@ describe('trigger settings helper', () => {
         TRIGGER_PROJECT_ID: 'proj_123',
         TRIGGER_SECRET_KEY: 'tr_dev_123',
       },
+      getEnv: vi.fn(() => ''),
+      isTruthy: vi.fn(() => false),
     }))
 
     const { isTriggerConfigurationReady } = await import('@/lib/trigger/settings')
@@ -173,6 +223,8 @@ describe('trigger settings helper', () => {
         TRIGGER_PROJECT_ID: 'proj_123',
         TRIGGER_SECRET_KEY: '',
       },
+      getEnv: vi.fn(() => ''),
+      isTruthy: vi.fn(() => false),
     }))
 
     const { isTriggerConfigurationReady } = await import('@/lib/trigger/settings')

@@ -1,11 +1,7 @@
 import { useEffect } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSession } from '@/lib/auth-client'
-import { createLogger } from '@/lib/logs/console/logger'
+import { useQuery } from '@tanstack/react-query'
 import { defaultLocale, isLocaleCode, type LocaleCode } from '@/i18n/utils'
 import { useGeneralStore } from '@/stores/settings/general/store'
-
-const logger = createLogger('GeneralSettingsQuery')
 
 export const generalSettingsKeys = {
   all: ['generalSettings'] as const,
@@ -19,7 +15,7 @@ export interface GeneralSettings {
   billingUsageNotificationsEnabled: boolean
 }
 
-async function fetchGeneralSettings(): Promise<GeneralSettings> {
+export async function fetchGeneralSettings(): Promise<GeneralSettings> {
   const response = await fetch('/api/users/me/settings')
 
   if (!response.ok) {
@@ -36,14 +32,27 @@ async function fetchGeneralSettings(): Promise<GeneralSettings> {
   }
 }
 
-function syncSettingsToZustand(settings: GeneralSettings) {
-  const { setSettings } = useGeneralStore.getState()
-
-  setSettings({
-    theme: settings.theme,
-    telemetryEnabled: settings.telemetryEnabled,
-    isBillingUsageNotificationsEnabled: settings.billingUsageNotificationsEnabled,
+export async function patchBillingUsageNotifications(value: boolean): Promise<void> {
+  const response = await fetch('/api/users/me/settings', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ billingUsageNotificationsEnabled: value }),
   })
+
+  if (!response.ok) {
+    throw new Error('Failed to update billing usage notifications')
+  }
+}
+
+export function getGeneralSettingsResponsePatch(
+  settings: GeneralSettings,
+  mutations: { isThemeLoading: boolean; isTelemetryLoading: boolean }
+) {
+  return {
+    ...(!mutations.isThemeLoading ? { theme: settings.theme } : {}),
+    ...(!mutations.isTelemetryLoading ? { telemetryEnabled: settings.telemetryEnabled } : {}),
+    isBillingUsageNotificationsEnabled: settings.billingUsageNotificationsEnabled,
+  }
 }
 
 export function useGeneralSettings({
@@ -61,68 +70,11 @@ export function useGeneralSettings({
   })
 
   useEffect(() => {
-    if (userId && query.data) {
-      syncSettingsToZustand(query.data)
-    }
-  }, [query.data, userId])
+    if (!userId || !query.data) return
+
+    const state = useGeneralStore.getState()
+    state.setSettings(getGeneralSettingsResponsePatch(query.data, state))
+  }, [query.data, query.dataUpdatedAt, userId])
 
   return query
-}
-
-interface UpdateSettingParams {
-  key: keyof GeneralSettings
-  value: any
-}
-
-export function useUpdateGeneralSetting() {
-  const queryClient = useQueryClient()
-  const { data: session } = useSession()
-  const userId = session?.user?.id ?? null
-  const settingsKey = generalSettingsKeys.settings(userId)
-
-  return useMutation({
-    mutationFn: async ({ key, value }: UpdateSettingParams) => {
-      const response = await fetch('/api/users/me/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [key]: value }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to update setting: ${key}`)
-      }
-
-      return response.json()
-    },
-    onMutate: async ({ key, value }) => {
-      if (!userId) {
-        return { previousSettings: undefined }
-      }
-
-      await queryClient.cancelQueries({ queryKey: settingsKey })
-
-      const previousSettings = queryClient.getQueryData<GeneralSettings>(settingsKey)
-
-      if (previousSettings) {
-        const newSettings = {
-          ...previousSettings,
-          [key]: value,
-        }
-        queryClient.setQueryData<GeneralSettings>(settingsKey, newSettings)
-        syncSettingsToZustand(newSettings)
-      }
-
-      return { previousSettings }
-    },
-    onError: (err, _variables, context) => {
-      if (context?.previousSettings) {
-        queryClient.setQueryData(settingsKey, context.previousSettings)
-        syncSettingsToZustand(context.previousSettings)
-      }
-      logger.error('Failed to update setting:', err)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: settingsKey })
-    },
-  })
 }

@@ -371,9 +371,15 @@ export function IndicatorCodePanel({
           <div className='flex flex-wrap items-center gap-1 '>
             <Select
               value={cheatSheetGroup}
-              onValueChange={(value) => setCheatSheetGroup(value as CheatSheetGroup)}
+              items={Object.entries(CHEAT_SHEET_GROUPS).map(([value, group]) => ({
+                value,
+                label: group.label,
+              }))}
+              onValueChange={(value) => {
+                if (value !== null) setCheatSheetGroup(value as CheatSheetGroup)
+              }}
             >
-              <SelectTrigger className='h-7 w-36'>
+              <SelectTrigger aria-label='Cheat sheet group' className='h-7 w-36'>
                 <SelectValue placeholder='Group' />
               </SelectTrigger>
               <SelectContent>
@@ -392,11 +398,13 @@ export function IndicatorCodePanel({
 
               return (
                 <Tooltip key={item.key}>
-                  <TooltipTrigger asChild>
-                    <code className='cursor-help rounded bg-background px-1 py-0.5 text-foreground text-xs'>
-                      {item.key}
-                    </code>
-                  </TooltipTrigger>
+                  <TooltipTrigger
+                    render={
+                      <code className='cursor-help rounded bg-background px-1 py-0.5 text-foreground text-xs'>
+                        {item.key}
+                      </code>
+                    }
+                  />
                   <TooltipContent
                     side='top'
                     className='max-h-48 max-w-[320px] overflow-auto whitespace-normal text-left'
@@ -475,6 +483,7 @@ export function IndicatorCodePanel({
           isVisible={!readOnly && calcWand.isPromptVisible}
           isLoading={calcWand.isLoading}
           isStreaming={calcWand.isStreaming}
+          hasFailure={Boolean(calcWand.error)}
           promptValue={calcWand.promptInputValue}
           onSubmit={(prompt: string) => calcWand.generateStream({ prompt })}
           onCancel={calcWand.isStreaming ? calcWand.cancelGeneration : calcWand.hidePromptInline}

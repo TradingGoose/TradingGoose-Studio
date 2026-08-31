@@ -84,7 +84,14 @@ export function useIdentifierValidation(
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [copy.identifierCheckFailed, copy.identifierInUse, copy.identifierInvalidFormat, identifier, originalIdentifier, isEditingExisting])
+  }, [
+    copy.identifierCheckFailed,
+    copy.identifierInUse,
+    copy.identifierInvalidFormat,
+    identifier,
+    originalIdentifier,
+    isEditingExisting,
+  ])
 
   return { isChecking, error, isValid }
 }

@@ -51,7 +51,7 @@ export class CsvParser implements FileParser {
       let headers: string[] = []
       let processedContent = ''
       const sampledRows: any[] = []
-      const errors: string[] = []
+      const skippedRecordDiagnostics: string[] = []
       let firstRowProcessed = false
       let aborted = false
 
@@ -103,9 +103,9 @@ export class CsvParser implements FileParser {
         errorCount++
 
         if (errorCount <= 5) {
-          const errorMsg = `Row ${err.lines || rowCount}: ${err.message || 'Unknown error'}`
-          errors.push(errorMsg)
-          logger.warn('CSV skip:', errorMsg)
+          const skippedRecordDiagnostic = `Row ${err.lines || rowCount}: ${err.message || 'Unknown error'}`
+          skippedRecordDiagnostics.push(skippedRecordDiagnostic)
+          logger.warn('CSV skip:', skippedRecordDiagnostic)
         }
 
         if (errorCount >= CONFIG.MAX_ERRORS) {
@@ -134,7 +134,7 @@ export class CsvParser implements FileParser {
               rowCount,
               headers,
               errorCount,
-              errors: errors.slice(0, 10),
+              errors: skippedRecordDiagnostics.slice(0, 10),
               truncated: rowCount > CONFIG.MAX_PREVIEW_ROWS,
               sampledData: sampledRows,
             },

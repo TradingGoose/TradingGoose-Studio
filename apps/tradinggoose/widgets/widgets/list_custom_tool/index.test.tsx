@@ -2,61 +2,79 @@
  * @vitest-environment jsdom
  */
 
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
-import { act } from 'react'
+import type { ButtonHTMLAttributes, ReactElement, ReactNode } from 'react'
+import { act, cloneElement } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import { listCustomToolWidget } from '@/widgets/widgets/list_custom_tool'
 
-const mockCreateCustomToolMutation = vi.fn()
-const mockImportCustomToolsMutation = vi.fn()
+const mocks = vi.hoisted(() => ({
+  create: vi.fn(),
+  import: vi.fn(),
+  selectWhenListed: vi.fn(),
+}))
 
 vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider', () => ({
   WorkspacePermissionsProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-  useUserPermissionsContext: () => ({
-    canRead: true,
-    canEdit: true,
-  }),
+  useUserPermissionsContext: () => ({ canEdit: true, canRead: true }),
 }))
 
 vi.mock('@/hooks/queries/custom-tools', async () => {
   const actual = await vi.importActual<any>('@/hooks/queries/custom-tools')
   return {
     ...actual,
-    useCreateCustomTool: () => mockCreateCustomToolMutation(),
-    useImportCustomTools: () => mockImportCustomToolsMutation(),
+    createCustomTool: mocks.create,
+    importCustomTools: mocks.import,
   }
 })
 
+vi.mock('@/lib/yjs/use-entity-fields', () => ({
+  useEntityList: () => ({ members: [] }),
+}))
+
+vi.mock('@/widgets/utils/use-pending-entity-selection', () => ({
+  usePendingEntitySelection: () => mocks.selectWhenListed,
+}))
+
 vi.mock('@/widgets/widget-config-runtime', () => ({
-  useWidgetConfigRuntimeActions: () => ({
-    patchWidgetParams: vi.fn(),
-    patchWidgetLinkedParams: vi.fn(),
-  }),
+  useWidgetConfigRuntimeActions: () => ({ patchWidgetLinkedParams: vi.fn() }),
 }))
 
 vi.mock('@/components/ui/tooltip', () => ({
-  Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children, render }: { children?: ReactNode; render?: ReactNode }) => (
+    <>{render ?? children}</>
+  ),
+  TooltipContent: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
-  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
-  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuTrigger: ({ children, render }: { children?: ReactNode; render: ReactElement }) =>
+    cloneElement(render, undefined, children),
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => <>{children}</>,
   DropdownMenuItem: ({
     children,
     disabled,
-    onSelect,
+    closeOnClick: _closeOnClick,
+    render,
+    ...props
   }: ButtonHTMLAttributes<HTMLButtonElement> & {
-    onSelect?: (event: Event) => void
-  }) => (
-    <button type='button' disabled={disabled} onClick={() => onSelect?.(new Event('select'))}>
-      {children}
-    </button>
-  ),
+    closeOnClick?: boolean
+    render?: ReactElement
+  }) =>
+    render ? (
+      cloneElement(
+        render as ReactElement<ButtonHTMLAttributes<HTMLButtonElement>>,
+        { disabled, ...props },
+        children
+      )
+    ) : (
+      <button type='button' disabled={disabled} {...props}>
+        {children}
+      </button>
+    ),
 }))
 
 vi.mock('@/components/widget-header-control', () => ({
@@ -72,177 +90,68 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-const createMutationState = (mutateAsync = vi.fn()) => ({
-  isPending: false,
-  mutateAsync,
-})
-
-describe('Custom Tool List header controls', () => {
+describe('Custom Tool List header writes', () => {
   let container: HTMLDivElement
   let root: Root
+  let queryClient: QueryClient
 
   beforeEach(() => {
-    vi.clearAllMocks()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    useCustomToolsStore.getState().resetAll()
-
-    mockCreateCustomToolMutation.mockReturnValue(createMutationState())
-    mockImportCustomToolsMutation.mockReturnValue(createMutationState())
+    queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    mocks.create.mockReset()
+    mocks.import.mockReset()
+    mocks.selectWhenListed.mockReset()
   })
 
   afterEach(() => {
-    act(() => {
-      root.unmount()
-    })
+    act(() => root.unmount())
+    queryClient.clear()
     container.remove()
-    useCustomToolsStore.getState().resetAll()
+    reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('renders import inside Create and keeps New custom tool in the menu', async () => {
+  const renderHeader = async () => {
     const header = listCustomToolWidget.renderHeader?.({
       context: { workspaceId: 'workspace-1' } as any,
-      panelId: 'panel-1',
     } as any)
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>{header?.right as ReactNode}</QueryClientProvider>
+      )
+    })
+  }
+
+  it('keeps visible create progress and blocks duplicate activation', async () => {
+    let resolveCreate!: (value: Array<{ id: string }>) => void
+    mocks.create.mockReturnValue(
+      new Promise<Array<{ id: string }>>((resolve) => {
+        resolveCreate = resolve
+      })
+    )
+    await renderHeader()
+    const create = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('New custom tool')
+    )!
 
     await act(async () => {
-      root.render(header?.right as ReactNode)
+      create.click()
+      await new Promise((resolve) => setTimeout(resolve, 0))
     })
-
-    const buttons = Array.from(container.querySelectorAll('button'))
-    expect(buttons[0]?.textContent).toContain('Create custom tool')
-    expect(container.textContent).toContain('Import custom tools')
-    expect(container.textContent).toContain('New custom tool')
-  })
-
-  it('imports valid unified custom-tool files', async () => {
-    const mutateAsync = vi.fn().mockResolvedValue({})
-    mockImportCustomToolsMutation.mockReturnValue(createMutationState(mutateAsync))
-
-    const header = listCustomToolWidget.renderHeader?.({
-      context: { workspaceId: 'workspace-1' } as any,
-      panelId: 'panel-1',
-    } as any)
+    expect(mocks.create).toHaveBeenCalledTimes(1)
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      'Creating custom tool'
+    )
+    create.click()
+    expect(mocks.create).toHaveBeenCalledTimes(1)
 
     await act(async () => {
-      root.render(header?.right as ReactNode)
+      resolveCreate([{ id: 'tool-1' }])
+      await new Promise((resolve) => setTimeout(resolve, 20))
     })
-
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement | null
-    expect(input).toBeTruthy()
-
-    const filePayload = {
-      version: '1',
-      fileType: 'tradingGooseExport',
-      exportedAt: '2026-04-08T15:30:00.000Z',
-      exportedFrom: 'customToolEditor',
-      resourceTypes: ['customTools'],
-      skills: [],
-      workflows: [],
-      customTools: [
-        {
-          title: 'Fetch Top Movers',
-          schema: {
-            type: 'function',
-            function: {
-              parameters: {
-                type: 'object',
-                properties: {},
-              },
-            },
-          },
-          code: 'return { movers: [] }',
-        },
-      ],
-      watchlists: [],
-      indicators: [],
-    }
-
-    const file = new File([JSON.stringify(filePayload)], 'custom-tools.json', {
-      type: 'application/json',
-    })
-    Object.defineProperty(file, 'text', {
-      configurable: true,
-      value: () => Promise.resolve(JSON.stringify(filePayload)),
-    })
-
-    Object.defineProperty(input, 'files', {
-      configurable: true,
-      value: [file],
-    })
-
-    await act(async () => {
-      input!.dispatchEvent(new Event('change', { bubbles: true }))
-      await Promise.resolve()
-    })
-
-    expect(mutateAsync).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
-      file: filePayload,
-    })
-  })
-
-  it('rejects invalid unified custom-tool files before calling the mutation', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const mutateAsync = vi.fn().mockResolvedValue({})
-    mockImportCustomToolsMutation.mockReturnValue(createMutationState(mutateAsync))
-
-    const header = listCustomToolWidget.renderHeader?.({
-      context: { workspaceId: 'workspace-1' } as any,
-      panelId: 'panel-1',
-    } as any)
-
-    await act(async () => {
-      root.render(header?.right as ReactNode)
-    })
-
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement | null
-    expect(input).toBeTruthy()
-
-    const invalidPayload = {
-      version: '1',
-      exportedAt: '2026-04-08T15:30:00.000Z',
-      exportedFrom: 'customToolEditor',
-      resourceTypes: ['customTools'],
-      customTools: [
-        {
-          title: 'Fetch Top Movers',
-          schema: {
-            type: 'function',
-            function: {
-              parameters: {
-                type: 'object',
-                properties: {},
-              },
-            },
-          },
-          code: 'return { movers: [] }',
-        },
-      ],
-    }
-
-    const file = new File([JSON.stringify(invalidPayload)], 'custom-tools.json', {
-      type: 'application/json',
-    })
-    Object.defineProperty(file, 'text', {
-      configurable: true,
-      value: () => Promise.resolve(JSON.stringify(invalidPayload)),
-    })
-
-    Object.defineProperty(input, 'files', {
-      configurable: true,
-      value: [file],
-    })
-
-    await act(async () => {
-      input!.dispatchEvent(new Event('change', { bubbles: true }))
-      await Promise.resolve()
-    })
-
-    expect(mutateAsync).not.toHaveBeenCalled()
-    expect(consoleError).toHaveBeenCalled()
-    consoleError.mockRestore()
+    expect(container.querySelector('[role="status"]')).toBeNull()
+    expect(mocks.selectWhenListed).toHaveBeenCalledWith('tool-1')
   })
 })

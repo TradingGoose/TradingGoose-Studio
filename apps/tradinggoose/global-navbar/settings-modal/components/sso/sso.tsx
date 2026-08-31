@@ -531,7 +531,10 @@ export function SSO() {
                         <button
                           type='button'
                           onClick={() => {
-                            const url = getSsoCallbackUrl(provider.providerId, provider.providerType)
+                            const url = getSsoCallbackUrl(
+                              provider.providerId,
+                              provider.providerType
+                            )
                             navigator.clipboard.writeText(url)
                             setCopied(true)
                             setTimeout(() => setCopied(false), 1500)

@@ -86,10 +86,7 @@ export function handleIntrinsicJsxEventAttribute(
   env: WalkEnv,
   scanInvocation: InvocationScanner
 ): void {
-  if (
-    !ts.isJsxOpeningElement(node) &&
-    !ts.isJsxSelfClosingElement(node)
-  ) {
+  if (!ts.isJsxOpeningElement(node) && !ts.isJsxSelfClosingElement(node)) {
     return
   }
 
@@ -107,11 +104,7 @@ export function handleIntrinsicJsxEventAttribute(
       continue
     }
 
-    const target = resolveCallableTargetFromDescriptor(
-      descriptor,
-      env.context,
-      env.activeRoutePath
-    )
+    const target = resolveCallableTargetFromDescriptor(descriptor, env.context, env.activeRoutePath)
     if (target) {
       scanInvocation(target, [])
     }

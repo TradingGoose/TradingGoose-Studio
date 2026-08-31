@@ -2,15 +2,14 @@
 
 import { DASHBOARD_LAYOUT_TOOL_NAMES } from '@/lib/copilot/registry'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { readCopilotWorkspaceEntityContext } from '@/lib/copilot/workspace-entities'
 import { normalizeOptionalString } from '@/lib/utils'
 import type {
   ChatContext,
-  CopilotLiveContext,
   CopilotMessage,
   CopilotToolCall,
   CopilotToolExecutionProvenance,
 } from '@/stores/copilot/types'
-import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 type ContextTurnProvenance = {
   workspaceId?: string
@@ -71,23 +70,13 @@ function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance |
 
 export function buildTurnProvenanceFromContexts(
   contexts: ChatContext[] | undefined,
-  workspaceId: string | null | undefined,
-  liveWorkflowId: string | null | undefined,
-  reviewTarget: CopilotLiveContext['reviewTarget'],
-  _authenticatedUserId?: string | null
+  workspaceId: string | null | undefined
 ): CopilotToolExecutionProvenance | undefined {
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
-  const normalizedLiveWorkflowId = normalizeOptionalString(liveWorkflowId)
   const provenance: CopilotToolExecutionProvenance = {
-    ...(normalizedLiveWorkflowId
-      ? {
-          contextEntityKind: 'workflow' as const,
-          contextEntityId: normalizedLiveWorkflowId,
-        }
-      : {}),
     ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
   }
-  let hasContext = !!normalizedWorkspaceId || !!normalizedLiveWorkflowId
+  let hasContext = !!normalizedWorkspaceId
 
   for (const context of contexts ?? []) {
     const entityContext = getContextTurnProvenance(context)
@@ -98,16 +87,6 @@ export function buildTurnProvenanceFromContexts(
       }
       hasContext = applyContextTurnProvenance(provenance, entityContext) || hasContext
     }
-  }
-
-  if (reviewTarget && reviewTarget.entityKind !== 'workflow') {
-    const reviewWorkspaceId = normalizeOptionalString(reviewTarget.workspaceId)
-    if (!reviewWorkspaceId) {
-      return hasContext ? provenance : undefined
-    }
-
-    provenance.workspaceId = reviewWorkspaceId
-    hasContext = true
   }
 
   return hasContext ? provenance : undefined

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, ExternalLink, RefreshCw } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,9 +28,8 @@ import {
 } from '@/lib/oauth'
 import type { SubBlockConfig } from '@/blocks/types'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -230,24 +229,27 @@ export function CredentialSelector({
   return (
     <>
       <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <Button
-            variant='outline'
-            role='combobox'
-            aria-expanded={open}
-            className='relative w-full justify-between'
-            disabled={disabled}
-          >
-            <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
-              {getProviderIcon(provider)}
-              <span
-                className={displayName ? 'truncate font-normal' : 'truncate text-muted-foreground'}
-              >
-                {displayName || label}
-              </span>
-            </div>
-            <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
-          </Button>
+        <PopoverTrigger
+          disabled={disabled}
+          render={
+            <Button
+              variant='outline'
+              role='combobox'
+              aria-expanded={open}
+              className='relative w-full justify-between'
+              disabled={disabled}
+            />
+          }
+        >
+          <div className='flex max-w-[calc(100%-20px)] items-center gap-2 overflow-hidden'>
+            {getProviderIcon(provider)}
+            <span
+              className={displayName ? 'truncate font-normal' : 'truncate text-muted-foreground'}
+            >
+              {displayName || label}
+            </span>
+          </div>
+          <ChevronDown className='absolute right-3 h-4 w-4 shrink-0 opacity-50' />
         </PopoverTrigger>
         <PopoverContent className='w-[250px] p-0' align='start'>
           <Command>

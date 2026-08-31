@@ -23,7 +23,6 @@ import { MONITOR_DATA_CHANGED_EVENT } from '@/app/workspace/[workspaceId]/monito
 import { customToolsKeys } from '@/hooks/queries/custom-tools'
 import { environmentKeys } from '@/hooks/queries/environment'
 import { knowledgeKeys } from '@/hooks/queries/knowledge'
-import { skillsKeys } from '@/hooks/queries/skills'
 import { workflowKeys } from '@/hooks/queries/workflows'
 import type { CopilotToolExecutionProvenance } from '@/stores/copilot/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -356,7 +355,7 @@ export async function handleCopilotServerToolSuccess(
         queryClient.invalidateQueries({ queryKey: workflowKeys.list(workspaceId) }),
       ])
     } else if (toolName.endsWith('_skill')) {
-      await queryClient.invalidateQueries({ queryKey: skillsKeys.list(workspaceId) })
+      return
     } else if (toolName.endsWith('_custom_tool')) {
       await queryClient.invalidateQueries({ queryKey: customToolsKeys.list(workspaceId) })
     } else if (toolName.endsWith('_indicator')) {

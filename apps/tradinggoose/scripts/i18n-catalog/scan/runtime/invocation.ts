@@ -13,10 +13,7 @@ import { getFileAnalysis } from '../semantics/analysis-cache'
 import { resolveExpressionDescriptor } from '../semantics/expression-resolution'
 import { bindFunctionParameters } from '../semantics/parameters'
 import { resolveCallPropertyTarget } from './property-access'
-import {
-  resolveCallableTargetFromDescriptor,
-  resolveCallableTargetFromExpression,
-} from './targets'
+import { resolveCallableTargetFromDescriptor, resolveCallableTargetFromExpression } from './targets'
 
 type NodeScanner = (node: ts.Node, scope: Scope, env: WalkEnv) => void
 
@@ -62,9 +59,7 @@ function resolveDottedExportCallableTarget(
   }
 
   const analysis =
-    env.analysis.file.filePath === file.filePath
-      ? env.analysis
-      : getFileAnalysis(file, env.context)
+    env.analysis.file.filePath === file.filePath ? env.analysis : getFileAnalysis(file, env.context)
   let descriptor = resolveExpressionDescriptor(declaration.initializer, createRootScope(), analysis)
 
   for (const propertySegment of propertySegments) {

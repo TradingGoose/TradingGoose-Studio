@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 import { formatDataChartFlagAlt, useDataChartCopy } from '@/widgets/widgets/data_chart/copy'
 import {
   buildListingDisplay,
@@ -16,7 +16,7 @@ export const ListingOverlay = ({
   intervalLabel,
   isResolving = false,
 }: {
-  listing: ListingOption | null
+  listing: ListingResolved | null
   intervalLabel?: string | null
   isResolving?: boolean
 }) => {
@@ -25,7 +25,7 @@ export const ListingOverlay = ({
     () => buildListingDisplay(listing),
     [listing]
   )
-  const listingType = listing?.listing_type
+  const listingType = listing?.listingIdentity.listing_type
   const listingIconUrl = listing?.iconUrl ?? null
   const avatarFallback = listingSymbol ? getListingFallback(listingSymbol) : '??'
   const flagData = useMemo(

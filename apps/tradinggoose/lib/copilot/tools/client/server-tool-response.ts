@@ -18,6 +18,35 @@ type CopilotServerToolError = Error & {
   payload?: CopilotServerToolErrorLike
 }
 
+export interface CopilotServerToolErrorDetails {
+  hint?: string
+  issues?: Array<{ path: string; message: string }>
+}
+
+function normalizeCopilotServerToolErrorDetails(
+  payload: CopilotServerToolErrorLike | undefined
+): CopilotServerToolErrorDetails | undefined {
+  const hint = typeof payload?.hint === 'string' ? payload.hint.trim() : ''
+  const issues = Array.isArray(payload?.issues)
+    ? payload.issues
+        .filter(
+          (issue) =>
+            typeof issue?.path === 'string' &&
+            issue.path.trim().length > 0 &&
+            typeof issue.message === 'string' &&
+            issue.message.trim().length > 0
+        )
+        .slice(0, 3)
+        .map((issue) => ({ path: issue.path.trim(), message: issue.message.trim() }))
+    : []
+
+  if (!hint && issues.length === 0) return undefined
+  return {
+    ...(hint ? { hint } : {}),
+    ...(issues.length > 0 ? { issues } : {}),
+  }
+}
+
 function createCopilotServerToolError(
   status: number,
   message: string,
@@ -39,16 +68,14 @@ export async function buildCopilotServerToolError(response: Response): Promise<E
 
   try {
     const payload = JSON.parse(text) as CopilotServerToolErrorLike
+    const details = normalizeCopilotServerToolErrorDetails(payload)
     const issueSummary =
-      Array.isArray(payload.issues) && payload.issues.length > 0
-        ? `Issues: ${payload.issues
-            .slice(0, 3)
-            .map((issue) => `${issue.path}: ${issue.message}`)
-            .join('; ')}`
+      details?.issues && details.issues.length > 0
+        ? `Issues: ${details.issues.map((issue) => `${issue.path}: ${issue.message}`).join('; ')}`
         : undefined
     const messageParts = [
       payload.error,
-      payload.hint ? `Hint: ${payload.hint}` : undefined,
+      details?.hint ? `Hint: ${details.hint}` : undefined,
       issueSummary,
     ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
 
@@ -60,6 +87,14 @@ export async function buildCopilotServerToolError(response: Response): Promise<E
   } catch {
     return createCopilotServerToolError(response.status, text || fallbackMessage)
   }
+}
+
+export function getCopilotServerToolErrorDetails(
+  error: unknown
+): CopilotServerToolErrorDetails | undefined {
+  return normalizeCopilotServerToolErrorDetails(
+    (error as CopilotServerToolError | undefined)?.payload
+  )
 }
 
 export function getCopilotServerToolErrorStatus(error: unknown): number | undefined {

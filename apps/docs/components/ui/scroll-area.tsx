@@ -1,6 +1,6 @@
-import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area';
-import * as React from 'react';
-import { cn } from '../../lib/cn';
+import * as React from 'react'
+import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area'
+import { cn } from '../../lib/cn'
 
 const ScrollArea = React.forwardRef<
   React.ComponentRef<typeof ScrollAreaPrimitive.Root>,
@@ -8,17 +8,17 @@ const ScrollArea = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <ScrollAreaPrimitive.Root
     ref={ref}
-    type="scroll"
+    type='scroll'
     className={cn('overflow-hidden ', className)}
     {...props}
   >
     {children}
     <ScrollAreaPrimitive.Corner />
-    <ScrollBar orientation="vertical" />
+    <ScrollBar orientation='vertical' />
   </ScrollAreaPrimitive.Root>
-));
+))
 
-ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName;
+ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName
 
 const ScrollViewport = React.forwardRef<
   React.ComponentRef<typeof ScrollAreaPrimitive.Viewport>,
@@ -31,9 +31,9 @@ const ScrollViewport = React.forwardRef<
   >
     {children}
   </ScrollAreaPrimitive.Viewport>
-));
+))
 
-ScrollViewport.displayName = ScrollAreaPrimitive.Viewport.displayName;
+ScrollViewport.displayName = ScrollAreaPrimitive.Viewport.displayName
 
 const ScrollBar = React.forwardRef<
   React.ComponentRef<typeof ScrollAreaPrimitive.Scrollbar>,
@@ -46,13 +46,13 @@ const ScrollBar = React.forwardRef<
       'flex select-none data-[state=hidden]:animate-fd-fade-out',
       orientation === 'vertical' && 'h-full w-1.5',
       orientation === 'horizontal' && 'h-1.5 flex-col',
-      className,
+      className
     )}
     {...props}
   >
-    <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-fd-border" />
+    <ScrollAreaPrimitive.ScrollAreaThumb className='relative flex-1 rounded-full bg-fd-border' />
   </ScrollAreaPrimitive.Scrollbar>
-));
-ScrollBar.displayName = ScrollAreaPrimitive.Scrollbar.displayName;
+))
+ScrollBar.displayName = ScrollAreaPrimitive.Scrollbar.displayName
 
-export { ScrollArea, ScrollBar, ScrollViewport };
+export { ScrollArea, ScrollBar, ScrollViewport }

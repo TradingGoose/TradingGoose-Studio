@@ -6,7 +6,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ListingSearchInput } from '@/components/listing-selector/selector/input'
-import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
+import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 
 const requestListingResolutionMock = vi.hoisted(() => vi.fn())
@@ -27,8 +27,8 @@ const identity = (symbol: string): ListingIdentity => ({
   listing_type: 'default',
 })
 
-const resolved = (symbol: string): ListingOption => ({
-  ...identity(symbol),
+const resolved = (symbol: string): ListingResolved => ({
+  listingIdentity: identity(symbol),
   base: symbol,
   quote: null,
   name: symbol,
@@ -64,26 +64,31 @@ describe('ListingSearchInput', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('ignores stale hydration after the selected identity changes or clears', async () => {
-    const requests: Array<ReturnType<typeof defer<ListingOption | null>>> = []
+  it('ignores stale hydration after the selected identity changes or typing clears it', async () => {
+    const requests: Array<ReturnType<typeof defer<ListingResolved | null>>> = []
+    const onListingValueChange = vi.fn()
     requestListingResolutionMock.mockImplementation(() => {
-      const request = defer<ListingOption | null>()
+      const request = defer<ListingResolved | null>()
       requests.push(request)
       return request.promise
     })
     useListingSelectorStore.getState().ensureInstance('selector-test', {
-      selectedListingValue: identity('AAPL'),
+      selectedListing: identity('AAPL'),
     })
 
     await act(async () => {
-      root.render(<ListingSearchInput instanceId='selector-test' />)
+      root.render(
+        <ListingSearchInput
+          instanceId='selector-test'
+          onListingValueChange={onListingValueChange}
+        />
+      )
       await Promise.resolve()
     })
 
     act(() =>
       useListingSelectorStore.getState().updateInstance('selector-test', {
-        selectedListingValue: identity('MSFT'),
-        selectedListing: null,
+        selectedListing: identity('MSFT'),
       })
     )
     await act(async () => Promise.resolve())
@@ -92,23 +97,82 @@ describe('ListingSearchInput', () => {
       await Promise.resolve()
     })
     expect(useListingSelectorStore.getState().instances['selector-test']).toMatchObject({
-      selectedListingValue: identity('MSFT'),
-      selectedListing: null,
+      selectedListing: identity('MSFT'),
     })
 
-    act(() =>
-      useListingSelectorStore.getState().updateInstance('selector-test', {
-        selectedListingValue: null,
-        selectedListing: null,
-      })
-    )
+    const input = container.querySelector('input')
+    if (!input) throw new Error('Expected listing input')
+    act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      valueSetter?.call(input, 'TSLA')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(onListingValueChange).toHaveBeenCalledWith(null)
     await act(async () => {
       requests[1].resolve(resolved('MSFT'))
       await Promise.resolve()
     })
     expect(useListingSelectorStore.getState().instances['selector-test']).toMatchObject({
-      selectedListingValue: null,
+      query: 'TSLA',
       selectedListing: null,
     })
+  })
+
+  it('hydrates the selected identity into one resolved selection', async () => {
+    requestListingResolutionMock.mockResolvedValue(resolved('MSFT'))
+    useListingSelectorStore.getState().ensureInstance('selector-test', {
+      selectedListing: identity('MSFT'),
+    })
+
+    await act(async () => {
+      root.render(<ListingSearchInput instanceId='selector-test' />)
+      await Promise.resolve()
+    })
+
+    expect(requestListingResolutionMock).toHaveBeenCalledWith(identity('MSFT'))
+    expect(useListingSelectorStore.getState().instances['selector-test']).toMatchObject({
+      selectedListing: resolved('MSFT'),
+    })
+  })
+
+  it.each([
+    ['null', null],
+    ['rejection', new Error('Listing resolution unavailable')],
+  ])('keeps the identity label when hydration ends in %s', async (_outcomeName, outcome) => {
+    if (outcome instanceof Error) {
+      requestListingResolutionMock.mockRejectedValue(outcome)
+    } else {
+      requestListingResolutionMock.mockResolvedValue(outcome)
+    }
+    useListingSelectorStore.getState().ensureInstance('selector-test', {
+      selectedListing: identity('MSFT'),
+      query: '',
+    })
+
+    await act(async () => {
+      root.render(<ListingSearchInput instanceId='selector-test' />)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(requestListingResolutionMock).toHaveBeenCalledWith(identity('MSFT'))
+    expect(container.querySelector<HTMLInputElement>('input')?.value).toBe('MSFT')
+    expect(useListingSelectorStore.getState().instances['selector-test']).toMatchObject({
+      query: 'MSFT',
+      selectedListing: identity('MSFT'),
+    })
+  })
+
+  it('does not rehydrate complete resolved data for the selected identity', async () => {
+    useListingSelectorStore.getState().ensureInstance('selector-test', {
+      selectedListing: resolved('AAPL'),
+    })
+
+    await act(async () => {
+      root.render(<ListingSearchInput instanceId='selector-test' />)
+      await Promise.resolve()
+    })
+
+    expect(requestListingResolutionMock).not.toHaveBeenCalled()
   })
 })

@@ -47,5 +47,6 @@ describe('widget registry categories', () => {
     )
     expect(getWidgetDefinition('heatmap')?.category).toBe('trading')
     expect(getWidgetDefinition('watchlist')?.category).toBe('trading')
+    expect(getWidgetDefinition('copilot')).toBeUndefined()
   })
 })

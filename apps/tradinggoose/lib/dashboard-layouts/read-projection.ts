@@ -2,9 +2,12 @@ import {
   collectDashboardTopologyReferences,
   DASHBOARD_LAYOUT_DOCUMENT_FORMAT,
   type DashboardLayoutProjectionContent,
-  serializeDashboardLayoutProjection,
+  normalizeDashboardLayoutProjection,
 } from '@/widgets/layout-document'
-import { projectWidgetParamsForCopilot } from '@/widgets/widget-contracts'
+import {
+  projectWidgetParamsForCopilot,
+  resolveEffectiveWidgetParams,
+} from '@/widgets/widget-contracts'
 import { createWidgetConfigValidationError } from '@/widgets/widget-mutations'
 
 export const DASHBOARD_CREDENTIAL_PLACEHOLDER = '[redacted]'
@@ -55,7 +58,7 @@ function mapCredentialSlots(
   )
 }
 
-export function projectDashboardLayoutValueForCopilot(value: unknown): unknown {
+export function redactDashboardLayoutCredentials(value: unknown): unknown {
   return mapCredentialSlots(value, undefined, '', (item) =>
     typeof item === 'string' && item.length > 0 && !isEnvironmentReference(item)
       ? DASHBOARD_CREDENTIAL_PLACEHOLDER
@@ -83,8 +86,8 @@ export function buildDashboardWidgetReviewDiffForCopilot({
     if (isConcreteCredentialWrite(value)) credentialWritePaths.push(path)
     return value
   })
-  const projectedBefore = projectDashboardLayoutValueForCopilot(before) as Record<string, unknown>
-  const projectedAfter = projectDashboardLayoutValueForCopilot(after) as Record<string, unknown>
+  const projectedBefore = redactDashboardLayoutCredentials(before) as Record<string, unknown>
+  const projectedAfter = redactDashboardLayoutCredentials(after) as Record<string, unknown>
   if (credentialWritePaths.length > 0) {
     projectedBefore.credentialWritePaths = []
     projectedAfter.credentialWritePaths = credentialWritePaths.sort()
@@ -114,31 +117,32 @@ export function omitPreservedDashboardCredentialValues(
   )
 }
 
-function projectDashboardLayoutForCopilot(
-  content: DashboardLayoutProjectionContent
-): DashboardLayoutProjectionContent {
+function projectDashboardLayoutForCopilot(content: DashboardLayoutProjectionContent) {
+  const normalized = normalizeDashboardLayoutProjection(content)
   const widgets = Object.fromEntries(
-    [...collectDashboardTopologyReferences(content.layout)].map(([identityId, widgetKey]) => {
-      const widget = content.widgets[identityId]
+    [...collectDashboardTopologyReferences(normalized.layout)].map(([identityId, widgetKey]) => {
+      const widget = normalized.widgets[identityId]
       if (!widget) throw new Error(`Dashboard widget ${identityId} is missing`)
-      return [
-        identityId,
-        widgetKey
-          ? { ...widget, params: projectWidgetParamsForCopilot(widgetKey, widget.params) }
-          : widget,
-      ]
+      if (!widgetKey) return [identityId, { params: null }]
+
+      const params = resolveEffectiveWidgetParams(
+        { key: widgetKey, ...widget },
+        normalized.colorPairs
+      )
+      return [identityId, { params: projectWidgetParamsForCopilot(widgetKey, params) }]
     })
   )
-  return projectDashboardLayoutValueForCopilot({
-    ...content,
+  const projection = {
+    layout: normalized.layout,
     widgets,
-  }) as DashboardLayoutProjectionContent
+  }
+  return redactDashboardLayoutCredentials(projection) as typeof projection
 }
 
 export function serializeDashboardLayoutForCopilot(
   content: DashboardLayoutProjectionContent
 ): string {
-  return serializeDashboardLayoutProjection(projectDashboardLayoutForCopilot(content))
+  return JSON.stringify(projectDashboardLayoutForCopilot(content), null, 2)
 }
 
 export function buildDashboardLayoutReadProjection(content: DashboardLayoutProjectionContent) {

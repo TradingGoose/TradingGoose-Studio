@@ -1,15 +1,16 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
+import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { useRouter } from '@/i18n/navigation'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { useVerification } from '@/app/(auth)/verify/use-verification'
 import { inter } from '@/app/fonts/inter'
+import { useRouter } from '@/i18n/navigation'
+import { formatTemplate } from '@/i18n/utils'
 
 interface VerifyContentProps {
   hasEmailService: boolean
@@ -35,7 +36,7 @@ function VerificationForm({
     isLoading,
     isVerified,
     isInvalidOtp,
-    errorMessage,
+    failureMessage,
     isOtpComplete,
     verifyCode,
     resendCode,
@@ -73,23 +74,25 @@ function VerificationForm({
 
   return (
     <>
-      <AuthPageHeader
-        eyebrow={verifyCopy.eyebrow}
-        title={isVerified ? verifyCopy.verifiedTitle : verifyCopy.pendingTitle}
-        description={
-          isVerified
-            ? verifyCopy.verifiedDescription
-            : !isEmailVerificationEnabled
-              ? verifyCopy.disabledDescription
-              : hasEmailService
-                ? formatTemplate(verifyCopy.codeSent, {
-                    email: email || verifyCopy.yourEmail,
-                  })
-                : !isProduction
-                  ? verifyCopy.developmentDescription
-                  : verifyCopy.missingServiceDescription
-        }
-      />
+      <div role='status' aria-live='polite' aria-atomic='true'>
+        <AuthPageHeader
+          eyebrow={verifyCopy.eyebrow}
+          title={isVerified ? verifyCopy.verifiedTitle : verifyCopy.pendingTitle}
+          description={
+            isVerified
+              ? verifyCopy.verifiedDescription
+              : !isEmailVerificationEnabled
+                ? verifyCopy.disabledDescription
+                : hasEmailService
+                  ? formatTemplate(verifyCopy.codeSent, {
+                      email: email || verifyCopy.yourEmail,
+                    })
+                  : !isProduction
+                    ? verifyCopy.developmentDescription
+                    : verifyCopy.missingServiceDescription
+          }
+        />
+      </div>
 
       {!isVerified && isEmailVerificationEnabled && (
         <div className={`${inter.className} mt-8 space-y-8`}>
@@ -101,11 +104,17 @@ function VerificationForm({
             </p>
 
             <div className='flex justify-center'>
+              <Label htmlFor='verification-code' className='sr-only'>
+                {verifyCopy.codeLabel}
+              </Label>
               <InputOTP
+                id='verification-code'
                 maxLength={6}
                 value={otp}
                 onChange={handleOtpChange}
                 disabled={isLoading}
+                aria-invalid={isInvalidOtp}
+                aria-errormessage={isInvalidOtp ? 'verification-code-error' : undefined}
                 className={cn('gap-2', isInvalidOtp && 'otp-error')}
               >
                 <InputOTPGroup className='[&>div]:!rounded-md gap-2'>
@@ -167,9 +176,15 @@ function VerificationForm({
               </InputOTP>
             </div>
 
-            {errorMessage && (
+            {failureMessage && (
               <div className='mt-1 space-y-1 text-center text-red-400 text-xs'>
-                <p>{errorMessage}</p>
+                <p
+                  id={isInvalidOtp ? 'verification-code-error' : undefined}
+                  role='alert'
+                  aria-atomic='true'
+                >
+                  {failureMessage}
+                </p>
               </div>
             )}
           </div>

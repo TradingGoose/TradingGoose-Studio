@@ -74,9 +74,7 @@ function expandToHash(hash: string) {
     const accordionValue = el.getAttribute('data-accordion-value')
     if (accordionValue) {
       // This IS the accordion header — find and click its trigger
-      const trigger = el.querySelector<HTMLButtonElement>(
-        'button[data-radix-collection-item]'
-      )
+      const trigger = el.querySelector<HTMLButtonElement>('button[data-radix-collection-item]')
       if (trigger && trigger.getAttribute('data-state') === 'closed') {
         trigger.click()
         setTimeout(() => {

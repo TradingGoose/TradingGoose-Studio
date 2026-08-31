@@ -184,7 +184,7 @@ export const createAttachmentControllerTargetResolvers = ({
       const runtime = resolveIndicatorRuntimeForId(requestedIndicatorId)
       if (!runtime) return null
       const { indicatorId, runtimeEntry } = runtime
-      if (runtimeEntry.errorMessage) return null
+      if (runtimeEntry.executionFailure) return null
 
       const mainPaneIndex = (() => {
         try {

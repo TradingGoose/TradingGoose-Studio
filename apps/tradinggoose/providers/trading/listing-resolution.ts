@@ -1,16 +1,17 @@
 import {
   type ListingIdentity,
   type ListingInputValue,
-  type ListingOption,
+  type ListingResolved,
   type ListingType,
   toListingValueObject,
 } from '@/lib/listing/identity'
+import { type MarketListingSearchRow, normalizeResolvedListings } from '@/lib/listing/search'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 import { getBaseUrl } from '@/lib/urls/utils'
 import type { AssetClass } from '@/providers/market/types'
 
 type MarketSearchResponse = {
-  data?: ListingOption[] | ListingOption | null
+  data?: MarketListingSearchRow[] | MarketListingSearchRow | null
   error?: string
 }
 
@@ -90,23 +91,18 @@ const getListingQuoteCode = (
   return normalizeCode(listing.quote_id)
 }
 
-const readSearchRows = (payload: MarketSearchResponse): ListingOption[] => {
-  if (!payload.data) return []
-  return Array.isArray(payload.data) ? payload.data : [payload.data]
-}
-
 const matchesTradingSymbol = ({
   row,
   listingType,
   baseCode,
   quoteCode,
 }: {
-  row: ListingOption
+  row: ListingResolved
   listingType: ListingType
   baseCode: string
   quoteCode?: string | null
 }) => {
-  if (row.listing_type !== listingType) return false
+  if (row.listingIdentity.listing_type !== listingType) return false
   if (normalizeCode(row.base) !== baseCode) return false
   if (quoteCode && normalizeCode(row.quote) !== quoteCode) return false
   return true
@@ -148,10 +144,10 @@ const fetchCanonicalListing = async ({
   if (!response.ok) return null
 
   const payload = (await response.json().catch(() => ({}))) as MarketSearchResponse
-  const row = readSearchRows(payload).find((candidate) =>
+  const row = normalizeResolvedListings(payload).find((candidate) =>
     matchesTradingSymbol({ row: candidate, listingType, baseCode, quoteCode })
   )
-  return row ? toListingValueObject(row) : null
+  return row?.listingIdentity ?? null
 }
 
 export async function resolveTradingListingIdentity(

@@ -2,6 +2,7 @@ export interface AdminBillingTierSnapshot {
   id: string
   displayName: string
   description: string
+  accessCode: string | null
   status: 'active' | 'draft' | 'archived'
   ownerType: 'user' | 'organization'
   usageScope: 'individual' | 'pooled'
@@ -11,6 +12,7 @@ export interface AdminBillingTierSnapshot {
   includedUsageLimitUsd: number | null
   storageLimitGb: number | null
   concurrencyLimit: number | null
+  workflowExecutionTimeLimitSeconds: number | null
   seatCount: number | null
   seatMaximum: number | null
   stripeMonthlyPriceId: string | null

@@ -5,9 +5,7 @@
 import {
   act,
   type ButtonHTMLAttributes,
-  Children,
   cloneElement,
-  isValidElement,
   type MouseEvent,
   type ReactElement,
   type ReactNode,
@@ -15,6 +13,12 @@ import {
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { MarketListingRowProps } from '@/components/listing-selector/listing/row'
+import {
+  getListingIdentityKey,
+  type ListingIdentity,
+  type ListingResolved,
+} from '@/lib/listing/identity'
 import type { WatchlistListingItem, WatchlistRecord } from '@/lib/watchlists/types'
 import {
   createWatchlistContainerSortableId,
@@ -25,7 +29,7 @@ import { WatchlistTable } from '@/widgets/widgets/watchlist/components/watchlist
 
 const mockDragActivation = vi.fn()
 const mockSortableRender = vi.fn()
-const mockResolveListing = vi.fn()
+const mockUseResolvedListings = vi.fn()
 const mockEnsureListingSelectorInstance = vi.fn()
 const mockUpdateListingSelectorInstance = vi.fn()
 const mockResetListingSelectorInstance = vi.fn()
@@ -37,17 +41,20 @@ type SortableDragEvent = {
 }
 
 vi.mock('@/components/listing-selector/listing/row', () => ({
-  getListingPrimary: (listing: { name?: string; listing_id?: string }) =>
-    listing.name ?? listing.listing_id ?? 'Listing',
+  getListingPrimary: (listing: ListingResolved) =>
+    listing.name ?? listing.listingIdentity.listing_id ?? 'Listing',
   MarketListingRow: ({
     listing,
+    placeholderTitle,
+    placeholderSubtitle,
     className,
-  }: {
-    listing: { name?: string; listing_id?: string }
-    className?: string
-  }) => (
-    <div data-testid='market-listing-row' className={className}>
-      {listing.name ?? listing.listing_id ?? 'Listing'}
+  }: MarketListingRowProps) => (
+    <div
+      data-testid='market-listing-row'
+      data-placeholder-subtitle={placeholderSubtitle}
+      className={className}
+    >
+      {listing?.name ?? listing?.listingIdentity.listing_id ?? placeholderTitle ?? 'Listing'}
     </div>
   ),
 }))
@@ -60,13 +67,7 @@ vi.mock('@/components/listing-selector/selector/input', () => ({
   }: {
     instanceId: string
     activateOnMount?: boolean
-    onListingChange?: (listing: {
-      listing_id: string
-      base_id: string
-      quote_id: string
-      listing_type: 'default'
-      name?: string
-    }) => void
+    onListingChange?: (listing: ListingResolved | null) => void
   }) => {
     mockStockSelectorRender({ instanceId, activateOnMount })
     return (
@@ -79,10 +80,13 @@ vi.mock('@/components/listing-selector/selector/input', () => ({
           data-testid={`stock-selector-select-${instanceId}`}
           onClick={() =>
             onListingChange?.({
-              listing_id: 'eth-id',
-              base_id: '',
-              quote_id: '',
-              listing_type: 'default',
+              listingIdentity: {
+                listing_id: 'eth-id',
+                base_id: '',
+                quote_id: '',
+                listing_type: 'default',
+              },
+              base: 'ETH',
               name: 'ETH',
             })
           }
@@ -94,8 +98,8 @@ vi.mock('@/components/listing-selector/selector/input', () => ({
   },
 }))
 
-vi.mock('@/components/listing-selector/selector/resolve-request', () => ({
-  requestListingResolution: (...args: unknown[]) => mockResolveListing(...args),
+vi.mock('@/hooks/queries/listing-resolution', () => ({
+  useResolvedListings: (...args: unknown[]) => mockUseResolvedListings(...args),
 }))
 
 vi.mock('@/stores/market/selector/store', () => ({
@@ -120,22 +124,19 @@ vi.mock('@/components/ui/sortable', () => ({
   },
   SortableContent: ({ children, withoutSlot }: { children: ReactNode; withoutSlot?: boolean }) =>
     withoutSlot ? <>{children}</> : <div>{children}</div>,
-  SortableItem: ({ children, asChild }: { children: ReactNode; asChild?: boolean }) => {
-    if (!asChild) {
+  SortableItem: ({ children, render }: { children: ReactNode; render?: ReactElement }) => {
+    if (!render) {
       return <div>{children}</div>
     }
 
-    const child = Children.only(children)
-    if (!isValidElement(child)) {
-      return child
-    }
-
-    const element = child as ReactElement<{
+    const element = render as ReactElement<{
+      children?: ReactNode
       onMouseDown?: (event: MouseEvent<HTMLElement>) => void
       onTouchStart?: (event: TouchEvent<HTMLElement>) => void
     }>
 
     return cloneElement(element, {
+      children,
       onMouseDown: (event) => {
         element.props.onMouseDown?.(event)
         if (!event.isPropagationStopped()) {
@@ -155,11 +156,6 @@ vi.mock('@/components/ui/sortable', () => ({
 vi.mock('@/components/ui/alert-dialog', () => ({
   AlertDialog: ({ open, children }: { open: boolean; children: ReactNode }) =>
     open ? <div>{children}</div> : null,
-  AlertDialogAction: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button data-testid='confirm-delete-section' type='button' {...props}>
-      {children}
-    </button>
-  ),
   AlertDialogCancel: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button type='button' {...props}>
       {children}
@@ -256,7 +252,7 @@ describe('WatchlistTable section interactions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mockResolveListing.mockResolvedValue(null)
+    mockUseResolvedListings.mockReturnValue({ data: {} })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -374,6 +370,7 @@ describe('WatchlistTable section interactions', () => {
     expect(marketListingRow?.className).not.toContain('pl-6')
     expect(marketListingRow?.className).not.toContain('border')
     expect(marketListingRow?.className).not.toContain('rounded')
+    expect(marketListingRow?.getAttribute('data-placeholder-subtitle')).toBe('—')
     expect(bodyRows.findIndex((row) => row.includes('Section 1'))).toBeLessThan(
       bodyRows.findIndex((row) => row.includes('ROOT'))
     )
@@ -484,7 +481,9 @@ describe('WatchlistTable section interactions', () => {
 
     expect(container.textContent).toContain('Delete section?')
 
-    const confirmButton = container.querySelector('[data-testid="confirm-delete-section"]')
+    const confirmButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button !== deleteButton && button.textContent?.trim() === 'Delete section'
+    )
 
     await act(async () => {
       confirmButton?.dispatchEvent(
@@ -571,6 +570,10 @@ describe('WatchlistTable section interactions', () => {
       instanceId: 'watchlist-listing-editor-listing-1',
       activateOnMount: true,
     })
+    expect(mockUpdateListingSelectorInstance).toHaveBeenCalledWith(
+      'watchlist-listing-editor-listing-1',
+      expect.objectContaining({ query: 'BTC' })
+    )
 
     const selectButton = container.querySelector(
       '[data-testid="stock-selector-select-watchlist-listing-editor-listing-1"]'
@@ -632,21 +635,18 @@ describe('WatchlistTable section interactions', () => {
   })
 
   it('re-resolves and renders the updated listing when a persisted item changes to a new symbol', async () => {
-    mockResolveListing
-      .mockResolvedValueOnce({
-        listing_id: 'BTC',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-        name: 'Bitcoin',
-      })
-      .mockResolvedValueOnce({
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-        name: 'Apple',
-      })
+    mockUseResolvedListings.mockImplementation(({ listings }: { listings: ListingIdentity[] }) => ({
+      data: Object.fromEntries(
+        listings.map((identity) => [
+          getListingIdentityKey(identity),
+          {
+            listingIdentity: identity,
+            base: identity.listing_id,
+            name: identity.listing_id === 'AAPL' ? 'Apple' : 'Bitcoin',
+          },
+        ])
+      ),
+    }))
 
     await renderTable()
 
@@ -672,7 +672,9 @@ describe('WatchlistTable section interactions', () => {
     })
 
     await vi.waitFor(() => {
-      expect(mockResolveListing).toHaveBeenCalledTimes(2)
+      expect(mockUseResolvedListings).toHaveBeenCalledWith({
+        listings: [expect.objectContaining({ listing_id: 'AAPL' })],
+      })
       expect(container.textContent).toContain('Apple')
       expect(container.textContent).not.toContain('Bitcoin')
     })

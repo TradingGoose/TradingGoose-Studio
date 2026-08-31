@@ -1,8 +1,10 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  mutationOptions,
+  type QueryClient,
+  useQuery,
+} from '@tanstack/react-query'
 import { isHosted } from '@/lib/environment'
-import { createLogger } from '@/lib/logs/console/logger'
-
-const logger = createLogger('ServiceKeysQuery')
 
 export type ServiceKeyKind = 'copilot' | 'market'
 
@@ -11,7 +13,7 @@ export interface ServiceApiKey {
   displayKey: string
 }
 
-export interface GenerateServiceKeyResponse {
+interface GenerateServiceKeyResponse {
   success: boolean
   key: {
     id: string
@@ -29,7 +31,7 @@ const SERVICE_API_PATHS: Record<ServiceKeyKind, string> = {
   market: '/api/market/api-keys',
 }
 
-export const serviceKeysKeys = {
+const serviceKeysKeys = {
   all: ['serviceKeys'] as const,
   keys: (service: ServiceKeyKind) => [...serviceKeysKeys.all, service, 'api-keys'] as const,
 }
@@ -55,77 +57,61 @@ export function useServiceKeys(service: ServiceKeyKind) {
   })
 }
 
-export function useGenerateServiceKey(service: ServiceKeyKind) {
-  const queryClient = useQueryClient()
+export const serviceKeyMutationOptions = {
+  generate(queryClient: QueryClient, service: ServiceKeyKind) {
+    return mutationOptions({
+      mutationFn: async (): Promise<GenerateServiceKeyResponse> => {
+        const response = await fetch(`${SERVICE_API_PATHS[service]}/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
 
-  return useMutation({
-    mutationFn: async (): Promise<GenerateServiceKeyResponse> => {
-      const response = await fetch(`${SERVICE_API_PATHS[service]}/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || `Failed to generate ${SERVICE_LABELS[service]} API key`)
+        }
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || `Failed to generate ${SERVICE_LABELS[service]} API key`)
-      }
+        return response.json()
+      },
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: serviceKeysKeys.keys(service) }),
+    })
+  },
 
-      return response.json()
-    },
-    onSuccess: () => {
-      queryClient.refetchQueries({
-        queryKey: serviceKeysKeys.keys(service),
-        type: 'active',
-      })
-    },
-    onError: (error) => {
-      logger.error(`Failed to generate ${SERVICE_LABELS[service]} API key`, error)
-    },
-  })
-}
+  delete(queryClient: QueryClient, service: ServiceKeyKind) {
+    return mutationOptions({
+      mutationFn: async ({ keyId }: { keyId: string }) => {
+        const response = await fetch(`${SERVICE_API_PATHS[service]}?id=${keyId}`, {
+          method: 'DELETE',
+        })
 
-interface DeleteKeyParams {
-  keyId: string
-}
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || `Failed to delete ${SERVICE_LABELS[service]} API key`)
+        }
 
-export function useDeleteServiceKey(service: ServiceKeyKind) {
-  const queryClient = useQueryClient()
+        return response.json()
+      },
+      onMutate: async ({ keyId }) => {
+        await queryClient.cancelQueries({ queryKey: serviceKeysKeys.keys(service) })
 
-  return useMutation({
-    mutationFn: async ({ keyId }: DeleteKeyParams) => {
-      const response = await fetch(`${SERVICE_API_PATHS[service]}?id=${keyId}`, {
-        method: 'DELETE',
-      })
+        const previousKeys = queryClient.getQueryData<ServiceApiKey[]>(
+          serviceKeysKeys.keys(service)
+        )
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || `Failed to delete ${SERVICE_LABELS[service]} API key`)
-      }
+        queryClient.setQueryData<ServiceApiKey[]>(serviceKeysKeys.keys(service), (old) => {
+          return old?.filter((key) => key.id !== keyId) || []
+        })
 
-      return response.json()
-    },
-    onMutate: async ({ keyId }) => {
-      await queryClient.cancelQueries({ queryKey: serviceKeysKeys.keys(service) })
-
-      const previousKeys = queryClient.getQueryData<ServiceApiKey[]>(serviceKeysKeys.keys(service))
-
-      queryClient.setQueryData<ServiceApiKey[]>(serviceKeysKeys.keys(service), (old) => {
-        return old?.filter((key) => key.id !== keyId) || []
-      })
-
-      return { previousKeys }
-    },
-    onError: (error, _variables, context) => {
-      if (context?.previousKeys) {
-        queryClient.setQueryData(serviceKeysKeys.keys(service), context.previousKeys)
-      }
-
-      logger.error(`Failed to delete ${SERVICE_LABELS[service]} API key`, error)
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: serviceKeysKeys.keys(service) })
-    },
-  })
+        return { previousKeys }
+      },
+      onError: (_error, _variables, context) => {
+        if (context?.previousKeys) {
+          queryClient.setQueryData(serviceKeysKeys.keys(service), context.previousKeys)
+        }
+      },
+      onSettled: () => queryClient.invalidateQueries({ queryKey: serviceKeysKeys.keys(service) }),
+    })
+  },
 }

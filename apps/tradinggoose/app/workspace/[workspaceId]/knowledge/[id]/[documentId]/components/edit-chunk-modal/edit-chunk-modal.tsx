@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertCircle, ChevronDown, ChevronUp, Loader2, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,12 +19,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useTranslations } from 'next-intl'
+import { MAX_CHUNK_CONTENT_LENGTH } from '@/lib/knowledge/chunks/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { ChunkData, DocumentData } from '@/stores/knowledge/store'
 
 const logger = createLogger('EditChunkModal')
+const CONTENT_ID = 'edit-chunk-content'
+const CONTENT_CONSTRAINT_ID = 'edit-chunk-content-constraint'
+const SUBMISSION_FAILURE_ID = 'edit-chunk-failure'
+
+type EditChunkFailure = {
+  kind: 'navigation' | 'submission'
+  message: string
+}
 
 interface EditChunkModalProps {
   chunk: ChunkData | null
@@ -57,7 +67,7 @@ export function EditChunkModal({
   const [editedContent, setEditedContent] = useState(chunk?.content || '')
   const [isSaving, setIsSaving] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [failure, setFailure] = useState<EditChunkFailure | null>(null)
   const [showUnsavedChangesAlert, setShowUnsavedChangesAlert] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
 
@@ -66,10 +76,11 @@ export function EditChunkModal({
 
   // Update edited content when chunk changes
   useEffect(() => {
-    if (chunk?.content) {
-      setEditedContent(chunk.content)
-    }
-  }, [chunk?.id, chunk?.content])
+    setEditedContent(chunk?.content ?? '')
+    setFailure(null)
+    setPendingNavigation(null)
+    setShowUnsavedChangesAlert(false)
+  }, [chunk?.id, chunk?.content, isOpen])
 
   // Find current chunk index in the current page
   const currentChunkIndex = chunk ? allChunks.findIndex((c) => c.id === chunk.id) : -1
@@ -77,13 +88,25 @@ export function EditChunkModal({
   // Calculate navigation availability
   const canNavigatePrev = currentChunkIndex > 0 || currentPage > 1
   const canNavigateNext = currentChunkIndex < allChunks.length - 1 || currentPage < totalPages
+  const contentConstraint = !userPermissions.canEdit
+    ? null
+    : editedContent.trim().length === 0
+      ? t('contentConstraints.required')
+      : editedContent.length > MAX_CHUNK_CONTENT_LENGTH
+        ? t('contentConstraints.maxLength', { max: MAX_CHUNK_CONTENT_LENGTH })
+        : null
+  const contentDescriptionId = contentConstraint
+    ? CONTENT_CONSTRAINT_ID
+    : failure?.kind === 'submission'
+      ? SUBMISSION_FAILURE_ID
+      : undefined
 
   const handleSaveContent = async () => {
-    if (!chunk || !document) return
+    if (!chunk || !document || contentConstraint) return
 
     try {
       setIsSaving(true)
-      setError(null)
+      setFailure(null)
 
       const response = await fetch(
         `/api/knowledge/${knowledgeBaseId}/documents/${document.id}/chunks/${chunk.id}`,
@@ -100,17 +123,23 @@ export function EditChunkModal({
 
       if (!response.ok) {
         const result = await response.json()
-        throw new Error(result.error || t('errors.failedToUpdateChunk'))
+        throw new Error(result.error || t('failures.failedToUpdateChunk'))
       }
 
       const result = await response.json()
 
-      if (result.success && onChunkUpdate) {
-        onChunkUpdate(result.data)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || t('failures.failedToUpdateChunk'))
       }
+
+      onChunkUpdate?.(result.data)
+      setFailure(null)
     } catch (err) {
       logger.error('Error updating chunk:', err)
-      setError(err instanceof Error ? err.message : t('errors.generic'))
+      setFailure({
+        kind: 'submission',
+        message: err instanceof Error ? err.message : t('failures.generic'),
+      })
     } finally {
       setIsSaving(false)
     }
@@ -121,6 +150,7 @@ export function EditChunkModal({
 
     try {
       setIsNavigating(true)
+      setFailure(null)
 
       if (direction === 'prev') {
         if (currentChunkIndex > 0) {
@@ -143,9 +173,13 @@ export function EditChunkModal({
       }
     } catch (err) {
       logger.error(`Error navigating ${direction}:`, err)
-      setError(
-        direction === 'prev' ? t('errors.failedToNavigatePrev') : t('errors.failedToNavigateNext')
-      )
+      setFailure({
+        kind: 'navigation',
+        message:
+          direction === 'prev'
+            ? t('failures.failedToNavigatePrev')
+            : t('failures.failedToNavigateNext'),
+      })
     } finally {
       setIsNavigating(false)
     }
@@ -161,12 +195,15 @@ export function EditChunkModal({
   }
 
   const handleCloseAttempt = () => {
-    if (hasUnsavedChanges && !isSaving) {
+    if (isSaving || isNavigating) return false
+
+    if (hasUnsavedChanges) {
       setPendingNavigation(null)
       setShowUnsavedChangesAlert(true)
-    } else {
-      onClose()
+      return false
     }
+    resetAndClose()
+    return true
   }
 
   const handleConfirmDiscard = () => {
@@ -175,17 +212,31 @@ export function EditChunkModal({
       void pendingNavigation()
       setPendingNavigation(null)
     } else {
-      onClose()
+      resetAndClose()
     }
   }
 
-  const isFormValid = editedContent.trim().length > 0 && editedContent.trim().length <= 10000
+  const isFormValid = contentConstraint === null
+
+  function resetAndClose() {
+    setEditedContent(chunk?.content ?? '')
+    setFailure(null)
+    setPendingNavigation(null)
+    setShowUnsavedChangesAlert(false)
+    onClose()
+  }
 
   if (!chunk || !document) return null
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={handleCloseAttempt}>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(nextOpen, details) => {
+          if (nextOpen) return
+          if (!handleCloseAttempt()) details.cancel()
+        }}
+      >
         <DialogContent
           className='flex h-[74vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[600px]'
           hideCloseButton
@@ -199,20 +250,21 @@ export function EditChunkModal({
                 <div className='flex items-center gap-1'>
                   <Tooltip>
                     <TooltipTrigger
-                      asChild
                       onFocus={(e) => e.preventDefault()}
                       onBlur={(e) => e.preventDefault()}
-                    >
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => handleNavigate('prev')}
-                        disabled={!canNavigatePrev || isNavigating || isSaving}
-                        className='h-8 w-8 p-0'
-                      >
-                        <ChevronUp className='h-4 w-4' />
-                      </Button>
-                    </TooltipTrigger>
+                      render={
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          aria-label={t('previousChunk')}
+                          onClick={() => handleNavigate('prev')}
+                          disabled={!canNavigatePrev || isNavigating || isSaving}
+                          className='h-8 w-8 p-0'
+                        >
+                          <ChevronUp className='h-4 w-4' />
+                        </Button>
+                      }
+                    />
                     <TooltipContent side='bottom'>
                       {t('previousChunk')}{' '}
                       {currentPage > 1 && currentChunkIndex === 0 ? `(${t('previousPage')})` : ''}
@@ -221,20 +273,21 @@ export function EditChunkModal({
 
                   <Tooltip>
                     <TooltipTrigger
-                      asChild
                       onFocus={(e) => e.preventDefault()}
                       onBlur={(e) => e.preventDefault()}
-                    >
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => handleNavigate('next')}
-                        disabled={!canNavigateNext || isNavigating || isSaving}
-                        className='h-8 w-8 p-0'
-                      >
-                        <ChevronDown className='h-4 w-4' />
-                      </Button>
-                    </TooltipTrigger>
+                      render={
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          aria-label={t('nextChunk')}
+                          onClick={() => handleNavigate('next')}
+                          disabled={!canNavigateNext || isNavigating || isSaving}
+                          className='h-8 w-8 p-0'
+                        >
+                          <ChevronDown className='h-4 w-4' />
+                        </Button>
+                      }
+                    />
                     <TooltipContent side='bottom'>
                       {t('nextChunk')}{' '}
                       {currentPage < totalPages && currentChunkIndex === allChunks.length - 1
@@ -250,6 +303,7 @@ export function EditChunkModal({
                 size='icon'
                 className='h-8 w-8 p-0'
                 onClick={handleCloseAttempt}
+                disabled={isSaving || isNavigating}
               >
                 <X className='h-4 w-4' />
                 <span className='sr-only'>{t('close')}</span>
@@ -273,31 +327,44 @@ export function EditChunkModal({
                     </div>
                   </div>
 
-                  {/* Error Display */}
-                  {error && (
-                    <div className='flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-3'>
-                      <AlertCircle className='h-4 w-4 text-red-600' />
-                      <p className='text-red-800 text-sm'>{error}</p>
-                    </div>
-                  )}
+                  {failure ? (
+                    <Alert variant='destructive' aria-atomic='true'>
+                      <AlertDescription
+                        id={failure.kind === 'submission' ? SUBMISSION_FAILURE_ID : undefined}
+                      >
+                        {failure.message}
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
                 </div>
 
                 {/* Content Input Section - Expands to fill remaining space */}
                 <div className='mt-4 flex flex-1 flex-col'>
-                  <Label htmlFor='content' className='mb-2 font-medium text-sm'>
+                  <Label htmlFor={CONTENT_ID} className='mb-2 font-medium text-sm'>
                     {t('chunkContent')}
                   </Label>
                   <Textarea
-                    id='content'
+                    id={CONTENT_ID}
                     value={editedContent}
-                    onChange={(e) => setEditedContent(e.target.value)}
+                    onChange={(event) => {
+                      setEditedContent(event.target.value)
+                      setFailure(null)
+                    }}
                     placeholder={
                       userPermissions.canEdit ? t('chunkContentPlaceholder') : t('readOnlyView')
                     }
                     className='flex-1 resize-none'
                     disabled={isSaving || isNavigating || !userPermissions.canEdit}
                     readOnly={!userPermissions.canEdit}
+                    required={userPermissions.canEdit}
+                    aria-invalid={contentConstraint ? 'true' : undefined}
+                    aria-describedby={contentDescriptionId}
                   />
+                  {contentConstraint ? (
+                    <p id={CONTENT_CONSTRAINT_ID} className='mt-2 text-destructive text-xs'>
+                      {contentConstraint}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -326,7 +393,7 @@ export function EditChunkModal({
                     ) : (
                       t('saveChanges')
                     )}
-                </Button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -340,7 +407,9 @@ export function EditChunkModal({
           <AlertDialogHeader>
             <AlertDialogTitle>{t('unsavedChangesTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingNavigation ? t('unsavedChangesDescriptionNavigate') : t('unsavedChangesDescriptionClose')}
+              {pendingNavigation
+                ? t('unsavedChangesDescriptionNavigate')
+                : t('unsavedChangesDescriptionClose')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

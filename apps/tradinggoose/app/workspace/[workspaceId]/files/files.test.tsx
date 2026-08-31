@@ -74,7 +74,7 @@ vi.mock('@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 }))
 
 vi.mock('@/components/ui', () => ({
-  Alert: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Alert: ({ children }: { children?: React.ReactNode }) => <div role='alert'>{children}</div>,
   AlertDescription: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   AlertDialog: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   AlertDialogCancel: ({ children }: { children?: React.ReactNode }) => <button>{children}</button>,
@@ -83,11 +83,7 @@ vi.mock('@/components/ui', () => ({
   AlertDialogFooter: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   AlertDialogHeader: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   AlertDialogTitle: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  Button: ({
-    children,
-    onClick,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+  Button: ({ children, onClick, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button onClick={onClick} {...props}>
       {children}
     </button>
@@ -98,13 +94,7 @@ vi.mock('@/components/ui', () => ({
 }))
 
 vi.mock('@/global-navbar', () => ({
-  GlobalNavbarHeader: ({
-    left,
-    right,
-  }: {
-    left?: React.ReactNode
-    right?: React.ReactNode
-  }) => (
+  GlobalNavbarHeader: ({ left, right }: { left?: React.ReactNode; right?: React.ReactNode }) => (
     <div data-testid='global-navbar-header'>
       <div>{left}</div>
       <div>{right}</div>
@@ -196,5 +186,29 @@ describe('WorkspaceFiles table headers', () => {
     expect(headerRowText).toContain('Size')
     expect(headerRowText).toContain('Uploaded')
     expect(headerRowText).toContain('Actions')
+  })
+
+  it('renders the existing upload failure through one alert', async () => {
+    const managerState = mockUseWorkspaceFilesManager()
+    mockUseWorkspaceFilesManager.mockReturnValue({
+      ...managerState,
+      uploadError: 'Upload failed',
+    })
+
+    await act(async () => {
+      await renderWorkspaceFiles(root, 'en')
+    })
+
+    const alerts = container.querySelectorAll('[role="alert"]')
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0]?.textContent).toContain('Upload failed')
+  })
+
+  it('does not render an alert without an upload failure', async () => {
+    await act(async () => {
+      await renderWorkspaceFiles(root, 'en')
+    })
+
+    expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 })

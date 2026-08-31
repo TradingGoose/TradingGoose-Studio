@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseListingFilters, serializeWorkflowLog } from './log-utils'
+import { matchesWorkflowLogFilters, parseListingFilters, serializeWorkflowLog } from './log-utils'
 
 const buildRow = (overrides: Record<string, unknown> = {}) =>
   ({
@@ -87,13 +87,12 @@ describe('serializeWorkflowLog executionData', () => {
                 providerId: 'alpaca',
                 interval: '1m',
                 indicatorId: 'rsi',
+                assetType: 'stock',
                 listing: {
                   listing_type: 'default',
                   listing_id: 'AAPL',
                   base_id: '',
                   quote_id: '',
-                  assetClass: 'stock',
-                  name: 'Apple Inc.',
                 },
               },
             },
@@ -111,14 +110,18 @@ describe('serializeWorkflowLog executionData', () => {
           providerId: 'alpaca',
           interval: '1m',
           indicatorId: 'rsi',
+          assetType: 'stock',
           listing: {
             listing_type: 'default',
             listing_id: 'AAPL',
-            assetClass: 'stock',
+            base_id: '',
+            quote_id: '',
           },
         },
       },
     })
+    expect(matchesWorkflowLogFilters(log, { assetTypes: ['stock'] })).toBe(true)
+    expect(matchesWorkflowLogFilters(log, { assetTypes: ['default'] })).toBe(false)
   })
 
   it('omits executionData for basic responses and non-record full-detail rows', () => {
@@ -182,8 +185,8 @@ describe('parseListingFilters', () => {
     expect(
       parseListingFilters(
         JSON.stringify([
-          { listing_type: 'default', listing_id: 'AAPL' },
-          { listing_type: 'crypto', base_id: 'BTC', quote_id: 'USD' },
+          { listing_type: 'default', listing_id: 'AAPL', base_id: '', quote_id: '' },
+          { listing_type: 'crypto', listing_id: '', base_id: 'BTC', quote_id: 'USD' },
         ])
       )
     ).toEqual([

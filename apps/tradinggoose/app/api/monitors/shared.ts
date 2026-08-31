@@ -14,9 +14,10 @@ import {
 } from '@/lib/indicators/monitor-config'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import type { InputMetaMap } from '@/lib/indicators/types'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import {
   type PortfolioMonitorProviderConfig,
+  PortfolioMonitorProviderConfigSchema,
   toPublicPortfolioMonitorProviderConfig,
 } from '@/lib/monitors/portfolio-config'
 import {
@@ -27,7 +28,6 @@ import {
   MONITOR_WEBHOOK_PROVIDERS,
   type MonitorTriggerId,
   type MonitorWebhookProvider,
-  PORTFOLIO_MONITOR_PROVIDER,
 } from '@/lib/monitors/sources'
 import {
   authorizeTradingConnectionRequest,
@@ -323,16 +323,17 @@ const parseIndicatorProviderConfig = (
   if (!isMonitorProviderConfigForProvider(providerConfig, INDICATOR_MONITOR_PROVIDER)) {
     throw new Error('Invalid monitor provider config.')
   }
-  return providerConfig as IndicatorMonitorProviderConfig
+  const listing = ListingIdentitySchema.parse(providerConfig.monitor.listing)
+  return {
+    ...providerConfig,
+    monitor: { ...providerConfig.monitor, listing },
+  } as IndicatorMonitorProviderConfig
 }
 
 const parsePortfolioProviderConfig = (
   providerConfig: WebhookRow['providerConfig']
 ): PortfolioMonitorProviderConfig => {
-  if (!isMonitorProviderConfigForProvider(providerConfig, PORTFOLIO_MONITOR_PROVIDER)) {
-    throw new Error('Invalid monitor provider config.')
-  }
-  return providerConfig as PortfolioMonitorProviderConfig
+  return PortfolioMonitorProviderConfigSchema.parse(providerConfig)
 }
 
 const getTriggerBlockIdFromMonitorConfig = (
@@ -343,16 +344,9 @@ const getTriggerBlockIdFromMonitorConfig = (
   return toTrimmedString(providerConfig.monitor.triggerBlockId)
 }
 
-const toIndicatorProviderRecord = async (webhookRow: WebhookRow) => {
+const toIndicatorProviderRecord = (webhookRow: WebhookRow) => {
   const providerConfig = parseIndicatorProviderConfig(webhookRow.providerConfig)
   const publicProviderConfig = toPublicIndicatorMonitorProviderConfig(providerConfig)
-  const resolvedListing = await resolveListingIdentity(publicProviderConfig.monitor.listing).catch(
-    () => null
-  )
-  const listingForResponse = (() => {
-    if (!resolvedListing) return publicProviderConfig.monitor.listing
-    return resolvedListing
-  })()
 
   return {
     monitorId: webhookRow.id,
@@ -360,19 +354,13 @@ const toIndicatorProviderRecord = async (webhookRow: WebhookRow) => {
     workflowId: webhookRow.workflowId,
     blockId: providerConfig.monitor.triggerBlockId,
     isActive: webhookRow.isActive,
-    providerConfig: {
-      ...publicProviderConfig,
-      monitor: {
-        ...publicProviderConfig.monitor,
-        listing: listingForResponse,
-      },
-    },
+    providerConfig: publicProviderConfig,
     createdAt: webhookRow.createdAt.toISOString(),
     updatedAt: webhookRow.updatedAt.toISOString(),
   }
 }
 
-export const toMonitorRecord = async (webhookRow: WebhookRow) => {
+export const toMonitorRecord = (webhookRow: WebhookRow) => {
   if (!isMonitorProvider(webhookRow.provider)) {
     throw new Error('Unsupported monitor provider.')
   }

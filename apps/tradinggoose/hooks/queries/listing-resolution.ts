@@ -4,7 +4,6 @@ import {
   getListingIdentityKey,
   type ListingIdentity,
   type ListingResolved,
-  toListingValueObject,
 } from '@/lib/listing/identity'
 import { resolveListingIdentities } from '@/lib/listing/resolve'
 
@@ -19,12 +18,10 @@ export const useResolvedListings = ({ listings, enabled = true }: UseResolvedLis
     const next: ListingIdentity[] = []
 
     for (const listing of listings) {
-      const normalized = toListingValueObject(listing)
-      if (!normalized) continue
-      const key = getListingIdentityKey(normalized)
+      const key = getListingIdentityKey(listing)
       if (seen.has(key)) continue
       seen.add(key)
-      next.push(normalized)
+      next.push(listing)
     }
 
     return next

@@ -19,7 +19,7 @@ export function NavbarHeader({ workspaceName, brandName, pageTitle, pageIcon }: 
     slots?.left === undefined ? (
       <DefaultPageTitle title={pageTitle ?? workspaceName ?? brandName} icon={pageIcon} />
     ) : (
-      slots.left ?? null
+      (slots.left ?? null)
     )
 
   return (

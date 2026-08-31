@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { LogOut, UserX, X } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -13,8 +14,11 @@ interface TeamMembersProps {
   organization: Organization
   currentUserEmail: string
   isAdminOrOwner: boolean
+  actionsDisabled: boolean
+  pendingInvitationId?: string | null
+  error?: string | null
   onRemoveMember: (member: Member) => void
-  onCancelInvitation: (invitationId: string) => void
+  onCancelInvitation: (invitationId: string) => Promise<void>
 }
 
 interface BaseItem {
@@ -44,6 +48,9 @@ export function TeamMembers({
   organization,
   currentUserEmail,
   isAdminOrOwner,
+  actionsDisabled,
+  pendingInvitationId,
+  error,
   onRemoveMember,
   onCancelInvitation,
 }: TeamMembersProps) {
@@ -51,7 +58,6 @@ export function TeamMembers({
   const [memberUsageMode, setMemberUsageMode] = useState<MemberUsageMode>('individual')
   const [sharedUsageTotal, setSharedUsageTotal] = useState<number | null>(null)
   const [isLoadingUsage, setIsLoadingUsage] = useState(false)
-  const [cancellingInvitations, setCancellingInvitations] = useState<Set<string>>(new Set())
 
   // Fetch member usage data when organization changes and user is admin
   useEffect(() => {
@@ -162,20 +168,6 @@ export function TeamMembers({
   const canLeaveOrganization =
     currentUserMember && currentUserMember.role !== 'owner' && currentUserMember.user?.id
 
-  // Wrap onCancelInvitation to manage loading state
-  const handleCancelInvitation = async (invitationId: string) => {
-    setCancellingInvitations((prev) => new Set([...prev, invitationId]))
-    try {
-      await onCancelInvitation(invitationId)
-    } finally {
-      setCancellingInvitations((prev) => {
-        const next = new Set(prev)
-        next.delete(invitationId)
-        return next
-      })
-    }
-  }
-
   return (
     <div className='flex flex-col gap-4'>
       {/* Header - simple like account page */}
@@ -187,6 +179,12 @@ export function TeamMembers({
           </p>
         )}
       </div>
+
+      {error ? (
+        <Alert role='alert' variant='destructive'>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {/* Members list - clean like account page */}
       <div className='space-y-4'>
@@ -265,16 +263,19 @@ export function TeamMembers({
                 item.role !== 'owner' &&
                 item.email !== currentUserEmail && (
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        onClick={() => onRemoveMember(item.member)}
-                        className='h-8 w-8 rounded-sm p-0'
-                      >
-                        <UserX className='h-4 w-4' />
-                      </Button>
-                    </TooltipTrigger>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          onClick={() => onRemoveMember(item.member)}
+                          disabled={actionsDisabled}
+                          className='h-8 w-8 rounded-sm p-0'
+                        >
+                          <UserX className='h-4 w-4' />
+                        </Button>
+                      }
+                    />
                     <TooltipContent side='left'>Remove Member</TooltipContent>
                   </Tooltip>
                 )}
@@ -282,23 +283,27 @@ export function TeamMembers({
               {/* Admin can cancel invitations */}
               {isAdminOrOwner && item.type === 'invitation' && (
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => handleCancelInvitation(item.invitation.id)}
-                      disabled={cancellingInvitations.has(item.invitation.id)}
-                      className='h-8 w-8 rounded-sm p-0'
-                    >
-                      {cancellingInvitations.has(item.invitation.id) ? (
-                        <span className='h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent' />
-                      ) : (
-                        <X className='h-4 w-4' />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => void onCancelInvitation(item.invitation.id)}
+                        disabled={actionsDisabled}
+                        focusableWhenDisabled={pendingInvitationId === item.invitation.id}
+                        aria-busy={pendingInvitationId === item.invitation.id ? true : undefined}
+                        className='h-8 w-8 rounded-sm p-0'
+                      >
+                        {pendingInvitationId === item.invitation.id ? (
+                          <span className='h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent' />
+                        ) : (
+                          <X className='h-4 w-4' />
+                        )}
+                      </Button>
+                    }
+                  />
                   <TooltipContent side='left'>
-                    {cancellingInvitations.has(item.invitation.id)
+                    {pendingInvitationId === item.invitation.id
                       ? 'Cancelling...'
                       : 'Cancel Invitation'}
                   </TooltipContent>
@@ -315,6 +320,7 @@ export function TeamMembers({
           <Button
             variant='outline'
             size='default'
+            disabled={actionsDisabled}
             onClick={() => {
               if (!currentUserMember?.user?.id) {
                 logger.error('Cannot leave organization: missing user ID', { currentUserMember })

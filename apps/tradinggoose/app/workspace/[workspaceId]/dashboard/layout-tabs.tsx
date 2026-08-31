@@ -143,6 +143,9 @@ export function LayoutTabs({
                     <div className='inline-flex min-w-0 flex-1 items-center'>
                       <input
                         ref={inputRef}
+                        aria-label={formatTemplate(copy.workspace.layoutTabs.renameAriaLabel, {
+                          name: layout.name,
+                        })}
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
                         onBlur={() => commitEdit(layout)}
@@ -155,7 +158,7 @@ export function LayoutTabs({
                             cancelEdit()
                           }
                         }}
-                        className='h-6 w-full rounded-sm border border-border bg-muted/40 px-2 text-sm outline-none'
+                        className='h-6 w-full rounded-sm border border-border bg-muted/40 px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
                         disabled={controlsDisabled}
                         onPointerDownCapture={(event) => event.stopPropagation()}
                         autoComplete='off'
@@ -167,7 +170,7 @@ export function LayoutTabs({
                   ) : (
                     <button
                       type='button'
-                      className='inline-flex h-full min-w-0 flex-1 items-center pl-1 font-medium text-sm outline-none transition-colors'
+                      className='inline-flex h-full min-w-0 flex-1 items-center pl-1 font-medium text-sm transition-colors'
                       onClick={() => onSelect(layout.id)}
                       disabled={controlsDisabled}
                       tabIndex={-1}
@@ -180,6 +183,9 @@ export function LayoutTabs({
                   {editingId === layout.id ? (
                     <button
                       type='button'
+                      aria-label={formatTemplate(copy.workspace.layoutTabs.saveNameAriaLabel, {
+                        name: layout.name,
+                      })}
                       className='inline-flex h-full items-center justify-center text-muted-foreground transition hover:text-foreground'
                       onClick={() => commitEdit(layout)}
                       disabled={controlsDisabled}

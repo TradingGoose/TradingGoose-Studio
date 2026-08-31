@@ -23,15 +23,17 @@ export default function Level() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant='outline'
-          size='sm'
-          className='w-full justify-between rounded-md border-[#E5E5E5] bg-background font-normal text-sm dark:border-[#414141] '
-        >
-          {getDisplayLabel()}
-          <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant='outline'
+            size='sm'
+            className='w-full justify-between rounded-md border-[#E5E5E5] bg-background font-normal text-sm dark:border-[#414141] '
+          />
+        }
+      >
+        {getDisplayLabel()}
+        <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align='start'
@@ -39,8 +41,8 @@ export default function Level() {
       >
         <DropdownMenuItem
           key='all'
-          onSelect={(e) => {
-            e.preventDefault()
+          closeOnClick={false}
+          onClick={() => {
             setLevel('all')
           }}
           className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
@@ -54,8 +56,8 @@ export default function Level() {
         {logLevelOptions.map((levelItem) => (
           <DropdownMenuItem
             key={levelItem.value}
-            onSelect={(e) => {
-              e.preventDefault()
+            closeOnClick={false}
+            onClick={() => {
               setLevel(levelItem.value)
             }}
             className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'

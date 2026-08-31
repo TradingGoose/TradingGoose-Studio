@@ -19,7 +19,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   return (
     <div className='flex min-h-screen w-full'>
-      {!shouldHideSidebar && <div className='z-20'></div>}
+      {!shouldHideSidebar && <div className='z-20' />}
       <div className='flex flex-1 flex-col'>{children}</div>
     </div>
   )

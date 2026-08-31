@@ -118,19 +118,10 @@ vi.mock('@/stores/settings/general/store', () => ({
 }))
 
 vi.mock('@/hooks/queries/organization', () => ({
-  useOrganizations: () => ({
-    data: {
-      activeOrganization: null,
-      billingData: { data: { billingEnabled: false } },
-    },
-  }),
-  useOrganizationBilling: () => ({ data: null }),
-}))
-
-vi.mock('@/hooks/queries/subscription', () => ({
-  useSubscriptionData: () => ({
-    data: { billingEnabled: false },
-    isLoading: false,
+  useCurrentOrganizationAccessState: () => ({
+    billingEnabled: false,
+    canConfigureSso: false,
+    canOpenTeamSettings: false,
   }),
 }))
 

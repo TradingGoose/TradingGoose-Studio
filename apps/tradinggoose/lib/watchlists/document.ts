@@ -1,13 +1,13 @@
 import { db } from '@tradinggoose/db'
 import { watchlistItem, watchlistTable } from '@tradinggoose/db/schema'
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
-import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import { toListingValueObject } from '@/lib/listing/identity'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import type {
   WatchlistDocumentContent,
   WatchlistDocumentFields,
   WatchlistDocumentInputItem,
   WatchlistItem,
+  WatchlistListingItem,
   WatchlistSettings,
 } from '@/lib/watchlists/types'
 import {
@@ -124,9 +124,9 @@ const loadWatchlistRows = async (tx: WatchlistDocumentReadStore, root: Watchlist
   return { containers, items }
 }
 
-const mapListingRow = (row: WatchlistItemRow, rootId: string): WatchlistItem => {
-  const listing = toListingValueObject(row.listing as ListingInputValue)
-  if (!listing) {
+const mapListingRow = (row: WatchlistItemRow, rootId: string): WatchlistListingItem => {
+  const listing = ListingIdentitySchema.safeParse(row.listing)
+  if (!listing.success) {
     throw new WatchlistDocumentError('Invalid persisted watchlist listing')
   }
 
@@ -134,7 +134,7 @@ const mapListingRow = (row: WatchlistItemRow, rootId: string): WatchlistItem => 
     id: row.id,
     type: 'listing',
     parentId: row.containerId === rootId ? null : (row.containerId ?? null),
-    listing,
+    listing: listing.data,
   }
 }
 
@@ -336,11 +336,9 @@ export async function materializeWatchlistDocumentInTx(
 
     for (const item of currentRows.items) {
       const submittedKey = submittedListingKeys.get(item.id)
-      const currentKey = submittedKey
-        ? watchlistListingMembershipKey(
-            item.containerId === root.id ? null : item.containerId,
-            item.listing as ListingIdentity
-          )
+      const currentItem = submittedKey ? mapListingRow(item, root.id) : null
+      const currentKey = currentItem
+        ? watchlistListingMembershipKey(currentItem.parentId, currentItem.listing)
         : null
       if (submittedKey === currentKey) continue
       await tx

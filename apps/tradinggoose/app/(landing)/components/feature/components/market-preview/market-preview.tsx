@@ -7,7 +7,7 @@ import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import { buildIndexMaps, mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import type { BarMs, NormalizedPineOutput } from '@/lib/indicators/types'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 import {
   buildNextMockMarketBar,
   evolveMockMarketBar,
@@ -56,11 +56,13 @@ const MARKET_INTERVAL_LABEL = '1m'
 const LANDING_MARKET_PANEL_ID = 'landing-market-preview'
 const LANDING_MARKET_CHART_RESET_KEY = 'landing-market-preview'
 const LANDING_MARKET_WIDGET_KEY = 'data_chart' as const
-const LANDING_MARKET_LISTING: ListingOption = {
-  listing_id: 'tradinggoose-data-chart',
-  base_id: '',
-  quote_id: '',
-  listing_type: 'default',
+const LANDING_MARKET_LISTING: ListingResolved = {
+  listingIdentity: {
+    listing_id: 'tradinggoose-data-chart',
+    base_id: '',
+    quote_id: '',
+    listing_type: 'default',
+  },
   base: MARKET_LISTING_LABEL,
   name: null,
   iconUrl: '/favicon/goose.png',
@@ -72,7 +74,7 @@ type IndicatorExecutionState = {
   status: 'loading' | 'ready' | 'error'
   output: NormalizedPineOutput | null
   warnings: string[]
-  error: string | null
+  executionFailure: string | null
 }
 
 const getLiveBucketOpenTime = (timeMs: number) =>
@@ -425,8 +427,8 @@ function MarketPreviewContent() {
         {
           status: 'loading',
           output: current[ref.id]?.output ?? null,
-          warnings: [],
-          error: null,
+          warnings: current[ref.id]?.warnings ?? [],
+          executionFailure: current[ref.id]?.executionFailure ?? null,
         } satisfies IndicatorExecutionState,
       ])
       return Object.fromEntries(nextEntries)
@@ -443,7 +445,7 @@ function MarketPreviewContent() {
                 status: 'error',
                 output: null,
                 warnings: [],
-                error: 'Indicator is not available in this showcase.',
+                executionFailure: 'Indicator is not available in this showcase.',
               } satisfies IndicatorExecutionState,
             ] as const
           }
@@ -468,7 +470,7 @@ function MarketPreviewContent() {
                 status: 'ready',
                 output,
                 warnings: warnings.map((warning) => warning.message),
-                error: null,
+                executionFailure: null,
               } satisfies IndicatorExecutionState,
             ] as const
           } catch (error) {
@@ -478,7 +480,7 @@ function MarketPreviewContent() {
                 status: 'error',
                 output: null,
                 warnings: [],
-                error: error instanceof Error ? error.message : String(error),
+                executionFailure: error instanceof Error ? error.message : String(error),
               } satisfies IndicatorExecutionState,
             ] as const
           }
@@ -673,7 +675,7 @@ function MarketPreviewContent() {
         id,
         output: indicatorStates[id]?.output ?? null,
         visible: !hiddenIndicators.has(id),
-        errorMessage: indicatorStates[id]?.error ?? undefined,
+        executionFailure: indicatorStates[id]?.executionFailure ?? undefined,
       })),
     [hiddenIndicators, indicatorStates, selectedIndicatorIds]
   )
@@ -685,10 +687,12 @@ function MarketPreviewContent() {
     .map((series) => getLatestNumericValue(series.points))
     .find((value): value is number => typeof value === 'number' && Number.isFinite(value))
 
-  const indicatorErrors = React.useMemo(
+  const indicatorFailures = React.useMemo(
     () =>
       selectedIndicatorIds.flatMap((id) =>
-        indicatorStates[id]?.error ? [indicatorStates[id]?.error as string] : []
+        indicatorStates[id]?.executionFailure
+          ? [indicatorStates[id].executionFailure as string]
+          : []
       ),
     [indicatorStates, selectedIndicatorIds]
   )
@@ -773,12 +777,18 @@ function MarketPreviewContent() {
         </div>
       </LandingWidgetShell>
 
-      {indicatorErrors.length > 0 ? (
-        <div className='rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-destructive text-sm'>
-          {indicatorErrors[0]}
+      {indicatorFailures.length > 0 ? (
+        <div
+          role='alert'
+          className='rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-destructive text-sm'
+        >
+          {indicatorFailures[0]}
         </div>
       ) : indicatorWarnings.length > 0 ? (
-        <div className='rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-amber-700 text-sm'>
+        <div
+          role='status'
+          className='rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-amber-700 text-sm'
+        >
           {indicatorWarnings[0]}
         </div>
       ) : null}

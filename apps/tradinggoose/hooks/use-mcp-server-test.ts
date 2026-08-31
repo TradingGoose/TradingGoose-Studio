@@ -91,14 +91,15 @@ export function useMcpServerTest() {
         logger.info(`MCP server test ${result.success ? 'passed' : 'failed'}:`, config.name)
         return result
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+        const connectionTestFailure =
+          error instanceof Error ? error.message : 'Unknown error occurred'
         const result: McpServerTestResult = {
           success: false,
           message: 'Connection failed',
-          error: errorMessage,
+          error: connectionTestFailure,
         }
         setTestResult(result)
-        logger.error('MCP server test failed:', errorMessage)
+        logger.error('MCP server test failed:', connectionTestFailure)
         return result
       } finally {
         setIsTestingConnection(false)

@@ -1,7 +1,9 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Download, Folder, Plus } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,120 +19,144 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/components/widget-header-control'
 import { createLogger } from '@/lib/logs/console/logger'
-import { generateFolderName } from '@/lib/naming'
+import { generateIncrementalName } from '@/lib/naming'
 import { cn } from '@/lib/utils'
-import { importWorkflowFromJsonContent } from '@/lib/workflows/import'
+import { importParsedWorkflow } from '@/lib/workflows/import'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useImportSkills } from '@/hooks/queries/skills'
+import { importSkills } from '@/hooks/queries/skills'
+import { formatTemplate } from '@/i18n/utils'
 import { useFolderStore } from '@/stores/folders/store'
 import { parseWorkflowJson } from '@/stores/workflows/json/importer'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { buildImportedWorkflowSkillsLookup } from './workflow-create-menu.utils'
 
 const logger = createLogger('DashboardWorkflowCreateMenu')
+type WorkflowMenuAction = 'create-workflow' | 'create-folder' | 'import-workflow'
 
 export interface DashboardWorkflowCreateMenuProps {
   workspaceId?: string | null
   existingWorkflowNames: string[]
   onWorkflowCreated?: (workflowId: string) => void
+  ownerId: string
 }
 
 export function DashboardWorkflowCreateMenu({
   workspaceId,
   existingWorkflowNames,
   onWorkflowCreated,
+  ownerId,
 }: DashboardWorkflowCreateMenuProps) {
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false)
-  const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
-  const [isImporting, setIsImporting] = useState(false)
+  const [activeAction, setActiveAction] = useState<WorkflowMenuAction | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const actionFeedbackId = useId()
+  const actionLockRef = useRef(false)
+  const copy = useMessages().workspace.widgets.workflowCreateMenu
+  const queryClient = useQueryClient()
   const permissions = useUserPermissionsContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const createFolder = useFolderStore((state) => state.createFolder)
+  const activeFolderWrite = useFolderStore((state) => state.activeWrite)
+  const folderDataReady = useFolderStore((state) =>
+    workspaceId ? state.folderDataReady[workspaceId] === true : false
+  )
+  const writeFolder = useFolderStore((state) => state.writeFolder)
   const createWorkflow = useWorkflowRegistry((state) => state.createWorkflow)
-  const importSkillsMutation = useImportSkills()
-
   const isWorkspaceReady = Boolean(workspaceId)
+  const isFolderWritePending = Boolean(activeFolderWrite)
   const isMenuDisabled = !isWorkspaceReady || !permissions.canEdit
+  const isActionPending = activeAction !== null
+  const beginAction = useCallback((action: WorkflowMenuAction) => {
+    if (actionLockRef.current) return false
+    actionLockRef.current = true
+    setActiveAction(action)
+    setActionError(null)
+    return true
+  }, [])
+  const finishAction = useCallback(() => {
+    actionLockRef.current = false
+    setActiveAction(null)
+  }, [])
 
   const handleCreateWorkflow = useCallback(async () => {
-    if (!workspaceId || isCreatingWorkflow) {
-      return
-    }
-
-    setIsCreatingWorkflow(true)
-
+    if (!workspaceId || !beginAction('create-workflow')) return
     try {
       const workflowId = await createWorkflow({ workspaceId })
-
-      if (workflowId) {
-        onWorkflowCreated?.(workflowId)
-      }
+      if (workflowId) onWorkflowCreated?.(workflowId)
     } catch (error) {
       logger.error('Failed to create workflow from dashboard widget:', { error })
+      setActionError(copy.createFailed)
     } finally {
-      setIsCreatingWorkflow(false)
+      finishAction()
     }
-  }, [workspaceId, isCreatingWorkflow, createWorkflow, onWorkflowCreated])
+  }, [beginAction, copy.createFailed, createWorkflow, finishAction, onWorkflowCreated, workspaceId])
 
   const handleCreateFolder = useCallback(async () => {
-    if (!workspaceId || isCreatingFolder) {
+    const folderState = useFolderStore.getState()
+    if (
+      !workspaceId ||
+      folderState.activeWrite ||
+      folderState.folderDataReady[workspaceId] !== true
+    ) {
       return
     }
-
-    setIsCreatingFolder(true)
+    if (!beginAction('create-folder')) return
 
     try {
-      const folderName = await generateFolderName(workspaceId)
-      await createFolder({ name: folderName, workspaceId })
+      const rootFolders = Object.values(folderState.folders).filter(
+        (folder) => folder.workspaceId === workspaceId && folder.parentId === null
+      )
+      const folderName = generateIncrementalName(rootFolders, 'Folder')
+      await writeFolder({ kind: 'create', workspaceId, ownerId, name: folderName }, queryClient)
       logger.info(`Created folder ${folderName} from dashboard widget`)
     } catch (error) {
       logger.error('Failed to create folder from dashboard widget:', { error })
     } finally {
-      setIsCreatingFolder(false)
+      finishAction()
     }
-  }, [workspaceId, isCreatingFolder, createFolder])
+  }, [beginAction, finishAction, ownerId, queryClient, workspaceId, writeFolder])
 
-  const handleDirectImport = useCallback(
-    async (content: string) => {
-      if (!workspaceId) {
-        logger.error('Workspace ID is required to import workflows')
-        return
-      }
+  const handleImportWorkflow = useCallback(() => {
+    if (!workspaceId || isActionPending) return
+    fileInputRef.current?.click()
+  }, [isActionPending, workspaceId])
 
-      if (!content.trim()) {
-        logger.error('JSON content is required')
-        return
-      }
-
-      setIsImporting(true)
+  const handleFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file || !workspaceId || !beginAction('import-workflow')) return
+      let importedCount = 0
 
       try {
-        const parsedWorkflow = parseWorkflowJson(content, false)
-
-        if (!parsedWorkflow.data || parsedWorkflow.errors.length > 0) {
-          throw new Error(parsedWorkflow.errors[0] ?? 'Failed to parse workflow import file')
+        const content = await file.text()
+        if (!content.trim()) {
+          setActionError(copy.emptyImportFile)
+          return
         }
 
-        const parsedFile = JSON.parse(content) as unknown
+        const parsedWorkflow = parseWorkflowJson(content, true)
+        if (!parsedWorkflow.data || parsedWorkflow.errors.length > 0) {
+          setActionError(parsedWorkflow.errors[0] ?? copy.importFailed)
+          return
+        }
 
         let importedSkillsBySourceName:
           | ReturnType<typeof buildImportedWorkflowSkillsLookup>
           | undefined
 
         if (parsedWorkflow.data.skills.length > 0) {
-          const importResult = await importSkillsMutation.mutateAsync({
+          const importResult = await importSkills({
             workspaceId,
-            file: parsedFile,
+            file: JSON.parse(content) as unknown,
           })
+          importedCount = importResult.import.addedCount
 
           importedSkillsBySourceName = buildImportedWorkflowSkillsLookup({
             expectedSkills: parsedWorkflow.data.skills,
-            importedSkills: importResult?.importedSkills,
+            importedSkills: importResult.importedSkills,
           })
         }
 
-        const newWorkflowId = await importWorkflowFromJsonContent({
-          content,
+        const newWorkflowId = await importParsedWorkflow({
+          workflowData: parsedWorkflow.data,
           workspaceId,
           existingWorkflowNames,
           importedSkillsBySourceName,
@@ -138,68 +164,74 @@ export function DashboardWorkflowCreateMenu({
         })
 
         logger.info('Workflow imported successfully from dashboard widget')
-
-        if (newWorkflowId) {
-          onWorkflowCreated?.(newWorkflowId)
-        }
+        onWorkflowCreated?.(newWorkflowId)
       } catch (error) {
         logger.error('Failed to import workflow from dashboard widget:', { error })
+        setActionError(
+          importedCount > 0
+            ? formatTemplate(copy.importPartialFailed, { count: importedCount })
+            : copy.importFailed
+        )
       } finally {
-        setIsImporting(false)
+        finishAction()
+        if (fileInputRef.current) fileInputRef.current.value = ''
       }
     },
-    [workspaceId, existingWorkflowNames, createWorkflow, importSkillsMutation, onWorkflowCreated]
+    [
+      beginAction,
+      copy.emptyImportFile,
+      copy.importFailed,
+      copy.importPartialFailed,
+      createWorkflow,
+      existingWorkflowNames,
+      finishAction,
+      onWorkflowCreated,
+      workspaceId,
+    ]
   )
 
-  const handleImportWorkflow = useCallback(() => {
-    if (!workspaceId) return
-    fileInputRef.current?.click()
-  }, [workspaceId])
-
-  const handleFileChange = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0]
-      if (!file) return
-
-      try {
-        const content = await file.text()
-        await handleDirectImport(content)
-      } catch (error) {
-        logger.error('Failed to read workflow file:', { error })
-      } finally {
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
-      }
-    },
-    [handleDirectImport]
-  )
-
-  const createWorkflowDisabled = !isWorkspaceReady || isMenuDisabled || isCreatingWorkflow
-  const createFolderDisabled = !isWorkspaceReady || isMenuDisabled || isCreatingFolder
-  const importWorkflowDisabled = !isWorkspaceReady || isMenuDisabled || isImporting
+  const createWorkflowDisabled = isMenuDisabled || isActionPending
+  const createFolderDisabled =
+    isMenuDisabled || isActionPending || isFolderWritePending || !folderDataReady
+  const importWorkflowDisabled = isMenuDisabled || isActionPending
   const createButtonTooltip = isWorkspaceReady
-    ? 'Create folder or workflow'
-    : 'Select a workspace to create workflows'
+    ? copy.createButtonTooltip
+    : copy.selectWorkspaceTooltip
 
   return (
-    <>
-      <DropdownMenu>
+    <div className='relative inline-flex'>
+      <DropdownMenu
+        onOpenChange={(_open, eventDetails) => {
+          if (isActionPending) eventDetails.cancel()
+        }}
+      >
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span className='inline-flex'>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type='button'
-                  className={widgetHeaderIconButtonClassName()}
+          <TooltipTrigger
+            render={
+              <span className='inline-flex'>
+                <DropdownMenuTrigger
                   disabled={isMenuDisabled}
+                  render={
+                    <button
+                      type='button'
+                      className={widgetHeaderIconButtonClassName()}
+                      disabled={isMenuDisabled}
+                      aria-disabled={isActionPending || undefined}
+                      aria-busy={isActionPending || undefined}
+                      aria-describedby={
+                        activeAction !== 'create-folder' && (isActionPending || actionError)
+                          ? actionFeedbackId
+                          : undefined
+                      }
+                    />
+                  }
                 >
                   <Plus className={widgetHeaderMenuIconClassName} />
-                  <span className='sr-only'>Create workflow</span>
-                </button>
-              </DropdownMenuTrigger>
-            </span>
-          </TooltipTrigger>
+                  <span className='sr-only'>{copy.createWorkflow}</span>
+                </DropdownMenuTrigger>
+              </span>
+            }
+          />
           <TooltipContent side='top'>{createButtonTooltip}</TooltipContent>
         </Tooltip>
 
@@ -210,46 +242,66 @@ export function DashboardWorkflowCreateMenu({
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
             disabled={createWorkflowDisabled}
-            onSelect={() => {
+            onClick={() => {
               if (createWorkflowDisabled) return
               void handleCreateWorkflow()
             }}
           >
             <Plus className={widgetHeaderMenuTextClassName} />
             <span className={widgetHeaderMenuTextClassName}>
-              {isCreatingWorkflow ? 'Creating...' : 'New workflow'}
+              {activeAction === 'create-workflow' ? copy.creating : copy.createWorkflow}
             </span>
           </DropdownMenuItem>
 
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
             disabled={createFolderDisabled}
-            onSelect={() => {
+            onClick={() => {
               if (createFolderDisabled) return
               void handleCreateFolder()
             }}
           >
             <Folder className={widgetHeaderMenuTextClassName} />
             <span className={widgetHeaderMenuTextClassName}>
-              {isCreatingFolder ? 'Creating...' : 'New folder'}
+              {activeAction === 'create-folder' ? copy.creatingFolder : copy.createFolder}
             </span>
           </DropdownMenuItem>
 
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
             disabled={importWorkflowDisabled}
-            onSelect={() => {
+            onClick={() => {
               if (importWorkflowDisabled) return
               handleImportWorkflow()
             }}
           >
             <Download className={widgetHeaderMenuTextClassName} />
             <span className={widgetHeaderMenuTextClassName}>
-              {isImporting ? 'Importing...' : 'Import workflow'}
+              {activeAction === 'import-workflow' ? copy.importing : copy.importWorkflow}
             </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {activeAction && activeAction !== 'create-folder' ? (
+        <p
+          id={actionFeedbackId}
+          role='status'
+          aria-atomic='true'
+          className='absolute top-full right-0 z-50 mt-1 w-64 rounded-md border bg-popover p-2 text-popover-foreground text-xs shadow-md'
+        >
+          {activeAction === 'create-workflow' ? copy.creating : copy.importing}
+        </p>
+      ) : !activeAction && actionError ? (
+        <p
+          id={actionFeedbackId}
+          role='alert'
+          aria-atomic='true'
+          className='absolute top-full right-0 z-50 mt-1 w-64 rounded-md border border-destructive/30 bg-popover p-2 text-destructive text-xs shadow-md'
+        >
+          {actionError}
+        </p>
+      ) : null}
 
       <input
         ref={fileInputRef}
@@ -258,6 +310,6 @@ export function DashboardWorkflowCreateMenu({
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
-    </>
+    </div>
   )
 }

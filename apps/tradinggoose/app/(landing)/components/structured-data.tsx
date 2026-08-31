@@ -1,9 +1,9 @@
 import { getLocale } from 'next-intl/server'
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingNarrative } from '@/lib/billing/public-catalog'
+import { getBaseUrl } from '@/lib/urls/utils'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { type LocaleCode, localizeSiteUrl } from '@/i18n/utils'
-import { getBaseUrl } from '@/lib/urls/utils'
 
 const STRUCTURED_DATA_MODIFIED_AT = '2026-04-04T00:00:00+00:00'
 

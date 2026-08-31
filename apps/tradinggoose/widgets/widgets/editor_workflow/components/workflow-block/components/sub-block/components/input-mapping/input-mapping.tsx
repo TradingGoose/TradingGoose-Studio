@@ -4,9 +4,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { cn } from '@/lib/utils'
-import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkflowBlockEditorCopy } from '@/widgets/widgets/editor_workflow/copy'
 
 interface InputFormatField {
   name: string
@@ -19,7 +19,6 @@ interface InputTriggerBlock {
     inputFormat?: { value?: InputFormatField[] }
   }
 }
-
 
 function isInputTriggerBlock(value: unknown): value is InputTriggerBlock {
   return (

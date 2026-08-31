@@ -110,8 +110,9 @@ export function LanguageDropdown() {
                 }}
                 role='option'
                 aria-selected={currentLang === code}
-                className={`flex w-full items-center gap-3 px-3 py-3 text-base transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-muted/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring md:gap-2 md:px-2.5 md:py-2 md:text-sm ${currentLang === code ? 'bg-muted/60 font-medium text-primary' : 'text-foreground'
-                  }`}
+                className={`flex w-full items-center gap-3 px-3 py-3 text-base transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-muted/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring md:gap-2 md:px-2.5 md:py-2 md:text-sm ${
+                  currentLang === code ? 'bg-muted/60 font-medium text-primary' : 'text-foreground'
+                }`}
               >
                 <span className='text-base md:text-sm'>{lang.flag}</span>
                 <span className='leading-none'>{lang.name}</span>

@@ -114,22 +114,21 @@ export function parseWorkflowJson(
   data: WorkflowTransferRecord | null
   errors: string[]
 } {
-  const errors: string[] = []
+  const parseFailures: string[] = []
 
   try {
     let data: unknown
     try {
       data = JSON.parse(jsonContent)
     } catch (parseError) {
-      errors.push(
-        `Invalid JSON: ${parseError instanceof Error ? parseError.message : 'Parse error'}`
-      )
-      return { data: null, errors }
+      logger.error('Failed to parse workflow JSON:', parseError)
+      parseFailures.push('Invalid JSON: file could not be parsed')
+      return { data: null, errors: parseFailures }
     }
 
     if (!data || typeof data !== 'object') {
-      errors.push('Invalid JSON: Root must be an object')
-      return { data: null, errors }
+      parseFailures.push('Invalid JSON: root must be an object')
+      return { data: null, errors: parseFailures }
     }
 
     logger.info('Parsing workflow JSON', {
@@ -138,13 +137,13 @@ export function parseWorkflowJson(
       exportedFrom: (data as Record<string, unknown>).exportedFrom,
     })
 
-    const parsed = parseImportedWorkflowFile(data)
+    const { data: importedWorkflow, errors: importFailures } = parseImportedWorkflowFile(data)
 
-    if (!parsed.data || parsed.errors.length > 0) {
-      return parsed
+    if (!importedWorkflow || importFailures.length > 0) {
+      return { data: null, errors: importFailures }
     }
 
-    let workflowData: WorkflowTransferRecord = parsed.data
+    let workflowData: WorkflowTransferRecord = importedWorkflow
 
     if (regenerateIdsFlag) {
       workflowData = {
@@ -166,7 +165,7 @@ export function parseWorkflowJson(
     return { data: workflowData, errors: [] }
   } catch (error) {
     logger.error('Failed to parse workflow JSON:', error)
-    errors.push(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    return { data: null, errors }
+    parseFailures.push('Unexpected error while parsing workflow file')
+    return { data: null, errors: parseFailures }
   }
 }

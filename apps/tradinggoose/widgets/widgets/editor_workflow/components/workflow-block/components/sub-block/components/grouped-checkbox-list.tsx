@@ -94,19 +94,22 @@ export function GroupedCheckboxList({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant='outline'
-          className='h-10 w-full justify-between border-input bg-background px-3 font-normal text-sm hover:bg-card hover:text-accent-foreground'
-          disabled={disabled}
-        >
-          <span className='flex items-center gap-1 text-muted-foreground'>
-            <Settings2 className='h-4 w-4' />
-            <span>{translateWorkflowLabel('configurePiiTypes')}</span>
-          </span>
-          <SelectedCountDisplay />
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        disabled={disabled}
+        render={
+          <Button
+            variant='outline'
+            className='h-10 w-full justify-between border-input bg-background px-3 font-normal text-sm hover:bg-card hover:text-accent-foreground'
+            disabled={disabled}
+          >
+            <span className='flex items-center gap-1 text-muted-foreground'>
+              <Settings2 className='h-4 w-4' />
+              <span>{translateWorkflowLabel('configurePiiTypes')}</span>
+            </span>
+            <SelectedCountDisplay />
+          </Button>
+        }
+      />
       <DialogContent
         className='flex max-h-[80vh] max-w-2xl flex-col'
         onWheel={(e) => e.stopPropagation()}

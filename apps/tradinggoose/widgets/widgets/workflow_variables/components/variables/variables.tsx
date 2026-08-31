@@ -209,15 +209,18 @@ export function Variables({ workflowId, canEditEntity }: VariablesProps) {
 
                   {/* Type selector */}
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild disabled={!canEditEntity}>
-                      <button
-                        type='button'
-                        disabled={!canEditEntity}
-                        className='flex h-9 w-16 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-secondary/50 px-3 disabled:cursor-default'
-                      >
-                        <span className='font-normal text-sm'>{getTypeIcon(variable.type)}</span>
-                        <ChevronDown className='ml-1 h-3 w-3 text-muted-foreground' />
-                      </button>
+                    <DropdownMenuTrigger
+                      disabled={!canEditEntity}
+                      render={
+                        <button
+                          type='button'
+                          disabled={!canEditEntity}
+                          className='flex h-9 w-16 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-secondary/50 px-3 disabled:cursor-default'
+                        />
+                      }
+                    >
+                      <span className='font-normal text-sm'>{getTypeIcon(variable.type)}</span>
+                      <ChevronDown className='ml-1 h-3 w-3 text-muted-foreground' />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align='end'
@@ -276,14 +279,16 @@ export function Variables({ workflowId, canEditEntity }: VariablesProps) {
 
                   {/* Options dropdown */}
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        className='h-9 w-9 shrink-0 rounded-lg bg-secondary/50 p-0 text-muted-foreground hover:bg-secondary/70 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0'
-                      >
-                        <MoreVertical className='h-4 w-4' />
-                      </Button>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          className='h-9 w-9 shrink-0 rounded-lg bg-secondary/50 p-0 text-muted-foreground hover:bg-secondary/70 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0'
+                        />
+                      }
+                    >
+                      <MoreVertical className='h-4 w-4' />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align='end'
@@ -329,11 +334,13 @@ export function Variables({ workflowId, canEditEntity }: VariablesProps) {
                     {variable.value !== '' && getValidationStatus(variable) && (
                       <div className='absolute top-2 right-2 z-10'>
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className='cursor-help'>
-                              <AlertTriangle className='h-3 w-3 text-muted-foreground' />
-                            </div>
-                          </TooltipTrigger>
+                          <TooltipTrigger
+                            render={
+                              <div className='cursor-help'>
+                                <AlertTriangle className='h-3 w-3 text-muted-foreground' />
+                              </div>
+                            }
+                          />
                           <TooltipContent side='bottom' className='max-w-xs'>
                             <p>{getValidationStatus(variable)}</p>
                           </TooltipContent>

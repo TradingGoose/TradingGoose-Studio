@@ -2,15 +2,6 @@ import type { PersistedColorPair, PersistedColorPairsState } from '@/widgets/lay
 import { normalizeColorPairsState, normalizePersistedColorPairFields } from '@/widgets/layout'
 import type { PairColor } from '@/widgets/pair-colors'
 
-export {
-  createDefaultColorPairsState,
-  type LinkedPairColor,
-  normalizeColorPairsState,
-  normalizeListingIdentity,
-  type PersistedColorPair,
-  type PersistedColorPairsState,
-} from '@/widgets/layout'
-
 export type PairColorContext = Omit<PersistedColorPair, 'color'>
 
 type PairColorContextSource = PairColorContext | Record<string, unknown> | null | undefined
@@ -31,14 +22,14 @@ export function readPairColorContext(
 export function upsertPairColorContext(
   state: PersistedColorPairsState | unknown,
   color: PairColor,
-  patch: PairColorContextSource
+  patch: Record<string, unknown>
 ): PersistedColorPairsState {
   const normalized = normalizeColorPairsState(state)
   if (color === 'gray') return normalized
 
   const nextContext = normalizePairColorContext({
     ...readPairColorContext(normalized, color),
-    ...(patch ?? {}),
+    ...patch,
   })
   const pairs = normalized.pairs.filter((pair) => pair.color !== color)
 
@@ -47,13 +38,4 @@ export function upsertPairColorContext(
   }
 
   return { pairs: pairs.sort((left, right) => left.color.localeCompare(right.color)) }
-}
-
-export function removePairColorContext(
-  state: PersistedColorPairsState | unknown,
-  color: PairColor
-): PersistedColorPairsState {
-  const normalized = normalizeColorPairsState(state)
-  if (color === 'gray') return normalized
-  return { pairs: normalized.pairs.filter((pair) => pair.color !== color) }
 }

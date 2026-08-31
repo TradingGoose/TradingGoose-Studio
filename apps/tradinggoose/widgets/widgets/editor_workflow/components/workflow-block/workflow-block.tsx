@@ -265,23 +265,7 @@ export const WorkflowBlock = memo(
       : blockTriggerMode
 
     // Collaborative workflow actions
-    const { collaborativeUpdateBlockName, collaborativeSetSubblockValue } =
-      useWorkflowEditorActions()
-
-    // Clear credential-dependent fields when credential changes
-    const prevCredRef = useRef<string | undefined>(undefined)
-    useEffect(() => {
-      if (isReadOnlyBlock) return
-      const subBlocks = currentYjsBlock?.subBlocks
-      if (!subBlocks) return
-      const cred = subBlocks.credential?.value as string | undefined
-      if (prevCredRef.current !== cred) {
-        prevCredRef.current = cred
-        const keys = Object.keys(subBlocks)
-        const dependentKeys = keys.filter((k) => k !== 'credential')
-        dependentKeys.forEach((k) => collaborativeSetSubblockValue(id, k, ''))
-      }
-    }, [id, collaborativeSetSubblockValue, currentYjsBlock?.subBlocks, isReadOnlyBlock])
+    const { collaborativeUpdateBlockName } = useWorkflowEditorActions()
 
     // Workflow store actions - use Yjs mutations
     const updateBlockLayoutMetrics = yjsMutations.updateBlockLayoutMetrics
@@ -855,7 +839,7 @@ export const WorkflowBlock = memo(
                         onChange={(e) => handleNodeNameChange(e.target.value)}
                         onBlur={handleNameSubmit}
                         onKeyDown={handleNameKeyDown}
-                        className='border-none bg-transparent p-0 font-medium text-md outline-none'
+                        className='border-none bg-transparent p-0 font-medium text-md'
                         maxLength={18}
                       />
                     ) : (
@@ -888,16 +872,18 @@ export const WorkflowBlock = memo(
                   )}
                   {isWorkflowSelector && childWorkflowId && (
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className='relative mr-1 flex items-center justify-center'>
-                          <div
-                            className={cn(
-                              'h-2.5 w-2.5 rounded-full',
-                              childIsDeployed ? 'bg-green-500' : 'bg-red-500'
-                            )}
-                          />
-                        </div>
-                      </TooltipTrigger>
+                      <TooltipTrigger
+                        render={
+                          <div className='relative mr-1 flex items-center justify-center'>
+                            <div
+                              className={cn(
+                                'h-2.5 w-2.5 rounded-full',
+                                childIsDeployed ? 'bg-green-500' : 'bg-red-500'
+                              )}
+                            />
+                          </div>
+                        }
+                      />
                       <TooltipContent side='top' className='px-3 py-2'>
                         <span className='text-sm'>
                           {childIsDeployed

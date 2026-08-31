@@ -9,8 +9,8 @@ interface WorkspaceBillingProps {
   canManage: boolean
   hasOrganizationBilling: boolean
   isLoading: boolean
-  isAssigning: boolean
-  isReleasing: boolean
+  isPending: boolean
+  pendingAction?: string | null
   error?: string | null
   onAssignWorkspace: (workspaceId: string) => Promise<void>
   onReleaseWorkspace: (workspaceId: string) => Promise<void>
@@ -33,6 +33,7 @@ function WorkspaceRow(props: {
   workspace: OrganizationWorkspaceRecord
   actionLabel: string
   actionDisabled?: boolean
+  isActive?: boolean
   actionVariant?: 'default' | 'outline'
   onAction: (workspaceId: string) => Promise<void>
 }) {
@@ -40,6 +41,7 @@ function WorkspaceRow(props: {
     workspace,
     actionLabel,
     actionDisabled = false,
+    isActive = false,
     actionVariant = 'default',
     onAction,
   } = props
@@ -70,6 +72,8 @@ function WorkspaceRow(props: {
         size='sm'
         variant={actionVariant}
         disabled={actionDisabled}
+        focusableWhenDisabled={isActive}
+        aria-busy={isActive || undefined}
         className='h-8 rounded-sm'
         onClick={() => void onAction(workspace.id)}
       >
@@ -85,8 +89,8 @@ export function WorkspaceBilling({
   canManage,
   hasOrganizationBilling,
   isLoading,
-  isAssigning,
-  isReleasing,
+  isPending,
+  pendingAction,
   error,
   onAssignWorkspace,
   onReleaseWorkspace,
@@ -114,7 +118,11 @@ export function WorkspaceBilling({
         </div>
       ) : null}
 
-      {error ? <p className='text-destructive text-xs'>{error}</p> : null}
+      {error ? (
+        <p role='alert' className='text-destructive text-xs'>
+          {error}
+        </p>
+      ) : null}
 
       <div className='space-y-2'>
         <div className='flex items-center justify-between'>
@@ -131,9 +139,12 @@ export function WorkspaceBilling({
               <WorkspaceRow
                 key={workspace.id}
                 workspace={workspace}
-                actionLabel='Return To Owner'
+                actionLabel={
+                  pendingAction === `release:${workspace.id}` ? 'Returning…' : 'Return To Owner'
+                }
                 actionVariant='outline'
-                actionDisabled={isReleasing}
+                actionDisabled={isPending}
+                isActive={pendingAction === `release:${workspace.id}`}
                 onAction={onReleaseWorkspace}
               />
             ))}
@@ -156,8 +167,11 @@ export function WorkspaceBilling({
               <WorkspaceRow
                 key={workspace.id}
                 workspace={workspace}
-                actionLabel='Bill To Organization'
-                actionDisabled={!hasOrganizationBilling || isAssigning}
+                actionLabel={
+                  pendingAction === `assign:${workspace.id}` ? 'Assigning…' : 'Bill To Organization'
+                }
+                actionDisabled={!hasOrganizationBilling || isPending}
+                isActive={pendingAction === `assign:${workspace.id}`}
                 onAction={onAssignWorkspace}
               />
             ))}

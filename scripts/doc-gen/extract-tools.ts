@@ -110,7 +110,7 @@ function extractToolInfo(toolName: string, fileContent: string): ToolInfo | null
     }
 
     // Extract outputs
-    let outputs: Record<string, any> = {}
+    const outputs: Record<string, any> = {}
     const outputsRegex =
       /outputs\s*:\s*{([\s\S]*?)}\s*,?\s*(?:oauth|params|request|directExecution|postProcess|transformResponse|$|\})/
     const outputsMatch = fileContent.match(outputsRegex)

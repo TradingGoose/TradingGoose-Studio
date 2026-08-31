@@ -164,7 +164,7 @@ describe('/api/chat/[identifier]', () => {
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'completed',
       result: null,
-      errorMessage: null,
+      failureReason: null,
       events: [
         {
           eventId: 1,
@@ -301,7 +301,7 @@ describe('/api/chat/[identifier]', () => {
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'pending',
       result: null,
-      errorMessage: null,
+      failureReason: null,
       events: [],
     })
 

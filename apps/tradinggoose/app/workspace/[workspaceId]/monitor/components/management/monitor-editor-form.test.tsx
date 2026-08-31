@@ -3,25 +3,19 @@
  */
 
 import { act } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
 import { NextIntlClientProvider } from 'next-intl'
+import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import { getPublicCopy } from '@/i18n/public-copy'
-import {
-  INDICATOR_MONITOR_PROVIDER,
-  PORTFOLIO_MONITOR_PROVIDER,
-} from '@/lib/monitors/sources'
 import type { MonitorDraft } from '../shared/types'
 
-const {
-  tradingProviderSelectorMock,
-  tradingAccountSelectorMock,
-  portfolioConditionBuilderMock,
-} = vi.hoisted(() => ({
-  tradingProviderSelectorMock: vi.fn(),
-  tradingAccountSelectorMock: vi.fn(),
-  portfolioConditionBuilderMock: vi.fn(),
-}))
+const { tradingProviderSelectorMock, tradingAccountSelectorMock, portfolioConditionBuilderMock } =
+  vi.hoisted(() => ({
+    tradingProviderSelectorMock: vi.fn(),
+    tradingAccountSelectorMock: vi.fn(),
+    portfolioConditionBuilderMock: vi.fn(),
+  }))
 
 vi.mock('@/components/trading-selector/provider-selector', () => ({
   TradingProviderSelector: (props: Record<string, unknown>) => {
@@ -106,10 +100,9 @@ describe('MonitorEditorForm localized portfolio path', () => {
         root.render(
           <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
             <MonitorEditorForm
-              workspaceId='workspace-1'
               editingKey={null}
               draft={createDraft()}
-              errors={{}}
+              issues={{}}
               saving={false}
               marketProviders={[]}
               tradingProviders={[{ id: 'alpaca', name: 'Alpaca' }]}
@@ -162,10 +155,9 @@ describe('MonitorEditorForm localized portfolio path', () => {
         root.render(
           <NextIntlClientProvider locale={locale} messages={getPublicCopy(locale)}>
             <MonitorEditorForm
-              workspaceId='workspace-1'
               editingKey={null}
               draft={{ ...createDraft(), source: INDICATOR_MONITOR_PROVIDER }}
-              errors={{}}
+              issues={{}}
               saving={false}
               marketProviders={[]}
               tradingProviders={[{ id: 'alpaca', name: 'Alpaca' }]}

@@ -74,7 +74,9 @@ describe('system integration catalog seed', () => {
   it('creates a child service row for every oauth service', () => {
     const snapshot = getSystemIntegrationCatalogSeedSnapshot()
     const bundleCount = snapshot.definitions.filter((definition) => !definition.parentId).length
-    const serviceCount = snapshot.definitions.filter((definition) => Boolean(definition.parentId)).length
+    const serviceCount = snapshot.definitions.filter((definition) =>
+      Boolean(definition.parentId)
+    ).length
     const credentialFieldCount = snapshot.secrets.length
     const expectedServiceCount = Object.values(OAUTH_PROVIDERS).reduce(
       (count, provider) => count + Object.keys(provider.services).length,

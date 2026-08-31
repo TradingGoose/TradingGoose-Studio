@@ -1,3 +1,5 @@
+export const MAX_CHUNK_CONTENT_LENGTH = 10_000
+
 export interface ChunkFilters {
   search?: string
   enabled?: 'true' | 'false' | 'all'
@@ -41,7 +43,9 @@ export interface CreateChunkData {
 }
 
 export interface BatchOperationResult {
-  success: boolean
-  processed: number
-  errors: string[]
+  updatedChunkIds: string[]
+  failures: Array<{
+    chunkId: string
+    message: string
+  }>
 }

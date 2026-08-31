@@ -1,62 +1,8 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
-import type { ChatContext } from '@/stores/copilot/types'
-import type { ProviderId } from '@/providers/ai/types'
+import { createLogger } from '@/lib/logs/console/logger'
+import type { ChatContext, MessageFileAttachment } from '@/stores/copilot/types'
 
 const logger = createLogger('CopilotAPI')
-
-/**
- * Citation interface for documentation references
- */
-export interface Citation {
-  id: number
-  title: string
-  url: string
-  similarity?: number
-}
-
-/**
- * Message interface for copilot conversations
- */
-export interface CopilotMessage {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  timestamp: string
-  citations?: Citation[]
-  contentBlocks?: any[]
-  fileAttachments?: any[]
-  contexts?: any[]
-}
-
-/**
- * Chat interface for copilot conversations
- */
-export interface CopilotChat {
-  reviewSessionId: string
-  workspaceId: string | null
-  entityKind: string | null
-  entityId: string | null
-  draftSessionId: string | null
-  conversationId?: string | null
-  latestTurnStatus?: string | null
-  title: string | null
-  messages: CopilotMessage[]
-  messageCount: number
-  createdAt: Date
-  updatedAt: Date
-}
-
-/**
- * File attachment interface for message requests
- */
-export interface MessageFileAttachment {
-  id: string
-  key: string
-  filename: string
-  media_type: string
-  size: number
-}
 
 /**
  * Request interface for sending messages
@@ -67,8 +13,6 @@ export interface SendMessageRequest {
   reviewSessionId?: string
   workspaceId?: string
   model?: CopilotRuntimeModel
-  provider?: ProviderId
-  prefetch?: boolean
   fileAttachments?: MessageFileAttachment[]
   abortSignal?: AbortSignal
   contexts?: ChatContext[]
@@ -137,10 +81,13 @@ export async function sendStreamingMessage(
     })
 
     if (!response.ok) {
-      const errorMessage = await handleApiError(response, 'Failed to send streaming message')
+      const streamRequestFailure = await handleApiError(
+        response,
+        'Failed to send streaming message'
+      )
       return {
         success: false,
-        error: errorMessage,
+        error: streamRequestFailure,
         status: response.status,
       }
     }

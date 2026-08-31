@@ -1,14 +1,14 @@
+import {
+  LISTING_IDENTITY_VALUE_TYPE,
+  type ListingIdentity,
+  parseListingIdentityValueStrict,
+} from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   coerceMarketProviderParamValue,
   getMarketProviderParamCatalog,
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
-import {
-  LISTING_IDENTITY_VALUE_TYPE,
-  parseListingIdentityValueStrict,
-  type ListingIdentity,
-} from '@/lib/listing/identity'
 import type { MarketSeries, NormalizationMode } from '@/providers/market/types'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
@@ -179,8 +179,8 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       const listing = parseListingIdentityValueStrict(params.listing)
       const auth: { apiKey?: string; apiSecret?: string } = {}
 
-      delete providerParams.apiKey
-      delete providerParams.apiSecret
+      Reflect.deleteProperty(providerParams, 'apiKey')
+      Reflect.deleteProperty(providerParams, 'apiSecret')
 
       providerParamIds.forEach((paramId) => {
         const entry = providerParamRegistry[paramId]
@@ -206,10 +206,10 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       const normalizationMode = sanitizeNormalizationMode(params.provider, params.normalizationMode)
 
       if (interval === undefined && 'interval' in providerParams) {
-        delete providerParams.interval
+        Reflect.deleteProperty(providerParams, 'interval')
       }
       if (normalizationMode === undefined && 'normalizationMode' in providerParams) {
-        delete providerParams.normalizationMode
+        Reflect.deleteProperty(providerParams, 'normalizationMode')
       }
 
       const windowModes = getMarketSeriesCapabilities(params.provider)?.windowModes ?? []
@@ -274,7 +274,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       const listing = parseListingIdentityValueStrict(params.listing)
       const seriesOutput = { ...series } as MarketSeries & { primaryMicCode?: string }
       if ('primaryMicCode' in seriesOutput) {
-        delete seriesOutput.primaryMicCode
+        Reflect.deleteProperty(seriesOutput, 'primaryMicCode')
       }
       const normalizedSeries = { ...seriesOutput, listing }
       return {

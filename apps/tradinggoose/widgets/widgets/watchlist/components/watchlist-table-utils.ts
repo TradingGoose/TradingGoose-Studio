@@ -1,4 +1,8 @@
-import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
+import {
+  getListingIdentitySymbol,
+  type ListingIdentity,
+  type ListingResolved,
+} from '@/lib/listing/identity'
 
 export const resolveWatchlistValueColorClass = (value: number | null) => {
   if (value == null || Number.isNaN(value)) return 'text-muted-foreground'
@@ -9,7 +13,7 @@ export const resolveWatchlistValueColorClass = (value: number | null) => {
 
 export const resolveWatchlistAssetClass = (
   listing: ListingIdentity,
-  resolved?: ListingOption | null
+  resolved?: ListingResolved | null
 ): string => {
   const fromResolved = resolved?.assetClass?.trim()
   if (fromResolved) return fromResolved.toUpperCase()
@@ -20,16 +24,12 @@ export const resolveWatchlistAssetClass = (
 
 export const resolveWatchlistListingLabel = (
   listing: ListingIdentity,
-  resolved?: ListingOption | null
+  resolved?: ListingResolved | null
 ) => {
-  const base = resolved?.base?.trim() || ''
-  const quote = resolved?.quote?.trim() || ''
-  if (base) {
-    return quote ? `${base}/${quote}` : base
+  if (resolved) {
+    const quote = resolved.quote?.trim()
+    return quote ? `${resolved.base}/${quote}` : resolved.base
   }
 
-  if (listing.listing_type === 'default') {
-    return listing.listing_id
-  }
-  return `${listing.base_id}/${listing.quote_id}`
+  return getListingIdentitySymbol(listing)
 }

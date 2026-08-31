@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { useSession } from '@/lib/auth-client'
-import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { Chat } from './chat/chat'
-import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { Chat } from './chat/chat'
 
 interface WorkflowChatAppProps {
   workspaceId: string
@@ -30,20 +30,20 @@ const WorkflowChatSessionProviders = ({
   const session = useSession()
   const user = session.data?.user
     ? {
-      id: session.data.user.id,
-      name: session.data.user.name ?? undefined,
-      email: session.data.user.email,
-    }
+        id: session.data.user.id,
+        name: session.data.user.name ?? undefined,
+        email: session.data.user.email,
+      }
     : undefined
 
   return (
     <Providers workspaceId={workspaceId} inheritUser>
-      <WorkflowSessionProvider
-        workspaceId={workspaceId}
-        workflowId={workflowId}
-        user={user}
-      >
-        <WorkflowRouteProvider workspaceId={workspaceId} workflowId={workflowId} channelId={channelId}>
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+        <WorkflowRouteProvider
+          workspaceId={workspaceId}
+          workflowId={workflowId}
+          channelId={channelId}
+        >
           {children}
         </WorkflowRouteProvider>
       </WorkflowSessionProvider>
@@ -65,11 +65,7 @@ const WorkflowChatApp = ({
       channelId={channelId}
     >
       <div className='flex h-full w-full flex-col overflow-y-auto'>
-        <Chat
-          chatMessage={chatMessage}
-          setChatMessage={setChatMessage}
-          hideScrollbar={false}
-        />
+        <Chat chatMessage={chatMessage} setChatMessage={setChatMessage} hideScrollbar={false} />
       </div>
     </WorkflowChatSessionProviders>
   )

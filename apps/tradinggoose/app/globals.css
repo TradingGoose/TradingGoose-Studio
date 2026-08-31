@@ -31,10 +31,6 @@
   z-index: 60 !important;
 }
 
-.workflow-popover-portal [data-radix-popper-content-wrapper] {
-  pointer-events: auto;
-}
-
 /* ==========================================================================
    LANDING LOOP ANIMATION
    ========================================================================== */
@@ -64,7 +60,6 @@
    THEME SYSTEM - CSS CUSTOM PROPERTIES
    ========================================================================== */
 @layer base {
-
   /* Light Mode Theme */
   :root,
   :root.light {
@@ -220,6 +215,52 @@
   }
 }
 
+/* ==========================================================================
+   BASE STYLES
+   ========================================================================== */
+@layer base {
+  * {
+    @apply border-border;
+    overscroll-behavior-x: none;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    overscroll-behavior-x: none;
+    overscroll-behavior-y: none;
+    min-height: 100vh;
+    /* Prevent layout shifts when scrollbar appears/disappears */
+    scrollbar-gutter: stable;
+    /* Improve animation performance */
+    text-rendering: optimizeSpeed;
+  }
+
+  /* Global Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: var(--radius);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+  }
+
+  /* For Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+}
+
 @layer utilities {
   .schema-param-highlight {
     @apply text-green-600 font-medium;
@@ -271,52 +312,6 @@
   /* Ensure the context view wrapper doesn't intercept hover events. */
   .context-view:has(.monaco-hover) {
     pointer-events: none;
-  }
-}
-
-/* ==========================================================================
-   BASE STYLES
-   ========================================================================== */
-@layer base {
-  * {
-    @apply border-border;
-    overscroll-behavior-x: none;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    overscroll-behavior-x: none;
-    overscroll-behavior-y: none;
-    min-height: 100vh;
-    /* Prevent layout shifts when scrollbar appears/disappears */
-    scrollbar-gutter: stable;
-    /* Improve animation performance */
-    text-rendering: optimizeSpeed;
-  }
-
-  /* Global Scrollbar Styling */
-  ::-webkit-scrollbar {
-    width: var(--scrollbar-size);
-    height: var(--scrollbar-size);
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted-foreground) / 0.3);
-    border-radius: var(--radius);
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--muted-foreground) / 0.3);
-  }
-
-  /* For Firefox */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
   }
 }
 
@@ -402,7 +397,6 @@ input[type="search"]::-ms-clear {
    ANIMATIONS & UTILITIES
    ========================================================================== */
 @layer utilities {
-
   /* Hero ripple helpers */
   @keyframes cell-ripple {
     0% {
@@ -433,16 +427,20 @@ input[type="search"]::-ms-clear {
   .mask-radial-from-20\% {
     --mask-radial-position: 50% 50%;
     --mask-radial-inner: 60%;
-    mask-image: radial-gradient(circle at var(--mask-radial-position),
-        rgba(0, 0, 0, 1) 0%,
-        rgba(0, 0, 0, 0) var(--mask-radial-inner),
-        transparent 100%);
+    mask-image: radial-gradient(
+      circle at var(--mask-radial-position),
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0) var(--mask-radial-inner),
+      transparent 100%
+    );
     mask-size: 100%;
     mask-repeat: no-repeat;
-    -webkit-mask-image: radial-gradient(circle at var(--mask-radial-position),
-        rgba(0, 0, 0, 1) 0%,
-        rgba(0, 0, 0, 0) var(--mask-radial-inner),
-        transparent 100%);
+    -webkit-mask-image: radial-gradient(
+      circle at var(--mask-radial-position),
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0) var(--mask-radial-inner),
+      transparent 100%
+    );
     -webkit-mask-size: 100%;
     -webkit-mask-repeat: no-repeat;
   }
@@ -541,19 +539,23 @@ input[type="search"]::-ms-clear {
   .streaming-effect::after {
     content: "";
     @apply pointer-events-none absolute left-0 top-0 h-full w-full;
-    background: linear-gradient(90deg,
-        rgba(128, 128, 128, 0) 0%,
-        rgba(128, 128, 128, 0.1) 50%,
-        rgba(128, 128, 128, 0) 100%);
+    background: linear-gradient(
+      90deg,
+      rgba(128, 128, 128, 0) 0%,
+      rgba(128, 128, 128, 0.1) 50%,
+      rgba(128, 128, 128, 0) 100%
+    );
     animation: code-shimmer 1.5s infinite;
     z-index: 10;
   }
 
   .dark .streaming-effect::after {
-    background: linear-gradient(90deg,
-        rgba(180, 180, 180, 0) 0%,
-        rgba(180, 180, 180, 0.1) 50%,
-        rgba(180, 180, 180, 0) 100%);
+    background: linear-gradient(
+      90deg,
+      rgba(180, 180, 180, 0) 0%,
+      rgba(180, 180, 180, 0.1) 50%,
+      rgba(180, 180, 180, 0) 100%
+    );
   }
 
   .loading-placeholder::placeholder {
@@ -589,11 +591,13 @@ input[type="search"]::-ms-clear {
 
   @keyframes orbit {
     0% {
-      transform: rotate(calc(var(--angle) * 1deg)) translateY(calc(var(--radius) * 1px)) rotate(calc(var(--angle) * -1deg));
+      transform: rotate(calc(var(--angle) * 1deg)) translateY(calc(var(--radius) * 1px))
+        rotate(calc(var(--angle) * -1deg));
     }
 
     100% {
-      transform: rotate(calc(var(--angle) * 1deg + 360deg)) translateY(calc(var(--radius) * 1px)) rotate(calc((var(--angle) * -1deg) - 360deg));
+      transform: rotate(calc(var(--angle) * 1deg + 360deg)) translateY(calc(var(--radius) * 1px))
+        rotate(calc((var(--angle) * -1deg) - 360deg));
     }
   }
 
@@ -628,7 +632,6 @@ input[type="search"]::-ms-clear {
   }
 
   @keyframes placeholder-pulse {
-
     0%,
     100% {
       opacity: 0.5;

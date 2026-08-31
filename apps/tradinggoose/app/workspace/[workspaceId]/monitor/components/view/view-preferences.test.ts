@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BrowserStorage } from '@/lib/browser-storage'
 import { DEFAULT_MONITOR_SHELL_WORKING_STATE, type MonitorShellWorkingState } from './view-config'
 import {
-  readMonitorWorkingStateKey,
   readMonitorWorkingState,
+  readMonitorWorkingStateKey,
   writeMonitorWorkingState,
 } from './view-preferences'
 

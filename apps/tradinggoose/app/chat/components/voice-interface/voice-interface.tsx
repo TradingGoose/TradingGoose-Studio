@@ -2,12 +2,13 @@
 
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { Mic, MicOff, Phone } from 'lucide-react'
+import type { Messages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import type { Messages } from 'next-intl'
 
 type ChatMessages = Messages['chat']
+
 import { ParticlesVisualization } from '@/app/chat/components/voice-interface/components/particles'
 
 const logger = createLogger('VoiceInterface')
@@ -569,6 +570,7 @@ export function VoiceInterface({
           {/* End call */}
           <Button
             onClick={handleCallEnd}
+            aria-label='End voice call'
             variant='outline'
             size='icon'
             className='h-14 w-14 rounded-full border-gray-300 hover:bg-gray-50'
@@ -579,6 +581,13 @@ export function VoiceInterface({
           {/* Mic/Stop button */}
           <Button
             onClick={toggleMute}
+            aria-label={
+              state === 'agent_speaking'
+                ? 'Stop response'
+                : isMuted
+                  ? 'Unmute microphone'
+                  : 'Mute microphone'
+            }
             variant='outline'
             size='icon'
             disabled={!isInitialized}

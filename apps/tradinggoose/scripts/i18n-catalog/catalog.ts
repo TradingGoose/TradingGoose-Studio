@@ -347,11 +347,7 @@ export function buildCatalogReport(options: BuildReportOptions): CatalogReport {
         namespaceSource: candidate.namespaceSource,
         attributeName: candidate.attributeName,
         metadata: candidate.metadata,
-        existingPathKey: findExistingPathKey(
-          candidate,
-          catalogValueIndex,
-          ownedCatalogValueIndex
-        ),
+        existingPathKey: findExistingPathKey(candidate, catalogValueIndex, ownedCatalogValueIndex),
         suggestedPathKey: toSuggestedPathKey(candidate),
       })),
   }

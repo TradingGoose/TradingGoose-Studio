@@ -1,11 +1,12 @@
 'use client'
 
+import type { Messages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { useBrandConfig } from '@/lib/branding/branding'
 import Nav from '@/app/(landing)/components/nav/nav'
-import type { Messages } from 'next-intl'
 
 type ChatMessages = Messages['chat']
+
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { useRouter } from '@/i18n/navigation'
@@ -32,7 +33,11 @@ export function ChatErrorState({ error, copy }: ChatErrorStateProps) {
               <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
                 {copy.error.title}
               </h1>
-              <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
+              <p
+                role='alert'
+                aria-atomic='true'
+                className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}
+              >
                 {error}
               </p>
             </div>
@@ -50,12 +55,12 @@ export function ChatErrorState({ error, copy }: ChatErrorStateProps) {
         </div>
       </div>
       <div
-        className={`${inter.className} text-muted-foreground fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
+        className={`${inter.className} fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] text-muted-foreground leading-relaxed`}
       >
         {copy.error.needHelp}{' '}
         <a
           href={`mailto:${brandConfig.supportEmail}`}
-          className='hover:text-primary underline underline-offset-4'
+          className='underline underline-offset-4 hover:text-primary'
         >
           {copy.error.contactSupport}
         </a>

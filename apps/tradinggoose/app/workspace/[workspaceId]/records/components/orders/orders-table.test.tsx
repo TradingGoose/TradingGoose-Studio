@@ -5,6 +5,7 @@
 import { act, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getListingIdentityKey } from '@/lib/listing/identity'
 import type { RecordsOrder } from '@/hooks/queries/records-orders'
 import { OrdersTable } from './orders-table'
 
@@ -13,7 +14,13 @@ const mockUseResolvedListings = vi.fn()
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: any) => <>{children}</>,
   TooltipContent: ({ children }: any) => <>{children}</>,
-  TooltipTrigger: ({ children }: any) => <>{children}</>,
+  TooltipTrigger: ({
+    children,
+    render,
+  }: {
+    children?: React.ReactNode
+    render?: React.ReactNode
+  }) => <>{render ?? children}</>,
 }))
 
 vi.mock('@/hooks/queries/listing-resolution', () => ({
@@ -73,13 +80,22 @@ const order: RecordsOrder = {
   workspaceId: 'workspace-1',
 }
 
+const orderWithoutProviderDetail: RecordsOrder = {
+  ...order,
+  id: 'order-2',
+  provider: 'tradier',
+  providerOrderId: 'provider-order-2',
+}
+
 describe('OrdersTable', () => {
   let container: HTMLDivElement
   let root: Root
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mockUseResolvedListings.mockReturnValue({ data: {} })
+    mockUseResolvedListings.mockReturnValue({
+      data: { [getListingIdentityKey(listingIdentity)]: null },
+    })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -99,7 +115,7 @@ describe('OrdersTable', () => {
     await act(async () => {
       root.render(
         <OrdersTable
-          orders={[order]}
+          orders={[order, orderWithoutProviderDetail]}
           selectedOrderId='order-1'
           loading={false}
           error={null}
@@ -152,16 +168,29 @@ describe('OrdersTable', () => {
     expect(onOrderClick).toHaveBeenCalledWith(order)
 
     onOrderClick.mockClear()
-    const providerDetailLink = Array.from(container.querySelectorAll('a')).find(
+    const providerDetailLinks = Array.from(container.querySelectorAll('a')).filter(
       (node) => node.textContent === 'Open provider order detail'
     )
+    expect(providerDetailLinks).toHaveLength(1)
+    const [providerDetailLink] = providerDetailLinks
     if (!(providerDetailLink instanceof HTMLAnchorElement)) {
       throw new Error('Expected provider detail link to render')
     }
 
+    expect(providerDetailLink.tagName).toBe('A')
+    expect(providerDetailLink.textContent).toBe('Open provider order detail')
+    expect(providerDetailLink.getAttribute('role')).toBeNull()
     expect(providerDetailLink.href).toBe(
       'https://app.alpaca.markets/dashboard/order/provider-order-1'
     )
+    expect(providerDetailLink.target).toBe('_blank')
+    expect(providerDetailLink.rel).toBe('noopener noreferrer')
+
+    const copyButtons = Array.from(container.querySelectorAll('button')).filter(
+      (node) => node.textContent === 'Copy order id'
+    )
+    expect(copyButtons).toHaveLength(2)
+    expect(copyButtons.every((button) => button.getAttribute('role') === null)).toBe(true)
 
     await act(async () => {
       providerDetailLink.dispatchEvent(new MouseEvent('click', { bubbles: true }))

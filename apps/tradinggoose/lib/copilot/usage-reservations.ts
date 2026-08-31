@@ -153,7 +153,9 @@ async function readScopeReservations(scope: ReservationScope): Promise<CopilotUs
   try {
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed.map(parseReservation).filter((entry): entry is CopilotUsageReservation => entry !== null)
+    return parsed
+      .map(parseReservation)
+      .filter((entry): entry is CopilotUsageReservation => entry !== null)
   } catch (error) {
     logger.warn('Failed to parse cached copilot usage reservations', {
       scopeType: scope.scopeType,
@@ -235,7 +237,9 @@ async function withScopeLock<T>(scope: ReservationScope, action: () => Promise<T
   }
 
   if (!acquired) {
-    throw new Error(`Could not acquire copilot usage reservation lock for ${scope.scopeType}:${scope.scopeId}`)
+    throw new Error(
+      `Could not acquire copilot usage reservation lock for ${scope.scopeType}:${scope.scopeId}`
+    )
   }
 
   try {

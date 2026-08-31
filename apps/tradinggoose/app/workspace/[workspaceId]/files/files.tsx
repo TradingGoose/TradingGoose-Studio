@@ -35,7 +35,7 @@ import {
 import { getDocumentIcon } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { GlobalNavbarHeader } from '@/global-navbar'
-import { type LocaleCode } from '@/i18n/utils'
+import type { LocaleCode } from '@/i18n/utils'
 
 export function WorkspaceFiles() {
   const params = useParams<{ workspaceId: string }>()
@@ -102,6 +102,7 @@ export function WorkspaceFiles() {
         <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3'>
           <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
           <Input
+            aria-label={t('searchPlaceholder')}
             placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -140,6 +141,7 @@ export function WorkspaceFiles() {
         <div className='flex items-center'>
           <input
             ref={fileInputRef}
+            aria-labelledby='files-upload-button'
             type='file'
             className='hidden'
             accept={ACCEPT_ATTR}
@@ -148,6 +150,7 @@ export function WorkspaceFiles() {
             disabled={uploading}
           />
           <Button
+            id='files-upload-button'
             variant='default'
             className='h-9 rounded-md px-4'
             onClick={handleUploadClick}
@@ -342,16 +345,20 @@ export function WorkspaceFiles() {
       </div>
       <AlertDialog
         open={Boolean(filePendingDelete)}
-        onOpenChange={(open) => {
+        onOpenChange={(open, details) => {
           if (!open) {
             const isDeletingCurrent = filePendingDelete && deletingFileId === filePendingDelete.id
-            if (!isDeletingCurrent) {
-              setFilePendingDelete(null)
+            if (isDeletingCurrent) {
+              details.cancel()
+              return
             }
+            setFilePendingDelete(null)
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent
+          hideCloseButton={Boolean(filePendingDelete) && deletingFileId === filePendingDelete?.id}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>

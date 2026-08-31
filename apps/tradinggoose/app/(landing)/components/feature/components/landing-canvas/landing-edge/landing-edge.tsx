@@ -40,7 +40,7 @@ export const LandingEdge = React.memo(function LandingEdge(props: EdgeProps) {
     targetY,
     sourcePosition,
     targetPosition,
-    borderRadius: Infinity,
+    borderRadius: Number.POSITIVE_INFINITY,
     offset: 10,
   })
 

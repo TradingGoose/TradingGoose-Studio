@@ -37,6 +37,7 @@ type MarketProviderSettingsButtonProps = {
   providerParams?: Record<string, unknown>
   authParams?: Record<string, unknown>
   workspaceId?: string
+  disabled?: boolean
   onSave: (next: MarketProviderSettingsSaveResult) => void
 }
 
@@ -58,6 +59,7 @@ const resolveSavedValue = ({
 
 type MarketProviderTextInputProps = {
   id: string
+  ariaLabel: string
   definition: MarketProviderParamDefinition
   value: string
   isCredential: boolean
@@ -67,6 +69,7 @@ type MarketProviderTextInputProps = {
 
 function MarketProviderTextInput({
   id,
+  ariaLabel,
   definition,
   value,
   isCredential,
@@ -98,6 +101,7 @@ function MarketProviderTextInput({
       <Input
         ref={inputRef}
         id={id}
+        aria-label={ariaLabel}
         type={isCredential ? 'password' : definition.type === 'number' ? 'number' : 'text'}
         value={value}
         onChange={(event) => {
@@ -154,6 +158,7 @@ export function MarketProviderSettingsButton({
   providerParams,
   authParams,
   workspaceId,
+  disabled = false,
   onSave,
 }: MarketProviderSettingsButtonProps) {
   const trimmedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
@@ -170,6 +175,10 @@ export function MarketProviderSettingsButton({
     setInputValues({})
   }, [settingsOpen])
 
+  useEffect(() => {
+    if (disabled) setSettingsOpen(false)
+  }, [disabled])
+
   if (definitions.length === 0) return null
 
   const resolvedProviderName = providerName?.trim() || 'Market'
@@ -185,7 +194,7 @@ export function MarketProviderSettingsButton({
   }
 
   const handleSave = () => {
-    if (!trimmedProviderId) return
+    if (disabled || !trimmedProviderId) return
 
     const nextProviderParamsInput = {
       ...(providerParams ?? {}),
@@ -211,20 +220,30 @@ export function MarketProviderSettingsButton({
   }
 
   return (
-    <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
+    <Popover
+      open={settingsOpen}
+      onOpenChange={(open) => {
+        if (!disabled || !open) setSettingsOpen(open)
+      }}
+    >
       <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <button
-              type='button'
-              className={widgetHeaderControlClassName(cn('flex justify-between gap-1.5'))}
-              disabled={!trimmedProviderId}
-              aria-label={`Configure ${resolvedProviderName} provider`}
-            >
-              <KeyRound className='h-3.5 w-3.5 shrink-0 text-muted-foreground' />
-              <span className='min-w-0 text-left'>{triggerLabel}</span>
-            </button>
-          </PopoverTrigger>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              disabled={disabled || !trimmedProviderId}
+              render={
+                <button
+                  type='button'
+                  className={widgetHeaderControlClassName(cn('flex justify-between gap-1.5'))}
+                  disabled={disabled || !trimmedProviderId}
+                  aria-label={`Configure ${resolvedProviderName} provider`}
+                />
+              }
+            />
+          }
+        >
+          <KeyRound className='h-3.5 w-3.5 shrink-0 text-muted-foreground' />
+          <span className='min-w-0 text-left'>{triggerLabel}</span>
         </TooltipTrigger>
         <TooltipContent side='top'>{triggerLabel}</TooltipContent>
       </Tooltip>
@@ -260,6 +279,7 @@ export function MarketProviderSettingsButton({
                   ? resolvedValue.toLowerCase() === 'true'
                   : false
             const controlledValue = inputValues[definition.id] ?? inputValue ?? ''
+            const inputLabel = definition.title ?? definition.id
 
             if (definition.inputType === 'switch' || definition.type === 'boolean') {
               return (
@@ -268,7 +288,7 @@ export function MarketProviderSettingsButton({
                   className='flex items-center justify-between gap-2'
                 >
                   <Label htmlFor={inputId} className='text-xs'>
-                    {definition.title ?? definition.id}
+                    {inputLabel}
                   </Label>
                   <Switch
                     id={inputId}
@@ -283,11 +303,17 @@ export function MarketProviderSettingsButton({
               return (
                 <div key={`${trimmedProviderId}-${definition.id}`} className='space-y-1'>
                   <Label htmlFor={inputId} className='text-xs'>
-                    {definition.title ?? definition.id}
+                    {inputLabel}
                   </Label>
                   <Select
                     defaultValue={selectValue}
-                    onValueChange={(nextValue) => handleParamChange(definition.id, nextValue)}
+                    items={definition.options.map((option) => ({
+                      value: option.id,
+                      label: option.label,
+                    }))}
+                    onValueChange={(nextValue) => {
+                      if (nextValue !== null) handleParamChange(definition.id, nextValue)
+                    }}
                   >
                     <SelectTrigger id={inputId}>
                       <SelectValue placeholder={definition.placeholder ?? 'Select'} />
@@ -307,10 +333,11 @@ export function MarketProviderSettingsButton({
             return (
               <div key={`${trimmedProviderId}-${definition.id}`} className='space-y-1'>
                 <Label htmlFor={inputId} className='text-xs'>
-                  {definition.title ?? definition.id}
+                  {inputLabel}
                 </Label>
                 <MarketProviderTextInput
                   id={inputId}
+                  ariaLabel={inputLabel}
                   definition={definition}
                   isCredential={isCredential}
                   value={controlledValue}
@@ -331,7 +358,7 @@ export function MarketProviderSettingsButton({
           <Button size='sm' variant='outline' onClick={() => setSettingsOpen(false)}>
             Cancel
           </Button>
-          <Button size='sm' onClick={handleSave}>
+          <Button size='sm' disabled={disabled} onClick={handleSave}>
             Save
           </Button>
         </div>

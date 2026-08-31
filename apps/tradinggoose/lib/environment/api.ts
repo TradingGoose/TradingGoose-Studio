@@ -17,6 +17,78 @@ export interface WorkspaceEnvironmentData {
   personalRows: WorkspaceEnvironmentRow[]
 }
 
+type EnvironmentTarget =
+  | { scope: 'personal'; callbackPathname: string }
+  | { scope: 'workspace'; workspaceId: string; callbackPathname: string }
+
+export type SaveEnvironmentVariableParams = EnvironmentTarget & {
+  originalKey: string | null
+  key: string
+  value: string
+}
+
+export type DeleteEnvironmentVariableParams = EnvironmentTarget & {
+  key: string
+}
+
+async function throwEnvironmentResponseError(
+  response: Response,
+  reason: string,
+  callbackPathname: string,
+  message: string
+): Promise<never> {
+  if (response.status === 401) {
+    await handleAuthError(reason, callbackPathname)
+  }
+
+  throw new Error(`${message}: ${response.statusText}`)
+}
+
+const getEnvironmentEndpoint = (target: EnvironmentTarget) =>
+  target.scope === 'workspace'
+    ? API_ENDPOINTS.WORKSPACE_ENVIRONMENT(target.workspaceId)
+    : API_ENDPOINTS.ENVIRONMENT
+
+export async function saveEnvironmentVariable(
+  params: SaveEnvironmentVariableParams
+): Promise<void> {
+  const { scope, callbackPathname, originalKey, key, value } = params
+  const response = await fetch(getEnvironmentEndpoint(params), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ originalKey, key, value }),
+  })
+
+  if (!response.ok) {
+    await throwEnvironmentResponseError(
+      response,
+      `environment-api:save-${scope}`,
+      callbackPathname,
+      'Failed to save environment variable'
+    )
+  }
+}
+
+export async function deleteEnvironmentVariable(
+  params: DeleteEnvironmentVariableParams
+): Promise<void> {
+  const { scope, callbackPathname, key } = params
+  const response = await fetch(getEnvironmentEndpoint(params), {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key }),
+  })
+
+  if (!response.ok) {
+    await throwEnvironmentResponseError(
+      response,
+      `environment-api:delete-${scope}`,
+      callbackPathname,
+      'Failed to delete environment variable'
+    )
+  }
+}
+
 export async function fetchPersonalEnvironment(
   callbackPathname: string
 ): Promise<Record<string, EnvironmentVariable>> {

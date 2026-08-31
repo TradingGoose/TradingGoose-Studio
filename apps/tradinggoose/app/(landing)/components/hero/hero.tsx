@@ -12,18 +12,14 @@ import {
   Workflow,
 } from 'lucide-react'
 import Image from 'next/image'
-import { useLocale } from 'next-intl'
-import { Link } from '@/i18n/navigation'
+import { useLocale, useMessages } from 'next-intl'
 import { AnimatedBeam } from '@/components/ui/animated-beam'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { WordRotate } from '@/components/ui/word-rotate'
-import {
-  getRegistrationPrimaryHref,
-  type RegistrationMode,
-} from '@/lib/registration/shared'
-import { useMessages } from 'next-intl'
-import { localizeDocsUrl, type LocaleCode } from '@/i18n/utils'
+import { getRegistrationPrimaryHref, type RegistrationMode } from '@/lib/registration/shared'
+import { Link } from '@/i18n/navigation'
+import { type LocaleCode, localizeDocsUrl } from '@/i18n/utils'
 
 const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -59,8 +55,7 @@ const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
           </Badge>
 
           <h1 className='relative z-10 font-semibold text-2xl sm:text-3xl lg:font-bold lg:text-5xl'>
-            <WordRotate words={copy.landing.hero.leadWords} duration={4000} />{' '}
-            {titleConnectorText}
+            <WordRotate words={copy.landing.hero.leadWords} duration={4000} /> {titleConnectorText}
             <WordRotate
               words={copy.landing.hero.highlightWords}
               className='underline underline-offset-3'
@@ -98,22 +93,31 @@ const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
                 {registrationPrimaryLabel}
               </Button>
             ) : (
-              <Button size='lg' className='font-semibold text-lg' asChild>
-                <Link href={registrationPrimaryHref} prefetch={false}>
-                  {registrationPrimaryLabel}
-                </Link>
-              </Button>
+              <Link
+                href={registrationPrimaryHref}
+                prefetch={false}
+                aria-label={registrationPrimaryLabel}
+                className={buttonVariants({
+                  size: 'lg',
+                  className: 'font-semibold text-lg',
+                })}
+              >
+                {registrationPrimaryLabel}
+              </Link>
             )}
-            <Button
-              variant='outline'
-              size='lg'
-              className='bg-background font-semibold text-lg'
-              asChild
+            <a
+              href={localizeDocsUrl(locale)}
+              target='_blank'
+              rel='noopener noreferrer'
+              aria-label={copy.landing.hero.learnMore}
+              className={buttonVariants({
+                variant: 'outline',
+                size: 'lg',
+                className: 'bg-background font-semibold text-lg',
+              })}
             >
-              <a href={localizeDocsUrl(locale)} target='_blank' rel='noopener noreferrer'>
-                {copy.landing.hero.learnMore}
-              </a>
-            </Button>
+              {copy.landing.hero.learnMore}
+            </a>
           </div>
         </div>
 

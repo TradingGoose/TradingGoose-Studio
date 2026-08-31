@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { CustomToolsImportFile } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -16,7 +16,10 @@ export const customToolsKeys = {
   lists: () => [...customToolsKeys.all, 'list'] as const,
   list: (workspaceId: string) => [...customToolsKeys.lists(), workspaceId] as const,
   detail: (toolId: string) => [...customToolsKeys.all, 'detail', toolId] as const,
+  write: (workspaceId: string) => [...customToolsKeys.all, 'write', workspaceId] as const,
 }
+
+export const customToolWriteScope = (workspaceId: string) => `custom-tools:${workspaceId}`
 
 export type CustomTool = CustomToolDefinition
 
@@ -168,10 +171,7 @@ export function useCustomTools(workspaceId: string) {
   return query
 }
 
-/**
- * Create custom tool mutation
- */
-interface CreateCustomToolParams {
+export interface CreateCustomToolInput {
   workspaceId: string
   tool: {
     title: string
@@ -180,115 +180,69 @@ interface CreateCustomToolParams {
   }
 }
 
-export function useCreateCustomTool() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ workspaceId, tool }: CreateCustomToolParams) => {
-      logger.info(`Creating custom tool: ${tool.title} in workspace ${workspaceId}`)
-
-      const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tools: [
-            {
-              title: tool.title,
-              schema: tool.schema,
-              code: tool.code,
-            },
-          ],
-          workspaceId,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create tool')
-      }
-
-      if (!data.data || !Array.isArray(data.data)) {
-        throw new Error('Invalid API response: missing tools data')
-      }
-
-      logger.info(`Created custom tool: ${tool.title}`)
-      return data.data
-    },
-    onSuccess: (_data, variables) => {
-      // Invalidate tools list for the workspace
-      queryClient.invalidateQueries({ queryKey: customToolsKeys.list(variables.workspaceId) })
-    },
+export async function createCustomTool({
+  workspaceId,
+  tool,
+}: CreateCustomToolInput): Promise<Array<{ id: string }>> {
+  logger.info(`Creating custom tool: ${tool.title} in workspace ${workspaceId}`)
+  const response = await fetch(API_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tools: [tool], workspaceId }),
   })
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to create tool')
+  }
+  if (!Array.isArray(data.data)) {
+    throw new Error('Invalid API response: missing tools data')
+  }
+
+  logger.info(`Created custom tool: ${tool.title}`)
+  return data.data
 }
 
-interface ImportCustomToolsParams {
+export interface ImportCustomToolsInput {
   workspaceId: string
   file: CustomToolsImportFile
 }
 
-export function useImportCustomTools() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ workspaceId, file }: ImportCustomToolsParams) => {
-      logger.info(`Importing custom tools into workspace ${workspaceId}`)
-
-      const response = await fetch(`${API_ENDPOINT}/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workspaceId,
-          file,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to import custom tools')
-      }
-
-      return data
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: customToolsKeys.list(variables.workspaceId) })
-    },
+export async function importCustomTools({
+  workspaceId,
+  file,
+}: ImportCustomToolsInput): Promise<void> {
+  logger.info(`Importing custom tools into workspace ${workspaceId}`)
+  const response = await fetch(`${API_ENDPOINT}/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workspaceId, file }),
   })
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to import custom tools')
+  }
 }
 
-/**
- * Delete custom tool mutation
- */
-interface DeleteCustomToolParams {
+export interface DeleteCustomToolInput {
   workspaceId: string
   toolId: string
 }
 
-export function useDeleteCustomTool() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ workspaceId, toolId }: DeleteCustomToolParams) => {
-      logger.info(`Deleting custom tool: ${toolId}`)
-
-      const url = `${API_ENDPOINT}?id=${toolId}&workspaceId=${workspaceId}`
-
-      const response = await fetch(url, {
-        method: 'DELETE',
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete tool')
-      }
-
-      logger.info(`Deleted custom tool: ${toolId}`)
-      return data
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: customToolsKeys.list(variables.workspaceId) })
-    },
+export async function deleteCustomTool({
+  workspaceId,
+  toolId,
+}: DeleteCustomToolInput): Promise<void> {
+  logger.info(`Deleting custom tool: ${toolId}`)
+  const response = await fetch(`${API_ENDPOINT}?id=${toolId}&workspaceId=${workspaceId}`, {
+    method: 'DELETE',
   })
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to delete tool')
+  }
+
+  logger.info(`Deleted custom tool: ${toolId}`)
 }

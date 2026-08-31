@@ -1,12 +1,14 @@
 'use client'
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { Check, Pencil, X } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Check, LoaderCircle, Pencil, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import { useUpdateOrganizationUsageLimit } from '@/hooks/queries/organization'
-import { useUpdateUsageLimit } from '@/hooks/queries/subscription'
+import { organizationMutationOptions } from '@/hooks/queries/organization'
+import { subscriptionMutationOptions } from '@/hooks/queries/subscription'
 
 const logger = createLogger('UsageLimit')
 
@@ -15,7 +17,6 @@ interface UsageLimitProps {
   currentUsage: number
   canEdit: boolean
   minimumLimit: number
-  onLimitUpdated?: (newLimit: number) => void
   context?: 'user' | 'organization'
   organizationId?: string
 }
@@ -26,37 +27,35 @@ export interface UsageLimitRef {
 
 export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
   (
-    {
-      currentLimit,
-      currentUsage,
-      canEdit,
-      minimumLimit,
-      onLimitUpdated,
-      context = 'user',
-      organizationId,
-    },
+    { currentLimit, currentUsage, canEdit, minimumLimit, context = 'user', organizationId },
     ref
   ) => {
+    const t = useTranslations('workspace.settingsModal.subscription.limit')
     const [inputValue, setInputValue] = useState(currentLimit.toString())
-    const [hasError, setHasError] = useState(false)
     const [errorType, setErrorType] = useState<'general' | 'belowUsage' | null>(null)
+    const hasError = errorType !== null
     const [isEditing, setIsEditing] = useState(false)
-    const [pendingLimit, setPendingLimit] = useState<number | null>(null)
     const inputRef = useRef<HTMLInputElement>(null)
+    const submitLockRef = useRef(false)
+    const queryClient = useQueryClient()
 
-    const updateUserLimitMutation = useUpdateUsageLimit()
-    const updateOrgLimitMutation = useUpdateOrganizationUsageLimit()
+    const updateUserLimitMutation = useMutation(
+      subscriptionMutationOptions.updateUsageLimit(queryClient)
+    )
+    const updateOrgLimitMutation = useMutation(
+      organizationMutationOptions.updateUsageLimit(queryClient)
+    )
 
-    const isUpdating =
+    const isPending =
       context === 'organization'
         ? updateOrgLimitMutation.isPending
         : updateUserLimitMutation.isPending
 
     const handleStartEdit = () => {
-      if (!canEdit) return
+      if (!canEdit || isPending) return
+      setErrorType(null)
       setIsEditing(true)
-      const displayLimit = pendingLimit !== null ? pendingLimit : currentLimit
-      setInputValue(displayLimit.toString())
+      setInputValue(currentLimit.toString())
     }
 
     useImperativeHandle(
@@ -64,19 +63,12 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
       () => ({
         startEdit: handleStartEdit,
       }),
-      [canEdit, currentLimit, pendingLimit]
+      [canEdit, currentLimit, isPending]
     )
 
     useEffect(() => {
-      if (pendingLimit !== null) {
-        if (currentLimit === pendingLimit) {
-          setPendingLimit(null)
-          setInputValue(currentLimit.toString())
-        }
-      } else {
-        setInputValue(currentLimit.toString())
-      }
-    }, [currentLimit, pendingLimit])
+      setInputValue(currentLimit.toString())
+    }, [currentLimit])
 
     useEffect(() => {
       if (isEditing && inputRef.current) {
@@ -85,17 +77,9 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
       }
     }, [isEditing])
 
-    useEffect(() => {
-      if (hasError) {
-        const timer = setTimeout(() => {
-          setHasError(false)
-          setErrorType(null)
-        }, 2000)
-        return () => clearTimeout(timer)
-      }
-    }, [hasError])
-
     const handleSubmit = async () => {
+      if (submitLockRef.current || isPending) return
+
       const newLimit = Number.parseInt(inputValue, 10)
 
       if (Number.isNaN(newLimit) || newLimit < minimumLimit) {
@@ -105,7 +89,6 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
       }
 
       if (newLimit < currentUsage) {
-        setHasError(true)
         setErrorType('belowUsage')
         return
       }
@@ -115,12 +98,12 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
         return
       }
 
+      submitLockRef.current = true
       try {
         if (context === 'organization') {
           if (!organizationId) {
             logger.error('Organization ID is required for organization context')
             setErrorType('general')
-            setHasError(true)
             return
           }
 
@@ -129,33 +112,24 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
           await updateUserLimitMutation.mutateAsync({ limit: newLimit })
         }
 
-        setPendingLimit(newLimit)
         setInputValue(newLimit.toString())
-        onLimitUpdated?.(newLimit)
         setIsEditing(false)
         setErrorType(null)
-        setHasError(false)
       } catch (err) {
         logger.error('Failed to update usage limit', { error: err })
 
         const message = err instanceof Error ? err.message : String(err)
-        if (message.includes('below current usage')) {
-          setErrorType('belowUsage')
-        } else {
-          setErrorType('general')
-        }
+        setErrorType(message.includes('below current usage') ? 'belowUsage' : 'general')
 
-        setPendingLimit(null)
         setInputValue(currentLimit.toString())
-        setHasError(true)
+      } finally {
+        submitLockRef.current = false
       }
     }
 
     const handleCancelEdit = () => {
       setIsEditing(false)
-      const displayLimit = pendingLimit !== null ? pendingLimit : currentLimit
-      setInputValue(displayLimit.toString())
-      setHasError(false)
+      setInputValue(currentLimit.toString())
       setErrorType(null)
     }
 
@@ -170,69 +144,80 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
     }
 
     return (
-      <div className='flex items-center'>
-        {isEditing ? (
-          <>
-            <span className='text-muted-foreground text-xs tabular-nums'>$</span>
-            <input
-              ref={inputRef}
-              type='number'
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onBlur={(e) => {
-                const relatedTarget = e.relatedTarget as HTMLElement
-                if (relatedTarget?.closest('button')) {
-                  return
-                }
-                handleSubmit()
-              }}
+      <div className='space-y-1'>
+        <div className='flex items-center'>
+          {isEditing ? (
+            <>
+              <span className='text-muted-foreground text-xs tabular-nums'>$</span>
+              <input
+                ref={inputRef}
+                type='number'
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={(e) => {
+                  const relatedTarget = e.relatedTarget as HTMLElement
+                  if (relatedTarget?.closest('button')) {
+                    return
+                  }
+                  void handleSubmit()
+                }}
+                className={cn(
+                  'border-0 bg-transparent p-0 text-xs tabular-nums',
+                  'outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
+                  '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+                  hasError && 'text-red-500'
+                )}
+                min={minimumLimit}
+                step='1'
+                disabled={isPending}
+                autoComplete='off'
+                autoCorrect='off'
+                autoCapitalize='off'
+                spellCheck='false'
+                style={{ width: `${Math.max(3, inputValue.length)}ch` }}
+              />
+            </>
+          ) : (
+            <span className='text-muted-foreground text-xs tabular-nums'>${currentLimit}</span>
+          )}
+          {canEdit && (
+            <Button
+              variant='ghost'
+              size='icon'
               className={cn(
-                'border-0 bg-transparent p-0 text-xs tabular-nums',
-                'outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
-                '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
-                hasError && 'text-red-500'
+                'ml-1 h-4 w-4 p-0 transition-colors hover:bg-transparent',
+                hasError
+                  ? 'text-red-500 hover:text-red-600'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
-              min={minimumLimit}
-              step='1'
-              disabled={isUpdating}
-              autoComplete='off'
-              autoCorrect='off'
-              autoCapitalize='off'
-              spellCheck='false'
-              style={{ width: `${Math.max(3, inputValue.length)}ch` }}
-            />
-          </>
-        ) : (
-          <span className='text-muted-foreground text-xs tabular-nums'>
-            ${pendingLimit !== null ? pendingLimit : currentLimit}
-          </span>
-        )}
-        {canEdit && (
-          <Button
-            variant='ghost'
-            size='icon'
-            className={cn(
-              'ml-1 h-4 w-4 p-0 transition-colors hover:bg-transparent',
-              hasError
-                ? 'text-red-500 hover:text-red-600'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-            onClick={isEditing ? handleSubmit : handleStartEdit}
-            disabled={isUpdating}
-          >
-            {isEditing ? (
-              hasError ? (
-                <X className='!h-3 !w-3' />
+              onClick={isEditing ? handleSubmit : handleStartEdit}
+              disabled={isPending}
+              focusableWhenDisabled={isPending}
+              aria-busy={isPending || undefined}
+            >
+              {isPending ? (
+                <LoaderCircle className='!h-3 !w-3 animate-spin' />
+              ) : isEditing ? (
+                hasError ? (
+                  <X className='!h-3 !w-3' />
+                ) : (
+                  <Check className='!h-3 !w-3' />
+                )
               ) : (
-                <Check className='!h-3 !w-3' />
-              )
-            ) : (
-              <Pencil className='!h-3 !w-3' />
-            )}
-            <span className='sr-only'>{isEditing ? 'Save limit' : 'Edit limit'}</span>
-          </Button>
-        )}
+                <Pencil className='!h-3 !w-3' />
+              )}
+              <span className='sr-only'>
+                {isPending ? t('saving') : isEditing ? t('save') : t('edit')}
+              </span>
+            </Button>
+          )}
+        </div>
+        {hasError ? (
+          <p role='alert' className='text-destructive text-xs'>
+            {errorType === 'belowUsage' ? t('belowUsage') : t('updateFailed')}
+          </p>
+        ) : null}
       </div>
     )
   }

@@ -139,7 +139,6 @@ export function useWand({
       setIsLoading(true)
       setIsStreaming(true)
       setError(null)
-      setPromptInputValue('')
 
       abortControllerRef.current = new AbortController()
 
@@ -210,25 +209,27 @@ export function useWand({
                   continue
                 }
 
+                let data: { error?: string; chunk?: string; done?: boolean }
                 try {
-                  const data = JSON.parse(lineData)
-
-                  if (data.error) {
-                    throw new Error(data.error)
-                  }
-
-                  if (data.chunk) {
-                    accumulatedContent += data.chunk
-                    if (onStreamChunk) {
-                      onStreamChunk(data.chunk)
-                    }
-                  }
-
-                  if (data.done) {
-                    break
-                  }
+                  data = JSON.parse(lineData)
                 } catch (parseError) {
                   logger.debug('Failed to parse SSE line', { line, parseError })
+                  continue
+                }
+
+                if (data.error) {
+                  throw new Error(data.error)
+                }
+
+                if (data.chunk) {
+                  accumulatedContent += data.chunk
+                  if (onStreamChunk) {
+                    onStreamChunk(data.chunk)
+                  }
+                }
+
+                if (data.done) {
+                  break
                 }
               }
             }
@@ -253,6 +254,7 @@ export function useWand({
           }
         }
 
+        setPromptInputValue('')
         logger.debug('Wand generation completed', {
           prompt,
           contentLength: accumulatedContent.length,

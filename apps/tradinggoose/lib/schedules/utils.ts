@@ -304,6 +304,8 @@ export const getScheduleInfo = (
   return {
     scheduleTiming,
     nextRunFormatted: formatDateTime(new Date(nextRunAt), utcOffset || undefined),
-    lastRunFormatted: lastRanAt ? formatDateTime(new Date(lastRanAt), utcOffset || undefined) : null,
+    lastRunFormatted: lastRanAt
+      ? formatDateTime(new Date(lastRanAt), utcOffset || undefined)
+      : null,
   }
 }

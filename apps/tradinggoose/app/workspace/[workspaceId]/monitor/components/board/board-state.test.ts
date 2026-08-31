@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { MONITOR_ASSET_TYPES } from '@/lib/monitors/sources'
 import type { MonitorExecutionItem } from '../data/execution-ordering'
 import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { buildMonitorBoardSections } from './board-state'
@@ -13,7 +14,6 @@ const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecut
   outcome: 'success',
   trigger: 'manual',
   workflowName: 'Workflow One',
-  workflowColor: '#3972F6',
   monitorId: 'monitor-1',
   source: 'indicator',
   providerId: 'alpaca',
@@ -27,19 +27,6 @@ const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecut
   cost: 0.12,
   isOrphaned: false,
   isPartial: false,
-  sourceLog: {
-    id: 'log-1',
-    workspaceId: 'workspace-1',
-    workflowId: 'wf-1',
-    executionId: 'exec-1',
-    level: 'info',
-    trigger: 'manual',
-    startedAt: '2026-04-23T00:00:00.000Z',
-    recordCreatedAt: '2026-04-23T00:00:00.000Z',
-    endedAt: '2026-04-23T00:05:00.000Z',
-    durationMs: 300000,
-    outcome: 'success',
-  },
   ...overrides,
 })
 
@@ -57,6 +44,18 @@ describe('buildMonitorBoardSections', () => {
       'Unknown',
     ])
     expect(sections[0]?.columns.every((column) => column.items.length === 0)).toBe(true)
+  })
+
+  it('returns an empty column for every emitted monitor asset type', () => {
+    const sections = buildMonitorBoardSections([], {
+      ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+      kanban: {
+        ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG.kanban,
+        columnField: 'assetType',
+      },
+    })
+
+    expect(sections[0]?.columns.map((column) => column.fieldId)).toEqual(MONITOR_ASSET_TYPES)
   })
 
   it('uses groupBy as the section field when sliceBy is not set', () => {

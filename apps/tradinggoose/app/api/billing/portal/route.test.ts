@@ -2,78 +2,17 @@
  * @vitest-environment node
  */
 
-import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetSession = vi.fn()
 const mockGetBillingGateState = vi.fn()
-const mockIsOrganizationOwnerOrAdmin = vi.fn()
 const mockRequireStripeClient = vi.fn()
 const mockEnsureStripeUserCustomer = vi.fn()
 const mockStripeBillingPortalSessionsCreate = vi.fn()
-const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, value }))
-const mockAnd = vi.fn((...conditions: unknown[]) => conditions)
-const mockOr = vi.fn((...conditions: unknown[]) => conditions)
-const mockInArray = vi.fn((field: unknown, values: unknown[]) => ({ field, values }))
-const mockSql = vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
-  strings,
-  values,
-}))
-const mockExecute = vi.fn()
-
-const subscriptionTable = {
-  stripeCustomerId: 'subscription.stripeCustomerId',
-  referenceType: 'subscription.referenceType',
-  referenceId: 'subscription.referenceId',
-  status: 'subscription.status',
-  cancelAtPeriodEnd: 'subscription.cancelAtPeriodEnd',
-}
-
-let subscriptionRows: Array<{ customer: string | null }> = []
-
-const mockTx = {
-  execute: mockExecute,
-}
-
-const mockDb = {
-  select: vi.fn(() => ({
-    from: vi.fn((table) => ({
-      where: vi.fn(() => ({
-        limit: vi.fn(() => {
-          if (table === subscriptionTable) {
-            return Promise.resolve(subscriptionRows)
-          }
-
-          return Promise.resolve([])
-        }),
-      })),
-    })),
-  })),
-  transaction: vi.fn(async (callback: (tx: typeof mockTx) => Promise<unknown>) => callback(mockTx)),
-}
-
-vi.mock('@tradinggoose/db', () => ({
-  db: mockDb,
-}))
-
-vi.mock('@tradinggoose/db/schema', () => ({
-  subscription: subscriptionTable,
-}))
-
-vi.mock('drizzle-orm', () => ({
-  and: mockAnd,
-  eq: mockEq,
-  inArray: mockInArray,
-  or: mockOr,
-  sql: mockSql,
-}))
-
+const mockStripeBillingPortalConfigurationsList = vi.fn()
+const mockStripeBillingPortalConfigurationsCreate = vi.fn()
 vi.mock('@/lib/auth', () => ({
   getSession: mockGetSession,
-}))
-
-vi.mock('@/lib/billing/core/organization', () => ({
-  isOrganizationOwnerOrAdmin: mockIsOrganizationOwnerOrAdmin,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -89,39 +28,24 @@ vi.mock('@/lib/billing/stripe-customers', () => ({
   ensureStripeUserCustomer: mockEnsureStripeUserCustomer,
 }))
 
-vi.mock('@/lib/billing/subscriptions/utils', () => ({
-  BILLING_ACTIVE_SUBSCRIPTION_STATUSES: ['active', 'trialing'],
-}))
-
 vi.mock('@/lib/logs/console/logger', () => ({
-  createLogger: () => ({
-    debug: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  }),
+  createLogger: () => ({ error: vi.fn() }),
 }))
 
 vi.mock('@/lib/urls/utils', () => ({
   getBaseUrl: () => 'https://example.com',
 }))
 
-function createRequest(body: Record<string, unknown>) {
-  return new NextRequest(new URL('http://localhost:3000/api/billing/portal'), {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
-}
-
-async function postPortal(body: Record<string, unknown> = { context: 'user' }) {
+async function postPortal() {
   const { POST } = await import('./route')
-  return POST(createRequest(body))
+  return POST()
 }
 
 function expectPortalSession(customer: string) {
   expect(mockStripeBillingPortalSessionsCreate).toHaveBeenCalledWith({
     customer,
-    return_url: 'https://example.com/workspace?billing=updated',
+    return_url: 'https://example.com/workspace',
+    configuration: 'bpc_management',
   })
 }
 
@@ -130,18 +54,18 @@ describe('/api/billing/portal route', () => {
     vi.clearAllMocks()
     vi.resetModules()
 
-    subscriptionRows = [{ customer: 'cus_org_123' }]
-
     mockGetSession.mockResolvedValue({
       user: { id: 'user-1' },
     })
     mockGetBillingGateState.mockResolvedValue({
       billingEnabled: true,
-      stripeConfigured: true,
     })
-    mockIsOrganizationOwnerOrAdmin.mockResolvedValue(true)
     mockRequireStripeClient.mockReturnValue({
       billingPortal: {
+        configurations: {
+          create: mockStripeBillingPortalConfigurationsCreate,
+          list: mockStripeBillingPortalConfigurationsList,
+        },
         sessions: {
           create: mockStripeBillingPortalSessionsCreate,
         },
@@ -153,6 +77,33 @@ describe('/api/billing/portal route', () => {
     mockStripeBillingPortalSessionsCreate.mockResolvedValue({
       url: 'https://billing.stripe.test/session',
     })
+    mockStripeBillingPortalConfigurationsCreate.mockResolvedValue({ id: 'bpc_management' })
+    mockStripeBillingPortalConfigurationsList.mockReturnValue({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          id: 'bpc_default',
+          is_default: true,
+          business_profile: {
+            headline: null,
+            privacy_policy_url: null,
+            terms_of_service_url: null,
+          },
+          login_page: { enabled: false },
+          features: {
+            customer_update: { enabled: true, allowed_updates: ['email'] },
+            invoice_history: { enabled: true },
+            payment_method_update: { enabled: true },
+            subscription_cancel: {
+              enabled: true,
+              mode: 'at_period_end',
+              proration_behavior: 'none',
+              cancellation_reason: { enabled: false, options: [] },
+            },
+            subscription_update: { enabled: false },
+          },
+        }
+      },
+    })
   })
 
   it('opens a personal billing portal session from the shared Stripe customer result', async () => {
@@ -161,9 +112,7 @@ describe('/api/billing/portal route', () => {
 
     expect(response.status).toBe(200)
     expect(payload.url).toBe('https://billing.stripe.test/session')
-    expect(mockExecute).toHaveBeenCalledOnce()
     expect(mockEnsureStripeUserCustomer).toHaveBeenCalledWith(expect.any(Object), {
-      dbClient: mockTx,
       logger: expect.any(Object),
       userId: 'user-1',
     })
@@ -190,18 +139,5 @@ describe('/api/billing/portal route', () => {
     expect(response.status).toBe(500)
     expect(payload.error).toBe('Failed to create billing portal session')
     expect(mockStripeBillingPortalSessionsCreate).not.toHaveBeenCalled()
-  })
-
-  it('opens an organization billing portal session without invoking the personal customer helper', async () => {
-    const response = await postPortal({
-      context: 'organization',
-      organizationId: 'org-1',
-    })
-    const payload = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(payload.url).toBe('https://billing.stripe.test/session')
-    expect(mockEnsureStripeUserCustomer).not.toHaveBeenCalled()
-    expectPortalSession('cus_org_123')
   })
 })

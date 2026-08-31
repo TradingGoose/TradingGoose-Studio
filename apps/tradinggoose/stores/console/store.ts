@@ -1,6 +1,6 @@
 import { devtools, persist } from 'zustand/middleware'
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { redactApiKeys } from '@/lib/utils'
+import { deepRedactSecrets } from '@/lib/security/redaction'
 import type {
   WorkflowExecutionBlockData,
   WorkflowExecutionEvent,
@@ -35,10 +35,7 @@ type ConsoleEntryPatchFields = Partial<
 >
 
 type ConsoleEntryPatch = ConsoleEntryPatchFields &
-  (
-    | { content: string; output?: never }
-    | { content?: never; output?: NormalizedBlockOutput }
-  )
+  ({ content: string; output?: never } | { content?: never; output?: NormalizedBlockOutput })
 
 /**
  * Safely clone and update a NormalizedBlockOutput
@@ -131,14 +128,17 @@ const processSafeStorage = (obj: any): any => {
 }
 
 const applyConsolePatch = (entry: ConsoleEntry, patch: ConsoleEntryPatch): ConsoleEntry => {
-  const { content, ...entryPatch } = patch
+  const { content, output, ...entryPatch } = patch
   const definedPatch = Object.fromEntries(
     Object.entries(entryPatch).filter(([, value]) => value !== undefined)
   ) as Partial<ConsoleEntry>
+  if (output !== undefined) {
+    definedPatch.output = deepRedactSecrets(output) as NormalizedBlockOutput
+  }
   const updatedEntry = { ...entry, ...definedPatch }
 
   if (content !== undefined) {
-    updatedEntry.output = updateBlockOutput(entry.output, content)
+    updatedEntry.output = updateBlockOutput(entry.output, deepRedactSecrets(content) as string)
   }
 
   return updatedEntry
@@ -159,6 +159,9 @@ const clearExecutionStreamBuffers = (executionId: string | undefined) => {
     if (key.startsWith(prefix)) streamBuffers.delete(key)
   }
 }
+
+const calculateDurationMs = (startedAt: string | undefined, endedAt: string) =>
+  startedAt ? Math.max(0, Date.parse(endedAt) - Date.parse(startedAt)) : 0
 
 const findExecutionEntry = (
   entries: ConsoleEntry[],
@@ -223,7 +226,7 @@ export const useConsoleStore = create<ConsoleStore>()(
 
           const redactedEntry = { ...entry }
           if (redactedEntry.output && typeof redactedEntry.output === 'object') {
-            redactedEntry.output = redactApiKeys(redactedEntry.output)
+            redactedEntry.output = deepRedactSecrets(redactedEntry.output) as NormalizedBlockOutput
           }
 
           const newEntry = {
@@ -388,6 +391,7 @@ export const useConsoleStore = create<ConsoleStore>()(
             }
 
             if (existingEntry) {
+              if (!existingEntry.isRunning) return
               set((state) => ({
                 entries: updateEntryById(state.entries, existingEntry.id, patch),
               }))
@@ -433,7 +437,7 @@ export const useConsoleStore = create<ConsoleStore>()(
             const existingEntry = findExecutionEntry(get().entries, event, data, {
               allowRunningFallback: true,
             })
-            if (!existingEntry) return
+            if (!existingEntry?.isRunning) return
 
             const key = executionBlockKey(event.executionId, blockId, existingEntry)
             const content = `${streamBuffers.get(key) ?? ''}${chunk}`
@@ -466,30 +470,53 @@ export const useConsoleStore = create<ConsoleStore>()(
           }
 
           if (isTerminalWorkflowExecutionEvent(event)) {
+            set((state) => ({
+              entries: state.entries.map((entry) => {
+                if (
+                  entry.workflowId !== event.workflowId ||
+                  entry.executionId !== event.executionId ||
+                  !entry.isRunning
+                ) {
+                  return entry
+                }
+
+                return {
+                  ...entry,
+                  ...(event.type === 'execution:error' ? { error: event.data.error } : {}),
+                  success: event.type === 'execution:completed',
+                  endedAt: event.timestamp,
+                  durationMs: calculateDurationMs(entry.startedAt, event.timestamp),
+                  isRunning: false,
+                  isCanceled: event.type === 'execution:cancelled',
+                }
+              }),
+            }))
             clearExecutionStreamBuffers(event.executionId)
           }
         },
 
         cancelRunningEntries: (workflowId: string) => {
-          set((state) => {
-            const now = new Date().toISOString()
-            const updatedEntries = state.entries.map((entry) => {
-              if (entry.workflowId === workflowId && entry.isRunning) {
-                const startedAtMs = entry.startedAt ? new Date(entry.startedAt).getTime() : null
-                const durationMs =
-                  startedAtMs != null ? Math.max(0, Date.now() - startedAtMs) : entry.durationMs
-                return {
-                  ...entry,
-                  isRunning: false,
-                  isCanceled: true,
-                  endedAt: entry.endedAt || now,
-                  durationMs,
-                }
+          const endedAt = new Date().toISOString()
+          const executionIds = new Set<string>()
+          for (const entry of get().entries) {
+            if (entry.workflowId === workflowId && entry.isRunning && entry.executionId) {
+              executionIds.add(entry.executionId)
+            }
+          }
+          set((state) => ({
+            entries: state.entries.map((entry) => {
+              if (entry.workflowId !== workflowId || !entry.isRunning) return entry
+              return {
+                ...entry,
+                success: false,
+                isRunning: false,
+                isCanceled: true,
+                endedAt,
+                durationMs: calculateDurationMs(entry.startedAt, endedAt),
               }
-              return entry
-            })
-            return { ...state, entries: updatedEntries }
-          })
+            }),
+          }))
+          for (const executionId of executionIds) clearExecutionStreamBuffers(executionId)
         },
       }),
       {

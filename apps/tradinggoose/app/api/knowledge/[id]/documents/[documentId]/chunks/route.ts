@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { batchChunkOperation, createChunk, queryChunks } from '@/lib/knowledge/chunks/service'
+import { MAX_CHUNK_CONTENT_LENGTH } from '@/lib/knowledge/chunks/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserId } from '@/lib/oauth/tokens'
 import { generateRequestId } from '@/lib/utils'
@@ -18,7 +19,10 @@ const GetChunksQuerySchema = z.object({
 })
 
 const CreateChunkSchema = z.object({
-  content: z.string().min(1, 'Content is required').max(10000, 'Content too long'),
+  content: z
+    .string()
+    .min(1, 'Content is required')
+    .max(MAX_CHUNK_CONTENT_LENGTH, 'Content too long'),
   enabled: z.boolean().optional().default(true),
 })
 
@@ -116,10 +120,10 @@ export async function POST(
     const userId = await getUserId(requestId, workflowId)
 
     if (!userId) {
-      const errorMessage = workflowId ? 'Workflow not found' : 'Unauthorized'
+      const authenticationFailure = workflowId ? 'Workflow not found' : 'Unauthorized'
       const statusCode = workflowId ? 404 : 401
-      logger.warn(`[${requestId}] Authentication failed: ${errorMessage}`)
-      return NextResponse.json({ error: errorMessage }, { status: statusCode })
+      logger.warn(`[${requestId}] Authentication failed: ${authenticationFailure}`)
+      return NextResponse.json({ error: authenticationFailure }, { status: statusCode })
     }
 
     const accessCheck = await checkDocumentWriteAccess(knowledgeBaseId, documentId, userId)
@@ -250,16 +254,17 @@ export async function PATCH(
       const { operation, chunkIds } = validatedData
 
       const result = await batchChunkOperation(documentId, operation, chunkIds, requestId)
+      const outcome =
+        result.updatedChunkIds.length === 0
+          ? 'failed'
+          : result.failures.length > 0
+            ? 'partial'
+            : 'complete'
 
       return NextResponse.json({
-        success: true,
-        data: {
-          operation,
-          successCount: result.processed,
-          errorCount: result.errors.length,
-          processed: result.processed,
-          errors: result.errors,
-        },
+        outcome,
+        updatedChunkIds: result.updatedChunkIds,
+        failures: result.failures,
       })
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {

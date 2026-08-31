@@ -73,7 +73,7 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ completed: 0, total: 0 })
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
-  const [tierDisplayName, setTierDisplayName] = useState<string>(t('errors.billingTier'))
+  const [tierDisplayName, setTierDisplayName] = useState<string>(t('billingTierFallback'))
   const [isPaidTier, setIsPaidTier] = useState(false)
   const [storageLoading, setStorageLoading] = useState(true)
 
@@ -101,7 +101,7 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
 
       if (data.success && data.storage) {
         setStorageInfo(data.storage)
-        setTierDisplayName(data.usage?.tier?.displayName || t('errors.billingTier'))
+        setTierDisplayName(data.usage?.tier?.displayName || t('billingTierFallback'))
         setIsPaidTier(isPaidTierFromUsageTier(data.usage?.tier))
       }
     } catch (error) {
@@ -146,13 +146,13 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
 
             const data = await response.json()
             if (!data.success) {
-              lastError = data.error || t('errors.uploadFailed')
+              lastError = data.error || t('upload.failed')
             } else {
               setUploadProgress({ completed: i + 1, total: allowedFiles.length })
             }
           } catch (error) {
             logger.error('Error uploading file:', error)
-            lastError = t('errors.uploadFailed')
+            lastError = t('upload.failed')
           }
         }
 
@@ -160,7 +160,7 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
         await loadStorageInfo()
 
         if (unsupported.length) {
-          lastError = t('errors.unsupportedFileType', { files: unsupported.join(', ') })
+          lastError = t('upload.unsupportedFileType', { files: unsupported.join(', ') })
         }
 
         if (lastError) {
@@ -168,7 +168,7 @@ export function useWorkspaceFilesManager(workspaceId?: string | null) {
         }
       } catch (error) {
         logger.error('Error uploading file:', error)
-        setUploadError(t('errors.uploadFailed'))
+        setUploadError(t('upload.failed'))
         setTimeout(() => setUploadError(null), 5000)
       } finally {
         setUploading(false)

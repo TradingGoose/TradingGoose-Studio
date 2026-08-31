@@ -1,11 +1,10 @@
 import type { Metadata } from 'next'
 import { getLocale } from 'next-intl/server'
+import { getBrandConfig } from '@/lib/branding/branding'
 import LegalLayout from '@/app/(landing)/components/legal-layout'
 import { LegalMarkdown } from '@/app/(landing)/components/legal-markdown'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { formatTemplate } from '@/i18n/utils'
-import { buildLocalizedAlternates, type LocaleCode } from '@/i18n/utils'
-import { getBrandConfig } from '@/lib/branding/branding'
+import { buildLocalizedAlternates, formatTemplate, type LocaleCode } from '@/i18n/utils'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = (await getLocale()) as LocaleCode

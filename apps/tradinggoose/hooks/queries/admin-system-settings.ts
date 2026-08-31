@@ -1,10 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ADMIN_ERROR_CODES } from '@/app/admin/constants'
+import { useQuery } from '@tanstack/react-query'
 import type { AdminSystemSettingsMutationInput } from '@/lib/admin/system-settings/mutations'
 import type { AdminSystemSettingsSnapshot } from '@/lib/admin/system-settings/types'
-import { adminBillingKeys } from './admin-billing'
-import { adminRegistrationKeys } from './admin-registration'
-import { subscriptionKeys } from './subscription'
+import { ADMIN_ERROR_CODES } from '@/app/admin/constants'
 
 const ADMIN_SYSTEM_SETTINGS_ENDPOINT = '/api/admin/system-settings'
 
@@ -57,11 +54,9 @@ function normalizeSnapshot(payload: unknown): AdminSystemSettingsSnapshot {
         ? data.registrationMode
         : 'open',
     billingEnabled: typeof data.billingEnabled === 'boolean' ? data.billingEnabled : false,
-    stripeConfigured:
-      typeof data.stripeConfigured === 'boolean' ? data.stripeConfigured : false,
+    stripeConfigured: typeof data.stripeConfigured === 'boolean' ? data.stripeConfigured : false,
     billingReady: typeof data.billingReady === 'boolean' ? data.billingReady : false,
-    triggerDevEnabled:
-      typeof data.triggerDevEnabled === 'boolean' ? data.triggerDevEnabled : false,
+    triggerDevEnabled: typeof data.triggerDevEnabled === 'boolean' ? data.triggerDevEnabled : false,
     triggerReady: typeof data.triggerReady === 'boolean' ? data.triggerReady : false,
     allowPromotionCodes:
       typeof data.allowPromotionCodes === 'boolean' ? data.allowPromotionCodes : true,
@@ -80,9 +75,7 @@ async function fetchAdminSystemSettingsSnapshot(): Promise<AdminSystemSettingsSn
 
   const payload = await parseResponse(response)
   if (!response.ok) {
-    throw new Error(
-      getResponseErrorCode(payload, ADMIN_ERROR_CODES.FAILED_TO_LOAD_SYSTEM_SETTINGS)
-    )
+    throw new Error(getResponseErrorCode(payload, ADMIN_ERROR_CODES.FAILED_TO_LOAD_SYSTEM_SETTINGS))
   }
 
   return normalizeSnapshot(payload)
@@ -96,37 +89,23 @@ export function useAdminSystemSettingsSnapshot() {
   })
 }
 
-export function useUpdateAdminSystemSettings() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (
-      input: AdminSystemSettingsMutationInput
-    ): Promise<AdminSystemSettingsSnapshot> => {
-      const response = await fetch(ADMIN_SYSTEM_SETTINGS_ENDPOINT, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(input),
-      })
-
-      const payload = await parseResponse(response)
-      if (!response.ok) {
-        throw new Error(
-          getResponseErrorCode(payload, ADMIN_ERROR_CODES.FAILED_TO_UPDATE_SYSTEM_SETTINGS)
-        )
-      }
-
-      return normalizeSnapshot(payload)
+export async function updateAdminSystemSettings(
+  input: AdminSystemSettingsMutationInput
+): Promise<AdminSystemSettingsSnapshot> {
+  const response = await fetch(ADMIN_SYSTEM_SETTINGS_ENDPOINT, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
     },
-    onSuccess: async (snapshot) => {
-      queryClient.setQueryData(adminSystemSettingsKeys.snapshot(), snapshot)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
-        queryClient.invalidateQueries({ queryKey: adminRegistrationKeys.snapshot() }),
-        queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
-      ])
-    },
+    body: JSON.stringify(input),
   })
+
+  const payload = await parseResponse(response)
+  if (!response.ok) {
+    throw new Error(
+      getResponseErrorCode(payload, ADMIN_ERROR_CODES.FAILED_TO_UPDATE_SYSTEM_SETTINGS)
+    )
+  }
+
+  return normalizeSnapshot(payload)
 }

@@ -29,34 +29,32 @@ function WorkflowSelector({
 }) {
   return (
     <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type='button'
-          className={widgetHeaderControlClassName(
-            'group flex min-w-[240px] items-center justify-between gap-1'
-          )}
-          aria-label={selectedDemo.name}
-          aria-haspopup='listbox'
-        >
-          <div
-            className='h-5 w-5 rounded-xs p-0.5'
-            style={{ backgroundColor: `${selectedDemo.color}20` }}
-            aria-hidden='true'
-          >
-            <Workflow
-              className='h-4 w-4'
-              aria-hidden='true'
-              style={{ color: selectedDemo.color }}
-            />
-          </div>
-          <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
-            {selectedDemo.name}
-          </span>
-          <ChevronDown
-            className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
-            aria-hidden='true'
+      <DropdownMenuTrigger
+        render={
+          <button
+            type='button'
+            className={widgetHeaderControlClassName(
+              'group flex min-w-[240px] items-center justify-between gap-1'
+            )}
+            aria-label={selectedDemo.name}
+            aria-haspopup='listbox'
           />
-        </button>
+        }
+      >
+        <div
+          className='h-5 w-5 rounded-xs p-0.5'
+          style={{ backgroundColor: `${selectedDemo.color}20` }}
+          aria-hidden='true'
+        >
+          <Workflow className='h-4 w-4' aria-hidden='true' style={{ color: selectedDemo.color }} />
+        </div>
+        <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
+          {selectedDemo.name}
+        </span>
+        <ChevronDown
+          className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[popup-open]:rotate-180'
+          aria-hidden='true'
+        />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
@@ -72,7 +70,7 @@ function WorkflowSelector({
               key={demo.id}
               className={`${widgetHeaderMenuItemClassName} justify-between`}
               data-active={isSelected ? '' : undefined}
-              onSelect={() => {
+              onClick={() => {
                 if (isSelected) return
                 onSelect(demo)
               }}

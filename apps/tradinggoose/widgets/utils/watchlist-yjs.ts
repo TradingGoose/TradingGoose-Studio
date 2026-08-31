@@ -30,7 +30,7 @@ export function useWatchlistYjsDocument(args: {
 }) {
   const { workspaceId, watchlistId, member, accessMode = 'write' } = args
   const accessModeRef = useLatestRef(accessMode)
-  const { doc, isLoading, error } = useSavedEntityYjsSession(
+  const { doc, isLoading, isRetrying, error, retry } = useSavedEntityYjsSession(
     'watchlist',
     watchlistId,
     workspaceId,
@@ -82,7 +82,9 @@ export function useWatchlistYjsDocument(args: {
     isDocumentReady: Boolean(doc) && !error,
     canMutateDocument: Boolean(doc) && !error && accessMode !== 'read',
     isLoading,
+    isRetrying,
     error,
+    retry,
   }
 }
 
@@ -112,7 +114,9 @@ export function useSelectedWatchlistYjsDocument(args: {
     member,
     selectedWatchlistId,
     isLoading: watchlistList.isLoading || document.isLoading,
+    isRetrying: watchlistList.isRetrying || document.isRetrying,
     error: watchlistList.error ?? document.error,
+    retry: watchlistList.error ? watchlistList.retry : document.retry,
   }
 }
 
@@ -126,6 +130,10 @@ export function useWorkspaceWatchlistYjsDocuments(workspaceId: string | null | u
     null,
     'read'
   )
+  const retry = useCallback(() => {
+    list.retry()
+    collection.retry()
+  }, [collection.retry, list.retry])
   const records = useMemo<WatchlistRecord[]>(() => {
     if (!workspaceId || list.isLoading || list.error || collection.isLoading || collection.error) {
       return []
@@ -154,6 +162,8 @@ export function useWorkspaceWatchlistYjsDocuments(workspaceId: string | null | u
   return {
     records,
     isLoading: list.isLoading || collection.isLoading,
+    isRetrying: list.isRetrying || collection.isRetrying,
     error: list.error ?? collection.error,
+    retry,
   }
 }

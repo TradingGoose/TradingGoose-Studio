@@ -21,6 +21,10 @@ export const webflowFormSubmissionTrigger: TriggerConfig = {
       requiredScopes: [],
       required: true,
       mode: 'trigger',
+      condition: {
+        field: 'selectedTriggerId',
+        value: 'webflow_form_submission',
+      },
     },
     {
       id: 'siteId',
@@ -31,6 +35,10 @@ export const webflowFormSubmissionTrigger: TriggerConfig = {
       required: true,
       options: [],
       mode: 'trigger',
+      condition: {
+        field: 'selectedTriggerId',
+        value: 'webflow_form_submission',
+      },
     },
     {
       id: 'formId',
@@ -40,6 +48,10 @@ export const webflowFormSubmissionTrigger: TriggerConfig = {
       description: 'The ID of the specific form to monitor (optional - leave empty for all forms)',
       required: false,
       mode: 'trigger',
+      condition: {
+        field: 'selectedTriggerId',
+        value: 'webflow_form_submission',
+      },
     },
     {
       id: 'triggerSave',

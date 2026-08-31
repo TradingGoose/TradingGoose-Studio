@@ -103,7 +103,7 @@ const MONITOR_LISTING_TYPE_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'listing_t
 const MONITOR_LISTING_ID_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'listing_id'`
 const MONITOR_LISTING_BASE_ID_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'base_id'`
 const MONITOR_LISTING_QUOTE_ID_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'quote_id'`
-const MONITOR_ASSET_TYPE_SQL = sql<string>`LOWER(COALESCE(NULLIF(${MONITOR_LISTING_SQL}->>'assetClass', ''), NULLIF(${MONITOR_LISTING_SQL}->>'base_asset_class', ''), NULLIF(${MONITOR_LISTING_TYPE_SQL}, ''), 'unknown'))`
+const MONITOR_ASSET_TYPE_SQL = sql<string>`LOWER(COALESCE(NULLIF(${MONITOR_SQL}->>'assetType', ''), 'unknown'))`
 const BLOCK_EXECUTIONS_SQL = sql`CASE WHEN jsonb_typeof(${workflowExecutionLogs.executionData}->'blockExecutions') = 'array' THEN ${workflowExecutionLogs.executionData}->'blockExecutions' ELSE '[]'::jsonb END`
 const TRACE_SPAN_ROOTS_SQL = sql`CASE
   WHEN jsonb_typeof(${workflowExecutionLogs.executionData}->'traceSpans') = 'array'

@@ -11,7 +11,6 @@ import {
   isOrganizationBillingTier,
   requireBillingTierById,
 } from '@/lib/billing/tiers'
-import { resolveBillingTierForPersistence } from '@/lib/billing/tiers/persistence'
 import { resolveEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -29,10 +28,12 @@ function isManualContractMetadata(value: unknown): value is EnterpriseSubscripti
     typeof value === 'object' &&
     'referenceType' in value &&
     'referenceId' in value &&
+    'billingTierId' in value &&
     'monthlyPrice' in value &&
     'seats' in value &&
     value.referenceType === 'organization' &&
     isNonEmptyString(value.referenceId) &&
+    isNonEmptyString(value.billingTierId) &&
     isNonEmptyString(value.monthlyPrice) &&
     isNonEmptyString(value.seats)
   )
@@ -49,6 +50,11 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     return
   }
 
+  const enterpriseMetadata = {
+    ...metadata,
+    referenceId: metadata.referenceId.trim(),
+    billingTierId: metadata.billingTierId.trim(),
+  }
   const stripeCustomerId = stripeSubscription.customer as string
 
   if (!stripeCustomerId) {
@@ -58,7 +64,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     throw new Error('Missing Stripe customer ID on subscription')
   }
 
-  const referenceId = metadata.referenceId
+  const referenceId = enterpriseMetadata.referenceId
 
   if (!referenceId) {
     logger.error('[subscription.created] Unable to resolve referenceId', {
@@ -68,7 +74,6 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     throw new Error('Unable to resolve referenceId for subscription')
   }
 
-  const enterpriseMetadata = metadata
   const metadataJson: Record<string, unknown> = { ...enterpriseMetadata }
 
   // Extract and parse seats and monthly price from metadata (they come as strings from Stripe)
@@ -95,20 +100,13 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
 
   // Get the first subscription item which contains the period information
   const referenceItem = stripeSubscription.items?.data?.[0]
-  const billingTier = await resolveBillingTierForPersistence({
-    billingTierId: enterpriseMetadata.billingTierId,
-    stripePriceIds: stripeSubscription.items.data.map((item) => item.price?.id),
-    stripeProductIds: stripeSubscription.items.data.map((item) =>
-      typeof item.price?.product === 'string' ? item.price.product : item.price?.product?.id
-    ),
-  })
-  const billingTierRecord = await requireBillingTierById(billingTier.id)
+  const billingTierRecord = await requireBillingTierById(enterpriseMetadata.billingTierId)
 
   if (!isOrganizationBillingTier(billingTierRecord)) {
     logger.warn('[subscription.created] Skipping non-organization tier in enterprise handler', {
       subscriptionId: stripeSubscription.id,
-      billingTierId: billingTier.id,
-      billingTier: billingTier.displayName,
+      billingTierId: billingTierRecord.id,
+      billingTier: billingTierRecord.displayName,
     })
     return
   }

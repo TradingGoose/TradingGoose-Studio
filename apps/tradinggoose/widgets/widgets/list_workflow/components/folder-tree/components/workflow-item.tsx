@@ -32,6 +32,7 @@ interface WorkflowItemProps {
   onSelect?: (workflow: WorkflowMetadataSeed) => void
   disableNavigation?: boolean
   canDelete?: boolean
+  folderWritesDisabled: boolean
 }
 
 export function WorkflowItem({
@@ -41,6 +42,7 @@ export function WorkflowItem({
   onSelect,
   disableNavigation = false,
   canDelete = true,
+  folderWritesDisabled,
 }: WorkflowItemProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -222,7 +224,16 @@ export function WorkflowItem({
   }
 
   const handleDragStart = (e: React.DragEvent) => {
-    if (isEditing) return
+    const folderState = useFolderStore.getState()
+    if (
+      isEditing ||
+      folderWritesDisabled ||
+      folderState.activeWrite ||
+      folderState.folderDataReady[workspaceId] !== true
+    ) {
+      e.preventDefault()
+      return
+    }
 
     dragStartedRef.current = true
     setIsDragging(true)
@@ -269,19 +280,22 @@ export function WorkflowItem({
           spellCheck='false'
         />
       ) : !isDragging ? (
-        <Tooltip delayDuration={1000}>
-          <TooltipTrigger asChild>
-            <span
-              className={clsx(
-                'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
-                active && !isDragOver
-                  ? 'text-foreground'
-                  : 'text-muted-foreground group-hover:text-foreground'
-              )}
-            >
-              {workflow.name}
-            </span>
-          </TooltipTrigger>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                className={clsx(
+                  'min-w-0 flex-1 select-none truncate pr-1 font-medium font-sans text-sm',
+                  active && !isDragOver
+                    ? 'text-foreground'
+                    : 'text-muted-foreground group-hover:text-foreground'
+                )}
+              >
+                {workflow.name}
+              </span>
+            }
+            delay={1000}
+          />
           <TooltipContent side='top' align='start' sideOffset={10}>
             <p>{workflow.name}</p>
           </TooltipContent>
@@ -310,7 +324,7 @@ export function WorkflowItem({
           isSelected && selectedWorkflows.size > 1 && !active && !isDragOver ? 'bg-muted' : '',
           isDragging ? 'opacity-50' : ''
         )}
-        draggable={!isEditing}
+        draggable={!isEditing && !folderWritesDisabled}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onMouseEnter={() => setIsHovered(true)}
@@ -409,13 +423,17 @@ export function WorkflowItem({
 
       <AlertDialog
         open={deleteState.showDialog}
-        onOpenChange={(open) => {
+        onOpenChange={(open, details) => {
           if (!open) {
+            if (deleteState.isDeleting) {
+              details.cancel()
+              return
+            }
             resetDeleteState()
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent hideCloseButton={deleteState.isDeleting}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete workflow?</AlertDialogTitle>
             <AlertDialogDescription>

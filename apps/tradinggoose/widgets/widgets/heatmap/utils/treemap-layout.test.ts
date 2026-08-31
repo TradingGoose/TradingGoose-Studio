@@ -26,10 +26,12 @@ describe('buildHeatmapTreemapLayout', () => {
             listing_type: 'default',
           },
           resolvedListing: {
-            listing_id: 'AAPL',
-            base_id: '',
-            quote_id: '',
-            listing_type: 'default',
+            listingIdentity: {
+              listing_id: 'AAPL',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
             base: 'AAPL',
             name: 'Apple Inc.',
           },

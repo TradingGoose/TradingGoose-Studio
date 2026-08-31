@@ -3,7 +3,7 @@ import Footer from '@/app/(landing)/components/footer/footer'
 import PublicNav from '@/app/(landing)/components/nav/public-nav'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import { getPublicCopy } from '@/i18n/public-copy'
-import { localizeSiteUrl, type LocaleCode } from '@/i18n/utils'
+import { type LocaleCode, localizeSiteUrl } from '@/i18n/utils'
 
 interface LegalLayoutProps {
   title: string
@@ -30,14 +30,14 @@ export default async function LegalLayout({ title, children, path }: LegalLayout
             name: copy.nav.homeLabel,
             item: localizeSiteUrl(locale, '/'),
           },
-        {
-          '@type': 'ListItem',
-          position: 2,
-          name: title,
-          item: localizeSiteUrl(locale, path),
-        },
-      ],
-    }
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: title,
+            item: localizeSiteUrl(locale, path),
+          },
+        ],
+      }
     : null
 
   return (
@@ -55,11 +55,10 @@ export default async function LegalLayout({ title, children, path }: LegalLayout
       {/* Content */}
       <div className='px-40 pt-[40px] pb-[40px]'>
         <h1 className='mb-12 text-center font-bold text-4xl md:text-5xl'>{title}</h1>
-        <div className='text-accent-foreground prose prose-gray mx-auto prose-h2:mt-12 prose-h3:mt-8 prose-h2:mb-6 prose-h3:mb-4 space-y-8 '>
+        <div className='prose prose-gray mx-auto prose-h2:mt-12 prose-h3:mt-8 prose-h2:mb-6 prose-h3:mb-4 space-y-8 text-accent-foreground '>
           {children}
         </div>
       </div>
-
 
       <div className='relative z-20'>
         <Footer fullWidth={true} />

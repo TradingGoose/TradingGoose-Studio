@@ -11,7 +11,10 @@ interface MarkdownTitleProps {
 /** Renders inline markdown (links, bold, italic, code) with <br>/\n as line breaks. */
 export default function MarkdownTitle({ title, className, as: Tag = 'h1' }: MarkdownTitleProps) {
   // Split on <br> tags and newlines to get individual lines
-  const lines = title.split(/<br\s*\/?>|\n/).map((s) => s.trim()).filter(Boolean)
+  const lines = title
+    .split(/<br\s*\/?>|\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
 
   return (
     <Tag className={className}>
@@ -26,15 +29,15 @@ export default function MarkdownTitle({ title, className, as: Tag = 'h1' }: Mark
               a: ({ href, children }) => (
                 <a
                   href={href}
-                  className="text-primary underline underline-offset-4 hover:text-primary/80"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  className='text-primary underline underline-offset-4 hover:text-primary/80'
+                  target='_blank'
+                  rel='noopener noreferrer'
                 >
                   {children}
                 </a>
               ),
               code: ({ children }) => (
-                <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-[0.85em] font-semibold">
+                <code className='relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono font-semibold text-[0.85em]'>
                   {children}
                 </code>
               ),

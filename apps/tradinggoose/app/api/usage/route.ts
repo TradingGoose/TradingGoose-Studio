@@ -1,3 +1,6 @@
+import { db } from '@tradinggoose/db'
+import { member } from '@tradinggoose/db/schema'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getUserUsageLimitInfo, updateUserUsageLimit } from '@/lib/billing'
@@ -130,8 +133,12 @@ export async function PUT(request: NextRequest) {
         )
       }
 
-      const hasPermission = await isOrganizationOwnerOrAdmin(session.user.id, organizationId)
-      if (!hasPermission) {
+      const [membership] = await db
+        .select({ role: member.role })
+        .from(member)
+        .where(and(eq(member.organizationId, organizationId), eq(member.userId, session.user.id)))
+        .limit(1)
+      if (membership?.role !== 'owner') {
         return NextResponse.json({ error: 'Permission denied' }, { status: 403 })
       }
 

@@ -1,8 +1,8 @@
 'use client'
 
-import { type ChangeEvent, useCallback, useRef } from 'react'
-import { Plus, Upload } from 'lucide-react'
-import { useLocale, useMessages } from 'next-intl'
+import { type ChangeEvent, useCallback, useId, useRef } from 'react'
+import { Loader2, Plus, Upload } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,71 +19,87 @@ import {
 } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 
+export type SkillMenuAction = 'create' | 'import'
+
 interface SkillCreateMenuProps {
   disabled?: boolean
-  canCreate?: boolean
-  canImport?: boolean
-  isImporting?: boolean
+  activeAction: SkillMenuAction | null
+  error: string | null
   onCreateSkill?: () => void
-  onImportSkills?: (content: string, filename?: string) => Promise<void> | void
+  onImportSkills?: (file: File) => void
 }
 
 export function SkillCreateMenu({
   disabled = false,
-  canCreate = false,
-  canImport = false,
-  isImporting = false,
+  activeAction,
+  error,
   onCreateSkill,
   onImportSkills,
 }: SkillCreateMenuProps) {
-  const locale = useLocale()
   const copy = useMessages().workspace.widgets.skillList.createMenu
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const feedbackId = useId()
+  const isPending = activeAction !== null
 
   const handleCreateSkill = useCallback(() => {
     onCreateSkill?.()
   }, [onCreateSkill])
 
   const handleImportSelection = useCallback(() => {
-    if (!canImport || isImporting) return
+    if (disabled || isPending) return
     fileInputRef.current?.click()
-  }, [canImport, isImporting])
+  }, [disabled, isPending])
 
   const handleFileChange = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
+    (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0]
       if (!file) return
-
-      try {
-        const content = await file.text()
-        await onImportSkills?.(content, file.name)
-      } finally {
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
-      }
+      onImportSkills?.(file)
+      event.target.value = ''
     },
     [onImportSkills]
   )
 
   return (
-    <>
-      <DropdownMenu>
+    <div className='relative inline-flex'>
+      <DropdownMenu
+        onOpenChange={(_open, eventDetails) => {
+          if (isPending) eventDetails.cancel()
+        }}
+      >
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span className='inline-flex'>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type='button'
+          <TooltipTrigger
+            render={
+              <span className='inline-flex'>
+                <DropdownMenuTrigger
                   disabled={disabled}
-                  className={widgetHeaderIconButtonClassName()}
+                  render={
+                    <button
+                      type='button'
+                      disabled={disabled}
+                      aria-disabled={isPending || undefined}
+                      aria-busy={isPending || undefined}
+                      aria-describedby={isPending || error ? feedbackId : undefined}
+                      className={widgetHeaderIconButtonClassName()}
+                    />
+                  }
                 >
-                  <Plus className='h-4 w-4' />
-                  <span className='sr-only'>{copy.manageSkills}</span>
-                </button>
-              </DropdownMenuTrigger>
-            </span>
-          </TooltipTrigger>
+                  {isPending ? (
+                    <Loader2 className='h-4 w-4 animate-spin' />
+                  ) : (
+                    <Plus className='h-4 w-4' />
+                  )}
+                  <span className='sr-only'>
+                    {activeAction === 'create'
+                      ? copy.creatingSkill
+                      : activeAction === 'import'
+                        ? copy.importingSkills
+                        : copy.manageSkills}
+                  </span>
+                </DropdownMenuTrigger>
+              </span>
+            }
+          />
           <TooltipContent side='top'>{copy.manageSkills}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent
@@ -92,30 +108,52 @@ export function SkillCreateMenu({
         >
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
-            disabled={!canImport || isImporting}
-            onSelect={() => {
-              if (!canImport || isImporting) return
+            disabled={disabled || isPending}
+            onClick={() => {
+              if (disabled || isPending) return
               handleImportSelection()
             }}
           >
             <Upload className={widgetHeaderMenuIconClassName} />
             <span className={widgetHeaderMenuTextClassName}>
-              {isImporting ? copy.importingSkills : copy.importSkills}
+              {activeAction === 'import' ? copy.importingSkills : copy.importSkills}
             </span>
           </DropdownMenuItem>
           <DropdownMenuItem
             className={widgetHeaderMenuItemClassName}
-            disabled={!canCreate}
-            onSelect={() => {
-              if (!canCreate) return
+            disabled={disabled || isPending}
+            onClick={() => {
+              if (disabled || isPending) return
               handleCreateSkill()
             }}
           >
             <Plus className={widgetHeaderMenuIconClassName} />
-            <span className={widgetHeaderMenuTextClassName}>{copy.newSkill}</span>
+            <span className={widgetHeaderMenuTextClassName}>
+              {activeAction === 'create' ? copy.creatingSkill : copy.newSkill}
+            </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {activeAction ? (
+        <p
+          id={feedbackId}
+          role='status'
+          aria-atomic='true'
+          className='absolute top-full right-0 z-50 mt-1 w-56 rounded-md border bg-popover p-2 text-popover-foreground text-xs shadow-md'
+        >
+          {activeAction === 'create' ? copy.creatingSkill : copy.importingSkills}
+        </p>
+      ) : error ? (
+        <p
+          id={feedbackId}
+          role='alert'
+          aria-atomic='true'
+          className='absolute top-full right-0 z-50 mt-1 w-56 rounded-md border border-destructive/30 bg-popover p-2 text-destructive text-xs shadow-md'
+        >
+          {error}
+        </p>
+      ) : null}
 
       <input
         ref={fileInputRef}
@@ -124,6 +162,6 @@ export function SkillCreateMenu({
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
-    </>
+    </div>
   )
 }

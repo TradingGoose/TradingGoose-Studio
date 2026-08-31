@@ -69,7 +69,7 @@ describe('normalizeIndicatorMonitorConfig', () => {
     providerId: 'alpaca',
     interval: '1m',
     listingInput: {
-      listing_type: 'default',
+      listing_type: 'default' as const,
       listing_id: 'AAPL',
       base_id: '',
       quote_id: '',

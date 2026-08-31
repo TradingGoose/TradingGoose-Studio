@@ -115,22 +115,24 @@ export function FileSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <GoogleCalendarSelector
-                value={(storeValue as string) || ''}
-                onChange={(val) => {
-                  collaborativeSetSubblockValue(blockId, subBlock.id, val)
-                }}
-                label={subBlock.placeholder || t('selectGoogleCalendar')}
-                disabled={finalDisabled}
-                showPreview={true}
-                credentialId={credentialId}
-                workflowId={workflowIdFromUrl}
-                workspaceId={workspaceIdFromRoute}
-              />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                <GoogleCalendarSelector
+                  value={(storeValue as string) || ''}
+                  onChange={(val) => {
+                    collaborativeSetSubblockValue(blockId, subBlock.id, val)
+                  }}
+                  label={subBlock.placeholder || t('selectGoogleCalendar')}
+                  disabled={finalDisabled}
+                  showPreview={true}
+                  credentialId={credentialId}
+                  workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
+                />
+              </div>
+            }
+          />
         </Tooltip>
       </TooltipProvider>
     )
@@ -142,27 +144,27 @@ export function FileSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <ConfluenceFileSelector
-                value={(storeValue as string) || ''}
-                onChange={(val) => {
-                  collaborativeSetSubblockValue(blockId, subBlock.id, val)
-                }}
-                domain={domain}
-                provider='confluence'
-                requiredScopes={subBlock.requiredScopes || []}
-                serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || t('selectConfluencePage')}
-                disabled={finalDisabled}
-                showPreview={true}
-                credentialId={credentialId}
-                workflowId={workflowIdFromUrl}
-                workspaceId={workspaceIdFromRoute}
-                isForeignCredential={isForeignCredential}
-              />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                <ConfluenceFileSelector
+                  value={(storeValue as string) || ''}
+                  onChange={(val) => {
+                    collaborativeSetSubblockValue(blockId, subBlock.id, val)
+                  }}
+                  domain={domain}
+                  provider='confluence'
+                  label={subBlock.placeholder || t('selectConfluencePage')}
+                  disabled={finalDisabled}
+                  showPreview={true}
+                  credentialId={credentialId}
+                  workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
+                  isForeignCredential={isForeignCredential}
+                />
+              </div>
+            }
+          />
         </Tooltip>
       </TooltipProvider>
     )
@@ -173,28 +175,28 @@ export function FileSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <JiraIssueSelector
-                value={(storeValue as string) || ''}
-                onChange={(issueKey) => {
-                  collaborativeSetSubblockValue(blockId, subBlock.id, issueKey)
-                }}
-                domain={domain}
-                provider='jira'
-                requiredScopes={subBlock.requiredScopes || []}
-                serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || t('selectJiraIssue')}
-                disabled={finalDisabled}
-                showPreview={true}
-                credentialId={credentialId}
-                projectId={(projectIdValue as string) || ''}
-                isForeignCredential={isForeignCredential}
-                workflowId={workflowIdFromUrl}
-                workspaceId={workspaceIdFromRoute}
-              />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                <JiraIssueSelector
+                  value={(storeValue as string) || ''}
+                  onChange={(issueKey) => {
+                    collaborativeSetSubblockValue(blockId, subBlock.id, issueKey)
+                  }}
+                  domain={domain}
+                  provider='jira'
+                  label={subBlock.placeholder || t('selectJiraIssue')}
+                  disabled={finalDisabled}
+                  showPreview={true}
+                  credentialId={credentialId}
+                  projectId={(projectIdValue as string) || ''}
+                  isForeignCredential={isForeignCredential}
+                  workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
+                />
+              </div>
+            }
+          />
         </Tooltip>
       </TooltipProvider>
     )
@@ -205,24 +207,26 @@ export function FileSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <MicrosoftFileSelector
-                value={coerceToIdString(storeValue as any)}
-                onChange={(fileId) => setStoreValue(fileId)}
-                provider='microsoft-excel'
-                requiredScopes={subBlock.requiredScopes || []}
-                serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || t('selectMicrosoftExcelFile')}
-                disabled={finalDisabled}
-                showPreview={true}
-                workflowId={workflowIdFromUrl}
-                workspaceId={workspaceIdFromRoute}
-                credentialId={credentialId}
-                isForeignCredential={isForeignCredential}
-              />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                <MicrosoftFileSelector
+                  value={coerceToIdString(storeValue as any)}
+                  onChange={(fileId) => setStoreValue(fileId)}
+                  provider='microsoft-excel'
+                  requiredScopes={subBlock.requiredScopes || []}
+                  serviceId={subBlock.serviceId}
+                  label={subBlock.placeholder || t('selectMicrosoftExcelFile')}
+                  disabled={finalDisabled}
+                  showPreview={true}
+                  workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
+                  credentialId={credentialId}
+                  isForeignCredential={isForeignCredential}
+                />
+              </div>
+            }
+          />
         </Tooltip>
       </TooltipProvider>
     )
@@ -233,22 +237,24 @@ export function FileSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <MicrosoftFileSelector
-                value={coerceToIdString(storeValue as any)}
-                onChange={(fileId) => setStoreValue(fileId)}
-                provider='microsoft-word'
-                requiredScopes={subBlock.requiredScopes || []}
-                serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || t('selectMicrosoftWordDocument')}
-                disabled={finalDisabled}
-                showPreview={true}
-                workflowId={workflowIdFromUrl}
-                workspaceId={workspaceIdFromRoute}
-              />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                <MicrosoftFileSelector
+                  value={coerceToIdString(storeValue as any)}
+                  onChange={(fileId) => setStoreValue(fileId)}
+                  provider='microsoft-word'
+                  requiredScopes={subBlock.requiredScopes || []}
+                  serviceId={subBlock.serviceId}
+                  label={subBlock.placeholder || t('selectMicrosoftWordDocument')}
+                  disabled={finalDisabled}
+                  showPreview={true}
+                  workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
+                />
+              </div>
+            }
+          />
         </Tooltip>
       </TooltipProvider>
     )
@@ -260,24 +266,26 @@ export function FileSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <MicrosoftFileSelector
-                value={coerceToIdString(storeValue as any)}
-                onChange={(fileId) => setStoreValue(fileId)}
-                provider='microsoft'
-                requiredScopes={subBlock.requiredScopes || []}
-                serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || t('selectOneDriveFolder')}
-                disabled={finalDisabled}
-                showPreview={true}
-                workflowId={workflowIdFromUrl}
-                workspaceId={workspaceIdFromRoute}
-                credentialId={credentialId}
-                isForeignCredential={isForeignCredential}
-              />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                <MicrosoftFileSelector
+                  value={coerceToIdString(storeValue as any)}
+                  onChange={(fileId) => setStoreValue(fileId)}
+                  provider='microsoft'
+                  requiredScopes={subBlock.requiredScopes || []}
+                  serviceId={subBlock.serviceId}
+                  label={subBlock.placeholder || t('selectOneDriveFolder')}
+                  disabled={finalDisabled}
+                  showPreview={true}
+                  workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
+                  credentialId={credentialId}
+                  isForeignCredential={isForeignCredential}
+                />
+              </div>
+            }
+          />
         </Tooltip>
       </TooltipProvider>
     )
@@ -289,24 +297,26 @@ export function FileSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <MicrosoftFileSelector
-                value={coerceToIdString(storeValue as any)}
-                onChange={(fileId) => setStoreValue(fileId)}
-                provider='microsoft'
-                requiredScopes={subBlock.requiredScopes || []}
-                serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || t('selectSharePointSite')}
-                disabled={finalDisabled}
-                showPreview={true}
-                workflowId={workflowIdFromUrl}
-                workspaceId={workspaceIdFromRoute}
-                credentialId={credentialId}
-                isForeignCredential={isForeignCredential}
-              />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                <MicrosoftFileSelector
+                  value={coerceToIdString(storeValue as any)}
+                  onChange={(fileId) => setStoreValue(fileId)}
+                  provider='microsoft'
+                  requiredScopes={subBlock.requiredScopes || []}
+                  serviceId={subBlock.serviceId}
+                  label={subBlock.placeholder || t('selectSharePointSite')}
+                  disabled={finalDisabled}
+                  showPreview={true}
+                  workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
+                  credentialId={credentialId}
+                  isForeignCredential={isForeignCredential}
+                />
+              </div>
+            }
+          />
           {!credentialId && (
             <TooltipContent side='top'>
               <p>{t('pleaseSelectSharePointCredentialsFirst')}</p>
@@ -324,25 +334,27 @@ export function FileSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <MicrosoftFileSelector
-                value={coerceToIdString(storeValue as any)}
-                onChange={(fileId) => setStoreValue(fileId)}
-                provider='microsoft-planner'
-                requiredScopes={subBlock.requiredScopes || []}
-                serviceId='microsoft-planner'
-                label={subBlock.placeholder || t('selectTask')}
-                disabled={finalDisabled}
-                showPreview={true}
-                planId={planId}
-                workflowId={workflowIdFromUrl}
-                workspaceId={workspaceIdFromRoute}
-                credentialId={credentialId}
-                isForeignCredential={isForeignCredential}
-              />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                <MicrosoftFileSelector
+                  value={coerceToIdString(storeValue as any)}
+                  onChange={(fileId) => setStoreValue(fileId)}
+                  provider='microsoft-planner'
+                  requiredScopes={subBlock.requiredScopes || []}
+                  serviceId='microsoft-planner'
+                  label={subBlock.placeholder || t('selectTask')}
+                  disabled={finalDisabled}
+                  showPreview={true}
+                  planId={planId}
+                  workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
+                  credentialId={credentialId}
+                  isForeignCredential={isForeignCredential}
+                />
+              </div>
+            }
+          />
           {!credentialId ? (
             <TooltipContent side='top'>
               <p>{t('pleaseSelectMicrosoftPlannerCredentialsFirst')}</p>
@@ -377,28 +389,30 @@ export function FileSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <TeamsMessageSelector
-                value={(storeValue as string) || ''}
-                onChange={(val) => {
-                  collaborativeSetSubblockValue(blockId, subBlock.id, val)
-                }}
-                provider='microsoft-teams'
-                requiredScopes={subBlock.requiredScopes || []}
-                serviceId={subBlock.serviceId}
-                label={subBlock.placeholder || t('selectTeamsMessageLocation')}
-                disabled={finalDisabled}
-                showPreview={true}
-                credentialId={credentialId}
-                selectionType={selectionType}
-                initialTeamId={selectedTeamId}
-                workflowId={workflowIdFromUrl}
-                workspaceId={workspaceIdFromRoute}
-                isForeignCredential={isForeignCredential}
-              />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                <TeamsMessageSelector
+                  value={(storeValue as string) || ''}
+                  onChange={(val) => {
+                    collaborativeSetSubblockValue(blockId, subBlock.id, val)
+                  }}
+                  provider='microsoft-teams'
+                  requiredScopes={subBlock.requiredScopes || []}
+                  serviceId={subBlock.serviceId}
+                  label={subBlock.placeholder || t('selectTeamsMessageLocation')}
+                  disabled={finalDisabled}
+                  showPreview={true}
+                  credentialId={credentialId}
+                  selectionType={selectionType}
+                  initialTeamId={selectedTeamId}
+                  workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
+                  isForeignCredential={isForeignCredential}
+                />
+              </div>
+            }
+          />
           {!credentialId && (
             <TooltipContent side='top'>
               <p>{t('pleaseSelectMicrosoftTeamsCredentialsFirst')}</p>
@@ -417,26 +431,28 @@ export function FileSelectorInput({
       return (
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <div className='w-full'>
-                <WealthboxFileSelector
-                  value={(storeValue as string) || ''}
-                  onChange={(val) => {
-                    collaborativeSetSubblockValue(blockId, subBlock.id, val)
-                  }}
-                  provider='wealthbox'
-                  requiredScopes={subBlock.requiredScopes || []}
-                  serviceId={subBlock.serviceId}
-                  label={subBlock.placeholder || t('selectContact')}
-                  disabled={finalDisabled}
-                  showPreview={true}
-                  credentialId={credential}
-                  workflowId={workflowIdFromUrl}
-                  workspaceId={workspaceIdFromRoute}
-                  itemType={itemType}
-                />
-              </div>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <div className='w-full'>
+                  <WealthboxFileSelector
+                    value={(storeValue as string) || ''}
+                    onChange={(val) => {
+                      collaborativeSetSubblockValue(blockId, subBlock.id, val)
+                    }}
+                    provider='wealthbox'
+                    requiredScopes={subBlock.requiredScopes || []}
+                    serviceId={subBlock.serviceId}
+                    label={subBlock.placeholder || t('selectContact')}
+                    disabled={finalDisabled}
+                    showPreview={true}
+                    credentialId={credential}
+                    workflowId={workflowIdFromUrl}
+                    workspaceId={workspaceIdFromRoute}
+                    itemType={itemType}
+                  />
+                </div>
+              }
+            />
             {!credential && (
               <TooltipContent side='top'>
                 <p>{t('pleaseSelectWealthboxCredentialsFirst')}</p>
@@ -459,26 +475,28 @@ export function FileSelectorInput({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <GoogleDrivePicker
-                value={coerceToIdString(storeValue as any)}
-                onChange={(val) => {
-                  collaborativeSetSubblockValue(blockId, subBlock.id, val)
-                }}
-                provider={provider}
-                requiredScopes={subBlock.requiredScopes || []}
-                label={subBlock.placeholder || t('selectFile')}
-                disabled={finalDisabled}
-                serviceId={subBlock.serviceId}
-                mimeTypeFilter={subBlock.mimeType}
-                showPreview={true}
-                credentialId={credential}
-                workflowId={workflowIdFromUrl}
-                workspaceId={workspaceIdFromRoute}
-              />
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='w-full'>
+                <GoogleDrivePicker
+                  value={coerceToIdString(storeValue as any)}
+                  onChange={(val) => {
+                    collaborativeSetSubblockValue(blockId, subBlock.id, val)
+                  }}
+                  provider={provider}
+                  requiredScopes={subBlock.requiredScopes || []}
+                  label={subBlock.placeholder || t('selectFile')}
+                  disabled={finalDisabled}
+                  serviceId={subBlock.serviceId}
+                  mimeTypeFilter={subBlock.mimeType}
+                  showPreview={true}
+                  credentialId={credential}
+                  workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
+                />
+              </div>
+            }
+          />
           {!credential && (
             <TooltipContent side='top'>
               <p>{t('pleaseSelectGoogleDriveCredentialsFirst')}</p>

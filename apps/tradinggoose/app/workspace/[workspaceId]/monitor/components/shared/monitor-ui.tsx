@@ -5,12 +5,12 @@ import { Loader2 } from 'lucide-react'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { cn } from '@/lib/utils'
+import { useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { SearchableDropdown, type SearchableDropdownOption } from './searchable-dropdown'
 
 export const monitorControlSurfaceClass =
-  'inline-flex h-9 w-auto min-w-max shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-md border border-border bg-background px-3 font-normal text-sm text-foreground shadow-none transition-colors ring-offset-background hover:bg-card hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-card data-[state=open]:text-foreground [&_svg]:pointer-events-none [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0'
+  'inline-flex h-9 w-auto min-w-max shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-md border border-border bg-background px-3 font-normal text-sm text-foreground shadow-none transition-colors ring-offset-background hover:bg-card hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[popup-open]:bg-card data-[popup-open]:text-foreground [&_svg]:pointer-events-none [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0'
 
 type MonitorControlBarProps = ComponentProps<'div'> & {
   contentClassName?: string
@@ -38,7 +38,7 @@ export function MonitorControlBar({
       <div
         ref={scrollRef}
         onWheel={handleWheel}
-        className='w-full min-w-0 max-w-full overflow-x-auto rounded-lg border bg-muted p-1 shadow-sm overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+        className='w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border bg-muted p-1 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
       >
         <div
           role='toolbar'
@@ -192,7 +192,6 @@ export function MonitorBoardShell({
     </Card>
   )
 }
-
 
 type MonitorAggregateBadgesProps = ComponentProps<'div'> & {
   badgeClassName?: string

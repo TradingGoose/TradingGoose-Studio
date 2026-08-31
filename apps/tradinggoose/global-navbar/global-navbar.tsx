@@ -16,14 +16,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
-import { getOrganizationAccessState } from '@/lib/organization/access'
-import { getUserRole } from '@/lib/organization/helpers'
-import { useOrganizations } from '@/hooks/queries/organization'
+import { useCurrentOrganizationAccessState } from '@/hooks/queries/organization'
+import { CopilotSidebarToggle } from './components/copilot-sidebar-toggle'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
 import { UserMenu } from './components/user-menu'
 import { WorkspaceDialogs } from './components/workspace-dialogs'
 import { WorkspaceSwitcher } from './components/workspace-switcher'
+import { GlobalCopilotLayout } from './global-copilot-layout'
 import { GlobalNavbarHeaderProvider } from './header-context'
 import { SettingsDialog } from './settings-modal/settings-dialog'
 import type { SettingsSection } from './settings-modal/types'
@@ -102,23 +102,14 @@ export function GlobalNavbar({
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
   const isAuthenticated = Boolean(sessionData?.user?.id)
   const shouldShowSkeleton = isSessionLoading
-  const { data: organizationsData } = useOrganizations({
-    enabled: isAuthenticated && !isSessionLoading,
-  })
-  const billingEnabled = organizationsData?.billingData?.data?.billingEnabled ?? true
-  const activeOrganization = organizationsData?.activeOrganization
-  const hasOrganization = Boolean(activeOrganization?.id)
-  const userRole = getUserRole(activeOrganization, sessionData?.user?.email)
-  const organizationAccess = getOrganizationAccessState({
-    billingEnabled,
-    hasOrganization,
-    isOrganizationAdmin: userRole === 'owner' || userRole === 'admin',
-    userTier: organizationsData?.billingData?.data?.tier,
-  })
-  const canOpenTeamSettings = organizationAccess.canOpenTeamSettings
+  const { billingEnabled, canConfigureSso, canOpenTeamSettings } =
+    useCurrentOrganizationAccessState({
+      enabled: isAuthenticated && !isSessionLoading,
+    })
   const [activeSettingsSection, setActiveSettingsSection] =
     React.useState<SettingsSection>('account')
   const [isSettingsModalOpen, setIsSettingsModalOpen] = React.useState(false)
+  const [isCopilotOpen, setIsCopilotOpen] = React.useState(false)
 
   const userId = sessionData?.user?.id ?? null
   const userName = sessionData?.user?.name ?? brand.name
@@ -145,9 +136,12 @@ export function GlobalNavbar({
       if (section === 'team' && !canOpenTeamSettings) {
         return 'account'
       }
+      if (section === 'sso' && !canConfigureSso) {
+        return 'account'
+      }
       return section
     },
-    [billingEnabled, canOpenTeamSettings]
+    [billingEnabled, canConfigureSso, canOpenTeamSettings]
   )
 
   const openSettings = React.useCallback(
@@ -282,6 +276,9 @@ export function GlobalNavbar({
               <SidebarNav navItems={navMain} />
             </SidebarContent>
             <SidebarFooter className='flex flex-col gap-2 px-2 py-3'>
+              {workspaceId && navigationMode === 'workspace' ? (
+                <CopilotSidebarToggle open={isCopilotOpen} onOpenChange={setIsCopilotOpen} />
+              ) : null}
               <SidebarUsageIndicator
                 onOpenSubscriptionSettings={() => openSettings('subscription')}
               />
@@ -292,6 +289,9 @@ export function GlobalNavbar({
                 userAvatar={userAvatar}
                 userAvatarVersion={userAvatarVersion}
                 onOpenSettings={openSettings}
+                billingEnabled={billingEnabled}
+                canOpenTeamSettings={canOpenTeamSettings}
+                canConfigureSso={canConfigureSso}
                 canAccessSystemAdmin={isSystemAdmin && navigationMode !== 'admin'}
                 sidebarTrigger
               />
@@ -306,8 +306,21 @@ export function GlobalNavbar({
                 pageTitle={activeNavItem?.title}
                 pageIcon={activeNavItem?.icon}
               />
-              <div className='min-h-0 flex-1 overflow-hidden p-1'>
-                <div className='h-full w-full overflow-auto'>{children}</div>
+              <div className='flex min-h-0 flex-1 overflow-hidden'>
+                {workspaceId && navigationMode === 'workspace' && userId ? (
+                  <GlobalCopilotLayout
+                    workspaceId={workspaceId}
+                    ownerUserId={userId}
+                    open={isCopilotOpen}
+                    onOpenChange={setIsCopilotOpen}
+                  >
+                    {children}
+                  </GlobalCopilotLayout>
+                ) : (
+                  <div className='h-full min-h-0 w-full overflow-hidden p-1'>
+                    <div className='h-full w-full overflow-auto'>{children}</div>
+                  </div>
+                )}
               </div>
             </div>
           </SidebarInset>

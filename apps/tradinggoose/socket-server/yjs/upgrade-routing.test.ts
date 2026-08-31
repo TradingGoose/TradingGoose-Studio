@@ -40,7 +40,12 @@ describe('upgrade-routing', () => {
 
     shieldNonYjsUpgradeListeners(httpServer, yjsListener)
 
-    httpServer.emit('upgrade', createUpgradeRequest('/yjs/workflow-1'), createSocket(), Buffer.alloc(0))
+    httpServer.emit(
+      'upgrade',
+      createUpgradeRequest('/yjs/workflow-1'),
+      createSocket(),
+      Buffer.alloc(0)
+    )
 
     expect(yjsListener).toHaveBeenCalledTimes(1)
     expect(socketIoListener).not.toHaveBeenCalled()

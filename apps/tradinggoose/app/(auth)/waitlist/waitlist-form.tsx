@@ -1,14 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { cn } from '@/lib/utils'
-import { Link } from '@/i18n/navigation'
-import { useMessages } from 'next-intl'
-import { type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
+import { Link } from '@/i18n/navigation'
+import type { LocaleCode } from '@/i18n/utils'
 
 type WaitlistResponseStatus = 'pending' | 'approved' | 'rejected' | 'signed_up'
 
@@ -57,9 +56,11 @@ export function WaitlistForm() {
         body: JSON.stringify({ email: normalizedEmail, locale }),
       })
 
-      const payload = (await response.json().catch(() => null)) as
-        | { status?: WaitlistResponseStatus; error?: string; code?: string }
-        | null
+      const payload = (await response.json().catch(() => null)) as {
+        status?: WaitlistResponseStatus
+        error?: string
+        code?: string
+      } | null
 
       if (!response.ok) {
         if (payload?.code === 'REGISTRATION_DISABLED') {
@@ -97,32 +98,38 @@ export function WaitlistForm() {
               required
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
-                error && 'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                error &&
+                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
             <p className='text-muted-foreground text-sm'>{waitlistCopy.helperText}</p>
           </div>
         </div>
 
-        <Button type='submit' className={primaryButtonClasses} disabled={isSubmitting}>
+        <Button
+          type='submit'
+          className={primaryButtonClasses}
+          disabled={isSubmitting}
+          aria-busy={isSubmitting}
+        >
           {isSubmitting ? waitlistCopy.submitting : commonCopy.requestAccess}
         </Button>
       </form>
 
       {error ? (
-        <Alert variant='destructive' className='mt-6'>
+        <Alert role='alert' variant='destructive' className='mt-6'>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
       {status === 'pending' ? (
-        <Alert className='mt-6'>
+        <Alert role='status' className='mt-6'>
           <AlertDescription>{waitlistCopy.pending}</AlertDescription>
         </Alert>
       ) : null}
 
       {status === 'approved' ? (
-        <Alert className='mt-6'>
+        <Alert role='status' className='mt-6'>
           <AlertDescription>
             {waitlistCopy.approvedPrefix}{' '}
             <Link
@@ -137,7 +144,7 @@ export function WaitlistForm() {
       ) : null}
 
       {status === 'signed_up' ? (
-        <Alert className='mt-6'>
+        <Alert role='status' className='mt-6'>
           <AlertDescription>
             {waitlistCopy.signedUpPrefix}{' '}
             <Link href='/login' className='font-medium underline'>
@@ -149,7 +156,7 @@ export function WaitlistForm() {
       ) : null}
 
       {status === 'rejected' ? (
-        <Alert variant='destructive' className='mt-6'>
+        <Alert role='alert' variant='destructive' className='mt-6'>
           <AlertDescription>{waitlistCopy.rejected}</AlertDescription>
         </Alert>
       ) : null}

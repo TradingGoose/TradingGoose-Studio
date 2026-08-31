@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  shouldAutoFitWorkflowView,
-  WORKFLOW_FIT_VIEW_PADDING,
-} from './workflow-view-fit'
+import { shouldAutoFitWorkflowView, WORKFLOW_FIT_VIEW_PADDING } from './workflow-view-fit'
 
 describe('shouldAutoFitWorkflowView', () => {
   it('fits when switching to a different workflow identity that already has nodes', () => {

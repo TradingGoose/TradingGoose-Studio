@@ -1,12 +1,12 @@
 import { getLocale } from 'next-intl/server'
-import { Link, redirect } from '@/i18n/navigation'
-import { getPublicCopy } from '@/i18n/public-copy'
+import { buttonVariants } from '@/components/ui/button'
+import { getSession } from '@/lib/auth'
+import { getRegistrationModeForRender } from '@/lib/registration/service'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { getOAuthProviderStatus } from '@/app/(auth)/components/oauth-provider-checker'
 import SignupForm from '@/app/(auth)/signup/signup-form'
-import { Button } from '@/components/ui/button'
-import { getSession } from '@/lib/auth'
-import { getRegistrationModeForRender } from '@/lib/registration/service'
+import { Link, redirect } from '@/i18n/navigation'
+import { getPublicCopy } from '@/i18n/public-copy'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,10 +15,7 @@ export default async function SignupPage({
 }: {
   searchParams?: Promise<{ invite_flow?: string }>
 }) {
-  const [locale, session] = await Promise.all([
-    getLocale(),
-    getSession(),
-  ])
+  const [locale, session] = await Promise.all([getLocale(), getSession()])
 
   if (session?.user?.id) {
     redirect({ href: '/workspace', locale })
@@ -41,12 +38,12 @@ export default async function SignupPage({
           description={disabledCopy.description}
         />
         <div className='flex items-center justify-center gap-3'>
-          <Button asChild>
-            <Link href='/login'>{commonCopy.backToLogin}</Link>
-          </Button>
-          <Button variant='outline' asChild>
-            <Link href='/'>{commonCopy.returnHome}</Link>
-          </Button>
+          <Link href='/login' className={buttonVariants()}>
+            {commonCopy.backToLogin}
+          </Link>
+          <Link href='/' className={buttonVariants({ variant: 'outline' })}>
+            {commonCopy.returnHome}
+          </Link>
         </div>
       </div>
     )

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, startTransition, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,6 +16,8 @@ import {
 import { useParams, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
+  Alert,
+  AlertDescription,
   AlertDialog,
   AlertDialogCancel,
   AlertDialogContent,
@@ -56,6 +58,15 @@ interface DocumentProps {
   documentName?: string
 }
 
+type ChunkBatchPatchResponse = {
+  outcome: 'complete' | 'partial' | 'failed'
+  updatedChunkIds: string[]
+  failures: Array<{
+    chunkId: string
+    message: string
+  }>
+}
+
 function getStatusBadgeStyles(enabled: boolean) {
   return enabled
     ? 'inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
@@ -87,7 +98,8 @@ export function Document({
   // Search state management
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
-  const [isSearching, setIsSearching] = useState(false)
+  const activeSearchQuery = searchQuery.trim()
+  const searchRequestId = useRef(0)
 
   // Load initial chunks (no search) for immediate display
   const {
@@ -109,25 +121,21 @@ export function Document({
 
   // Load all search results when query changes
   useEffect(() => {
-    if (!debouncedSearchQuery.trim()) {
-      setSearchResults([])
-      setSearchError(null)
+    if (!debouncedSearchQuery) {
       return
     }
 
     let isMounted = true
+    const requestId = searchRequestId.current
 
     const searchAllChunks = async () => {
       try {
-        setIsLoadingSearch(true)
-        setSearchError(null)
-
         const allResults: ChunkData[] = []
         let hasMore = true
         let offset = 0
         const limit = 100 // Larger batches for search
 
-        while (hasMore && isMounted) {
+        while (hasMore && isMounted && requestId === searchRequestId.current) {
           const response = await fetch(
             `/api/knowledge/${knowledgeBaseId}/documents/${documentId}/chunks?search=${encodeURIComponent(debouncedSearchQuery)}&limit=${limit}&offset=${offset}`
           )
@@ -147,15 +155,15 @@ export function Document({
           }
         }
 
-        if (isMounted) {
+        if (isMounted && requestId === searchRequestId.current) {
           setSearchResults(allResults)
         }
       } catch (err) {
-        if (isMounted) {
+        if (isMounted && requestId === searchRequestId.current) {
           setSearchError(err instanceof Error ? err.message : 'Search failed')
         }
       } finally {
-        if (isMounted) {
+        if (isMounted && requestId === searchRequestId.current) {
           setIsLoadingSearch(false)
         }
       }
@@ -176,22 +184,32 @@ export function Document({
 
   // Debounce search query with 200ms delay for optimal UX
   useEffect(() => {
+    searchRequestId.current += 1
+
+    if (!activeSearchQuery) {
+      setDebouncedSearchQuery('')
+      setSearchResults([])
+      setIsLoadingSearch(false)
+      setSearchError(null)
+      return
+    }
+
+    setSearchResults([])
+    setIsLoadingSearch(true)
+    setSearchError(null)
+
     const handler = setTimeout(() => {
-      startTransition(() => {
-        setDebouncedSearchQuery(searchQuery)
-        setIsSearching(searchQuery.trim().length > 0)
-      })
+      setDebouncedSearchQuery(activeSearchQuery)
     }, 200)
 
     return () => {
       clearTimeout(handler)
     }
-  }, [searchQuery])
+  }, [activeSearchQuery])
 
-  // Determine which data to show
-  const showingSearch = isSearching && searchQuery.trim().length > 0 && searchResults.length > 0
-
-  // Removed unused allDisplayChunks variable
+  const showingSearch = activeSearchQuery.length > 0
+  const isSearchPending =
+    showingSearch && (activeSearchQuery !== debouncedSearchQuery || isLoadingSearch)
 
   // Client-side pagination for search results
   const SEARCH_PAGE_SIZE = 50
@@ -207,7 +225,11 @@ export function Document({
     searchStartIndex + SEARCH_PAGE_SIZE
   )
 
-  const displayChunks = showingSearch ? paginatedSearchResults : initialChunks
+  const displayChunks = showingSearch
+    ? isSearchPending
+      ? []
+      : paginatedSearchResults
+    : initialChunks
   const currentPage = showingSearch ? searchCurrentPage : initialPage
   const totalPages = showingSearch ? searchTotalPages : initialTotalPages
   const hasNextPage = showingSearch ? searchCurrentPage < searchTotalPages : initialHasNextPage
@@ -257,6 +279,7 @@ export function Document({
   const [chunksPendingDelete, setChunksPendingDelete] = useState<ChunkData[]>([])
   const [isDeletingChunks, setIsDeletingChunks] = useState(false)
   const [isBulkOperating, setIsBulkOperating] = useState(false)
+  const [chunkActionFailure, setChunkActionFailure] = useState<string | null>(null)
 
   const combinedError = error || searchError || initialError
 
@@ -291,6 +314,18 @@ export function Document({
           </td>
           <td className='px-4 py-3'>
             <div className='text-muted-foreground text-xs'>—</div>
+          </td>
+        </tr>
+      )
+    }
+
+    if (isSearchPending) {
+      return (
+        <tr className='border-b transition-colors'>
+          <td colSpan={6} className='px-4 py-8 text-center'>
+            <div role='status' aria-live='polite' className='text-muted-foreground text-sm'>
+              {t('searchingChunks')}
+            </div>
           </td>
         </tr>
       )
@@ -335,10 +370,10 @@ export function Document({
         <td className='px-4 py-3'>
           <Checkbox
             checked={selectedChunks.has(chunk.id)}
-            onCheckedChange={(checked) => handleSelectChunk(chunk.id, checked as boolean)}
+            onCheckedChange={(checked) => handleSelectChunk(chunk.id, checked)}
             disabled={!userPermissions.canEdit}
             aria-label={`Select chunk ${chunk.chunkIndex}`}
-            className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:bg-primary[&>*]:h-3 data-[state=checked]:border-primary [&>*]:w-3'
+            className='size-6 border-gray-300 focus-visible:ring-primary/20 data-[checked]:border-primary data-[checked]:bg-primary [&>*]:h-3 [&>*]:w-3'
             onClick={(e) => e.stopPropagation()}
           />
         </td>
@@ -365,43 +400,51 @@ export function Document({
         <td className='px-4 py-3'>
           <div className='flex items-center gap-1'>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleToggleEnabled(chunk.id)
-                  }}
-                  disabled={!userPermissions.canEdit}
-                  className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50'
-                >
-                  {chunk.enabled ? (
-                    <Circle className='h-4 w-4' />
-                  ) : (
-                    <CircleOff className='h-4 w-4' />
-                  )}
-                </Button>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    aria-label={t(chunk.enabled ? 'disableChunk' : 'enableChunk', {
+                      index: chunk.chunkIndex,
+                    })}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleToggleEnabled(chunk.id)
+                    }}
+                    disabled={!userPermissions.canEdit}
+                    className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50'
+                  >
+                    {chunk.enabled ? (
+                      <Circle className='h-4 w-4' />
+                    ) : (
+                      <CircleOff className='h-4 w-4' />
+                    )}
+                  </Button>
+                }
+              />
               <TooltipContent side='top'>
                 {chunk.enabled ? 'Disable Chunk' : 'Enable Chunk'}
               </TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDeleteChunk(chunk.id)
-                  }}
-                  disabled={!userPermissions.canEdit}
-                  className='h-8 w-8 p-0 text-gray-500 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50'
-                >
-                  <Trash2 className='h-4 w-4' />
-                </Button>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    aria-label={t('deleteChunk', { index: chunk.chunkIndex })}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteChunk(chunk.id)
+                    }}
+                    disabled={!userPermissions.canEdit}
+                    className='h-8 w-8 p-0 text-gray-500 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50'
+                  >
+                    <Trash2 className='h-4 w-4' />
+                  </Button>
+                }
+              />
               <TooltipContent side='top'>Delete Chunk</TooltipContent>
             </Tooltip>
           </div>
@@ -471,7 +514,7 @@ export function Document({
     <div className='flex h-full min-h-0 flex-col rounded-lg border border-border bg-card shadow-sm'>
       <div className='flex items-center justify-between border-b px-4 py-3'>
         <div className='font-medium text-sm'>Manage Tags — {effectiveDocumentName}</div>
-        <Button variant='ghost' size='sm' onClick={closeTagPanel}>
+        <Button variant='ghost' size='sm' aria-label={t('closeTags')} onClick={closeTagPanel}>
           <X className='h-4 w-4' />
         </Button>
       </div>
@@ -511,6 +554,7 @@ export function Document({
               : 'Document processing...'
           }
           value={searchQuery}
+          aria-label={t('searchChunksPlaceholder')}
           onChange={(event) => setSearchQuery(event.target.value)}
           disabled={documentData?.processingStatus !== 'completed'}
           className='flex h-9 w-full rounded-md border border-input bg-background pr-9 pl-10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm'
@@ -521,18 +565,21 @@ export function Document({
         />
       </div>
       <Tooltip>
-        <TooltipTrigger asChild disabled={!createChunkTooltip}>
-          <div>
-            <PrimaryButton
-              onClick={() => setIsCreateChunkModalOpen(true)}
-              disabled={createChunkDisabled}
-              className='h-9 rounded-sm px-3'
-            >
-              <Plus className='h-3.5 w-3.5' />
-              <span>{t('createChunk')}</span>
-            </PrimaryButton>
-          </div>
-        </TooltipTrigger>
+        <TooltipTrigger
+          disabled={!createChunkTooltip}
+          render={
+            <div>
+              <PrimaryButton
+                onClick={() => setIsCreateChunkModalOpen(true)}
+                disabled={createChunkDisabled}
+                className='h-9 rounded-sm px-3'
+              >
+                <Plus className='h-3.5 w-3.5' />
+                <span>{t('createChunk')}</span>
+              </PrimaryButton>
+            </div>
+          }
+        />
         {createChunkTooltip && <TooltipContent>{createChunkTooltip}</TooltipContent>}
       </Tooltip>
       {userPermissions.canEdit && (
@@ -598,25 +645,26 @@ export function Document({
 
     try {
       setIsDeletingChunks(true)
+      setChunkActionFailure(null)
+      const isBatchDelete = chunksPendingDelete.length > 1
 
-      const response =
-        chunksPendingDelete.length === 1
-          ? await fetch(
-              `/api/knowledge/${knowledgeBaseId}/documents/${documentId}/chunks/${chunksPendingDelete[0].id}`,
-              {
-                method: 'DELETE',
-              }
-            )
-          : await fetch(`/api/knowledge/${knowledgeBaseId}/documents/${documentId}/chunks`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                operation: 'delete',
-                chunkIds: chunksPendingDelete.map((chunk) => chunk.id),
-              }),
-            })
+      const response = !isBatchDelete
+        ? await fetch(
+            `/api/knowledge/${knowledgeBaseId}/documents/${documentId}/chunks/${chunksPendingDelete[0].id}`,
+            {
+              method: 'DELETE',
+            }
+          )
+        : await fetch(`/api/knowledge/${knowledgeBaseId}/documents/${documentId}/chunks`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              operation: 'delete',
+              chunkIds: chunksPendingDelete.map((chunk) => chunk.id),
+            }),
+          })
 
       if (!response.ok) {
         throw new Error('Failed to delete chunks')
@@ -624,19 +672,43 @@ export function Document({
 
       const result = await response.json()
 
-      if (!result.success) {
+      if (!isBatchDelete && !result.success) {
         throw new Error(result.error || 'Failed to delete chunks')
       }
 
-      await refreshChunks()
-      setSelectedChunks((prev) => {
-        const newSet = new Set(prev)
-        chunksPendingDelete.forEach((chunk) => newSet.delete(chunk.id))
-        return newSet
-      })
+      const batchResult = isBatchDelete ? (result as ChunkBatchPatchResponse) : null
+      const deletedChunkIds = new Set(
+        batchResult ? batchResult.updatedChunkIds : [chunksPendingDelete[0].id]
+      )
+
+      if (deletedChunkIds.size > 0) {
+        setSearchResults((current) => current.filter((chunk) => !deletedChunkIds.has(chunk.id)))
+        setSelectedChunks((current) => {
+          const next = new Set(current)
+          deletedChunkIds.forEach((chunkId) => next.delete(chunkId))
+          return next
+        })
+        await refreshChunks()
+      }
+
+      if (batchResult && batchResult.outcome !== 'complete') {
+        setChunkActionFailure(
+          batchResult.outcome === 'partial'
+            ? t('batchUpdatePartial', {
+                updated: batchResult.updatedChunkIds.length,
+                total: chunksPendingDelete.length,
+                failed: batchResult.failures.length,
+              })
+            : t('batchUpdateFailed')
+        )
+        setChunksPendingDelete([])
+        return
+      }
+
       setChunksPendingDelete([])
     } catch (err) {
       logger.error('Error deleting chunks:', err)
+      setChunkActionFailure(t('batchUpdateFailed'))
     } finally {
       setIsDeletingChunks(false)
     }
@@ -676,6 +748,7 @@ export function Document({
 
     try {
       setIsBulkOperating(true)
+      setChunkActionFailure(null)
 
       const response = await fetch(
         `/api/knowledge/${knowledgeBaseId}/documents/${documentId}/chunks`,
@@ -695,22 +768,43 @@ export function Document({
         throw new Error(`Failed to ${operation} chunks`)
       }
 
-      const result = await response.json()
+      const result = (await response.json()) as ChunkBatchPatchResponse
+      const updatedChunkIds = new Set(result.updatedChunkIds)
 
-      if (result.success) {
-        result.data.results.forEach((opResult: any) => {
-          if (opResult.operation === operation) {
-            opResult.chunkIds.forEach((chunkId: string) => {
-              updateChunk(chunkId, { enabled: operation === 'enable' })
-            })
-          }
+      if (updatedChunkIds.size > 0) {
+        result.updatedChunkIds.forEach((chunkId) => {
+          updateChunk(chunkId, { enabled: operation === 'enable' })
         })
+        setSearchResults((current) =>
+          current.map((chunk) =>
+            updatedChunkIds.has(chunk.id) ? { ...chunk, enabled: operation === 'enable' } : chunk
+          )
+        )
+        await refreshChunks()
+      }
 
-        logger.info(`Successfully ${operation}d ${result.data.successCount} chunks`)
-        setSelectedChunks(new Set())
+      setSelectedChunks((current) => {
+        const next = new Set(current)
+        updatedChunkIds.forEach((chunkId) => next.delete(chunkId))
+        return next
+      })
+
+      if (result.outcome === 'partial') {
+        setChunkActionFailure(
+          t('batchUpdatePartial', {
+            updated: result.updatedChunkIds.length,
+            total: chunks.length,
+            failed: result.failures.length,
+          })
+        )
+      } else if (result.outcome === 'failed') {
+        setChunkActionFailure(t('batchUpdateFailed'))
+      } else {
+        logger.info(`Successfully ${operation}d ${result.updatedChunkIds.length} chunks`)
       }
     } catch (err) {
       logger.error(`Error ${operation}ing chunks:`, err)
+      setChunkActionFailure(t('batchUpdateFailed'))
     } finally {
       setIsBulkOperating(false)
     }
@@ -766,7 +860,7 @@ export function Document({
                     documentData?.processingStatus !== 'completed' || !userPermissions.canEdit
                   }
                   aria-label='Select all chunks'
-                  className='h-3.5 w-3.5 border-gray-300 focus-visible:ring-primary/20 data-[state=checked]:bg-primary[&>*]:h-3 data-[state=checked]:border-primary [&>*]:w-3'
+                  className='size-6 border-gray-300 focus-visible:ring-primary/20 data-[checked]:border-primary data-[checked]:bg-primary [&>*]:h-3 [&>*]:w-3'
                 />
               </th>
               <th className='px-4 pt-2 pb-3 text-left font-medium'>
@@ -799,13 +893,7 @@ export function Document({
             <col className='w-[10%]' />
             <col className='w-[12%]' />
           </colgroup>
-          <tbody>
-            {showingSearch ? (
-              <Suspense fallback={renderChunks()}>{renderChunks()}</Suspense>
-            ) : (
-              renderChunks()
-            )}
-          </tbody>
+          <tbody>{renderChunks()}</tbody>
         </table>
       </div>
 
@@ -815,6 +903,7 @@ export function Document({
             <Button
               variant='ghost'
               size='sm'
+              aria-label={t('previousPage')}
               onClick={prevPage}
               disabled={!hasPrevPage}
               className='h-8 w-8 p-0'
@@ -853,6 +942,7 @@ export function Document({
             <Button
               variant='ghost'
               size='sm'
+              aria-label={t('nextPage')}
               onClick={nextPage}
               disabled={!hasNextPage}
               className='h-8 w-8 p-0'
@@ -907,6 +997,11 @@ export function Document({
     <>
       <div className='flex h-full min-h-0 flex-col'>
         <KnowledgeHeader breadcrumbs={breadcrumbs} centerContent={headerCenterContent} />
+        {chunkActionFailure && (
+          <Alert variant='destructive'>
+            <AlertDescription>{chunkActionFailure}</AlertDescription>
+          </Alert>
+        )}
 
         <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
           <div className='flex h-full min-h-0 flex-1 flex-col overflow-hidden'>
@@ -999,13 +1094,12 @@ export function Document({
 
       <AlertDialog
         open={chunksPendingDelete.length > 0}
-        onOpenChange={(open) => {
-          if (!open && !isDeletingChunks) {
-            setChunksPendingDelete([])
-          }
+        onOpenChange={(open, details) => {
+          if (!open && isDeletingChunks) return details.cancel()
+          if (!open) setChunksPendingDelete([])
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent hideCloseButton={isDeletingChunks}>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {chunksPendingDelete.length === 1 ? t('deleteChunkTitle') : t('deleteChunksTitle')}
@@ -1013,8 +1107,12 @@ export function Document({
             <AlertDialogDescription>
               {chunksPendingDelete.length === 1
                 ? t('deleteChunkDescription')
-                : t('deleteChunksDescription', { count: chunksPendingDelete.length })}{' '}
-              <span className='text-red-500 dark:text-red-500'>{t('thisActionCannotBeUndone')}</span>
+                : t('deleteChunksDescription', {
+                    count: chunksPendingDelete.length,
+                  })}{' '}
+              <span className='text-red-500 dark:text-red-500'>
+                {t('thisActionCannotBeUndone')}
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
@@ -1039,7 +1137,7 @@ export function Document({
         onDelete={handleBulkDelete}
         enabledCount={enabledCount}
         disabledCount={disabledCount}
-        isLoading={isBulkOperating || isDeletingChunks}
+        busy={isBulkOperating || isDeletingChunks}
       />
     </>
   )

@@ -41,18 +41,18 @@ const validateEmailField = (
     invalid: string
   }
 ): string[] => {
-  const errors: string[] = []
+  const validationMessages: string[] = []
 
   if (!emailValue || !emailValue.trim()) {
-    errors.push(messages.required)
-    return errors
+    validationMessages.push(messages.required)
+    return validationMessages
   }
 
   if (!quickValidateEmail(emailValue.trim().toLowerCase()).isValid) {
-    errors.push(messages.invalid)
+    validationMessages.push(messages.invalid)
   }
 
-  return errors
+  return validationMessages
 }
 
 const PASSWORD_VALIDATIONS = {
@@ -67,19 +67,19 @@ const validatePassword = (
     empty: string
   }
 ): string[] => {
-  const errors: string[] = []
+  const validationMessages: string[] = []
 
   if (!PASSWORD_VALIDATIONS.required.test(passwordValue)) {
-    errors.push(messages.required)
-    return errors
+    validationMessages.push(messages.required)
+    return validationMessages
   }
 
   if (!PASSWORD_VALIDATIONS.notEmpty.test(passwordValue)) {
-    errors.push(messages.empty)
-    return errors
+    validationMessages.push(messages.empty)
+    return validationMessages
   }
 
-  return errors
+  return validationMessages
 }
 
 export default function LoginPage({
@@ -533,6 +533,12 @@ export default function LoginPage({
               autoCorrect='off'
               value={email}
               onChange={handleEmailChange}
+              aria-invalid={showEmailValidationError && emailErrors.length > 0}
+              aria-describedby={
+                showEmailValidationError && emailErrors.length > 0
+                  ? 'login-email-errors'
+                  : undefined
+              }
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 showEmailValidationError &&
@@ -541,7 +547,11 @@ export default function LoginPage({
               )}
             />
             {showEmailValidationError && emailErrors.length > 0 && (
-              <div className='mt-1 space-y-1 text-red-400 text-xs'>
+              <div
+                id='login-email-errors'
+                role='alert'
+                className='mt-1 space-y-1 text-red-400 text-xs'
+              >
                 {emailErrors.map((error, index) => (
                   <p key={index}>{error}</p>
                 ))}
@@ -572,6 +582,12 @@ export default function LoginPage({
                 placeholder={commonCopy.enterYourPassword}
                 value={password}
                 onChange={handlePasswordChange}
+                aria-invalid={showValidationError && passwordErrors.length > 0}
+                aria-describedby={
+                  showValidationError && passwordErrors.length > 0
+                    ? 'login-password-errors'
+                    : undefined
+                }
                 className={cn(
                   'rounded-md pr-10 shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                   showValidationError &&
@@ -589,7 +605,11 @@ export default function LoginPage({
               </button>
             </div>
             {showValidationError && passwordErrors.length > 0 && (
-              <div className='mt-1 space-y-1 text-red-400 text-xs'>
+              <div
+                id='login-password-errors'
+                role='alert'
+                className='mt-1 space-y-1 text-red-400 text-xs'
+              >
                 {passwordErrors.map((error, index) => (
                   <p key={index}>{error}</p>
                 ))}
@@ -598,9 +618,17 @@ export default function LoginPage({
           </div>
         </div>
 
-        <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
+        <Button
+          type='submit'
+          className={primaryButtonClasses}
+          disabled={isLoading}
+          aria-busy={isLoading}
+        >
           {isLoading ? loginCopy.submitting : loginCopy.submit}
         </Button>
+        <span className='sr-only' role='status' aria-live='polite'>
+          {isLoading ? loginCopy.submitting : ''}
+        </span>
       </form>
 
       {/* Divider - show when we have multiple auth methods */}
@@ -694,6 +722,9 @@ export default function LoginPage({
                 placeholder={loginCopy.resetDialog.emailPlaceholder}
                 required
                 type='email'
+                autoComplete='email'
+                aria-invalid={resetStatus.type === 'error'}
+                aria-describedby={resetStatus.type === 'error' ? 'reset-email-error' : undefined}
                 className={cn(
                   'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                   resetStatus.type === 'error' &&
@@ -701,13 +732,21 @@ export default function LoginPage({
                 )}
               />
               {resetStatus.type === 'error' && (
-                <div className='mt-1 space-y-1 text-red-400 text-xs'>
+                <div
+                  id='reset-email-error'
+                  role='alert'
+                  className='mt-1 space-y-1 text-red-400 text-xs'
+                >
                   <p>{resetStatus.message}</p>
                 </div>
               )}
             </div>
             {resetStatus.type === 'success' && (
-              <div className='mt-1 space-y-1 text-[#4CAF50] text-xs'>
+              <div
+                role='status'
+                aria-live='polite'
+                className='mt-1 space-y-1 text-[#4CAF50] text-xs'
+              >
                 <p>{resetStatus.message}</p>
               </div>
             )}

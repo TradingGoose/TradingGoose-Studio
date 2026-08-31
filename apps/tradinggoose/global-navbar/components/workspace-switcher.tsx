@@ -3,6 +3,11 @@ import { ChevronsUpDown, Loader2, Pencil, Plus, Settings, Trash2 } from 'lucide-
 import Image from 'next/image'
 import { useMessages, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
@@ -10,7 +15,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { Workspace } from '../types'
 import { getInitials } from '../utils'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from './resizable-dropdown'
 
 interface WorkspaceSwitcherProps {
   activeWorkspace: Workspace | null
@@ -77,38 +81,40 @@ export function WorkspaceSwitcher({
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu open={workspaceMenuOpen} onOpenChange={onWorkspaceMenuOpenChange}>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              variant='muted'
-              size='lg'
-              className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
-            >
-              <div className='flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground'>
-                {activeWorkspace ? (
-                  <span className='font-semibold text-sm'>{getInitials(activeWorkspace.name)}</span>
-                ) : (
-                  <Image
-                    src={fallbackImageUrl}
-                    alt={`${brandName} logo`}
-                    width={20}
-                    height={20}
-                    className='h-full w-full object-contain'
-                  />
-                )}
-              </div>
-              <div className='grid flex-1 text-left text-sm leading-tight'>
-                <span className='truncate font-semibold'>{activeWorkspace?.name ?? brandName}</span>
-                <span className='truncate text-xs'>
-                  {activeWorkspace?.role
-                    ? roleLabels[activeWorkspace.role] ?? activeWorkspace.role
-                    : tSwitcher('workspaceLabel')}
-                </span>
-              </div>
-              <ChevronsUpDown className='ml-auto' />
-            </SidebarMenuButton>
+          <DropdownMenuTrigger
+            render={
+              <SidebarMenuButton
+                variant='muted'
+                size='lg'
+                className='data-[popup-open]:bg-sidebar-accent data-[popup-open]:text-sidebar-accent-foreground'
+              />
+            }
+          >
+            <div className='flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground'>
+              {activeWorkspace ? (
+                <span className='font-semibold text-sm'>{getInitials(activeWorkspace.name)}</span>
+              ) : (
+                <Image
+                  src={fallbackImageUrl}
+                  alt={`${brandName} logo`}
+                  width={20}
+                  height={20}
+                  className='h-full w-full object-contain'
+                />
+              )}
+            </div>
+            <div className='grid flex-1 text-left text-sm leading-tight'>
+              <span className='truncate font-semibold'>{activeWorkspace?.name ?? brandName}</span>
+              <span className='truncate text-xs'>
+                {activeWorkspace?.role
+                  ? (roleLabels[activeWorkspace.role] ?? activeWorkspace.role)
+                  : tSwitcher('workspaceLabel')}
+              </span>
+            </div>
+            <ChevronsUpDown className='ml-auto' />
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className='w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 max-w-[calc(100vw-2rem)] rounded-md border p-0 shadow-lg'
+            className='w-[var(--anchor-width)] min-w-56 max-w-[calc(100vw-2rem)] rounded-md border p-0 shadow-lg'
             side='bottom'
             sideOffset={4}
             align='start'

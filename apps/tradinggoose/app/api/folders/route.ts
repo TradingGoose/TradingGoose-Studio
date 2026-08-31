@@ -5,6 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { isRootFolderInWorkspace, lockFolderWrites } from './shared'
 
 const logger = createLogger('FoldersAPI')
 
@@ -82,7 +83,13 @@ export async function POST(request: NextRequest) {
     const id = crypto.randomUUID()
 
     // Use transaction to ensure sortOrder consistency
-    const newFolder = await db.transaction(async (tx) => {
+    const createResult = await db.transaction(async (tx) => {
+      await lockFolderWrites(tx, workspaceId)
+
+      if (parentId && !(await isRootFolderInWorkspace(tx, parentId, workspaceId))) {
+        return { error: 'Parent folder must be a root folder in this workspace' } as const
+      }
+
       // Get the next sort order for the parent (or root level)
       // Consider all folders in the workspace, not just those created by current user
       const existingFolders = await tx
@@ -113,12 +120,16 @@ export async function POST(request: NextRequest) {
         })
         .returning()
 
-      return folder
+      return { folder } as const
     })
+
+    if ('error' in createResult) {
+      return NextResponse.json({ error: createResult.error }, { status: 400 })
+    }
 
     logger.info('Created new folder:', { id, name, workspaceId, parentId })
 
-    return NextResponse.json({ folder: newFolder })
+    return NextResponse.json({ folder: createResult.folder })
   } catch (error) {
     logger.error('Error creating folder:', { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

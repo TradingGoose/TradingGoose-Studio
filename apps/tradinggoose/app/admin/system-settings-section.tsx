@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useLocale } from 'next-intl'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Settings2 } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import {
   Alert,
   AlertDescription,
@@ -24,14 +25,16 @@ import {
   type AdminSystemSettingsSnapshot,
 } from '@/lib/admin/system-settings/types'
 import { REGISTRATION_MODE_VALUES } from '@/lib/registration/shared'
+import { adminBillingKeys } from '@/hooks/queries/admin-billing'
+import { adminRegistrationKeys } from '@/hooks/queries/admin-registration'
 import {
+  adminSystemSettingsKeys,
+  updateAdminSystemSettings,
   useAdminSystemSettingsSnapshot,
-  useUpdateAdminSystemSettings,
 } from '@/hooks/queries/admin-system-settings'
-import { useMessages } from 'next-intl'
-import type { LocaleCode } from '@/i18n/utils'
-import { getAdminSystemSettingsErrorMessage } from './errors'
+import { subscriptionKeys } from '@/hooks/queries/subscription'
 import { ADMIN_META_BADGE_CLASSNAME } from './badge-styles'
+import { getAdminSystemSettingsErrorMessage } from './errors'
 
 const EMPTY_SNAPSHOT: AdminSystemSettingsSnapshot = {
   registrationMode: 'open',
@@ -46,16 +49,27 @@ const EMPTY_SNAPSHOT: AdminSystemSettingsSnapshot = {
 }
 
 export function AdminSystemSettingsSection() {
-  const locale = useLocale() as LocaleCode
   const publicCopy = useMessages()
   const copy = publicCopy.admin.systemSettings
   const registrationCopy = publicCopy.registration
   const snapshotQuery = useAdminSystemSettingsSnapshot()
-  const updateMutation = useUpdateAdminSystemSettings()
+  const queryClient = useQueryClient()
+  const updateMutation = useMutation({
+    mutationFn: updateAdminSystemSettings,
+    onSuccess: async (snapshot) => {
+      queryClient.setQueryData(adminSystemSettingsKeys.snapshot(), snapshot)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
+        queryClient.invalidateQueries({ queryKey: adminRegistrationKeys.snapshot() }),
+        queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
+      ])
+    },
+  })
   const [draft, setDraft] = useState<AdminSystemSettingsSnapshot | null>(null)
   const [savedSnapshot, setSavedSnapshot] = useState<AdminSystemSettingsSnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const writeLockRef = useRef(false)
 
   useEffect(() => {
     if (!snapshotQuery.data || draft !== null || savedSnapshot !== null) {
@@ -88,12 +102,13 @@ export function AdminSystemSettingsSection() {
   const hasDirtyChanges = Object.keys(dirtyInput).length > 0
 
   async function handleSave() {
-    setError(null)
-    setMessage(null)
-
-    if (!hasDirtyChanges) {
+    if (writeLockRef.current || !hasDirtyChanges) {
       return
     }
+
+    writeLockRef.current = true
+    setError(null)
+    setMessage(null)
 
     try {
       const nextSnapshot = await updateMutation.mutateAsync(dirtyInput)
@@ -102,12 +117,19 @@ export function AdminSystemSettingsSection() {
       setMessage(copy.savedMessage)
     } catch (submitError) {
       setError(getAdminSystemSettingsErrorMessage(copy, getErrorMessage(submitError)))
+    } finally {
+      writeLockRef.current = false
     }
   }
 
   if (!draft && snapshotQuery.isPending) {
     return (
-      <Card className='border border-border bg-muted/10'>
+      <Card
+        role='status'
+        aria-live='polite'
+        aria-atomic='true'
+        className='border border-border bg-muted/10'
+      >
         <CardContent className='flex min-h-[220px] items-center justify-center px-4 py-6 sm:px-5'>
           <p className='text-muted-foreground text-sm'>{copy.loading}</p>
         </CardContent>
@@ -145,7 +167,9 @@ export function AdminSystemSettingsSection() {
                   </span>
                 </div>
                 <div className='flex items-baseline gap-1 whitespace-nowrap'>
-                  <span className='text-[11px] text-muted-foreground'>{copy.status.promoCodes}</span>
+                  <span className='text-[11px] text-muted-foreground'>
+                    {copy.status.promoCodes}
+                  </span>
                   <span className='font-medium text-[11px] text-foreground'>
                     {settings.allowPromotionCodes ? copy.status.allowed : copy.status.blocked}
                   </span>
@@ -180,12 +204,15 @@ export function AdminSystemSettingsSection() {
         ) : null}
 
         {message ? (
-          <Notice variant='success' title={copy.saved}>
-            {message}
-          </Notice>
+          <div role='status'>
+            <Notice variant='success' title={copy.saved}>
+              {message}
+            </Notice>
+          </div>
         ) : null}
 
         <fieldset disabled={updateMutation.isPending} className='space-y-4'>
+          <legend className='sr-only'>{copy.title}</legend>
           <div className='grid gap-4 xl:grid-cols-[1.15fr_1fr]'>
             <div className='space-y-4 rounded-md border border-border/60 bg-background px-4 py-4'>
               <div className='space-y-1'>
@@ -196,7 +223,9 @@ export function AdminSystemSettingsSection() {
               </div>
 
               <div className='space-y-2'>
-                <Label className='font-medium text-sm'>{copy.accessControls.registrationMode}</Label>
+                <Label className='font-medium text-sm'>
+                  {copy.accessControls.registrationMode}
+                </Label>
                 <div className='flex flex-wrap gap-2'>
                   {REGISTRATION_MODE_VALUES.map((mode) => {
                     const isActive = settings.registrationMode === mode
@@ -221,7 +250,9 @@ export function AdminSystemSettingsSection() {
                     <>
                       {!settings.billingReady ? (
                         <Alert>
-                          <AlertDescription>{copy.alerts.billingDisabledUntilTier}</AlertDescription>
+                          <AlertDescription>
+                            {copy.alerts.billingDisabledUntilTier}
+                          </AlertDescription>
                         </Alert>
                       ) : null}
                       <SettingSwitch
@@ -233,7 +264,7 @@ export function AdminSystemSettingsSection() {
                             : copy.accessControls.billingEnabledLocked
                         }
                         checked={settings.billingEnabled}
-                        disabled={!settings.billingReady}
+                        disabled={updateMutation.isPending || !settings.billingReady}
                         onCheckedChange={(checked) => updateField('billingEnabled', checked)}
                       />
                       <SettingSwitch
@@ -241,6 +272,7 @@ export function AdminSystemSettingsSection() {
                         label={copy.accessControls.allowPromotionCodes}
                         hint={copy.accessControls.allowPromotionCodesHint}
                         checked={settings.allowPromotionCodes}
+                        disabled={updateMutation.isPending}
                         onCheckedChange={(checked) => updateField('allowPromotionCodes', checked)}
                       />
                     </>
@@ -251,6 +283,7 @@ export function AdminSystemSettingsSection() {
                       label={copy.accessControls.triggerDevEnabled}
                       hint={copy.accessControls.triggerDevEnabledHint}
                       checked={settings.triggerDevEnabled}
+                      disabled={updateMutation.isPending}
                       onCheckedChange={(checked) => updateField('triggerDevEnabled', checked)}
                     />
                   ) : null}
@@ -267,11 +300,11 @@ export function AdminSystemSettingsSection() {
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='email-domain' className='font-medium text-sm'>
+                <Label htmlFor='platform-sender-domain' className='font-medium text-sm'>
                   {copy.emailIdentity.emailDomain}
                 </Label>
                 <Input
-                  id='email-domain'
+                  id='platform-sender-domain'
                   value={settings.emailDomain}
                   onChange={(event) => updateField('emailDomain', event.target.value)}
                   placeholder={copy.emailIdentity.emailDomainPlaceholder}
@@ -279,11 +312,11 @@ export function AdminSystemSettingsSection() {
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='from-email-address' className='font-medium text-sm'>
+                <Label htmlFor='platform-sender-identity' className='font-medium text-sm'>
                   {copy.emailIdentity.fromEmailAddress}
                 </Label>
                 <Input
-                  id='from-email-address'
+                  id='platform-sender-identity'
                   value={settings.fromEmailAddress}
                   onChange={(event) => updateField('fromEmailAddress', event.target.value)}
                   placeholder={copy.emailIdentity.fromEmailAddressPlaceholder}
@@ -300,6 +333,7 @@ export function AdminSystemSettingsSection() {
               type='button'
               onClick={handleSave}
               disabled={updateMutation.isPending || !hasDirtyChanges}
+              aria-busy={updateMutation.isPending || undefined}
             >
               {updateMutation.isPending ? copy.saving : copy.save}
             </Button>

@@ -21,8 +21,8 @@ import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import { formatDurationMs } from '@/i18n/formatters'
-import type { ConsoleEntry as ConsoleEntryType } from '@/stores/console/types'
 import { useWorkflowConsoleMessages } from '@/i18n/workspace-widget-hooks'
+import type { ConsoleEntry as ConsoleEntryType } from '@/stores/console/types'
 import { CodeDisplay } from '../../../code-display/code-display'
 
 const logger = createLogger('OutputPanel')
@@ -554,6 +554,7 @@ export function OutputPanel({
         {/* Content display */}
         {hasDisplayData && (
           <div
+            role={isOutputError ? 'alert' : undefined}
             className={cn(
               isDetailView
                 ? 'flex min-h-0 flex-1 flex-col rounded-none bg-transparent'

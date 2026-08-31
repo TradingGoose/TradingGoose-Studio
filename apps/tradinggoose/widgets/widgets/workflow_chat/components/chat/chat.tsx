@@ -127,7 +127,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     if (!scrollArea) return
 
     // Find the viewport element inside the ScrollArea
-    const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
+    const viewport = scrollArea.querySelector('[data-slot="scroll-area-viewport"]')
     if (!viewport) return
 
     const { scrollTop, scrollHeight, clientHeight } = viewport
@@ -153,7 +153,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     if (!scrollArea) return
 
     // Find the viewport element inside the ScrollArea
-    const viewport = scrollArea.querySelector('[data-radix-scroll-area-viewport]')
+    const viewport = scrollArea.querySelector('[data-slot="scroll-area-viewport"]')
     if (!viewport) return
 
     viewport.addEventListener('scroll', handleScroll, { passive: true })
@@ -196,20 +196,9 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     // Store the message being sent for reference
     const sentMessage = chatMessage.trim()
 
-    // Add to prompt history if it's not already the most recent
-    if (
-      sentMessage &&
-      (promptHistory.length === 0 || promptHistory[promptHistory.length - 1] !== sentMessage)
-    ) {
-      setPromptHistory((prev) => [...prev, sentMessage])
-    }
-
-    // Reset history index
-    setHistoryIndex(-1)
-
     // Get the conversationId for this workflow before adding the message
     const conversationId = getConversationId(currentWorkflowId)
-    let result: any = null
+    let result: Awaited<ReturnType<typeof handleRunWorkflow>>
     const streamState = {
       id: crypto.randomUUID(),
       content: '',
@@ -271,23 +260,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
         })
       )
 
-      if (isChatUnavailableRef.current) return
-
-      // Add user message with attachments (include all files, even non-images without dataUrl)
-      addMessage({
-        content:
-          sentMessage ||
-          (chatFiles.length > 0
-            ? formatTemplate(copy.uploadedFiles, {
-                count: chatFiles.length,
-                plural: chatFiles.length === 1 ? '' : 's',
-              })
-            : ''),
-        workflowId: currentWorkflowId,
-        type: 'user',
-        attachments: attachmentsWithData,
-      })
-
       // Prepare workflow input
       const workflowInput: any = {
         input: sentMessage,
@@ -307,18 +279,36 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
         }
       }
 
-      // Clear input and files, refocus immediately
-      setChatMessage('')
-      setChatFiles([])
-      setUploadErrors([])
-      setStreamingMessage(null)
-      focusInput(10)
-
       // Execute the workflow to generate a response
       result = await handleRunWorkflow({
         input: workflowInput,
         triggerType: 'chat',
         selectedOutputs,
+        onAdmitted: () => {
+          if (
+            sentMessage &&
+            (promptHistory.length === 0 || promptHistory[promptHistory.length - 1] !== sentMessage)
+          ) {
+            setPromptHistory((prev) => [...prev, sentMessage])
+          }
+          setHistoryIndex(-1)
+          addMessage({
+            content:
+              sentMessage ||
+              formatTemplate(copy.uploadedFiles, {
+                count: chatFiles.length,
+                plural: chatFiles.length === 1 ? '' : 's',
+              }),
+            workflowId: currentWorkflowId,
+            type: 'user',
+            attachments: attachmentsWithData,
+          })
+          setChatMessage('')
+          setChatFiles([])
+          setUploadErrors([])
+          setStreamingMessage(null)
+          focusInput(10)
+        },
         onEvent: (event) => appendOutputEvents(outputReader.readEvent(event)),
       })
     } catch (error) {
@@ -326,21 +316,23 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       return
     }
 
-    if (outputReader.hasEmittedContent()) {
-      if (result && 'success' in result && !result.success && !streamState.errorShown) {
-        appendStreamError('error' in result ? result.error : copy.workflowExecutionFailed)
+    if (streamState.content) {
+      if (result && !result.success && !streamState.errorShown) {
+        appendStreamError(result.error ?? copy.workflowExecutionFailed)
       }
       addMessage({
         content: streamState.content,
         workflowId: currentWorkflowId,
         type: 'workflow',
+        ...(streamState.errorShown ? { isExecutionFailure: true } : {}),
       })
       setStreamingMessage(null)
-    } else if (result && 'success' in result && !result.success) {
+    } else if (result && !result.success) {
       addMessage({
-        content: `${copy.errorPrefix}${'error' in result ? result.error : copy.workflowExecutionFailed}`,
+        content: `${copy.errorPrefix}${result.error ?? copy.workflowExecutionFailed}`,
         workflowId: currentWorkflowId,
         type: 'workflow',
+        isExecutionFailure: true,
       })
     }
 

@@ -175,7 +175,8 @@ function parseOutputFields(content: string): Record<string, any> {
     // Leaf: { type: 'string', description: '...' }
     // Container: { event_type: { type: 'string' }, channel: { type: 'string' } }
     const beforeFirstBrace = fieldContent.indexOf('{')
-    const searchArea = beforeFirstBrace > 0 ? fieldContent.substring(0, beforeFirstBrace) : fieldContent
+    const searchArea =
+      beforeFirstBrace > 0 ? fieldContent.substring(0, beforeFirstBrace) : fieldContent
     const typeMatch = searchArea.match(/\btype\s*:\s*['"]([^'"]+)['"]/)
     const descMatch = searchArea.match(/\bdescription\s*:\s*['"]([^'"]+)['"]/)
 

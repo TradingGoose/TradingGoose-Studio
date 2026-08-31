@@ -11,6 +11,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import {
   getResolvedSystemSettings,
   type ResolvedSystemSettings,
+  TriggerExecutionBusyError,
   upsertSystemSettings,
 } from '@/lib/system-settings/service'
 import { isTriggerConfigurationReady } from '@/lib/trigger/settings'
@@ -193,6 +194,13 @@ export async function PATCH(request: NextRequest) {
       }
     )
   } catch (error) {
+    if (error instanceof TriggerExecutionBusyError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: 409, headers: NO_STORE_HEADERS }
+      )
+    }
+
     if (error instanceof ZodError) {
       logger.warn(`[${requestId}] Invalid admin system settings payload`, {
         errors: error.issues,

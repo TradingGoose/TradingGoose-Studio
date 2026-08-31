@@ -269,4 +269,33 @@ describe('dashboard Yjs document owners', () => {
       rightDoc.destroy()
     }
   })
+
+  it('preserves linked params from a concurrent gray transition', () => {
+    const doc = new Y.Doc()
+    try {
+      seedDashboardWidgetSession(doc, widget)
+      const staleRedWidget = readDashboardWidgetDocument(doc, 'data_chart')
+
+      applyDashboardWidgetDocumentDelta(doc, 'data_chart', staleRedWidget, {
+        ...staleRedWidget,
+        pairColor: 'gray',
+        params: { ...staleRedWidget.params, listing: pair.listing },
+      })
+      applyDashboardWidgetDocumentDelta(doc, 'data_chart', staleRedWidget, {
+        ...staleRedWidget,
+        params: { ...staleRedWidget.params, view: { interval: '1h' } },
+      })
+
+      expect(readDashboardWidgetDocument(doc, 'data_chart')).toEqual({
+        pairColor: 'gray',
+        params: {
+          data: { provider: 'alpaca' },
+          listing: pair.listing,
+          view: { interval: '1h' },
+        },
+      })
+    } finally {
+      doc.destroy()
+    }
+  })
 })

@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const microsoftTeamsChatSubscriptionTrigger: TriggerConfig = {
   id: 'microsoftteams_chat_subscription',
   name: 'Microsoft Teams Chat',
-  webhookProvider: 'microsoft-teams',
+  webhookProvider: 'microsoftteams',
   description:
     'Trigger workflow from new messages in Microsoft Teams chats via Microsoft Graph subscriptions',
   version: '1.0.0',

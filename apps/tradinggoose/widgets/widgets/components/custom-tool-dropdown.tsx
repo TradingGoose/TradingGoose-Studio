@@ -161,7 +161,7 @@ export function CustomToolDropdown({
               key={tool.id}
               className={cn(widgetHeaderMenuItemClassName, 'justify-between')}
               data-active={isSelected ? '' : undefined}
-              onSelect={() => {
+              onClick={() => {
                 if (isSelected) return
                 handleSelect(tool)
               }}
@@ -187,7 +187,7 @@ export function CustomToolDropdown({
   }
 
   const chevronClassName =
-    'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+    'h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[popup-open]:rotate-180'
   const selectedIconColor = getEntityIconColor(selectedToolId)
 
   const iconBadge = (
@@ -213,19 +213,23 @@ export function CustomToolDropdown({
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                type='button'
-                disabled={isDropdownDisabled}
-                className={widgetHeaderControlClassName(
-                  cn(
-                    'group flex min-w-[240px] items-center justify-between gap-1',
-                    triggerClassName
-                  )
-                )}
-                aria-haspopup='listbox'
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type='button'
+                    disabled={isDropdownDisabled}
+                    className={widgetHeaderControlClassName(
+                      cn(
+                        'group flex min-w-[240px] items-center justify-between gap-1',
+                        triggerClassName
+                      )
+                    )}
+                    aria-haspopup='listbox'
+                  />
+                }
               >
                 {isLoading ? (
                   <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
@@ -234,10 +238,10 @@ export function CustomToolDropdown({
                 )}
                 {labelContent}
                 <ChevronDown className={chevronClassName} aria-hidden='true' />
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent

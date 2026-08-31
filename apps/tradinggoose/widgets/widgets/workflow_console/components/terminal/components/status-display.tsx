@@ -9,11 +9,7 @@ interface StatusDisplayProps {
   formattedDuration: string
 }
 
-export function StatusDisplay({
-  isRunning,
-  isCanceled,
-  formattedDuration,
-}: StatusDisplayProps) {
+export function StatusDisplay({ isRunning, isCanceled, formattedDuration }: StatusDisplayProps) {
   const copy = useWorkflowConsoleMessages()
   if (isRunning) {
     return (
@@ -24,8 +20,8 @@ export function StatusDisplay({
   }
 
   if (isCanceled) {
-    return <span className='text-xs text-muted-foreground'>{copy.canceled}</span>
+    return <span className='text-muted-foreground text-xs'>{copy.canceled}</span>
   }
 
-  return <span className='text-xs text-muted-foreground'>{formattedDuration}</span>
+  return <span className='text-muted-foreground text-xs'>{formattedDuration}</span>
 }

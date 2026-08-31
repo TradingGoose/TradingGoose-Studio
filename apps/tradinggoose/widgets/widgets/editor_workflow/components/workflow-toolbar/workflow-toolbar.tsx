@@ -294,24 +294,28 @@ function ToolbarDropdown({
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button
-                className={widgetHeaderControlClassName(
-                  'group font-semibold text-muted-foreground hover:text-foreground'
-                )}
-                type='button'
-                disabled={disabled}
+        <TooltipTrigger
+          render={
+            <span className='inline-flex'>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    className={widgetHeaderControlClassName(
+                      'group font-semibold text-muted-foreground hover:text-foreground'
+                    )}
+                    type='button'
+                    disabled={disabled}
+                  />
+                }
               >
                 <span className='flex items-center gap-1'>
                   <span className='text-xs'>{label}</span>
-                  <ChevronDown className='h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180' />
+                  <ChevronDown className='h-3.5 w-3.5 transition-transform group-data-[popup-open]:rotate-180' />
                 </span>
-              </button>
-            </DropdownMenuTrigger>
-          </span>
-        </TooltipTrigger>
+              </DropdownMenuTrigger>
+            </span>
+          }
+        />
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent

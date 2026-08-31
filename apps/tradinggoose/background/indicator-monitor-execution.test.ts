@@ -58,6 +58,7 @@ const payload = {
     interval: '1m',
     intervalMs: 60_000,
     indicatorId: 'indicator-1',
+    assetType: 'stock',
     listing: {
       listing_type: 'default',
       listing_id: 'AAPL',
@@ -126,6 +127,9 @@ describe('executeIndicatorMonitorJob', () => {
           triggerType: 'webhook',
           executionTarget: 'deployed',
           triggerBlockId: 'trigger-block',
+          triggerData: expect.objectContaining({
+            monitor: expect.objectContaining({ assetType: 'stock' }),
+          }),
         }),
       })
     )

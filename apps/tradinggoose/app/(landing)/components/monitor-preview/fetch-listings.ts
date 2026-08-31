@@ -1,5 +1,5 @@
-import type { ListingOption } from '@/lib/listing/identity'
-import { normalizeListingOptions } from '@/lib/listing/search'
+import type { ListingResolved } from '@/lib/listing/identity'
+import { type MarketListingSearchRow, normalizeResolvedListings } from '@/lib/listing/search'
 import { marketClient } from '@/lib/market/client/client'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 import {
@@ -26,18 +26,18 @@ function buildMarketQuery(marketCode: string): string {
   }).toString()
 }
 
-async function requestMarketListings(marketCode: string): Promise<ListingOption[]> {
+async function requestMarketListings(marketCode: string): Promise<ListingResolved[]> {
   const response = await marketClient.makeRequest<{
-    data?: ListingOption[] | ListingOption | null
+    data?: MarketListingSearchRow[] | MarketListingSearchRow | null
   }>(`/api/search?${buildMarketQuery(marketCode)}`, {
     timeoutMs: MONITOR_LISTINGS_TIMEOUT_MS,
   })
 
   if (!response.success || !response.data) return []
-  return normalizeListingOptions(response.data)
+  return normalizeResolvedListings(response.data)
 }
 
-async function requestMonitorListings(): Promise<ListingOption[]> {
+async function requestMonitorListings(): Promise<ListingResolved[]> {
   // Fire one request per preferred market in parallel. allSettled so a
   // single slow/failing market doesn't starve the rest of the table.
   const results = await Promise.allSettled(
@@ -51,6 +51,6 @@ async function requestMonitorListings(): Promise<ListingOption[]> {
   return sortMonitorListings(filterToPreferredMarkets(combined)).slice(0, MONITOR_PREVIEW_ROW_LIMIT)
 }
 
-export async function fetchMonitorStocks(): Promise<ListingOption[]> {
+export async function fetchMonitorStocks(): Promise<ListingResolved[]> {
   return requestMonitorListings().catch(() => [])
 }

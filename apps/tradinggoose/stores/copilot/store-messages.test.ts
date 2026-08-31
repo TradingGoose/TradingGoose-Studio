@@ -1,9 +1,33 @@
 import { describe, expect, it } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { normalizeMessagesForUI } from './store-messages'
+import { createUserMessage, normalizeMessagesForUI } from './store-messages'
 import type { CopilotMessage } from './types'
 
 describe('normalizeMessagesForUI', () => {
+  it('restores the assistant activity row for an active persisted turn', () => {
+    const messages = normalizeMessagesForUI(
+      [
+        {
+          id: 'user-active',
+          role: 'user',
+          content: 'Continue working',
+          timestamp: '2026-04-28T00:00:00.000Z',
+        },
+      ],
+      'in_progress'
+    )
+
+    expect(messages.map(({ role }) => role)).toEqual(['user', 'assistant'])
+    expect(messages[1]?.content).toBe('')
+  })
+
+  it('stores user contexts only in the canonical contexts field', () => {
+    const message = createUserMessage('Read @Docs', undefined, [{ kind: 'docs', label: 'Docs' }])
+
+    expect(message.contexts).toEqual([{ kind: 'docs', label: 'Docs' }])
+    expect(message.contentBlocks).toBeUndefined()
+  })
+
   it('moves reasoning-only JSON prefixes out of assistant text content', () => {
     const [message] = normalizeMessagesForUI([
       {

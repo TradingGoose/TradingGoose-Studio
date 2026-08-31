@@ -3,8 +3,8 @@
 import { useCallback, useEffect } from 'react'
 import type { permissionTypeEnum } from '@tradinggoose/db/schema'
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { handleAuthError, isAuthErrorStatus } from '@/lib/auth/auth-error-handler'
 import { isSessionRecoveryAuthError } from '@/lib/auth/auth-error-copy'
+import { handleAuthError, isAuthErrorStatus } from '@/lib/auth/auth-error-handler'
 import { createLogger } from '@/lib/logs/console/logger'
 import { usePathname } from '@/i18n/navigation'
 import { API_ENDPOINTS } from '@/stores/constants'
@@ -100,7 +100,7 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
 
     const fetchPromise = (async () => {
       try {
-        setRecord(recordKey, { loading: true, error: null })
+        setRecord(recordKey, { loading: true })
 
         const response = await fetch(API_ENDPOINTS.WORKSPACE_PERMISSIONS(workspaceId))
 
@@ -134,14 +134,14 @@ const useWorkspacePermissionsStore = create<WorkspacePermissionsStoreState>((set
           error: null,
         })
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
+        const permissionLoadFailure = err instanceof Error ? err.message : 'Unknown error occurred'
         logger.error('Failed to fetch workspace permissions', {
           workspaceId,
-          error: errorMessage,
+          error: permissionLoadFailure,
         })
         setRecord(recordKey, {
           loading: false,
-          error: errorMessage,
+          error: permissionLoadFailure,
         })
       } finally {
         set((state) => {

@@ -245,15 +245,12 @@ export function useKnowledgeBasesList(
     await queryClient.invalidateQueries({ queryKey: knowledgeKeys.list(workspaceId) })
   }, [queryClient, workspaceId])
 
-  const forceRefresh = refreshList
-
   return {
     knowledgeBases: query.data ?? [],
-    isLoading: query.isLoading,
-    error: getKnowledgeQueryErrorMessage(query.error),
-    errorCode: getKnowledgeQueryErrorCode(query.error),
+    hasLoadFailure: query.isError,
+    hasResolvedList: query.data !== undefined && !query.isPlaceholderData,
+    isFetching: query.isFetching,
     refreshList,
-    forceRefresh,
     addKnowledgeBase,
     removeKnowledgeBase,
   }

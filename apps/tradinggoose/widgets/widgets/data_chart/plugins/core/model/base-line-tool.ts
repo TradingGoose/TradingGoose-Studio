@@ -359,7 +359,7 @@ export abstract class BaseLineTool<HorzScaleItem>
     series: ISeriesApi<SeriesType, HorzScaleItem>,
     horzScaleBehavior: IHorzScaleBehavior<HorzScaleItem>,
     finalOptions: LineToolOptionsInternal<LineToolType>,
-    points: LineToolPoint[] = [],
+    points: LineToolPoint[] | undefined,
     toolType: LineToolType,
     pointsCount: number,
     priceAxisLabelStackingManager: PriceAxisLabelStackingManager<HorzScaleItem>
@@ -371,8 +371,8 @@ export abstract class BaseLineTool<HorzScaleItem>
     this._chart = chart
     this._series = series
     this._horzScaleBehavior = horzScaleBehavior
-    this._points = points
-    this._creating = points.length === 0
+    this._points = points ?? []
+    this._creating = this._points.length === 0
     this.toolType = toolType
     this.pointsCount = pointsCount
     this._priceAxisLabelStackingManager = priceAxisLabelStackingManager
@@ -1150,7 +1150,7 @@ export abstract class BaseLineTool<HorzScaleItem>
     this._priceAxisLabelViews.forEach((view) => {
       if (view instanceof LineToolPriceAxisLabelView) {
         // The ID used for registration is toolId + '-p' + pointIndex (see LineToolPriceAxisLabelView)
-        this._priceAxisLabelStackingManager.unregisterLabel(this.id() + '-p' + view.getPointIndex())
+        this._priceAxisLabelStackingManager.unregisterLabel(`${this.id()}-p${view.getPointIndex()}`)
       }
     })
     // Trigger a stacking update to re-flow remaining labels after this tool's labels are removed
@@ -1163,7 +1163,7 @@ export abstract class BaseLineTool<HorzScaleItem>
     // Clear references to views and internal data
     this._paneViews.forEach((paneView) => {
       const renderer = paneView.renderer()
-      if (renderer && renderer.clear) {
+      if (renderer?.clear) {
         // Check if the renderer has a clear method
         renderer.clear()
       }

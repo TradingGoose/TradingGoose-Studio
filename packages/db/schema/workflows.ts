@@ -376,7 +376,7 @@ export const workflowLogWebhookDelivery = pgTable(
     nextAttemptAt: timestamp('next_attempt_at'),
     responseStatus: integer('response_status'),
     responseBody: text('response_body'),
-    errorMessage: text('error_message'),
+    failureReason: text('error_message'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },

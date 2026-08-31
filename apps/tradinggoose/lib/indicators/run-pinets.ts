@@ -11,7 +11,7 @@ type RunPineTSArgs = {
   inputsMap?: Record<string, unknown>
   listing?: ListingIdentity | null
   interval?: string
-  code: string | Function
+  code: string | ((...args: unknown[]) => unknown)
 }
 
 const toPineSymbol = (listing?: ListingIdentity | null) => {
@@ -36,9 +36,11 @@ export const runPineTS = async ({
   bootstrapIndicatorTriggerBridge(globalThis as unknown as Record<string, unknown>)
   const pine = new PineTS(barsMs, toPineSymbol(listing), interval)
   await pine.ready()
-  const { result: context, events, warnings } = await runWithIndicatorTriggerCollector(() =>
-    pine.run(new Indicator(code, inputsMap))
-  )
+  const {
+    result: context,
+    events,
+    warnings,
+  } = await runWithIndicatorTriggerCollector(() => pine.run(new Indicator(code, inputsMap)))
   return {
     context,
     transpiledCode: pine.transpiledCode,

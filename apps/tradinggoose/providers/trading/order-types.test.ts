@@ -9,39 +9,47 @@ import {
 } from '@/providers/trading/order-types'
 
 const stockListing: ListingResolved = {
-  listing_type: 'default' as const,
-  listing_id: 'AAPL',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default' as const,
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'AAPL',
   quote: 'USD',
   assetClass: 'stock',
 }
 
 const cryptoListing: ListingResolved = {
-  listing_type: 'crypto' as const,
-  listing_id: '',
-  base_id: 'BTC',
-  quote_id: 'USD',
+  listingIdentity: {
+    listing_type: 'crypto' as const,
+    listing_id: '',
+    base_id: 'BTC',
+    quote_id: 'USD',
+  },
   base: 'BTC',
   quote: 'USD',
 }
 
 const etfListing: ListingResolved = {
-  listing_type: 'default' as const,
-  listing_id: 'SPY',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default' as const,
+    listing_id: 'SPY',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'SPY',
   quote: 'USD',
   assetClass: 'etf',
 }
 
 const assetlessListing: ListingResolved = {
-  listing_type: 'default' as const,
-  listing_id: 'MSFT',
-  base_id: '',
-  quote_id: '',
+  listingIdentity: {
+    listing_type: 'default' as const,
+    listing_id: 'MSFT',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'MSFT',
   quote: 'USD',
 }

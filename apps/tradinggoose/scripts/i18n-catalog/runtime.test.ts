@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { scanCatalogProject } from './scan'
 import {
   ARRAY_RUNTIME_CALLBACK_METHOD_NAMES,
   RUNTIME_CALLBACK_FUNCTION_NAMES,
   RUNTIME_CALLBACK_HOOK_NAMES,
 } from './scan/core/rules'
-import { scanCatalogProject } from './scan'
 import {
   cleanupTempProjects,
   createLocaleMessages,
@@ -58,7 +58,7 @@ useLayoutEffect(() => {
     name: 'useLayoutEffect',
   },
   {
-    body: "const memoizedLabel = useMemo(() => copy.used, [copy])",
+    body: 'const memoizedLabel = useMemo(() => copy.used, [copy])',
     importLines: ["import { useMemo } from 'react'"],
     name: 'useMemo',
     returnExpression: '<div>{memoizedLabel}</div>',
@@ -439,11 +439,13 @@ export function MonitorPage() {
     )
   })
 
-  ;([
-    ['forwardRef', 'forwardRef'],
-    ['memo', 'memo'],
-    ['memo(forwardRef)', 'memoForwardRef'],
-  ] as const).forEach(([label, wrapper]) => {
+  ;(
+    [
+      ['forwardRef', 'forwardRef'],
+      ['memo', 'memo'],
+      ['memo(forwardRef)', 'memoForwardRef'],
+    ] as const
+  ).forEach(([label, wrapper]) => {
     it(`captures copy access through ${label}-wrapped exported components`, () => {
       const projectRoot = createWrappedExportMonitorProject(wrapper)
 

@@ -2,16 +2,16 @@
 
 import type React from 'react'
 import { ChartCandlestick, LayoutDashboardIcon, Workflow } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { Card } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
-import { useMessages } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
 import { LayoutPreview } from './components/layout-preview/layout-preview'
 import {
-  LandingMarketPreviewProvider,
   type LandingMarketPreviewMessages,
+  LandingMarketPreviewProvider,
 } from './components/market-preview/landing-market-preview-provider'
 import { MarketPreview } from './components/market-preview/market-preview'
 import {

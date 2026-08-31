@@ -4,11 +4,13 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Braces, ChevronDown, WrapText } from 'lucide-react'
 import { ListingDisplayRow } from '@/components/listing-selector/listing/row'
 import {
+  getListingIdentitySymbol,
   LISTING_IDENTITY_VALUE_TYPE,
-  type ListingOption,
+  ListingResolvedSchema,
   toListingValueObject,
 } from '@/lib/listing/identity'
-import { cn, redactApiKeys } from '@/lib/utils'
+import { deepRedactSecrets } from '@/lib/security/redaction'
+import { cn } from '@/lib/utils'
 
 export type JsonDisplayMode = 'beauty' | 'raw'
 type ValueType =
@@ -91,7 +93,7 @@ const STRUCTURED_STYLES = {
   emptyValue: 'py-[2px] text-[13px] text-muted-foreground',
 } as const
 
-const getDisplayData = (data: unknown, redact: boolean) => (redact ? redactApiKeys(data) : data)
+const getDisplayData = (data: unknown, redact: boolean) => (redact ? deepRedactSecrets(data) : data)
 
 export function stringifyJsonDisplay(data: unknown, redact = true): string {
   const displayData = getDisplayData(data, redact)
@@ -176,43 +178,6 @@ function getTypeLabel(value: unknown): ValueType {
   if (Array.isArray(value)) return 'array'
   if (toListingValueObject(value)) return LISTING_IDENTITY_VALUE_TYPE
   return typeof value as ValueType
-}
-
-const readRecordText = (record: Record<string, unknown>, key: string): string => {
-  const raw = record[key]
-  if (typeof raw === 'string') return raw.trim()
-  if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw)
-  return ''
-}
-
-function toListingDisplayOption(value: unknown): ListingOption | null {
-  const listing = toListingValueObject(value)
-  if (!listing) return null
-
-  const record = value as Record<string, unknown>
-  const base =
-    readRecordText(record, 'base') ||
-    (listing.listing_type === 'default' ? listing.listing_id : listing.base_id)
-  const quote =
-    readRecordText(record, 'quote') || (listing.listing_type === 'default' ? '' : listing.quote_id)
-
-  return {
-    ...listing,
-    base,
-    quote: quote || null,
-    name: readRecordText(record, 'name') || null,
-    iconUrl: readRecordText(record, 'iconUrl') || null,
-    assetClass:
-      readRecordText(record, 'assetClass') ||
-      (listing.listing_type === 'default' ? null : listing.listing_type),
-    countryCode: readRecordText(record, 'countryCode') || null,
-    cityName: readRecordText(record, 'cityName') || null,
-    marketCode: readRecordText(record, 'marketCode') || null,
-    primaryMicCode: readRecordText(record, 'primaryMicCode') || null,
-    timeZoneName: readRecordText(record, 'timeZoneName') || null,
-    base_asset_class: readRecordText(record, 'base_asset_class') || null,
-    quote_asset_class: readRecordText(record, 'quote_asset_class') || null,
-  }
 }
 
 function formatPrimitive(value: unknown): string {
@@ -301,7 +266,9 @@ const StructuredNode = memo(function StructuredNode({
   const isPrimitiveValue = isPrimitive(value)
   const isEmptyValue = !isPrimitiveValue && isEmpty(value)
   const isExpanded = expandedPaths.has(path)
-  const listing = toListingDisplayOption(value)
+  const resolvedListing = ListingResolvedSchema.safeParse(value)
+  const listing = resolvedListing.success ? resolvedListing.data : null
+  const listingIdentity = listing?.listingIdentity ?? toListingValueObject(value)
 
   const handleToggle = useCallback(() => onToggle(path), [onToggle, path])
 
@@ -320,7 +287,7 @@ const StructuredNode = memo(function StructuredNode({
     [value, isPrimitiveValue, isEmptyValue, path]
   )
 
-  const collapsedSummary = isPrimitiveValue || listing ? null : getCollapsedSummary(value)
+  const collapsedSummary = isPrimitiveValue || listingIdentity ? null : getCollapsedSummary(value)
 
   const badgeStyle = isError ? 'bg-red-500/15 text-red-600 dark:text-red-400' : BADGE_STYLES[type]
 
@@ -338,6 +305,10 @@ const StructuredNode = memo(function StructuredNode({
         <span className={cn(STRUCTURED_STYLES.badge, badgeStyle)}>{type}</span>
         {listing ? (
           <ListingDisplayRow listing={listing} showSecondary className='min-w-0 flex-1' />
+        ) : listingIdentity ? (
+          <span className={STRUCTURED_STYLES.summary}>
+            {getListingIdentitySymbol(listingIdentity)}
+          </span>
         ) : !isExpanded && collapsedSummary ? (
           <span className={STRUCTURED_STYLES.summary}>{collapsedSummary}</span>
         ) : null}

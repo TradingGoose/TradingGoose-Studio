@@ -31,7 +31,7 @@ vi.mock('@/stores/execution/store', () => ({
 
 vi.mock('@/components/ui/scroll-area', () => ({
   ScrollArea: ({ children }: { children: React.ReactNode }) => (
-    <div data-radix-scroll-area-viewport>{children}</div>
+    <div data-slot='scroll-area-viewport'>{children}</div>
   ),
 }))
 
@@ -87,9 +87,17 @@ describe('Workflow Chat', () => {
     await act(async () => root.render(<Harness />))
   }
 
+  async function submitMessage() {
+    const sendButton = Array.from(container.querySelectorAll('button')).at(-1)!
+    await act(async () => {
+      sendButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+  }
+
   it('renders queued workflow stream chunks before the final result resolves', async () => {
     let resolveExecution: (value: unknown) => void = () => {}
     mockHandleRunWorkflow.mockImplementationOnce((request) => {
+      request.onAdmitted()
       request.onEvent({
         type: 'stream:chunk',
         executionId: 'execution-1',
@@ -121,10 +129,7 @@ describe('Workflow Chat', () => {
 
     await renderChat()
 
-    const sendButton = container.querySelector('button:last-of-type') as HTMLButtonElement
-    await act(async () => {
-      sendButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
+    await submitMessage()
 
     expect(container.textContent).toContain('streamed content')
     expect(container.textContent).toContain('completed summary')
@@ -150,13 +155,18 @@ describe('Workflow Chat', () => {
       .messages.filter((message) => message.type === 'workflow')
     expect(workflowMessages).toHaveLength(1)
     expect(workflowMessages[0].content).toBe('streamed content\n\ncompleted summary')
+    expect(workflowMessages[0].isExecutionFailure).toBeUndefined()
+    expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 
   it('uses the latest selected outputs when sending a chat workflow run', async () => {
-    mockHandleRunWorkflow.mockResolvedValueOnce({
-      success: true,
-      output: {},
-      logs: [],
+    mockHandleRunWorkflow.mockImplementationOnce((request) => {
+      request.onAdmitted()
+      return Promise.resolve({
+        success: true,
+        output: {},
+        logs: [],
+      })
     })
 
     await renderChat()
@@ -165,16 +175,35 @@ describe('Workflow Chat', () => {
       useChatStore.getState().setSelectedWorkflowOutput('workflow-1', ['agent-2_content'])
     })
 
-    const sendButton = container.querySelector('button:last-of-type') as HTMLButtonElement
-    await act(async () => {
-      sendButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
+    await submitMessage()
 
     expect(mockHandleRunWorkflow).toHaveBeenCalledWith(
       expect.objectContaining({
         selectedOutputs: ['agent-2_content'],
       })
     )
+  })
+
+  it('preserves the draft and attachments when workflow admission is rejected', async () => {
+    mockHandleRunWorkflow.mockResolvedValueOnce(undefined)
+    await renderChat('send this later')
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    Object.defineProperty(fileInput, 'files', {
+      configurable: true,
+      value: [new File(['notes'], 'notes.txt', { type: 'text/plain' })],
+    })
+    await act(async () => {
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+
+    await submitMessage()
+
+    const messageInput = container.querySelector('input:not([type="file"])') as HTMLInputElement
+    expect(messageInput.value).toBe('send this later')
+    expect(container.textContent).toContain('notes.txt')
+    expect(useChatStore.getState().messages).toEqual([])
+    expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 
   it('keeps reader chat input, attachments, and local messages disabled', async () => {
@@ -194,5 +223,47 @@ describe('Workflow Chat', () => {
 
     expect(mockHandleRunWorkflow).not.toHaveBeenCalled()
     expect(useChatStore.getState().messages).toEqual([])
+  })
+
+  it('announces one workflow failure without duplicating its message', async () => {
+    mockHandleRunWorkflow.mockImplementationOnce((request) => {
+      request.onAdmitted()
+      request.onEvent({
+        type: 'block:error',
+        executionId: 'execution-1',
+        workflowId: 'workflow-1',
+        timestamp: new Date().toISOString(),
+        data: {
+          blockId: 'agent-1',
+          error: 'Knowledge search failed',
+        },
+      })
+
+      return Promise.resolve({
+        success: false,
+        output: {},
+        error: 'Knowledge search failed',
+        logs: [],
+      })
+    })
+
+    await renderChat()
+    await submitMessage()
+
+    const alerts = container.querySelectorAll('[role="alert"]')
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0].textContent).toContain('Knowledge search failed')
+    expect(container.textContent?.match(/Knowledge search failed/g)).toHaveLength(1)
+
+    const workflowMessages = useChatStore
+      .getState()
+      .messages.filter((message) => message.type === 'workflow')
+    expect(workflowMessages).toHaveLength(1)
+    expect(workflowMessages[0]).toEqual(
+      expect.objectContaining({
+        content: 'Error: Knowledge search failed',
+        isExecutionFailure: true,
+      })
+    )
   })
 })

@@ -1,4 +1,3 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createLogger } from '@/lib/logs/console/logger'
 import { type ImportedSkillTransferRecord, SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import type { SkillDefinition } from '@/lib/skills/types'
@@ -7,7 +6,7 @@ const logger = createLogger('SkillsQueries')
 const API_ENDPOINT = '/api/skills'
 const normalizeSkillNameInput = (value: string) => value.trim().replace(/\s+/g, ' ')
 
-export interface ImportSkillsResponse {
+interface ImportSkillsResponse {
   success: boolean
   data: SkillDefinition[]
   importedSkills: ImportedSkillTransferRecord[]
@@ -15,12 +14,6 @@ export interface ImportSkillsResponse {
     addedCount: number
     renamedCount: number
   }
-}
-
-export const skillsKeys = {
-  all: ['skills'] as const,
-  lists: () => [...skillsKeys.all, 'list'] as const,
-  list: (workspaceId: string) => [...skillsKeys.lists(), workspaceId] as const,
 }
 
 function normalizeSkill(
@@ -101,38 +94,20 @@ interface CreateSkillParams {
   }
 }
 
-export function useCreateSkill() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ workspaceId, skill }: CreateSkillParams) => {
-      logger.info(`Creating skill: ${skill.name} in workspace ${workspaceId}`)
-
-      const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          skills: [skill],
-          workspaceId,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create skill')
-      }
-
-      if (!data.data || !Array.isArray(data.data)) {
-        throw new Error('Invalid API response: missing skills data')
-      }
-
-      return data.data
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: skillsKeys.list(variables.workspaceId) })
-    },
+export async function createSkill({
+  workspaceId,
+  skill,
+}: CreateSkillParams): Promise<SkillDefinition[]> {
+  logger.info(`Creating skill: ${skill.name} in workspace ${workspaceId}`)
+  const response = await fetch(API_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ skills: [skill], workspaceId }),
   })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.error || 'Failed to create skill')
+  if (!Array.isArray(data.data)) throw new Error('Invalid API response: missing skills data')
+  return data.data
 }
 
 interface ImportSkillsParams {
@@ -140,37 +115,26 @@ interface ImportSkillsParams {
   file: unknown
 }
 
-export function useImportSkills() {
-  const queryClient = useQueryClient()
-
-  return useMutation<ImportSkillsResponse, Error, ImportSkillsParams>({
-    mutationFn: async ({
-      workspaceId,
-      file,
-    }: ImportSkillsParams): Promise<ImportSkillsResponse> => {
-      logger.info(`Importing skills into workspace ${workspaceId}`)
-
-      const response = await fetch(`${API_ENDPOINT}/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workspaceId,
-          file,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to import skills')
-      }
-
-      return data as ImportSkillsResponse
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: skillsKeys.list(variables.workspaceId) })
-    },
+export async function importSkills({
+  workspaceId,
+  file,
+}: ImportSkillsParams): Promise<ImportSkillsResponse> {
+  logger.info(`Importing skills into workspace ${workspaceId}`)
+  const response = await fetch(`${API_ENDPOINT}/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workspaceId, file }),
   })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.error || 'Failed to import skills')
+  if (
+    !Array.isArray(data.data) ||
+    !Array.isArray(data.importedSkills) ||
+    typeof data.import?.addedCount !== 'number'
+  ) {
+    throw new Error('Invalid API response: missing imported skills data')
+  }
+  return data as ImportSkillsResponse
 }
 
 interface DeleteSkillParams {
@@ -178,30 +142,15 @@ interface DeleteSkillParams {
   skillId: string
 }
 
-export function useDeleteSkill() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ workspaceId, skillId }: DeleteSkillParams) => {
-      logger.info(`Deleting skill: ${skillId}`)
-
-      const url = `${API_ENDPOINT}?id=${skillId}&workspaceId=${workspaceId}`
-      const response = await fetch(url, {
-        method: 'DELETE',
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete skill')
-      }
-
-      return data
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: skillsKeys.list(variables.workspaceId) })
-    },
-  })
+export async function deleteSkill({ workspaceId, skillId }: DeleteSkillParams) {
+  logger.info(`Deleting skill: ${skillId}`)
+  const response = await fetch(
+    `${API_ENDPOINT}?id=${encodeURIComponent(skillId)}&workspaceId=${encodeURIComponent(workspaceId)}`,
+    { method: 'DELETE' }
+  )
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.error || 'Failed to delete skill')
+  return data
 }
 
 export function isValidSkillName(name: string) {

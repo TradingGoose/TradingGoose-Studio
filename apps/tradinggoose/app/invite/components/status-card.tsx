@@ -1,13 +1,13 @@
 'use client'
 
 import { AlertCircle, CheckCircle2, Mail, RotateCcw, ShieldX, UserPlus, Users2 } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useMessages } from 'next-intl'
-import { useRouter } from '@/i18n/navigation'
 import { useBrandConfig } from '@/lib/branding/branding'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { useRouter } from '@/i18n/navigation'
 
 interface InviteStatusCardProps {
   type: 'login' | 'loading' | 'error' | 'success' | 'invitation' | 'warning'
@@ -67,7 +67,13 @@ export function InviteStatusCard({
 
   if (type === 'loading') {
     return (
-      <div className={`${soehne.className} space-y-6`}>
+      <div
+        className={`${soehne.className} space-y-6`}
+        role='status'
+        aria-live='polite'
+        aria-atomic='true'
+        aria-busy='true'
+      >
         <div className='space-y-1 text-center'>
           <h1 className='font-medium text-[32px] text-black tracking-tight'>
             {title || copy.invite.loadingTitle}
@@ -81,12 +87,12 @@ export function InviteStatusCard({
         </div>
 
         <div
-          className={`${inter.className} text-muted-foreground fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
+          className={`${inter.className} fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] text-muted-foreground leading-relaxed`}
         >
           {copy.invite.needHelp}{' '}
           <a
             href='mailto:support@tradinggoose.ai'
-            className='hover:text-primary underline underline-offset-4'
+            className='underline underline-offset-4 hover:text-primary'
           >
             {copy.invite.contactSupport}
           </a>
@@ -98,9 +104,15 @@ export function InviteStatusCard({
   const IconComponent = icon ? iconMap[icon] : null
   const iconColor = icon ? iconColorMap[icon] : ''
   const iconBg = icon ? iconBgMap[icon] : ''
+  const feedbackRole = type === 'error' ? 'alert' : type === 'success' ? 'status' : undefined
 
   return (
-    <div className={`${soehne.className} space-y-6`}>
+    <div
+      className={`${soehne.className} space-y-6`}
+      role={feedbackRole}
+      aria-live={type === 'success' ? 'polite' : undefined}
+      aria-atomic={feedbackRole ? 'true' : undefined}
+    >
       <div className='space-y-1 text-center'>
         <h1 className='font-medium text-[32px] text-black tracking-tight'>{title}</h1>
         <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
@@ -111,11 +123,11 @@ export function InviteStatusCard({
       <div className={`${inter.className} mt-8 space-y-8`}>
         <div className='flex w-full flex-col gap-3'>
           {isExpiredError && (
-          <Button
-            variant='outline'
-            className='w-full rounded-md border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
-            onClick={() => router.push('/')}
-          >
+            <Button
+              variant='outline'
+              className='w-full rounded-md border-primary font-medium text-[15px] text-primary transition-colors duration-200 hover:bg-primary hover:text-black'
+              onClick={() => router.push('/')}
+            >
               <RotateCcw className='mr-2 h-4 w-4' />
               {copy.invite.requestNewInvitation}
             </Button>
@@ -149,12 +161,12 @@ export function InviteStatusCard({
       </div>
 
       <div
-        className={`${inter.className} text-muted-foreground fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] leading-relaxed`}
+        className={`${inter.className} fixed right-0 bottom-0 left-0 z-50 pb-8 text-center font-[340] text-[13px] text-muted-foreground leading-relaxed`}
       >
         {copy.invite.needHelp}{' '}
         <a
           href={`mailto:${brandConfig.supportEmail}`}
-          className='hover:text-primary underline underline-offset-4'
+          className='underline underline-offset-4 hover:text-primary'
         >
           {copy.invite.contactSupport}
         </a>

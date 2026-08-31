@@ -3,8 +3,8 @@
  */
 
 import { act } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
 import { NextIntlClientProvider } from 'next-intl'
+import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { getPublicCopy } from '@/i18n/public-copy'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
@@ -43,7 +43,9 @@ describe('ListingSelector localized wrapper copy', () => {
       )
     })
 
-    expect(container.textContent).toContain(getPublicCopy('es').workspace.widgets.listingSelector.label)
+    expect(container.textContent).toContain(
+      getPublicCopy('es').workspace.widgets.listingSelector.label
+    )
     expect(container.textContent).not.toContain('Listing')
   })
 })

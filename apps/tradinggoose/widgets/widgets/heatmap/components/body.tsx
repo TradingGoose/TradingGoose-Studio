@@ -14,6 +14,7 @@ import { getPortfolioListingExposures } from '@/providers/trading/portfolio-sele
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useWorkspaceWatchlistYjsDocuments } from '@/widgets/utils/watchlist-yjs'
 import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
+import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { HeatmapTreemapChart } from '@/widgets/widgets/heatmap/components/heatmap-treemap-chart'
 import {
   getHeatmapTradingProviderAvailabilityIds,
@@ -33,12 +34,6 @@ import type {
   HeatmapWatchlistSizeMetric,
   HeatmapWidgetParams,
 } from '@/widgets/widgets/heatmap/contract'
-
-const HeatmapMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-sm'>
-    {message}
-  </div>
-)
 
 const isPositiveFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value > 0
@@ -216,7 +211,7 @@ export function HeatmapWidgetBody({
   )
 
   if (!workspaceId) {
-    return <HeatmapMessage message={copy.selectWorkspaceToUseHeatmap} />
+    return <WidgetStateMessage message={copy.selectWorkspaceToUseHeatmap} />
   }
 
   if (sourceMode === 'watchlist') {
@@ -229,7 +224,14 @@ export function HeatmapWidgetBody({
     }
 
     if (watchlistDocumentError) {
-      return <HeatmapMessage message={watchlistDocumentError} />
+      return (
+        <WidgetStateMessage
+          message={copy.failedToLoadWatchlists}
+          variant='error'
+          onRetry={watchlistDocuments.retry}
+          isRetrying={watchlistDocuments.isRetrying}
+        />
+      )
     }
   }
 
@@ -244,18 +246,17 @@ export function HeatmapWidgetBody({
 
     if (providerAvailabilityQuery.error) {
       return (
-        <HeatmapMessage
-          message={
-            providerAvailabilityQuery.error instanceof Error
-              ? providerAvailabilityQuery.error.message
-              : copy.failedToLoadTradingProviders
-          }
+        <WidgetStateMessage
+          message={copy.failedToLoadTradingProviders}
+          variant='error'
+          onRetry={() => void providerAvailabilityQuery.refetch()}
+          isRetrying={providerAvailabilityQuery.isFetching}
         />
       )
     }
 
     if (!tradingProviderId || tradingProviderOptions.length === 0) {
-      return <HeatmapMessage message={copy.selectTradingProviderToLoadPortfolioHoldings} />
+      return <WidgetStateMessage message={copy.selectTradingProviderToLoadPortfolioHoldings} />
     }
 
     if (!activePortfolioIdentity) {
@@ -268,7 +269,7 @@ export function HeatmapWidgetBody({
       }
 
       if (!activeServiceId) {
-        return <HeatmapMessage message={copy.selectBrokerConnectionToLoadPortfolioHoldings} />
+        return <WidgetStateMessage message={copy.selectBrokerConnectionToLoadPortfolioHoldings} />
       }
 
       if (accountsQuery.isLoading && portfolioIdentities.length === 0) {
@@ -281,21 +282,20 @@ export function HeatmapWidgetBody({
 
       if (accountsQuery.error) {
         return (
-          <HeatmapMessage
-            message={
-              accountsQuery.error instanceof Error
-                ? accountsQuery.error.message
-                : copy.failedToLoadBrokerAccounts
-            }
+          <WidgetStateMessage
+            message={copy.failedToLoadBrokerAccounts}
+            variant='error'
+            onRetry={() => void accountsQuery.refetch()}
+            isRetrying={accountsQuery.isFetching}
           />
         )
       }
 
       if (portfolioIdentities.length === 0) {
-        return <HeatmapMessage message={copy.noBrokerAccountsFoundForThisProviderConnection} />
+        return <WidgetStateMessage message={copy.noBrokerAccountsFoundForThisProviderConnection} />
       }
 
-      return <HeatmapMessage message={copy.selectBrokerAccountToLoadPortfolioHoldings} />
+      return <WidgetStateMessage message={copy.selectBrokerAccountToLoadPortfolioHoldings} />
     }
 
     if (snapshotQuery.isLoading && portfolioSources.length === 0) {
@@ -308,12 +308,11 @@ export function HeatmapWidgetBody({
 
     if (snapshotQuery.error) {
       return (
-        <HeatmapMessage
-          message={
-            snapshotQuery.error instanceof Error
-              ? snapshotQuery.error.message
-              : copy.failedToLoadHoldings
-          }
+        <WidgetStateMessage
+          message={copy.failedToLoadHoldings}
+          variant='error'
+          onRetry={() => void snapshotQuery.refetch()}
+          isRetrying={snapshotQuery.isFetching}
         />
       )
     }
@@ -321,7 +320,7 @@ export function HeatmapWidgetBody({
 
   if (listings.length === 0) {
     return (
-      <HeatmapMessage
+      <WidgetStateMessage
         message={
           sourceMode === 'portfolio'
             ? copy.noHoldingsListingsFoundForThisAccount

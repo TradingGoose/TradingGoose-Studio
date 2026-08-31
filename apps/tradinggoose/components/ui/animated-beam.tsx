@@ -1,9 +1,7 @@
 'use client'
 
 import * as React from 'react'
-
 import { motion } from 'motion/react'
-
 import { cn } from '@/lib/utils'
 
 interface AnimatedBeamProps {
@@ -44,7 +42,7 @@ function AnimatedBeam(props: AnimatedBeamProps) {
     startXOffset = 0,
     startYOffset = 0,
     endXOffset = 0,
-    endYOffset = 0
+    endYOffset = 0,
   } = props
 
   const id = React.useId()
@@ -56,13 +54,13 @@ function AnimatedBeam(props: AnimatedBeamProps) {
         x1: ['90%', '-10%'],
         x2: ['100%', '0%'],
         y1: ['0%', '0%'],
-        y2: ['0%', '0%']
+        y2: ['0%', '0%'],
       }
     : {
         x1: ['10%', '110%'],
         x2: ['0%', '100%'],
         y1: ['0%', '0%'],
-        y2: ['0%', '0%']
+        y2: ['0%', '0%'],
       }
 
   React.useEffect(() => {
@@ -89,7 +87,7 @@ function AnimatedBeam(props: AnimatedBeamProps) {
       }
     }
 
-    const resizeObserver = new ResizeObserver(entries => {
+    const resizeObserver = new ResizeObserver((entries) => {
       for (const _entry of entries) {
         updatePath()
       }
@@ -112,11 +110,23 @@ function AnimatedBeam(props: AnimatedBeamProps) {
       width={svgDimensions.width}
       height={svgDimensions.height}
       xmlns='http://www.w3.org/2000/svg'
-      className={cn('pointer-events-none absolute left-0 top-0 transform-gpu stroke-2', className)}
+      className={cn('pointer-events-none absolute top-0 left-0 transform-gpu stroke-2', className)}
       viewBox={`0 0 ${svgDimensions.width} ${svgDimensions.height}`}
     >
-      <path d={pathD} stroke={pathColor} strokeWidth={pathWidth} strokeOpacity={pathOpacity} strokeLinecap='round' />
-      <path d={pathD} stroke={`url(#${id})`} strokeWidth={pathWidth} strokeOpacity='1' strokeLinecap='round' />
+      <path
+        d={pathD}
+        stroke={pathColor}
+        strokeWidth={pathWidth}
+        strokeOpacity={pathOpacity}
+        strokeLinecap='round'
+      />
+      <path
+        d={pathD}
+        stroke={`url(#${id})`}
+        strokeWidth={pathWidth}
+        strokeOpacity='1'
+        strokeLinecap='round'
+      />
       <defs>
         <motion.linearGradient
           className='transform-gpu'
@@ -126,20 +136,20 @@ function AnimatedBeam(props: AnimatedBeamProps) {
             x1: '0%',
             x2: '0%',
             y1: '0%',
-            y2: '0%'
+            y2: '0%',
           }}
           animate={{
             x1: gradientCoordinates.x1,
             x2: gradientCoordinates.x2,
             y1: gradientCoordinates.y1,
-            y2: gradientCoordinates.y2
+            y2: gradientCoordinates.y2,
           }}
           transition={{
             delay,
             duration,
             ease: 'linear',
-            repeat: Infinity,
-            repeatDelay: 0
+            repeat: Number.POSITIVE_INFINITY,
+            repeatDelay: 0,
           }}
         >
           <stop stopColor={gradientStartColor} stopOpacity='0' />

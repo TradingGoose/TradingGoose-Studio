@@ -93,7 +93,7 @@ export function UserAvatar({
   if (tooltipContent) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{avatarElement}</TooltipTrigger>
+        <TooltipTrigger render={avatarElement} />
         <TooltipContent side='bottom' className='max-w-xs'>
           {tooltipContent}
         </TooltipContent>

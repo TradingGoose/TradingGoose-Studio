@@ -2,23 +2,77 @@
  * @vitest-environment jsdom
  */
 
-import type { ReactNode } from 'react'
-import { act } from 'react'
+import type { ReactElement, ReactNode } from 'react'
+import { act, cloneElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MarketProviderSettingsButton } from '@/components/market-selector/provider-settings-button'
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({
+    children,
+    render,
+  }: {
+    children?: ReactNode
+    render?: ReactElement<{ children?: ReactNode }>
+  }) => (render ? cloneElement(render, undefined, children) : <>{children}</>),
   TooltipContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
 }))
 
-vi.mock('@/components/ui/popover', () => ({
-  Popover: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  PopoverTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  PopoverContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
-}))
+vi.mock('@/components/ui/popover', async () => {
+  const React = await vi.importActual<typeof import('react')>('react')
+  const PopoverContext = React.createContext<{
+    open: boolean
+    onOpenChange: (open: boolean) => void
+  }>({ open: false, onOpenChange: () => undefined })
+
+  return {
+    Popover: ({
+      children,
+      open,
+      onOpenChange,
+    }: {
+      children?: ReactNode
+      open?: boolean
+      onOpenChange?: (open: boolean) => void
+    }) => (
+      <PopoverContext.Provider
+        value={{ open: Boolean(open), onOpenChange: onOpenChange ?? (() => undefined) }}
+      >
+        {children}
+      </PopoverContext.Provider>
+    ),
+    PopoverTrigger: ({
+      children,
+      disabled,
+      render,
+    }: {
+      children?: ReactNode
+      disabled?: boolean
+      render?: ReactElement<{ children?: ReactNode; disabled?: boolean; onClick?: () => void }>
+    }) => {
+      const context = React.useContext(PopoverContext)
+      return render
+        ? cloneElement(
+            render,
+            {
+              disabled,
+              onClick: () => {
+                render.props.onClick?.()
+                if (!disabled) context.onOpenChange(true)
+              },
+            },
+            children
+          )
+        : null
+    },
+    PopoverContent: ({ children }: { children?: ReactNode }) => {
+      const context = React.useContext(PopoverContext)
+      return context.open ? <>{children}</> : null
+    },
+  }
+})
 
 vi.mock('@/components/ui/select', () => ({
   Select: ({ children }: { children?: ReactNode }) => <>{children}</>,
@@ -57,6 +111,15 @@ describe('MarketProviderSettingsButton', () => {
     container.remove()
   })
 
+  const openSettings = async () => {
+    const trigger = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('config')
+    )
+    await act(async () => {
+      trigger?.click()
+    })
+  }
+
   it('saves raw credential values', async () => {
     const onSave = vi.fn()
 
@@ -67,6 +130,7 @@ describe('MarketProviderSettingsButton', () => {
     })
 
     expect(container.textContent).toContain('Alpaca config')
+    await openSettings()
 
     const apiKeyInput = container.querySelector(
       '#market-provider-param-alpaca-apiKey'
@@ -112,6 +176,7 @@ describe('MarketProviderSettingsButton', () => {
         />
       )
     })
+    await openSettings()
 
     const apiKeyInput = container.querySelector(
       '#market-provider-param-alpaca-apiKey'
@@ -155,6 +220,7 @@ describe('MarketProviderSettingsButton', () => {
         />
       )
     })
+    await openSettings()
 
     const apiKeyInput = container.querySelector(
       '#market-provider-param-alpaca-apiKey'
@@ -178,5 +244,49 @@ describe('MarketProviderSettingsButton', () => {
       auth: undefined,
       providerParams: undefined,
     })
+  })
+
+  it('cannot open while disabled and closes an open session when disabled', async () => {
+    const onSave = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <MarketProviderSettingsButton
+          providerId='alpaca'
+          providerName='Alpaca'
+          disabled
+          onSave={onSave}
+        />
+      )
+    })
+
+    const trigger = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('config')
+    )
+    expect(trigger).toBeDisabled()
+    await openSettings()
+    expect(container.textContent).not.toContain('Provider settings')
+
+    await act(async () => {
+      root.render(
+        <MarketProviderSettingsButton providerId='alpaca' providerName='Alpaca' onSave={onSave} />
+      )
+    })
+    await openSettings()
+    expect(container.textContent).toContain('Provider settings')
+
+    await act(async () => {
+      root.render(
+        <MarketProviderSettingsButton
+          providerId='alpaca'
+          providerName='Alpaca'
+          disabled
+          onSave={onSave}
+        />
+      )
+    })
+
+    expect(container.textContent).not.toContain('Provider settings')
+    expect(onSave).not.toHaveBeenCalled()
   })
 })

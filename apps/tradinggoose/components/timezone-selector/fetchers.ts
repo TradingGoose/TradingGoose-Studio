@@ -1,10 +1,6 @@
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
+import { formatTimezoneLabel, isUtcOffset, normalizeUtcOffset } from '@/lib/time-format'
 import type { BlockOptionLoaderContext } from '@/blocks/types'
-import {
-  formatTimezoneLabel,
-  isUtcOffset,
-  normalizeUtcOffset,
-} from '@/lib/time-format'
 
 export type TimeZoneResponse = {
   name: string
@@ -76,16 +72,13 @@ const fetchMarketTimeZones = async (
     params.set('version', MARKET_API_VERSION)
   }
 
-  const response = await fetchWithTimeout(
-    `/api/market/get/timezone?${params.toString()}`,
-    {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal,
-    }
-  )
+  const response = await fetchWithTimeout(`/api/market/get/timezone?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    signal,
+  })
 
   let payload: unknown = null
   try {

@@ -23,6 +23,10 @@ const storageMock = {
 global.localStorage = storageMock as any
 global.sessionStorage = storageMock as any
 
+if (typeof Element !== 'undefined' && !Element.prototype.getAnimations) {
+  Element.prototype.getAnimations = () => []
+}
+
 vi.mock('next-intl', async () => {
   const actual = await vi.importActual<typeof import('next-intl')>('next-intl')
   const React = await import('react')

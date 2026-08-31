@@ -9,6 +9,11 @@ const mockWorkflowDoc = vi.hoisted(() => ({}))
 const mockReadWorkflowSnapshot = vi.hoisted(() => vi.fn())
 const mockUseWorkflowSession = vi.hoisted(() => vi.fn())
 const mockGetVariablesSnapshot = vi.hoisted(() => vi.fn())
+const mockWorkflowRoute = vi.hoisted(() => ({
+  workflowId: 'workflow-1',
+  workspaceId: 'workspace-1',
+  channelId: 'channel-1',
+}))
 
 vi.unmock('@/blocks/registry')
 
@@ -60,13 +65,21 @@ vi.mock('@/stores/execution/store', () => {
 })
 
 vi.mock('@/widgets/widgets/editor_workflow/context/workflow-route-context', () => ({
-  useWorkflowRoute: vi.fn(() => ({
-    workflowId: 'workflow-1',
-    workspaceId: 'workspace-1',
-    channelId: 'channel-1',
-  })),
+  useWorkflowRoute: vi.fn(() => mockWorkflowRoute),
 }))
 
+vi.mock('@/widgets/widgets/editor_workflow/copy', () => ({
+  useWorkflowBlockEditorCopy: () => ({
+    shortInput: { wandPlaceholder: 'Describe the change' },
+    wandPromptBar: {
+      generating: 'Generating...',
+      generationFailed: 'Generation failed. Your prompt is ready to retry.',
+    },
+  }),
+}))
+
+import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
+import { useWand } from './use-wand'
 import { useWorkflowExecution } from './use-workflow-execution'
 
 describe('useWorkflowExecution', () => {
@@ -126,6 +139,49 @@ describe('useWorkflowExecution', () => {
     return state.execution
   }
 
+  async function renderExecutionOwners() {
+    const state: {
+      first: ReturnType<typeof useWorkflowExecution> | null
+      second: ReturnType<typeof useWorkflowExecution> | null
+    } = { first: null, second: null }
+
+    function Harness() {
+      state.first = useWorkflowExecution()
+      state.second = useWorkflowExecution()
+      return null
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+    })
+    return state
+  }
+
+  async function renderMutableExecutionHook() {
+    const state: { execution: ReturnType<typeof useWorkflowExecution> | null } = {
+      execution: null,
+    }
+
+    function Harness() {
+      state.execution = useWorkflowExecution()
+      return null
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const rerender = async () => {
+      await act(async () => {
+        root?.render(React.createElement(Harness))
+      })
+    }
+    await rerender()
+    return { rerender, state }
+  }
+
   beforeAll(() => {
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
   })
@@ -138,6 +194,9 @@ describe('useWorkflowExecution', () => {
       logs: [],
     })
     mockUseWorkflowSession.mockReturnValue(editableSession)
+    mockWorkflowRoute.workflowId = 'workflow-1'
+    mockWorkflowRoute.workspaceId = 'workspace-1'
+    mockWorkflowRoute.channelId = 'channel-1'
     mockGetVariablesSnapshot.mockReturnValue({})
     mockReadWorkflowSnapshot.mockReturnValue({
       blocks: {
@@ -368,5 +427,238 @@ describe('useWorkflowExecution', () => {
         data: expect.objectContaining({ chunk: 'second', iterationCurrent: 2 }),
       })
     )
+  })
+
+  it('serializes owners and lets any owner cancel only the admitted execution', async () => {
+    let rejectRun: ((error: Error) => void) | undefined
+    mockRunQueuedWorkflowExecution.mockImplementationOnce(
+      ({ signal }: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          rejectRun = reject
+          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+        })
+    )
+    const owners = await renderExecutionOwners()
+    const first = owners.first
+    const second = owners.second
+    if (!first || !second) throw new Error('Execution owners did not render')
+
+    const admitted = vi.fn()
+    const rejectedAdmission = vi.fn()
+    let admittedRun: ReturnType<typeof first.handleRunWorkflow>
+    await act(async () => {
+      admittedRun = first.handleRunWorkflow({
+        triggerBlockId: 'manual-trigger',
+        onAdmitted: admitted,
+      })
+      void first.handleRunWorkflow({
+        triggerBlockId: 'manual-trigger',
+        onAdmitted: rejectedAdmission,
+      })
+      void second.handleRunWorkflow({
+        triggerBlockId: 'manual-trigger',
+        onAdmitted: rejectedAdmission,
+      })
+      await Promise.resolve()
+    })
+
+    expect(admitted).toHaveBeenCalledOnce()
+    expect(rejectedAdmission).not.toHaveBeenCalled()
+    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledOnce()
+    expect(owners.first?.manualRunFeedback).toEqual({ state: 'running' })
+    expect(owners.second?.manualRunFeedback).toEqual({ state: 'idle' })
+
+    await act(async () => {
+      second.handleCancelExecution()
+      void second.handleRunWorkflow({
+        triggerBlockId: 'manual-trigger',
+        onAdmitted: rejectedAdmission,
+      })
+      await admittedRun!
+    })
+
+    expect(rejectedAdmission).not.toHaveBeenCalled()
+    expect(mockConsoleState.cancelRunningEntries).toHaveBeenCalledWith('workflow-1')
+    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledOnce()
+    expect(rejectRun).toBeTypeOf('function')
+
+    await act(async () => {
+      await owners.second?.handleRunWorkflow({ triggerBlockId: 'manual-trigger' })
+    })
+    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledTimes(2)
+    expect(owners.second?.manualRunFeedback).toEqual({ state: 'success' })
+    expect(owners.first?.manualRunFeedback).toEqual({ state: 'idle' })
+  })
+
+  it.each([
+    {
+      label: 'success',
+      result: { success: true, output: {}, logs: [] },
+      expected: { state: 'success' },
+    },
+    {
+      label: 'failure',
+      result: { success: false, output: {}, error: 'Driver failed', logs: [] },
+      expected: { state: 'error', message: 'Driver failed' },
+    },
+  ])(
+    'does not restore settled $label feedback after workflow navigation',
+    async ({ result, expected }) => {
+      mockRunQueuedWorkflowExecution.mockResolvedValueOnce(result)
+      const harness = await renderMutableExecutionHook()
+
+      await act(async () => {
+        await harness.state.execution?.handleRunWorkflow({
+          triggerBlockId: 'manual-trigger',
+        })
+      })
+      expect(harness.state.execution?.manualRunFeedback).toEqual(expected)
+
+      mockWorkflowRoute.workflowId = 'workflow-2'
+      await harness.rerender()
+      expect(harness.state.execution?.manualRunFeedback).toEqual({ state: 'idle' })
+
+      mockWorkflowRoute.workflowId = 'workflow-1'
+      await harness.rerender()
+      expect(harness.state.execution?.manualRunFeedback).toEqual({ state: 'idle' })
+    }
+  )
+
+  it('keeps an old running lease cancellable while hiding it from a new workflow', async () => {
+    mockRunQueuedWorkflowExecution.mockImplementationOnce(
+      ({ signal }: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+        })
+    )
+    const harness = await renderMutableExecutionHook()
+    let oldRun: Promise<unknown> | undefined
+
+    await act(async () => {
+      oldRun = harness.state.execution?.handleRunWorkflow({
+        triggerBlockId: 'manual-trigger',
+      })
+      await Promise.resolve()
+    })
+    expect(harness.state.execution?.manualRunFeedback).toEqual({ state: 'running' })
+
+    mockWorkflowRoute.workflowId = 'workflow-2'
+    await harness.rerender()
+    expect(harness.state.execution?.manualRunFeedback).toEqual({ state: 'idle' })
+
+    await act(async () => {
+      await harness.state.execution?.handleRunWorkflow({
+        triggerBlockId: 'manual-trigger',
+      })
+    })
+    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledOnce()
+
+    await act(async () => {
+      harness.state.execution?.handleCancelExecution()
+      await oldRun
+    })
+    expect(mockConsoleState.cancelRunningEntries).toHaveBeenCalledWith('workflow-1')
+    expect(harness.state.execution?.manualRunFeedback).toEqual({ state: 'idle' })
+
+    await act(async () => {
+      await harness.state.execution?.handleRunWorkflow({
+        triggerBlockId: 'manual-trigger',
+      })
+    })
+    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledTimes(2)
+    expect(mockRunQueuedWorkflowExecution).toHaveBeenLastCalledWith(
+      expect.objectContaining({ workflowId: 'workflow-2' }),
+      expect.any(Object)
+    )
+    expect(harness.state.execution?.manualRunFeedback).toEqual({ state: 'success' })
+  })
+})
+
+const generatedWandContent = vi.fn()
+let currentWand: ReturnType<typeof useWand> | null = null
+
+function WandHarness() {
+  const wand = useWand({
+    wandConfig: { enabled: true, prompt: 'Generate content.' },
+    onGeneratedContent: generatedWandContent,
+  })
+  currentWand = wand
+  return (
+    <WandPromptBar
+      isVisible={wand.isPromptVisible}
+      isLoading={wand.isLoading}
+      isStreaming={wand.isStreaming}
+      hasFailure={Boolean(wand.error)}
+      promptValue={wand.promptInputValue}
+      onSubmit={(prompt) => wand.generateStream({ prompt })}
+      onCancel={wand.hidePromptInline}
+      onChange={wand.updatePromptValue}
+    />
+  )
+}
+
+const wandStreamResponse = (payload: string) => ({
+  ok: true,
+  body: new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(payload))
+      controller.close()
+    },
+  }),
+})
+
+describe('useWand feedback', () => {
+  let container: HTMLDivElement
+  let root: Root
+
+  beforeEach(() => {
+    generatedWandContent.mockReset()
+    currentWand = null
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    act(() => root.render(<WandHarness />))
+  })
+
+  afterEach(() => {
+    act(() => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  })
+
+  it('surfaces SSE failure safely, retains the prompt for retry, and clears it after success', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(wandStreamResponse('data: {"error":"private upstream detail"}\n\n'))
+        .mockResolvedValueOnce(
+          wandStreamResponse('data: {"chunk":"generated"}\n\ndata: {"done":true}\n\n')
+        )
+    )
+
+    act(() => {
+      currentWand?.showPromptInline()
+      currentWand?.updatePromptValue('Keep this prompt')
+    })
+    await act(async () => {
+      await currentWand?.generateStream({ prompt: 'Keep this prompt' })
+    })
+
+    expect(currentWand?.error).toBe('private upstream detail')
+    expect(currentWand?.promptInputValue).toBe('Keep this prompt')
+    const alert = container.querySelector<HTMLElement>('[role="alert"]')
+    expect(alert?.textContent).toBe('Generation failed. Your prompt is ready to retry.')
+    expect(alert?.textContent).not.toContain('private upstream detail')
+    expect(container.querySelector('input')?.getAttribute('aria-describedby')).toBe(alert?.id)
+
+    await act(async () => {
+      await currentWand?.generateStream({ prompt: currentWand.promptInputValue })
+    })
+
+    expect(currentWand?.error).toBeNull()
+    expect(currentWand?.promptInputValue).toBe('')
+    expect(generatedWandContent).toHaveBeenCalledWith('generated')
+    expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 })

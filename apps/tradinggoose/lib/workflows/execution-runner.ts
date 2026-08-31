@@ -468,7 +468,7 @@ export async function runPreparedWorkflowExecution(params: {
     totalDurationMs: totalDuration || 0,
     finalOutput: result.output === undefined ? {} : result.output,
     success: result.success,
-    errorMessage: result.error,
+    failureReason: result.error,
     traceSpans: traceSpans || [],
     workflowInput: params.workflowInput,
     workspaceId,

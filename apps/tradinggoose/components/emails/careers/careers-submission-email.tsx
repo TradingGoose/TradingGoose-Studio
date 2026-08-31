@@ -1,11 +1,10 @@
-import * as React from 'react'
 import { Body, Container, Head, Html, Preview, Section, Text } from '@react-email/components'
 import { format } from 'date-fns'
-import { getBrandConfig } from '@/lib/branding/branding'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from '@/components/emails/base-styles'
 import EmailFooter from '@/components/emails/footer'
 import EmailHeader from '@/components/emails/header'
+import { getBrandConfig } from '@/lib/branding/branding'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 interface CareersSubmissionEmailProps {
   name: string
@@ -58,7 +57,8 @@ export const CareersSubmissionEmail = ({
             <Text style={baseStyles.title}>New career application</Text>
 
             <Text style={{ ...baseStyles.paragraph, textAlign: 'left' }}>
-              Submitted on {format(submittedDate, 'MMMM do, yyyy')} at {format(submittedDate, 'h:mm a')}.
+              Submitted on {format(submittedDate, 'MMMM do, yyyy')} at{' '}
+              {format(submittedDate, 'h:mm a')}.
             </Text>
 
             {/* Applicant Information */}
@@ -201,7 +201,12 @@ export const CareersSubmissionEmail = ({
                         LinkedIn
                       </td>
                       <td style={{ padding: '8px 0', fontSize: '14px', color: '#cfd5e5' }}>
-                        <a href={linkedin} target='_blank' rel='noopener noreferrer' style={baseStyles.link}>
+                        <a
+                          href={linkedin}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          style={baseStyles.link}
+                        >
                           View Profile
                         </a>
                       </td>
@@ -221,7 +226,12 @@ export const CareersSubmissionEmail = ({
                         Portfolio
                       </td>
                       <td style={{ padding: '8px 0', fontSize: '14px', color: '#cfd5e5' }}>
-                        <a href={portfolio} target='_blank' rel='noopener noreferrer' style={baseStyles.link}>
+                        <a
+                          href={portfolio}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          style={baseStyles.link}
+                        >
                           View Portfolio
                         </a>
                       </td>
@@ -270,7 +280,13 @@ export const CareersSubmissionEmail = ({
               Please review this application and reach out to the candidate at your earliest
               convenience.
             </Text>
-            <Text style={{ ...baseStyles.footerText, fontFamily: baseStyles.fontFamily, marginTop: '12px' }}>
+            <Text
+              style={{
+                ...baseStyles.footerText,
+                fontFamily: baseStyles.fontFamily,
+                marginTop: '12px',
+              }}
+            >
               The {brand.name} Team
             </Text>
           </Section>

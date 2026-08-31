@@ -19,7 +19,7 @@ type IndicatorControlItem = {
   inputs?: Record<string, unknown>
   values: IndicatorPlotValue[]
   isHidden: boolean
-  errorMessage?: string
+  executionFailure?: string
 }
 
 type UseIndicatorControlsArgs = {
@@ -182,7 +182,7 @@ export const useIndicatorControls = ({
         inputs: indicatorRefsById.get(id)?.inputs,
         values: indicatorLegend.get(id) ?? [],
         isHidden: hiddenIndicators.has(id),
-        errorMessage: runtimeEntry?.errorMessage,
+        executionFailure: runtimeEntry?.executionFailure,
       })
       grouped.set(paneIndex, list)
     })

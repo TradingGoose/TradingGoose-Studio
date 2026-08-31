@@ -1,4 +1,4 @@
-import { toListingValueObject } from '@/lib/listing/identity'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import { normalizeConfigFilterValues } from '../config/config-filter-values'
 
 export const MONITOR_PAGE_MODES = ['executions', 'config'] as const
@@ -474,9 +474,9 @@ const normalizeExecutionQuickFilters = (value: unknown): ExecutionMonitorQuickFi
         }
         case 'listing': {
           try {
-            const normalizedListing = toListingValueObject(JSON.parse(trimmed))
-            if (!normalizedListing) return
-            normalized.add(JSON.stringify(normalizedListing))
+            const listing = ListingIdentitySchema.safeParse(JSON.parse(trimmed))
+            if (!listing.success) return
+            normalized.add(JSON.stringify(listing.data))
           } catch {
             return
           }

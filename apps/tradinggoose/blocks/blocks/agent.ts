@@ -4,6 +4,7 @@ import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockConfig, SubBlockOption, SubBlockOptionGroup } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
+import { getProviderDefaultModel } from '@/providers/ai/models'
 import {
   getAllModelProviders,
   getHostedModels,
@@ -24,6 +25,7 @@ import { useProvidersStore } from '@/stores/providers/store'
 import type { ToolResponse } from '@/tools/types'
 
 const logger = createLogger('AgentBlock')
+const DEFAULT_MODEL = getProviderDefaultModel('openai')
 
 const getAvailableModels = () => {
   const providersState = useProvidersStore.getState()
@@ -212,7 +214,7 @@ Create a system prompt appropriately detailed for the request, using clear langu
       optionGroups: getAvailableModelGroups,
       value: () => {
         const allModels = getAvailableModels()
-        if (allModels.includes('gpt-4o')) return 'gpt-4o'
+        if (allModels.includes(DEFAULT_MODEL)) return DEFAULT_MODEL
         return allModels[0]
       },
       options: getAvailableModelOptions,
@@ -460,7 +462,7 @@ Example 3 (Array Input):
     ],
     config: {
       tool: (params: Record<string, any>) => {
-        const model = params.model || 'gpt-4o'
+        const model = params.model || DEFAULT_MODEL
         if (!model) {
           throw new Error('No model selected')
         }

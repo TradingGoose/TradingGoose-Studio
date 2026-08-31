@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   type AdminBillingTierMutationInput,
+  adminBillingTierMutationSchema,
   validateAdminBillingTierInput,
 } from './tier-mutations'
 
 function createTierInput(
-  overrides: Partial<AdminBillingTierMutationInput> = {},
+  overrides: Partial<AdminBillingTierMutationInput> = {}
 ): AdminBillingTierMutationInput {
   return {
     displayName: 'Free',
     description: 'Default free tier',
+    accessCode: null,
     status: 'draft',
     ownerType: 'user',
     usageScope: 'individual',
@@ -19,6 +21,7 @@ function createTierInput(
     includedUsageLimitUsd: 0,
     storageLimitGb: null,
     concurrencyLimit: null,
+    workflowExecutionTimeLimitSeconds: null,
     seatCount: null,
     seatMaximum: null,
     stripeMonthlyPriceId: null,
@@ -50,9 +53,9 @@ describe('validateAdminBillingTierInput', () => {
   })
 
   it('requires every tier to configure an included usage limit', () => {
-    expect(
-      validateAdminBillingTierInput(createTierInput({ includedUsageLimitUsd: null })),
-    ).toBe('Billing tiers must configure an included usage limit')
+    expect(validateAdminBillingTierInput(createTierInput({ includedUsageLimitUsd: null }))).toBe(
+      'Billing tiers must configure an included usage limit'
+    )
   })
 
   it('allows a zero-price default tier to configure normal tier limits', () => {
@@ -67,33 +70,33 @@ describe('validateAdminBillingTierInput', () => {
           asyncRateLimitPerMinute: 15,
           apiEndpointRateLimitPerMinute: 30,
           canEditUsageLimit: true,
-        }),
-      ),
+        })
+      )
     ).toBeNull()
   })
 
   it('still requires default tiers to stay public', () => {
-    expect(
-      validateAdminBillingTierInput(createTierInput({ isPublic: false })),
-    ).toBe('The default tier must be visible in the public catalog')
+    expect(validateAdminBillingTierInput(createTierInput({ isPublic: false }))).toBe(
+      'The default tier must be visible in the public catalog'
+    )
   })
 
   it('requires a Stripe monthly price ID when creating a new tier', () => {
     expect(
       validateAdminBillingTierInput(createTierInput(), {
         requireStripeMonthlyPriceId: true,
-      }),
+      })
     ).toBe('New tiers must configure a Stripe monthly price ID')
   })
 
   it('accepts new tiers when the Stripe monthly price ID is configured', () => {
     expect(
       validateAdminBillingTierInput(
-        createTierInput({ stripeMonthlyPriceId: 'price_monthly' }),
-        {
-          requireStripeMonthlyPriceId: true,
-        },
-      ),
+        createTierInput({
+          stripeMonthlyPriceId: 'price_monthly',
+        }),
+        { requireStripeMonthlyPriceId: true }
+      )
     ).toBeNull()
   })
 
@@ -112,8 +115,95 @@ describe('validateAdminBillingTierInput', () => {
         }),
         {
           requireStripeMonthlyPriceId: true,
-        },
-      ),
+        }
+      )
     ).toBeNull()
+  })
+
+  it('only allows access codes on private Stripe-backed tiers', () => {
+    expect(validateAdminBillingTierInput(createTierInput({ accessCode: 'invite' }))).toBe(
+      'Public tiers cannot configure a private access code'
+    )
+
+    expect(
+      validateAdminBillingTierInput(
+        createTierInput({
+          accessCode: 'invite',
+          isDefault: false,
+          isPublic: false,
+        })
+      )
+    ).toBe('Private tiers with an access code must configure a Stripe monthly price ID')
+  })
+
+  it('allows an existing non-Stripe enterprise placeholder to remain active', () => {
+    expect(
+      validateAdminBillingTierInput(
+        createTierInput({
+          isDefault: false,
+          isPublic: false,
+          status: 'active',
+          ownerType: 'organization',
+          usageScope: 'pooled',
+          seatCount: 10,
+          storageLimitGb: 10,
+          concurrencyLimit: 3,
+          syncRateLimitPerMinute: 30,
+          asyncRateLimitPerMinute: 15,
+          apiEndpointRateLimitPerMinute: 30,
+        })
+      )
+    ).toBeNull()
+  })
+
+  it('requires private tier workflow execution time limits to be at least five seconds', () => {
+    const privateTier = { isDefault: false, isPublic: false }
+
+    expect(
+      adminBillingTierMutationSchema.safeParse(
+        createTierInput({
+          ...privateTier,
+          workflowExecutionTimeLimitSeconds: 4,
+        })
+      ).success
+    ).toBe(false)
+    expect(
+      adminBillingTierMutationSchema.safeParse(
+        createTierInput({
+          ...privateTier,
+          workflowExecutionTimeLimitSeconds: 5,
+        })
+      ).success
+    ).toBe(true)
+  })
+
+  it('trims private access codes and treats blank as unconfigured', () => {
+    expect(
+      adminBillingTierMutationSchema.parse(createTierInput({ accessCode: ' invite ' })).accessCode
+    ).toBe('invite')
+    expect(
+      adminBillingTierMutationSchema.parse(createTierInput({ accessCode: '   ' })).accessCode
+    ).toBeNull()
+    expect(
+      adminBillingTierMutationSchema.safeParse(createTierInput({ accessCode: 'x' })).success
+    ).toBe(true)
+    expect(
+      adminBillingTierMutationSchema.safeParse(createTierInput({ accessCode: 'x'.repeat(129) }))
+        .success
+    ).toBe(true)
+  })
+
+  it('keeps the Stripe product ID optional and requires distinct Stripe price IDs', () => {
+    expect(
+      validateAdminBillingTierInput(createTierInput({ stripeMonthlyPriceId: 'price_monthly' }))
+    ).toBeNull()
+    expect(
+      validateAdminBillingTierInput(
+        createTierInput({
+          stripeMonthlyPriceId: 'price_same',
+          stripeYearlyPriceId: 'price_same',
+        })
+      )
+    ).toBe('Stripe monthly and yearly price IDs must be different')
   })
 })

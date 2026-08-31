@@ -84,7 +84,10 @@ function scanWidgets(widgetsDir: string): WidgetInfo[] {
     else if (dir.startsWith('workflow_')) category = 'Utility'
 
     // Skip sub-components that aren't standalone dashboard widgets
-    if (!fs.existsSync(indexPath) || !fs.readFileSync(indexPath, 'utf-8').includes('DashboardWidgetDefinition')) {
+    if (
+      !fs.existsSync(indexPath) ||
+      !fs.readFileSync(indexPath, 'utf-8').includes('DashboardWidgetDefinition')
+    ) {
       continue
     }
 
@@ -110,51 +113,63 @@ function renderWidgetPage(widget: WidgetInfo): string {
   const featureGuide = featureGuideMap[key]
 
   // Determine what this widget does based on naming patterns
-  let overview = description || `The ${name} widget provides a ${category.toLowerCase()}-level interface in your workspace.`
+  let overview =
+    description ||
+    `The ${name} widget provides a ${category.toLowerCase()}-level interface in your workspace.`
   let features = ''
   let usage = ''
 
   if (key.startsWith('editor_')) {
     const entity = key.replace('editor_', '').replace(/_/g, ' ')
-    overview = description || `The ${name} widget provides a full editing interface for creating and modifying ${entity}s.`
+    overview =
+      description ||
+      `The ${name} widget provides a full editing interface for creating and modifying ${entity}s.`
     features = `- **Visual Editor**: Intuitive interface for building ${entity}s
 - **Real-time Preview**: See changes as you make them
 - **Save & Deploy**: Save ${entity}s to your workspace`
     usage = `Add this widget to your workspace to create and edit ${entity}s. It pairs with the ${entity.charAt(0).toUpperCase() + entity.slice(1)} List widget.`
   } else if (key.startsWith('list_')) {
     const entity = key.replace('list_', '').replace(/_/g, ' ')
-    overview = description || `The ${name} widget displays a browseable list of all ${entity}s in your workspace.`
+    overview =
+      description ||
+      `The ${name} widget displays a browseable list of all ${entity}s in your workspace.`
     features = `- **Browse**: View all ${entity}s in your workspace
 - **Search & Filter**: Find ${entity}s quickly
 - **Create New**: Start a new ${entity} directly from the list
 - **Open in Editor**: Click to open any ${entity} in the editor widget`
     usage = `Add this widget alongside the ${entity.charAt(0).toUpperCase() + entity.slice(1)} Editor to manage your ${entity}s.`
   } else if (key === 'data_chart') {
-    overview = 'The Data Chart widget renders OHLCV market data as interactive candlestick charts with technical indicator overlays.'
+    overview =
+      'The Data Chart widget renders OHLCV market data as interactive candlestick charts with technical indicator overlays.'
     features = `- **Candlestick Charts**: Display OHLCV price data
 - **Indicator Overlays**: Apply technical indicators from your workspace
 - **Multiple Timeframes**: Switch between different chart intervals
 - **Interactive**: Zoom, pan, and inspect individual candles`
-    usage = 'Add this widget to visualize market data. It pairs with the Watchlist widget for symbol selection.'
+    usage =
+      'Add this widget to visualize market data. It pairs with the Watchlist widget for symbol selection.'
   } else if (key === 'watchlist') {
-    overview = 'The Watchlist widget lets you manage symbol watchlists with live market data columns.'
+    overview =
+      'The Watchlist widget lets you manage symbol watchlists with live market data columns.'
     features = `- **Symbol Management**: Add and remove trading symbols
 - **Live Data**: Real-time price columns
 - **Quick Selection**: Click a symbol to load it in the Data Chart
 - **Custom Columns**: Configure which market data to display`
     usage = 'Add this widget alongside the Data Chart for a complete market monitoring setup.'
   } else if (key === 'mcp') {
-    overview = 'The MCP widget displays information about configured MCP (Model Context Protocol) servers and their available tools.'
+    overview =
+      'The MCP widget displays information about configured MCP (Model Context Protocol) servers and their available tools.'
     features = `- **Server Status**: View connected MCP servers
 - **Tool Discovery**: Browse available tools from each server
 - **Configuration**: Quick access to server settings`
   } else if (key === 'skill') {
-    overview = 'The Skill widget displays a reusable skill definition that can be used by Agent blocks in workflows.'
+    overview =
+      'The Skill widget displays a reusable skill definition that can be used by Agent blocks in workflows.'
     features = `- **Skill Preview**: View skill content and configuration
 - **Quick Edit**: Open the skill in the editor
 - **Usage Info**: See which workflows reference this skill`
   } else if (key === 'custom_tool') {
-    overview = 'The Custom Tool widget displays a user-defined custom tool that extends the platform capabilities.'
+    overview =
+      'The Custom Tool widget displays a user-defined custom tool that extends the platform capabilities.'
     features = `- **Tool Preview**: View tool schema and configuration
 - **Quick Edit**: Open the tool in the editor
 - **Usage Info**: See which workflows use this tool`
@@ -184,13 +199,21 @@ ${features || `- Integrated workspace component for ${name.toLowerCase()} manage
 
 ${usage || `Add the ${name} widget to your workspace from the widget picker.`}
 
-${category === 'Editor' ? `<Callout>
+${
+  category === 'Editor'
+    ? `<Callout>
 This widget supports the **pairColor** mechanism. Pair it with the corresponding List widget to stay in sync.
-</Callout>` : ''}
-${featureGuide ? `
+</Callout>`
+    : ''
+}
+${
+  featureGuide
+    ? `
 ## Learn More
 
 For a complete guide on this feature, see **[${featureGuide.label}](${featureGuide.path})**.
-` : ''}
+`
+    : ''
+}
 `
 }

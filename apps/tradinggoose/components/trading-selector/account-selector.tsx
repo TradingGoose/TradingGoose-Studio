@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Check, ChevronDown, Plus, RefreshCw } from 'lucide-react'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import {
@@ -79,6 +79,7 @@ export function TradingAccountSelector({
   variant = 'widget',
 }: TradingAccountSelectorProps) {
   const copy = useWorkspaceWidgetsMessages().providerControls.accountSelector
+  const feedbackId = useId()
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [oauthModalServiceId, setOAuthModalServiceId] = useState<string | null>(null)
   const trimmedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
@@ -111,6 +112,24 @@ export function TradingAccountSelector({
     ) ?? null
   const isLoadingAccounts =
     services.isLoading || accountsQuery.isLoading || accountsQuery.isFetching
+  const providerConnectionBusy = services.isLoading
+  const accountBusy = hasConnection && (accountsQuery.isLoading || accountsQuery.isFetching)
+  const accountFailure = hasConnection ? accountsQuery.error : null
+  const feedbackKind =
+    services.error || accountFailure
+      ? 'error'
+      : providerConnectionBusy || accountBusy
+        ? 'loading'
+        : null
+  const feedbackMessage = services.error
+    ? copy.unableToLoadProviderConnection
+    : accountFailure
+      ? copy.unableToLoadBrokerAccounts
+      : providerConnectionBusy
+        ? copy.loadingProviderConnection
+        : accountBusy
+          ? copy.loadingBrokerAccounts
+          : ''
   const hasUnresolvedSelectedAccount = Boolean(selectedPortfolioIdentity && !selectedOption)
   const buttonLabel = selectedOption
     ? getAccountName(selectedOption)
@@ -134,15 +153,21 @@ export function TradingAccountSelector({
     <>
       <DropdownMenu modal={false}>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span className={cn('inline-flex', variant === 'form' && 'w-full')}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type='button'
-                  disabled={!trimmedProviderId || disabled}
-                  className={providerSelectorTriggerClassName(variant, 'gap-2')}
-                  aria-haspopup='listbox'
-                  aria-label={copy.ariaLabel}
+          <TooltipTrigger
+            render={
+              <span className={cn('inline-flex', variant === 'form' && 'w-full')}>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type='button'
+                      disabled={!trimmedProviderId || disabled}
+                      className={providerSelectorTriggerClassName(variant, 'gap-2')}
+                      aria-haspopup='listbox'
+                      aria-label={copy.ariaLabel}
+                      aria-describedby={feedbackKind ? feedbackId : undefined}
+                      aria-busy={feedbackKind === 'loading' || undefined}
+                    />
+                  }
                 >
                   <div className='flex min-w-0 items-center gap-1.5'>
                     {ProviderIcon ? (
@@ -163,13 +188,13 @@ export function TradingAccountSelector({
                     </span>
                   </div>
                   <ChevronDown
-                    className='h-4 w-4 shrink-0 text-muted-foreground opacity-50 transition-transform group-data-[state=open]:rotate-180'
+                    className='h-4 w-4 shrink-0 text-muted-foreground opacity-50 transition-transform group-data-[popup-open]:rotate-180'
                     aria-hidden='true'
                   />
-                </button>
-              </DropdownMenuTrigger>
-            </span>
-          </TooltipTrigger>
+                </DropdownMenuTrigger>
+              </span>
+            }
+          />
           <TooltipContent side='top'>{resolvedTooltipText}</TooltipContent>
         </Tooltip>
         <DropdownMenuContent
@@ -179,7 +204,7 @@ export function TradingAccountSelector({
             variant === 'widget' ? 'w-[300px]' : undefined
           )}
         >
-          {services.isLoading ? (
+          {providerConnectionBusy ? (
             <div className='flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs'>
               <RefreshCw className='h-3.5 w-3.5 animate-spin' />
               {copy.loadingProviderConnection}
@@ -202,7 +227,7 @@ export function TradingAccountSelector({
                     variant,
                     'items-center justify-between'
                   )}
-                  onSelect={() => {
+                  onClick={() => {
                     onAccountSelect?.({ portfolioIdentity: null, serviceId: serviceId })
                   }}
                 >
@@ -236,7 +261,7 @@ export function TradingAccountSelector({
                     variant,
                     'items-center justify-between'
                   )}
-                  onSelect={() => {
+                  onClick={() => {
                     if (isSelected) return
                     onAccountSelect?.({
                       serviceId: activeServiceId,
@@ -268,7 +293,7 @@ export function TradingAccountSelector({
                     variant,
                     'items-center text-foreground'
                   )}
-                  onSelect={() => openOAuthModal(serviceId)}
+                  onClick={() => openOAuthModal(serviceId)}
                 >
                   <Plus className='h-3.5 w-3.5 text-muted-foreground' />
                   <span>
@@ -289,6 +314,15 @@ export function TradingAccountSelector({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      <span
+        id={feedbackId}
+        role={feedbackKind === 'error' ? 'alert' : 'status'}
+        aria-live={feedbackKind === 'loading' ? 'polite' : undefined}
+        aria-atomic='true'
+        className='sr-only'
+      >
+        {feedbackMessage}
+      </span>
 
       {oauthProvider ? (
         <OAuthRequiredModal

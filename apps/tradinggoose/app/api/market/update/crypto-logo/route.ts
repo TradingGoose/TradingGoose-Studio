@@ -10,9 +10,7 @@ const resolveCryptoId = async (request: NextRequest) => {
   if (fromQuery) return fromQuery
 
   try {
-    const body = (await request.clone().json()) as
-      | { crypto_id?: string; cryptoId?: string }
-      | null
+    const body = (await request.clone().json()) as { crypto_id?: string; cryptoId?: string } | null
     const candidate = body?.crypto_id ?? body?.cryptoId
     if (typeof candidate === 'string' && candidate.trim()) {
       return candidate.trim()

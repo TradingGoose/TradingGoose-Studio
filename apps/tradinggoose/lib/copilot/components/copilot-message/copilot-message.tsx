@@ -1,0 +1,812 @@
+'use client'
+
+import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { X } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { extractExplicitCopilotContexts } from '@/lib/copilot/chat-contexts'
+import {
+  EDIT_REPLAY_BLOCKED_MESSAGE,
+  hasAcceptedLiveMutationAfterMessage,
+} from '@/lib/copilot/chat-replay-safety'
+import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
+import { createLogger } from '@/lib/logs/console/logger'
+import { useCopilotMessages } from '@/i18n/workspace-widget-hooks'
+import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
+import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
+import type {
+  ChatContext,
+  CopilotDraft,
+  CopilotMessage as CopilotMessageType,
+  CopilotSendRuntimeContext,
+  MessageFileAttachment,
+} from '@/stores/copilot/types'
+import { UserInput, type UserInputRef } from '../user-input/user-input'
+import { buildAssistantMessageSegments } from './components/assistant-message-segments'
+import { FileAttachmentDisplay } from './components/file-display'
+import { OptionsSelector, parseSpecialTags } from './components/options-selector'
+import { SmoothStreamingText, StreamingIndicator } from './components/smooth-streaming'
+import { ThinkingGroup } from './components/thinking-group'
+
+const logger = createLogger('CopilotMessage')
+
+const buildMessageEditDraft = (message: CopilotMessageType): CopilotDraft => ({
+  text: message.content,
+  contexts: message.contexts ?? [],
+})
+
+const haveSameMessageContexts = (
+  left: CopilotMessageType['contexts'],
+  right: CopilotMessageType['contexts']
+): boolean => {
+  if (left === right) return true
+  const leftContexts = left ?? []
+  const rightContexts = right ?? []
+  return (
+    leftContexts.length === rightContexts.length &&
+    leftContexts.every((context, index) => context === rightContexts[index])
+  )
+}
+
+const getMentionableContextLabels = (contexts: ChatContext[]) => {
+  return Array.from(
+    new Set(
+      extractExplicitCopilotContexts(contexts)
+        .map((context) => context?.label)
+        .filter(Boolean) as string[]
+    )
+  ).sort((a, b) => b.length - a.length)
+}
+
+const buildContextMentionPattern = (labels: string[]) => {
+  if (labels.length === 0) {
+    return null
+  }
+
+  const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(^|\\s+)(@(?:${labels.map(escapeRegex).join('|')}))(?=\\s|$)`, 'g')
+}
+
+const renderUserMessageTextWithMentions = (text: string, contexts: ChatContext[]) => {
+  const labels = getMentionableContextLabels(contexts)
+  const pattern = buildContextMentionPattern(labels)
+
+  if (!pattern) {
+    return text
+  }
+
+  const nodes: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(text)) !== null) {
+    const prefix = match[1]
+    const mention = match[2]
+    const before = text.slice(lastIndex, match.index)
+
+    if (before) {
+      nodes.push(before)
+    }
+
+    if (prefix) {
+      nodes.push(prefix)
+    }
+
+    nodes.push(
+      <span
+        key={`mention-${match.index}-${lastIndex}`}
+        className='rounded-xs text-black [-webkit-box-decoration-break:clone] [box-decoration-break:clone]'
+        style={{
+          backgroundColor: 'hsl(var(--primary-hover))',
+          boxShadow: '0 0 0 2px hsl(var(--primary-hover))',
+        }}
+      >
+        {mention}
+      </span>
+    )
+
+    lastIndex = match.index + match[0].length
+  }
+
+  const tail = text.slice(lastIndex)
+  if (tail) {
+    nodes.push(tail)
+  }
+
+  return nodes.length > 0 ? nodes : text
+}
+
+interface CopilotMessageProps {
+  message: CopilotMessageType
+  runtimeContext: CopilotSendRuntimeContext
+  isStreaming: boolean
+  panelWidth: number
+  isDimmed: boolean
+  onEditModeChange: (isEditing: boolean) => void
+}
+
+const CopilotMessage: FC<CopilotMessageProps> = memo(
+  ({ message, runtimeContext, isStreaming, panelWidth, isDimmed, onEditModeChange }) => {
+    const copilotCopy = useCopilotMessages()
+    const isUser = message.role === 'user'
+    const isAssistant = message.role === 'assistant'
+    const [isEditMode, setIsEditMode] = useState(false)
+    const [isExpanded, setIsExpanded] = useState(false)
+    const [editDraft, setEditDraft] = useState<CopilotDraft>(() => buildMessageEditDraft(message))
+    const [editBlockedReason, setEditBlockedReason] = useState<string | null>(null)
+    const [isHoveringMessage, setIsHoveringMessage] = useState(false)
+    const editContainerRef = useRef<HTMLDivElement>(null)
+    const messageContentRef = useRef<HTMLDivElement>(null)
+    const userInputRef = useRef<UserInputRef>(null)
+    const [needsExpansion, setNeedsExpansion] = useState(false)
+    const [typingSegmentKeys, setTypingSegmentKeys] = useState<string[]>([])
+
+    const {
+      currentChat,
+      messages,
+      sendMessage,
+      isSendingMessage,
+      isAwaitingContinuation,
+      isAborting,
+      abortMessage,
+      accessLevel,
+      setAccessLevel,
+      toolCallsById,
+    } = useCopilotStore()
+    const copilotStoreApi = useCopilotStoreApi()
+
+    // Check if this is the last user message (for showing abort button)
+    const isLastUserMessage = useMemo(() => {
+      if (!isUser) return false
+      const userMessages = messages.filter((m) => m.role === 'user')
+      return userMessages.length > 0 && userMessages[userMessages.length - 1]?.id === message.id
+    }, [isUser, messages, message.id])
+
+    const isLastMessage = useMemo(() => {
+      if (messages.length === 0) return false
+      return messages[messages.length - 1]?.id === message.id
+    }, [messages, message.id])
+
+    const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
+    const isTurnInProgress =
+      isStreaming ||
+      isSendingMessage ||
+      isAwaitingContinuation ||
+      currentChat?.latestTurnStatus === 'in_progress' ||
+      hasActiveToolCalls
+    const isMessageTyping = typingSegmentKeys.length > 0
+    const shouldHidePostTurnControls = isTurnInProgress || isMessageTyping
+    const shouldShowActivityIndicator =
+      isAssistant && isLastMessage && isTurnInProgress && !isMessageTyping
+    const userMessageText = message.content
+    const userMessageContexts = extractExplicitCopilotContexts(message.contexts)
+
+    const isReplayBlockedForEdit = useMemo(
+      () => hasAcceptedLiveMutationAfterMessage(messages, message.id),
+      [message.id, messages]
+    )
+
+    const handleEditMessage = () => {
+      if (isReplayBlockedForEdit) {
+        setIsEditMode(false)
+        setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
+        onEditModeChange(false)
+        return
+      }
+
+      setIsEditMode(true)
+      setIsExpanded(false)
+      setEditDraft(buildMessageEditDraft(message))
+      setEditBlockedReason(null)
+      onEditModeChange(true)
+      // Focus the input and position cursor at the end after render
+      setTimeout(() => {
+        userInputRef.current?.focus()
+      }, 0)
+    }
+
+    const handleCancelEdit = () => {
+      setIsEditMode(false)
+      setEditDraft(buildMessageEditDraft(message))
+      onEditModeChange(false)
+    }
+
+    const handleMessageClick = () => {
+      // Allow entering edit mode even while streaming
+
+      // If message needs expansion and is not expanded, expand it
+      if (needsExpansion && !isExpanded) {
+        setIsExpanded(true)
+      }
+
+      // Always enter edit mode on click
+      handleEditMessage()
+    }
+
+    const handleSubmitEdit = async (
+      editedMessage: string,
+      fileAttachments?: MessageFileAttachment[],
+      contexts?: ChatContext[]
+    ) => {
+      if (!editedMessage.trim()) return
+
+      if (isReplayBlockedForEdit) {
+        handleCancelEdit()
+        setEditBlockedReason(EDIT_REPLAY_BLOCKED_MESSAGE)
+        return
+      }
+
+      // If a stream is in progress, abort it first
+      if (isTurnInProgress) {
+        abortMessage()
+        // Wait a brief moment for abort to complete
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      }
+
+      // Proceed with the edit
+      await performEdit(editedMessage, fileAttachments, contexts)
+    }
+
+    const performEdit = async (
+      editedMessage: string,
+      fileAttachments?: MessageFileAttachment[],
+      contexts?: ChatContext[]
+    ) => {
+      // Find the index of this message and truncate conversation
+      const currentMessages = messages
+      const editIndex = currentMessages.findIndex((m) => m.id === message.id)
+
+      if (editIndex !== -1) {
+        // Truncate messages after the edited message (but keep the edited message with updated content)
+        const truncatedMessages = currentMessages.slice(0, editIndex)
+
+        // Update the edited message with new content but keep it in the array
+        const updatedMessage = {
+          ...message,
+          content: editedMessage,
+          fileAttachments: fileAttachments || message.fileAttachments,
+          contexts: contexts ?? message.contexts,
+        }
+
+        // If we have a current chat, update the DB to remove messages after this point
+        if (currentChat?.reviewSessionId) {
+          try {
+            const response = await fetch('/api/copilot/chat/update-messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                reviewSessionId: currentChat.reviewSessionId,
+                messages: truncatedMessages.map((m) => ({
+                  id: m.id,
+                  role: m.role,
+                  content: m.content,
+                  timestamp: m.timestamp,
+                  ...(m.contentBlocks && { contentBlocks: m.contentBlocks }),
+                  ...(m.fileAttachments && { fileAttachments: m.fileAttachments }),
+                  ...(m.contexts && { contexts: m.contexts }),
+                })),
+              }),
+            })
+
+            if (!response.ok) {
+              let errorMessage = 'Failed to update messages in DB after edit'
+
+              try {
+                const payload = await response.json()
+                if (typeof payload?.error === 'string' && payload.error.trim().length > 0) {
+                  errorMessage = payload.error
+                }
+              } catch {}
+
+              if (response.status === 409) {
+                handleCancelEdit()
+                setEditBlockedReason(errorMessage)
+                return
+              }
+
+              throw new Error(errorMessage)
+            }
+          } catch (error) {
+            logger.error('Failed to update messages in DB after edit:', error)
+            return
+          }
+        }
+
+        // Exit edit mode visually
+        setIsEditMode(false)
+        setEditBlockedReason(null)
+        // Clear editing state in parent immediately to prevent dimming of new messages
+        onEditModeChange(false)
+
+        // Show the updated message immediately to prevent disappearing
+        copilotStoreApi.setState({ messages: [...truncatedMessages, updatedMessage] })
+
+        // Send the edited message with the SAME message ID
+        await sendMessage(editedMessage, {
+          fileAttachments: fileAttachments || message.fileAttachments,
+          contexts: contexts ?? message.contexts,
+          messageId: message.id, // Reuse the original message ID
+          runtimeContext,
+        })
+      }
+    }
+
+    useEffect(() => {
+      if (!editBlockedReason) {
+        return
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        setEditBlockedReason(null)
+      }, 4000)
+
+      return () => window.clearTimeout(timeoutId)
+    }, [editBlockedReason])
+
+    // Handle click outside to exit edit mode
+    useEffect(() => {
+      if (!isEditMode) return
+
+      const handleClickOutside = (event: MouseEvent) => {
+        const target = event.target as HTMLElement
+
+        // Don't close if clicking inside the edit container
+        if (editContainerRef.current?.contains(target)) {
+          return
+        }
+
+        // Check if clicking on another user message box
+        const clickedMessageBox = target.closest('[data-message-box]') as HTMLElement
+        if (clickedMessageBox) {
+          const clickedMessageId = clickedMessageBox.getAttribute('data-message-id')
+          // If clicking on a different message, close this one (the other will open via its own click handler)
+          if (clickedMessageId && clickedMessageId !== message.id) {
+            handleCancelEdit()
+          }
+          return
+        }
+
+        // Check if clicking on the main user input at the bottom
+        if (target.closest('textarea') || target.closest('input[type="text"]')) {
+          handleCancelEdit()
+          return
+        }
+
+        // Only close if NOT clicking on any component (i.e., clicking directly on panel background)
+        // If the target has children or is a component, don't close
+        if (target.children.length > 0 || target.tagName !== 'DIV') {
+          return
+        }
+
+        handleCancelEdit()
+      }
+
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          handleCancelEdit()
+        }
+      }
+
+      // Use click event instead of mousedown to allow the target's click handler to fire first
+      // Add listener with a slight delay to avoid immediate trigger when entering edit mode
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('click', handleClickOutside, true) // Use capture phase
+        document.addEventListener('keydown', handleKeyDown)
+      }, 100)
+
+      return () => {
+        clearTimeout(timeoutId)
+        document.removeEventListener('click', handleClickOutside, true)
+        document.removeEventListener('keydown', handleKeyDown)
+      }
+    }, [isEditMode, message.id])
+
+    // Check if message content needs expansion (is tall)
+    useEffect(() => {
+      if (messageContentRef.current && isUser) {
+        const scrollHeight = messageContentRef.current.scrollHeight
+        // If content is taller than the max height (3 lines ~60px), mark as needing expansion
+        setNeedsExpansion(scrollHeight > 60)
+      }
+    }, [message.content, isUser])
+
+    // Parse selectable options from message content.
+    // Parse during streaming to show options as they stream in
+    const parsedTags = useMemo(() => {
+      if (isUser) return null
+
+      if (message.content) {
+        const parsed = parseSpecialTags(message.content)
+        if (parsed.options) return parsed
+      }
+
+      if (isStreaming && message.contentBlocks && message.contentBlocks.length > 0) {
+        for (const block of message.contentBlocks) {
+          if (block.type === 'text' && block.content) {
+            const parsed = parseSpecialTags(block.content)
+            if (parsed.options) return parsed
+          }
+        }
+      }
+
+      return message.content ? parseSpecialTags(message.content) : null
+    }, [message.content, message.contentBlocks, isUser, isStreaming])
+
+    const handleOptionSelect = useCallback(
+      (_optionKey: string, optionText: string) => {
+        sendMessage(optionText, { runtimeContext })
+      },
+      [runtimeContext, sendMessage]
+    )
+
+    const assistantSegments = useMemo(() => {
+      if (!message.contentBlocks || message.contentBlocks.length === 0) {
+        return null
+      }
+
+      return buildAssistantMessageSegments(message.contentBlocks)
+    }, [message.contentBlocks])
+
+    const visibleAssistantSegments = useMemo(() => {
+      if (!assistantSegments) {
+        return null
+      }
+
+      if (typingSegmentKeys.length === 0) {
+        return assistantSegments
+      }
+
+      const typingKeySet = new Set(typingSegmentKeys)
+      const visibleSegments = []
+
+      for (const segment of assistantSegments) {
+        visibleSegments.push(segment)
+        if (segment.type === 'text' && typingKeySet.has(segment.key)) {
+          break
+        }
+      }
+
+      return visibleSegments
+    }, [assistantSegments, typingSegmentKeys])
+
+    const handleTypingStateChange = useCallback((typingKey: string, isTyping: boolean) => {
+      setTypingSegmentKeys((currentKeys) => {
+        const hasKey = currentKeys.includes(typingKey)
+        if (isTyping) {
+          return hasKey ? currentKeys : [...currentKeys, typingKey]
+        }
+        return hasKey ? currentKeys.filter((key) => key !== typingKey) : currentKeys
+      })
+    }, [])
+
+    useEffect(() => {
+      const activeTextSegmentKeys = new Set(
+        assistantSegments
+          ?.filter((segment) => segment.type === 'text')
+          .map((segment) => segment.key) ?? []
+      )
+
+      setTypingSegmentKeys((currentKeys) =>
+        currentKeys.filter((key) => activeTextSegmentKeys.has(key))
+      )
+    }, [assistantSegments])
+
+    // Memoize content blocks to avoid re-rendering unchanged blocks
+    const memoizedContentBlocks = useMemo(() => {
+      if (!visibleAssistantSegments) {
+        return null
+      }
+
+      return visibleAssistantSegments.map((segment, index) => {
+        if (segment.type === 'text') {
+          const block = segment.block
+          const isLastTextBlock = index === visibleAssistantSegments.length - 1
+          // Clean content for this text block and strip special tags
+          const parsed = parseSpecialTags(block.content)
+          const cleanBlockContent = parsed.cleanContent.replace(/\n{3,}/g, '\n\n')
+
+          if (!cleanBlockContent.trim()) return null
+
+          return (
+            <div
+              key={segment.key}
+              className='w-full max-w-full overflow-hidden transition-opacity duration-200 ease-in-out'
+              style={{
+                opacity: cleanBlockContent.length > 0 ? 1 : 0.7,
+                transform: isLastTextBlock ? 'translateY(0)' : undefined,
+                transition: isLastTextBlock
+                  ? 'transform 0.1s ease-out, opacity 0.2s ease-in-out'
+                  : 'opacity 0.2s ease-in-out',
+              }}
+            >
+              <SmoothStreamingText
+                content={cleanBlockContent}
+                typingKey={segment.key}
+                onTypingStateChange={handleTypingStateChange}
+              />
+            </div>
+          )
+        }
+        if (segment.type === 'thinking') {
+          const isStreamingThinking =
+            Boolean(isStreaming) && segment.blocks.some((block) => block.duration == null)
+
+          return (
+            <div
+              key={segment.key}
+              className='fade-in-0 slide-in-from-top-2 w-full animate-in transition-opacity duration-200 ease-out'
+            >
+              <ThinkingGroup blocks={segment.blocks} isStreaming={isStreamingThinking} />
+            </div>
+          )
+        }
+        if (segment.type === 'tool_call') {
+          const block = segment.block
+          // Visibility and filtering handled by InlineToolCall
+          return (
+            <div
+              key={segment.key}
+              className='fade-in-0 slide-in-from-top-2 animate-in transition-opacity duration-200 ease-out'
+              style={{ opacity: 1 }}
+            >
+              <InlineToolCall toolCallId={block.toolCall.id} toolCall={block.toolCall} />
+            </div>
+          )
+        }
+        return null
+      })
+    }, [handleTypingStateChange, isStreaming, visibleAssistantSegments])
+
+    if (isUser) {
+      return (
+        <div
+          className={`w-full min-w-0 max-w-full overflow-hidden py-0.5 transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
+        >
+          {isEditMode ? (
+            <div ref={editContainerRef} className='relative w-full'>
+              <UserInput
+                ref={userInputRef}
+                workspaceId={currentChat?.workspaceId ?? ''}
+                onSubmit={handleSubmitEdit}
+                draft={editDraft}
+                onDraftChange={setEditDraft}
+                placeholder={copilotCopy.message.editPlaceholder}
+                accessLevel={accessLevel}
+                onAccessLevelChange={setAccessLevel}
+                panelWidth={panelWidth}
+                hideContextUsage={true}
+                clearOnSubmit={false}
+              />
+            </div>
+          ) : (
+            <div className='w-full min-w-0'>
+              {editBlockedReason && (
+                <div className='mb-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-destructive text-xs'>
+                  {editBlockedReason}
+                </div>
+              )}
+
+              {/* File attachments displayed above the message box */}
+              {message.fileAttachments && message.fileAttachments.length > 0 && (
+                <div className='mb-1.5 flex flex-wrap gap-1.5'>
+                  <FileAttachmentDisplay fileAttachments={message.fileAttachments} />
+                </div>
+              )}
+
+              {/* Message box - styled like input, clickable to edit */}
+              <div
+                data-message-box
+                data-message-id={message.id}
+                onClick={handleMessageClick}
+                onMouseEnter={() => setIsHoveringMessage(true)}
+                onMouseLeave={() => setIsHoveringMessage(false)}
+                className='group relative min-w-0 cursor-text rounded-md border border-input bg-muted/40 px-3 py-1.5 shadow-xs transition-all duration-200'
+              >
+                <div
+                  ref={messageContentRef}
+                  className={`min-w-0 whitespace-pre-wrap break-words py-1 pl-[2px] font-sans text-foreground text-sm leading-[1.25rem] ${isSendingMessage && isLastUserMessage ? 'pr-10' : 'pr-2'}`}
+                  style={{
+                    maxHeight: !isExpanded && needsExpansion ? '60px' : 'none',
+                    overflow: !isExpanded && needsExpansion ? 'hidden' : 'visible',
+                    position: 'relative',
+                  }}
+                >
+                  {renderUserMessageTextWithMentions(userMessageText, userMessageContexts)}
+                </div>
+                {/* Gradient fade when truncated */}
+                {!isExpanded && needsExpansion && (
+                  <div className='absolute right-0 bottom-0 left-0 h-full rounded-b-lg bg-gradient-to-t from-background/60 to-transparent' />
+                )}
+                {/* Abort button when hovering and response is generating (only on last user message) */}
+                {isTurnInProgress && isHoveringMessage && isLastUserMessage && (
+                  <div className='absolute right-2 bottom-2'>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            type='button'
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              abortMessage()
+                            }}
+                            disabled={isAborting}
+                            className='flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60'
+                            aria-label={copilotCopy.message.stopGeneration}
+                          >
+                            <X className='h-4 w-4' />
+                          </button>
+                        }
+                      />
+                      <TooltipContent side='top'>
+                        {copilotCopy.message.stopGeneration}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    if (isAssistant) {
+      return (
+        <div
+          className={`w-full max-w-full overflow-hidden pb-2 pl-[2px] transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
+          role={message.isError ? 'alert' : undefined}
+          aria-atomic={message.isError ? 'true' : undefined}
+        >
+          <div className='max-w-full space-y-1.5 transition-all duration-200 ease-in-out'>
+            {/* Content blocks in chronological order */}
+            {memoizedContentBlocks}
+
+            {shouldShowActivityIndicator && <StreamingIndicator />}
+
+            {/* Citations if available */}
+            {message.citations && message.citations.length > 0 && (
+              <div className='pt-1'>
+                <div className='font-medium text-muted-foreground text-xs'>
+                  {copilotCopy.message.sources}
+                </div>
+                <div className='flex flex-wrap gap-2'>
+                  {message.citations.map((citation) => (
+                    <a
+                      key={citation.id}
+                      href={citation.url}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='inline-flex max-w-full items-center rounded-md border bg-muted/50 px-2 py-1 text-muted-foreground text-xs transition-colors hover:bg-card hover:text-foreground'
+                    >
+                      <span className='truncate'>{citation.title}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Options selector after the full assistant message has finished rendering */}
+            {(() => {
+              const options = parsedTags?.options
+              const isOptionsReady =
+                !shouldHidePostTurnControls && parsedTags?.optionsComplete === true
+
+              if (!isLastMessage || !options || !isOptionsReady) return null
+
+              return <OptionsSelector options={options} onSelect={handleOptionSelect} />
+            })()}
+          </div>
+        </div>
+      )
+    }
+
+    return null
+  },
+  (prevProps, nextProps) => {
+    // Custom comparison function for better streaming performance
+    const prevMessage = prevProps.message
+    const nextMessage = nextProps.message
+
+    // If message IDs are different, always re-render
+    if (prevMessage.id !== nextMessage.id) {
+      return false
+    }
+
+    // If streaming state changed, re-render
+    if (prevProps.isStreaming !== nextProps.isStreaming) {
+      return false
+    }
+
+    // If dimmed state changed, re-render
+    if (prevProps.isDimmed !== nextProps.isDimmed) {
+      return false
+    }
+
+    if (prevProps.runtimeContext !== nextProps.runtimeContext) {
+      return false
+    }
+
+    // If panel width changed, re-render
+    if (prevProps.panelWidth !== nextProps.panelWidth) {
+      return false
+    }
+
+    if (!haveSameMessageContexts(prevMessage.contexts, nextMessage.contexts)) {
+      return false
+    }
+
+    // For streaming messages, check if content actually changed
+    if (nextProps.isStreaming) {
+      const prevBlocks = prevMessage.contentBlocks || []
+      const nextBlocks = nextMessage.contentBlocks || []
+
+      if (prevBlocks.length !== nextBlocks.length) {
+        return false // Content blocks changed
+      }
+
+      // Helper: get last block content by type
+      const getLastBlockContent = (blocks: any[], type: 'text' | 'thinking'): string | null => {
+        for (let i = blocks.length - 1; i >= 0; i--) {
+          const block = blocks[i]
+          if (block && block.type === type) {
+            return (block as any).content ?? ''
+          }
+        }
+        return null
+      }
+
+      // Re-render if the last text block content changed
+      const prevLastTextContent = getLastBlockContent(prevBlocks as any[], 'text')
+      const nextLastTextContent = getLastBlockContent(nextBlocks as any[], 'text')
+      if (
+        prevLastTextContent !== null &&
+        nextLastTextContent !== null &&
+        prevLastTextContent !== nextLastTextContent
+      ) {
+        return false
+      }
+
+      // Re-render if the last thinking block content changed
+      const prevLastThinkingContent = getLastBlockContent(prevBlocks as any[], 'thinking')
+      const nextLastThinkingContent = getLastBlockContent(nextBlocks as any[], 'thinking')
+      if (
+        prevLastThinkingContent !== null &&
+        nextLastThinkingContent !== null &&
+        prevLastThinkingContent !== nextLastThinkingContent
+      ) {
+        return false
+      }
+
+      return true
+    }
+
+    // For non-streaming messages, do a deeper comparison including tool call states
+    if (
+      prevMessage.content !== nextMessage.content ||
+      prevMessage.role !== nextMessage.role ||
+      (prevMessage.contentBlocks?.length || 0) !== (nextMessage.contentBlocks?.length || 0)
+    ) {
+      return false
+    }
+
+    // Check contentBlocks tool call states
+    const prevContentBlocks = prevMessage.contentBlocks || []
+    const nextContentBlocks = nextMessage.contentBlocks || []
+    for (let i = 0; i < nextContentBlocks.length; i++) {
+      const prevBlock = prevContentBlocks[i]
+      const nextBlock = nextContentBlocks[i]
+      if (
+        prevBlock?.type === 'tool_call' &&
+        nextBlock?.type === 'tool_call' &&
+        prevBlock.toolCall?.state !== nextBlock.toolCall?.state
+      ) {
+        return false // ContentBlock tool call state changed
+      }
+    }
+
+    return true
+  }
+)
+
+CopilotMessage.displayName = 'CopilotMessage'
+
+export { CopilotMessage }

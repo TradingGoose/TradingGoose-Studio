@@ -1,10 +1,9 @@
 import {
   normalizePairColorContext,
   type PairColorContext,
-  type PersistedColorPairsState,
   readPairColorContext,
 } from '@/widgets/color-pairs'
-import type { WidgetInstance } from '@/widgets/layout'
+import type { PersistedColorPairsState, WidgetInstance } from '@/widgets/layout'
 import { isPairColor } from '@/widgets/pair-colors'
 import {
   FIELD_CONTRACTS,
@@ -17,7 +16,6 @@ import {
   type WidgetMetadataProfile,
   type WidgetParamField,
 } from '@/widgets/widget-contract-types'
-import { copilotWidgetContract } from '@/widgets/widgets/copilot/contract'
 import { dataChartWidgetContract } from '@/widgets/widgets/data_chart/contract'
 import { customToolEditorWidgetContract } from '@/widgets/widgets/editor_custom_tool/contract'
 import { indicatorEditorWidgetContract } from '@/widgets/widgets/editor_indicator/contract'
@@ -62,7 +60,6 @@ const WIDGET_CONTRACTS = Object.fromEntries(
     workflowEditorWidgetContract,
     workflowChatWidgetContract,
     workflowConsoleWidgetContract,
-    copilotWidgetContract,
     indicatorListWidgetContract,
     mcpListWidgetContract,
     indicatorEditorWidgetContract,
@@ -141,6 +138,18 @@ export function projectWidgetParamsForCopilot(
   return getWidgetContract(widgetKey).projectCopilotParams(params)
 }
 
+export function stripLinkedWidgetParams(
+  widgetKey: WidgetKey,
+  params: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null {
+  if (!params) return null
+  const linkedFields = new Set<string>(getWidgetContract(widgetKey).linkedParamFields)
+  const localParams = Object.fromEntries(
+    Object.entries(params).filter(([field]) => !linkedFields.has(field))
+  )
+  return Object.keys(localParams).length > 0 ? localParams : null
+}
+
 export function resolveEffectiveWidgetParams(
   widget: WidgetInstance,
   colorPairs: PersistedColorPairsState | unknown
@@ -161,10 +170,8 @@ export function resolveEffectiveWidgetParams(
 
 export function normalizeWidgetColorPairPatch(
   widgetKey: WidgetKey,
-  value: Record<string, unknown> | null | undefined
+  value: Record<string, unknown>
 ): Record<string, unknown> {
-  if (!value) return {}
-
   const allowedFields = new Set(getWidgetContract(widgetKey).linkedParamFields)
   const unsupported = Object.keys(value).filter(
     (field) => !allowedFields.has(field as WidgetParamField)
@@ -207,7 +214,6 @@ export function listWidgetCatalogItems(
       description: contract.description,
       editable: contract.editable,
       editableFields: [...contract.editableFields],
-      linkedParamFields: [...contract.linkedParamFields],
     }))
 }
 
@@ -223,7 +229,6 @@ export function readWidgetMetadataProfiles(widgetKeys: readonly string[]): Widge
       defaultParams: contract.projectCopilotParams(contract.defaultParams),
       editableFields: [...contract.editableFields],
       paramContract: contract.editableFields.map((field) => FIELD_CONTRACTS[field]),
-      linkedParamFields: [...contract.linkedParamFields],
     }
   })
 }

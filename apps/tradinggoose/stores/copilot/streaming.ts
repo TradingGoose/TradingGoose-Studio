@@ -43,8 +43,12 @@ export type SSEHandler = (
 
 type StreamingLogger = Pick<Console, 'info' | 'warn' | 'error'>
 
-const streamingUpdateQueue = new Map<string, StreamingContext>()
-let streamingUpdateRAF: number | null = null
+type StreamingStoreSetter = (update: any) => unknown
+type StreamingUpdateBatch = {
+  queue: Map<string, StreamingContext>
+  raf: number | null
+}
+const streamingUpdateBatches = new WeakMap<StreamingStoreSetter, StreamingUpdateBatch>()
 const TEXT_BLOCK_TYPE = 'text'
 const THINKING_BLOCK_TYPE = 'thinking'
 const DATA_PREFIX = 'data: '
@@ -67,16 +71,21 @@ function applyStreamingTurnState(set: any, status: string, isAwaitingContinuatio
   }))
 }
 
-export function updateStreamingMessage(set: any, context: StreamingContext) {
-  streamingUpdateQueue.set(context.messageId, context)
-  if (streamingUpdateRAF !== null) {
+export function updateStreamingMessage(set: StreamingStoreSetter, context: StreamingContext) {
+  let batch = streamingUpdateBatches.get(set)
+  if (!batch) {
+    batch = { queue: new Map(), raf: null }
+    streamingUpdateBatches.set(set, batch)
+  }
+  batch.queue.set(context.messageId, context)
+  if (batch.raf !== null) {
     return
   }
 
-  streamingUpdateRAF = requestAnimationFrame(() => {
-    const updates = new Map(streamingUpdateQueue)
-    streamingUpdateQueue.clear()
-    streamingUpdateRAF = null
+  batch.raf = requestAnimationFrame(() => {
+    const updates = new Map(batch.queue)
+    batch.queue.clear()
+    batch.raf = null
     set((state: CopilotStore) => {
       if (updates.size === 0) return state
       const messages = state.messages
@@ -114,12 +123,12 @@ export function updateStreamingMessage(set: any, context: StreamingContext) {
   })
 }
 
-export function resetStreamingQueue() {
-  if (streamingUpdateRAF !== null) {
-    cancelAnimationFrame(streamingUpdateRAF)
-    streamingUpdateRAF = null
-  }
-  streamingUpdateQueue.clear()
+export function resetStreamingQueue(set: StreamingStoreSetter) {
+  const batch = streamingUpdateBatches.get(set)
+  if (!batch) return
+  if (typeof batch.raf === 'number') cancelAnimationFrame(batch.raf)
+  batch.queue.clear()
+  streamingUpdateBatches.delete(set)
 }
 
 type StreamingBlock = NonNullable<CopilotStore['messages'][number]['contentBlocks']>[number] & {

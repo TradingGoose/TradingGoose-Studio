@@ -3,16 +3,15 @@ import { chat } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { renderOTPEmail } from '@/components/emails/render-email'
-import { getEmailSubject } from '@/components/emails/render-email'
+import { getEmailSubject, renderOTPEmail } from '@/components/emails/render-email'
 import { normalizeEmailLocale } from '@/lib/email/locale'
 import { sendEmail } from '@/lib/email/mailer'
 import { createLogger } from '@/lib/logs/console/logger'
 import { deleteCachedValue, getCachedValue, setCachedValue } from '@/lib/redis'
 import { generateRequestId } from '@/lib/utils'
-import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 import { addCorsHeaders, setChatAuthCookie } from '@/app/api/chat/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import { CHAT_ERROR_CODES } from '@/app/chat/constants'
 import { locales } from '@/i18n/utils'
 
 const logger = createLogger('ChatOtpAPI')
@@ -166,7 +165,7 @@ export async function POST(
 
       logger.info(`[${requestId}] OTP sent to ${email} for chat ${deployment.id}`)
       return addCorsHeaders(createSuccessResponse({ message: 'Verification code sent' }), request)
-      } catch (error: any) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return addCorsHeaders(
           createErrorResponse(
@@ -264,7 +263,7 @@ export async function PUT(
       setChatAuthCookie(response, deployment.id, deployment.authType)
 
       return response
-      } catch (error: any) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return addCorsHeaders(
           createErrorResponse(

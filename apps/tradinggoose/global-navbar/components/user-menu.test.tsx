@@ -16,6 +16,7 @@ const mockReplaceLocaleDocument = vi.fn()
 const mockSetTheme = vi.fn()
 const mockUpdateSetting = vi.fn()
 const mockOpenSettings = vi.fn()
+const userMenuCopy = getPublicCopy('en').workspace.userMenu
 let mockPathname = '/workspace/ws-1/dashboard'
 let mockSearchParams = ''
 
@@ -51,23 +52,6 @@ vi.mock('@/i18n/navigation', () => ({
     mockReplaceLocaleDocument(...args),
 }))
 
-vi.mock('@/hooks/queries/organization', () => ({
-  useOrganizations: () => ({
-    data: {
-      activeOrganization: null,
-      billingData: { data: { billingEnabled: false } },
-    },
-  }),
-  useOrganizationBilling: () => ({ data: null }),
-}))
-
-vi.mock('@/hooks/queries/subscription', () => ({
-  useSubscriptionData: () => ({
-    data: { billingEnabled: false },
-    isLoading: false,
-  }),
-}))
-
 vi.mock('@/stores/settings/general/store', () => ({
   useGeneralStore: (selector: (state: typeof generalState) => unknown) => selector(generalState),
 }))
@@ -95,7 +79,13 @@ vi.mock('@/global-navbar/settings-modal/components/help/help-modal', () => ({
 function renderUserMenu(
   root: Root,
   locale: LocaleCode,
-  options: { canAccessSystemAdmin?: boolean; sidebarTrigger?: boolean } = {}
+  options: {
+    billingEnabled?: boolean
+    canAccessSystemAdmin?: boolean
+    canConfigureSso?: boolean
+    canOpenTeamSettings?: boolean
+    sidebarTrigger?: boolean
+  } = {}
 ) {
   const userMenu = (
     <UserMenu
@@ -103,7 +93,10 @@ function renderUserMenu(
       userEmail='ada@example.com'
       userId='user-1'
       onOpenSettings={mockOpenSettings}
+      billingEnabled={options.billingEnabled ?? false}
       canAccessSystemAdmin={options.canAccessSystemAdmin}
+      canConfigureSso={options.canConfigureSso ?? false}
+      canOpenTeamSettings={options.canOpenTeamSettings ?? false}
       sidebarTrigger={options.sidebarTrigger}
     />
   )
@@ -216,7 +209,7 @@ describe('UserMenu language selector', () => {
     window.matchMedia = originalMatchMedia
   })
 
-  it('renders the zh theme trigger label from the raw workspace template', async () => {
+  it('renders visible focus styles for the localized theme and language triggers', async () => {
     await act(async () => {
       renderUserMenu(root, 'zh')
       await flush()
@@ -226,7 +219,8 @@ describe('UserMenu language selector', () => {
       await openMenu(getUserMenuButton(container))
     })
 
-    expect(getThemeButton('主题：系统')).toBeInTheDocument()
+    expect(getThemeButton('主题：系统')).toHaveClass('focus-visible:ring-2')
+    expect(getLanguageButton('简体中文')).toHaveClass('focus-visible:ring-2')
   })
 
   it('renders the compact avatar trigger outside a sidebar context', async () => {
@@ -257,7 +251,7 @@ describe('UserMenu language selector', () => {
     })
 
     const menu = document.body.querySelector('[role="menu"]')
-    expect(menu?.className).toContain('w-[var(--radix-dropdown-menu-trigger-width)]')
+    expect(menu?.className).toContain('w-[var(--anchor-width)]')
   })
 
   it('owns the system admin menu item for authorized users', async () => {
@@ -283,6 +277,36 @@ describe('UserMenu language selector', () => {
     })
 
     expect(mockPush).toHaveBeenCalledWith('/admin')
+  })
+
+  it.each([
+    ['billing', { billingEnabled: true }, [userMenuCopy.subscription, userMenuCopy.manageBilling]],
+    ['team', { billingEnabled: false, canOpenTeamSettings: true }, [userMenuCopy.teamManagement]],
+    ['SSO', { billingEnabled: false, canConfigureSso: true }, [userMenuCopy.singleSignOn]],
+  ] as const)('shows only enabled %s capabilities', async (_name, options, visibleLabels) => {
+    await act(async () => {
+      renderUserMenu(root, 'en', options)
+      await flush()
+    })
+
+    await act(async () => {
+      await openMenu(getUserMenuButton(container))
+    })
+
+    const menuText = Array.from(document.body.querySelectorAll('[role="menuitem"]')).map(
+      (item) => item.textContent
+    )
+    const capabilityLabels = [
+      userMenuCopy.subscription,
+      userMenuCopy.manageBilling,
+      userMenuCopy.teamManagement,
+      userMenuCopy.singleSignOn,
+    ]
+    for (const label of capabilityLabels) {
+      expect(menuText.some((text) => text?.includes(label))).toBe(
+        visibleLabels.some((visibleLabel) => visibleLabel === label)
+      )
+    }
   })
 
   it('switches to zh without dropping the workspace path or query string', async () => {

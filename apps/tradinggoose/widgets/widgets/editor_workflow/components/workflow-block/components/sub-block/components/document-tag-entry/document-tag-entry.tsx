@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useLocale, useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
@@ -14,9 +14,8 @@ import { useKnowledgeBaseTagDefinitions } from '@/hooks/use-knowledge-base-tag-d
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 
 interface DocumentTagRow {
@@ -56,7 +55,8 @@ export function DocumentTagEntry({
   const knowledgeBaseId = knowledgeBaseIdValue || null
 
   // Use KB tag definitions hook to get available tags
-  const { tagDefinitions, isLoading } = useKnowledgeBaseTagDefinitions(knowledgeBaseId)
+  const { tagDefinitions, isLoading, error, fetchTagDefinitions } =
+    useKnowledgeBaseTagDefinitions(knowledgeBaseId)
 
   const emitTagSelection = useTagSelection(blockId, subBlock.id)
 
@@ -252,8 +252,41 @@ export function DocumentTagEntry({
     )
   }
 
+  if (error) {
+    return (
+      <div className='space-y-2 p-4'>
+        <p role='alert' aria-atomic='true' className='text-destructive text-sm'>
+          {copy.failedToLoad}
+        </p>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          disabled={isLoading}
+          focusableWhenDisabled={isLoading}
+          aria-busy={isLoading || undefined}
+          onClick={() => {
+            void fetchTagDefinitions()
+          }}
+        >
+          {isLoading ? copy.retrying : copy.retry}
+        </Button>
+      </div>
+    )
+  }
+
   if (isLoading) {
-    return <div className='p-4 text-muted-foreground text-sm'>{t('loadingTagDefinitions')}</div>
+    return (
+      <div
+        className='p-4 text-muted-foreground text-sm'
+        role='status'
+        aria-live='polite'
+        aria-atomic='true'
+        aria-busy='true'
+      >
+        {t('loadingTagDefinitions')}
+      </div>
+    )
   }
 
   const renderHeader = () => (

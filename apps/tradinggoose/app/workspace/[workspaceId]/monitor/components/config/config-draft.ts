@@ -11,9 +11,18 @@ import type {
 } from '../shared/types'
 import { buildDefaultDraft, buildDraftFromMonitor, isAuthParamDefinition } from '../shared/utils'
 
+export type MonitorDraftIssues = Record<string, string[]>
+
 type MonitorDraftValidationResult = {
   valid: boolean
-  errors: Record<string, string>
+  issues: MonitorDraftIssues
+}
+
+export const addMonitorDraftIssue = (issues: MonitorDraftIssues, key: string, message: string) => {
+  const messages = issues[key] ?? []
+  if (!messages.includes(message)) {
+    issues[key] = messages.concat(message)
+  }
 }
 
 const areJsonEqual = (left: unknown, right: unknown) => {
@@ -108,7 +117,9 @@ export const mergeMonitorDraftPatch = ({
   const nextIntervals = referenceData.providerIntervalsByProviderId[nextProviderId] ?? []
   const requestedInterval = patch.interval ?? draft.interval
   const nextInterval =
-    providerChanged && !nextIntervals.includes(requestedInterval as any)
+    providerChanged &&
+    !Object.hasOwn(patch, 'interval') &&
+    !nextIntervals.includes(requestedInterval as any)
       ? getProviderIntervalFallback({
           defaultDraftInterval: referenceData.defaultDraftInterval,
           providerId: nextProviderId,
@@ -168,16 +179,15 @@ export const validateMonitorDraft = ({
   draft,
   referenceData,
 }: {
-  draft: MonitorDraft | null
+  draft: MonitorDraft
   referenceData: MonitorReferenceData
 }): MonitorDraftValidationResult => {
-  if (!draft) return { valid: false, errors: { draft: 'Missing draft state.' } }
-
-  const errors: Record<string, string> = {}
+  const issues: MonitorDraftIssues = {}
   const replacesAuth = Object.keys(draft.secretValues).length > 0
-  if (!draft.workflowId) errors.workflowId = 'Workflow is required.'
-  if (!draft.blockId) errors.blockId = 'Block target is required.'
-  if (!draft.providerId) errors.providerId = 'Provider is required.'
+  if (!draft.workflowId || !draft.blockId) {
+    addMonitorDraftIssue(issues, 'workflowTarget', 'Workflow target is required.')
+  }
+  if (!draft.providerId) addMonitorDraftIssue(issues, 'providerId', 'Provider is required.')
 
   const workflowTargetKey = `${draft.workflowId}:${draft.blockId}`
   const workflowTarget = referenceData.workflowTargetByKey[workflowTargetKey]
@@ -186,36 +196,42 @@ export const validateMonitorDraft = ({
     draft.blockId &&
     (!workflowTarget || workflowTarget.source !== draft.source)
   ) {
-    errors.workflowId =
+    addMonitorDraftIssue(
+      issues,
+      'workflowTarget',
       draft.source === PORTFOLIO_MONITOR_PROVIDER
         ? 'Selected workflow target is not deployed with a portfolio state trigger.'
         : 'Selected workflow target is not deployed with an indicator trigger.'
+    )
   }
 
   if (draft.source === PORTFOLIO_MONITOR_PROVIDER) {
     if (draft.providerId && !referenceData.tradingProviderById[draft.providerId]) {
-      errors.providerId = 'Selected trading provider is unavailable.'
+      addMonitorDraftIssue(issues, 'providerId', 'Selected trading provider is unavailable.')
     }
-    if (!draft.serviceId) errors.serviceId = 'Trading connection is required.'
-    if (!draft.credentialId || !draft.accountId) errors.accountId = 'Trading account is required.'
+    if (!draft.serviceId) {
+      addMonitorDraftIssue(issues, 'tradingAccount', 'Trading connection is required.')
+    } else if (!draft.credentialId || !draft.accountId) {
+      addMonitorDraftIssue(issues, 'tradingAccount', 'Trading account is required.')
+    }
     if (!hasPortfolioConditionRules(draft)) {
-      errors.condition = 'At least one fire condition is required.'
+      addMonitorDraftIssue(issues, 'condition', 'At least one fire condition is required.')
     }
 
     return {
-      valid: Object.keys(errors).length === 0,
-      errors,
+      valid: Object.keys(issues).length === 0,
+      issues,
     }
   }
 
-  if (!draft.interval) errors.interval = 'Interval is required.'
-  if (!draft.indicatorId) errors.indicatorId = 'Indicator is required.'
-  if (!draft.listing) errors.listing = 'Listing is required.'
+  if (!draft.interval) addMonitorDraftIssue(issues, 'interval', 'Interval is required.')
+  if (!draft.indicatorId) addMonitorDraftIssue(issues, 'indicatorId', 'Indicator is required.')
+  if (!draft.listing) addMonitorDraftIssue(issues, 'listing', 'Listing is required.')
   if (draft.indicatorId && !referenceData.indicatorById[draft.indicatorId]) {
-    errors.indicatorId = 'Selected indicator is unavailable.'
+    addMonitorDraftIssue(issues, 'indicatorId', 'Selected indicator is unavailable.')
   }
   if (draft.providerId && !referenceData.marketProviderById[draft.providerId]) {
-    errors.providerId = 'Selected provider is unavailable.'
+    addMonitorDraftIssue(issues, 'providerId', 'Selected provider is unavailable.')
   }
   const availableIntervals = referenceData.providerIntervalsByProviderId[draft.providerId] ?? []
   if (
@@ -223,7 +239,11 @@ export const validateMonitorDraft = ({
     availableIntervals.length > 0 &&
     !availableIntervals.includes(draft.interval as any)
   ) {
-    errors.interval = 'Selected interval is not supported for this provider.'
+    addMonitorDraftIssue(
+      issues,
+      'interval',
+      'Selected interval is not supported for this provider.'
+    )
   }
 
   getProviderDefinitions(referenceData, draft.providerId)
@@ -237,20 +257,28 @@ export const validateMonitorDraft = ({
         const hasExisting =
           !replacesAuth && draft.existingEncryptedSecretFieldIds.includes(definition.id)
         if (!entered && !hasExisting) {
-          errors[`secret:${definition.id}`] = `${definition.title || definition.id} is required.`
+          addMonitorDraftIssue(
+            issues,
+            `secret:${definition.id}`,
+            `${definition.title || definition.id} is required.`
+          )
         }
         return
       }
 
       const value = (draft.providerParamValues[definition.id] || '').trim()
       if (!value) {
-        errors[`param:${definition.id}`] = `${definition.title || definition.id} is required.`
+        addMonitorDraftIssue(
+          issues,
+          `param:${definition.id}`,
+          `${definition.title || definition.id} is required.`
+        )
       }
     })
 
   return {
-    valid: Object.keys(errors).length === 0,
-    errors,
+    valid: Object.keys(issues).length === 0,
+    issues,
   }
 }
 

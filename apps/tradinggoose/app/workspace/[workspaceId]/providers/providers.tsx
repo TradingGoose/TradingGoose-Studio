@@ -15,7 +15,7 @@ const Providers = React.memo<ProvidersProps>((props) => {
     props.inheritUser === true ? { inheritUser: true as const } : { userId: props.userId }
 
   return (
-    <TooltipProvider delayDuration={100} skipDelayDuration={0}>
+    <TooltipProvider delay={100} timeout={0}>
       <WorkspacePermissionsProvider workspaceId={workspaceId} {...workspaceIdentityProps}>
         {children}
       </WorkspacePermissionsProvider>

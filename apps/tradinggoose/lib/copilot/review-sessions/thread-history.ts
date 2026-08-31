@@ -1,4 +1,4 @@
-import { copilotReviewItems, copilotReviewTurns } from '@tradinggoose/db/schema'
+import type { copilotReviewItems, copilotReviewTurns } from '@tradinggoose/db/schema'
 
 // This mirrors the Codex/Copilot conversation shape inside Studio's
 // review-session envelope: one durable thread row, explicit turns, and an
@@ -52,19 +52,6 @@ function normalizeMessageRole(role: string): MessageRole {
   return MESSAGE_ROLES.ASSISTANT
 }
 
-function buildContextsContentBlock(message: ReviewMessageInput) {
-  if (message.role !== MESSAGE_ROLES.USER) {
-    return undefined
-  }
-
-  const contexts = normalizeArrayLike(message.contexts)
-  if (!contexts?.length) {
-    return undefined
-  }
-
-  return [{ type: 'contexts', contexts, timestamp: Date.now() }]
-}
-
 function spreadIfArray<K extends string>(
   key: K,
   value: unknown
@@ -116,8 +103,6 @@ export function buildReviewItemInsert(params: {
   sequence: number
   message: ReviewMessageInput
 }): ReviewItemInsert {
-  const contextsContentBlock = buildContextsContentBlock(params.message)
-
   return {
     sessionId: params.reviewSessionId,
     turnId: params.turnId,
@@ -129,9 +114,7 @@ export function buildReviewItemInsert(params: {
     timestamp: params.message.timestamp,
     ...(normalizeArrayLike(params.message.contentBlocks)
       ? { contentBlocks: params.message.contentBlocks as unknown[] }
-      : contextsContentBlock
-        ? { contentBlocks: contextsContentBlock }
-        : {}),
+      : {}),
     ...(normalizeArrayLike(params.message.contexts)
       ? { contexts: params.message.contexts as unknown[] }
       : {}),
@@ -242,9 +225,7 @@ export function buildAppendReviewTurn(params: {
   const nextItemSequence = params.existingMessages.length
   const turnId = crypto.randomUUID()
   const firstTimestamp =
-    params.userMessage.timestamp ??
-    params.assistantMessage?.timestamp ??
-    new Date().toISOString()
+    params.userMessage.timestamp ?? params.assistantMessage?.timestamp ?? new Date().toISOString()
   const lastTimestamp =
     params.assistantMessage?.timestamp ?? params.userMessage.timestamp ?? firstTimestamp
   const latestTurnStatus = params.latestTurnStatus ?? 'completed'

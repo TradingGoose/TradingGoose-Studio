@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, ChevronDown, LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
 import {
   Button,
@@ -102,8 +102,15 @@ export function ControlBar({
   const activeWorkflowId = workflowId
   const activeWorkflowIdRef = useRef(activeWorkflowId)
   activeWorkflowIdRef.current = activeWorkflowId
-  const { isExecuting, isWorkflowSessionReady, handleRunWorkflow, handleCancelExecution } =
-    useWorkflowExecution()
+  const {
+    isExecuting,
+    isWorkflowSessionReady,
+    manualRunFeedback,
+    handleRunWorkflow,
+    handleCancelExecution,
+  } = useWorkflowExecution()
+  const executionFeedbackId = useId()
+  const hasExecutionFeedback = manualRunFeedback.state !== 'idle'
 
   // User permissions - use stable activeWorkspaceId from registry instead of deriving from currentWorkflow
   const userPermissions = useUserPermissionsContext()
@@ -146,7 +153,7 @@ export function ControlBar({
   useKeyboardShortcuts(
     () => {
       if (!isWorkflowBlocked && canEdit && canRunWithShortcut) {
-        handleRunWorkflow({ triggerBlockId: runTriggers[0].blockId })
+        void handleRunWorkflow({ triggerBlockId: runTriggers[0].blockId })
       }
     },
     isWorkflowBlocked || !canEdit || !canRunWithShortcut
@@ -379,31 +386,33 @@ export function ControlBar({
 
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
-          {isDisabled ? (
-            <div className={getDisabledIconButtonClass()}>
-              {isAutoLayouting ? (
-                <RefreshCw className='h-4 w-4 animate-spin' />
-              ) : (
-                <LayoutDashboard className='h-4 w-4' />
-              )}
-            </div>
-          ) : (
-            <Button
-              variant='outline'
-              onClick={handleAutoLayoutClick}
-              className={getIconButtonClass()}
-              disabled={isAutoLayouting}
-            >
-              {isAutoLayouting ? (
-                <RefreshCw className='h-5 w-5 animate-spin' />
-              ) : (
-                <LayoutDashboard className='h-5 w-5' />
-              )}
-              <span className='sr-only'>{copy.controlBar.autoLayout}</span>
-            </Button>
-          )}
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            isDisabled ? (
+              <div className={getDisabledIconButtonClass()}>
+                {isAutoLayouting ? (
+                  <RefreshCw className='h-4 w-4 animate-spin' />
+                ) : (
+                  <LayoutDashboard className='h-4 w-4' />
+                )}
+              </div>
+            ) : (
+              <Button
+                variant='outline'
+                onClick={handleAutoLayoutClick}
+                className={getIconButtonClass()}
+                disabled={isAutoLayouting}
+              >
+                {isAutoLayouting ? (
+                  <RefreshCw className='h-5 w-5 animate-spin' />
+                ) : (
+                  <LayoutDashboard className='h-5 w-5' />
+                )}
+                <span className='sr-only'>{copy.controlBar.autoLayout}</span>
+              </Button>
+            )
+          }
+        />
         <TooltipContent command='Shift+L'>{getTooltipText()}</TooltipContent>
       </Tooltip>
     )
@@ -419,11 +428,18 @@ export function ControlBar({
     if (isExecuting) {
       return (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button className={getDangerButtonClass()} onClick={handleCancelExecution}>
-              <X className={cn('h-3.5 w-3.5')} />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                className={getDangerButtonClass()}
+                onClick={handleCancelExecution}
+                aria-busy={manualRunFeedback.state === 'running' || undefined}
+                aria-describedby={hasExecutionFeedback ? executionFeedbackId : undefined}
+              >
+                <X className={cn('h-3.5 w-3.5')} />
+              </Button>
+            }
+          />
           <TooltipContent>{copy.controlBar.cancelExecution}</TooltipContent>
         </Tooltip>
       )
@@ -473,26 +489,31 @@ export function ControlBar({
       if (usageExceeded) {
         return openSubscriptionSettings()
       }
-      handleRunWorkflow({ triggerBlockId })
+      void handleRunWorkflow({ triggerBlockId })
     }
 
     if (runTriggers.length > 1) {
       return (
         <DropdownMenu modal={false}>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <span className='inline-flex'>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    className={getPrimaryButtonClass('w-10 gap-0.5 px-1')}
-                    disabled={isButtonDisabled}
+            <TooltipTrigger
+              render={
+                <span className='inline-flex'>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        className={getPrimaryButtonClass('w-10 gap-0.5 px-1')}
+                        disabled={isButtonDisabled}
+                        aria-describedby={hasExecutionFeedback ? executionFeedbackId : undefined}
+                      />
+                    }
                   >
                     <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />
                     <ChevronDown className='h-3 w-3' />
-                  </Button>
-                </DropdownMenuTrigger>
-              </span>
-            </TooltipTrigger>
+                  </DropdownMenuTrigger>
+                </span>
+              }
+            />
             <TooltipContent command={getKeyboardShortcutText('Enter', true)}>
               {getTooltipContent()}
             </TooltipContent>
@@ -508,8 +529,7 @@ export function ControlBar({
                 <DropdownMenuItem
                   key={trigger.id}
                   className={widgetHeaderMenuItemClassName}
-                  onSelect={(event) => {
-                    event.preventDefault()
+                  onClick={() => {
                     handleRunClick(trigger.blockId)
                   }}
                 >
@@ -533,15 +553,18 @@ export function ControlBar({
 
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            className={getPrimaryButtonClass()}
-            onClick={() => handleRunClick(runTriggers[0].blockId)}
-            disabled={isButtonDisabled}
-          >
-            <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />
-          </Button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <Button
+              className={getPrimaryButtonClass()}
+              onClick={() => handleRunClick(runTriggers[0].blockId)}
+              disabled={isButtonDisabled}
+              aria-describedby={hasExecutionFeedback ? executionFeedbackId : undefined}
+            >
+              <Play className={cn('h-3.5 w-3.5', 'fill-current stroke-current')} />
+            </Button>
+          }
+        />
         <TooltipContent command={getKeyboardShortcutText('Enter', true)}>
           {getTooltipContent()}
         </TooltipContent>
@@ -551,18 +574,22 @@ export function ControlBar({
 
   const showOptionalControls = true
   const defaultContainerClass = 'inline-flex flex-nowrap'
-  const containerClass = widgetHeaderButtonGroupClassName(className ?? defaultContainerClass)
+  const containerClass = widgetHeaderButtonGroupClassName(
+    cn('relative', className ?? defaultContainerClass)
+  )
 
   return (
     <div className={containerClass}>
       {autoLayoutError ? (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='flex h-7 max-w-48 items-center gap-1 rounded-sm border border-destructive/30 bg-destructive/10 px-2 text-destructive'>
-              <AlertTriangle className='h-3.5 w-3.5 shrink-0' />
-              <span className='truncate text-xs'>Auto layout failed</span>
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className='flex h-7 max-w-48 items-center gap-1 rounded-sm border border-destructive/30 bg-destructive/10 px-2 text-destructive'>
+                <AlertTriangle className='h-3.5 w-3.5 shrink-0' />
+                <span className='truncate text-xs'>Auto layout failed</span>
+              </div>
+            }
+          />
           <TooltipContent side='bottom' className='max-w-xs'>
             {autoLayoutError}
           </TooltipContent>
@@ -572,6 +599,34 @@ export function ControlBar({
       {showOptionalControls && renderAutoLayoutButton()}
       {renderDeployButton()}
       {renderRunButton()}
+      {manualRunFeedback.state === 'running' ? (
+        <p
+          id={executionFeedbackId}
+          role='status'
+          aria-atomic='true'
+          className='absolute top-full right-0 z-50 mt-1 max-w-72 rounded-md border bg-popover p-2 text-popover-foreground text-xs shadow-md'
+        >
+          {copy.controlBar.runningWorkflow}
+        </p>
+      ) : manualRunFeedback.state === 'success' ? (
+        <p
+          id={executionFeedbackId}
+          role='status'
+          aria-atomic='true'
+          className='absolute top-full right-0 z-50 mt-1 max-w-72 rounded-md border bg-popover p-2 text-popover-foreground text-xs shadow-md'
+        >
+          {copy.controlBar.workflowCompleted}
+        </p>
+      ) : manualRunFeedback.state === 'error' ? (
+        <p
+          id={executionFeedbackId}
+          role='alert'
+          aria-atomic='true'
+          className='absolute top-full right-0 z-50 mt-1 max-w-72 rounded-md border border-destructive/30 bg-popover p-2 text-destructive text-xs shadow-md'
+        >
+          {formatTemplate(copy.controlBar.workflowFailed, { error: manualRunFeedback.message })}
+        </p>
+      ) : null}
     </div>
   )
 }

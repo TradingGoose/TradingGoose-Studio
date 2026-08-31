@@ -291,7 +291,7 @@ export const sanitizeStyleOverrides = (
     const localization = { ...(sanitized.localization as Record<string, unknown>) }
     if ('timeFormatter' in localization) {
       onWarning?.('data_chart ignores localization.timeFormatter overrides')
-      delete localization.timeFormatter
+      Reflect.deleteProperty(localization, 'timeFormatter')
     }
     sanitized.localization = localization
   }
@@ -300,7 +300,7 @@ export const sanitizeStyleOverrides = (
     const timeScale = { ...(sanitized.timeScale as Record<string, unknown>) }
     if ('tickMarkFormatter' in timeScale) {
       onWarning?.('data_chart ignores timeScale.tickMarkFormatter overrides')
-      delete timeScale.tickMarkFormatter
+      Reflect.deleteProperty(timeScale, 'tickMarkFormatter')
     }
     BLOCKED_TIME_SCALE_OVERRIDE_KEYS.forEach((key) => {
       if (key in timeScale) {

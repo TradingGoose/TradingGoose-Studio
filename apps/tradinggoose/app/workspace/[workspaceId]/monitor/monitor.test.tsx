@@ -225,7 +225,6 @@ vi.mock(
             outcome: 'success',
             trigger: 'manual',
             workflowName: 'Workflow One',
-            workflowColor: '#3972F6',
             monitorId: 'monitor-1',
             providerId: 'alpaca',
             interval: '1m',
@@ -236,14 +235,13 @@ vi.mock(
             cost: 0.12,
             isOrphaned: false,
             isPartial: false,
-            sourceLog: { id: 'log-1' },
           },
         ],
         orderedVisibleLogIds: ['log-1'],
         isSelectionResolved: true,
         isLoading: false,
         isFetching: false,
-        error: null,
+        failureMode: null,
         refresh: vi.fn(),
       }),
     }
@@ -432,6 +430,18 @@ describe('MonitorPage', () => {
     }
 
     return button
+  }
+
+  const findTab = (label: string) => {
+    const tab = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[role="tab"]')
+    ).find((node) => node.textContent?.includes(label))
+
+    if (!tab) {
+      throw new Error(`Expected tab "${label}" to render`)
+    }
+
+    return tab
   }
 
   const click = async (label: string) => {
@@ -796,11 +806,10 @@ describe('MonitorPage', () => {
 
     await waitForText('Loading monitor requirements...')
 
-    const configModeButton = Array.from(container.querySelectorAll('button[role="tab"]')).find(
-      (node) => node.textContent?.includes('Config')
-    )
-    expect(configModeButton).toBeInstanceOf(HTMLButtonElement)
-    expect((configModeButton as HTMLButtonElement).disabled).toBe(true)
+    const configModeButton = findTab('Config')
+    expect(configModeButton.getAttribute('aria-disabled')).toBe('true')
+    expect(configModeButton.disabled).toBe(false)
+    expect(configModeButton.getAttribute('aria-selected')).toBe('true')
   })
 
   it('keeps quick filters in monitor state instead of the header query text', async () => {
@@ -1073,9 +1082,16 @@ describe('MonitorPage', () => {
     await click('Delete Config')
 
     expect(findButton('Create view').disabled).toBe(true)
-    expect(findButton('Executions').disabled).toBe(true)
-    expect(findButton('Config').disabled).toBe(true)
     expect(findButton('Refresh monitor workspace').disabled).toBe(true)
+    const executionsTab = findTab('Executions')
+    const configTab = findTab('Config')
+    expect(executionsTab.getAttribute('aria-disabled')).toBe('true')
+    expect(configTab.getAttribute('aria-disabled')).toBe('true')
+    await act(async () => {
+      executionsTab.click()
+    })
+    expect(configTab.getAttribute('aria-selected')).toBe('true')
+    expect(executionsTab.getAttribute('aria-selected')).toBe('false')
 
     await act(async () => {
       resolveRemove?.()
@@ -1175,8 +1191,15 @@ describe('MonitorPage', () => {
     await click('Refresh monitor workspace')
 
     expect(findButton('Create view').disabled).toBe(true)
-    expect(findButton('Config').disabled).toBe(true)
     expect(findButton('Refresh monitor workspace').disabled).toBe(true)
+    const executionsTab = findTab('Executions')
+    const configTab = findTab('Config')
+    expect(configTab.getAttribute('aria-disabled')).toBe('true')
+    await act(async () => {
+      configTab.click()
+    })
+    expect(executionsTab.getAttribute('aria-selected')).toBe('true')
+    expect(configTab.getAttribute('aria-selected')).toBe('false')
     expect(container.textContent).not.toContain('New monitor')
 
     await act(async () => {

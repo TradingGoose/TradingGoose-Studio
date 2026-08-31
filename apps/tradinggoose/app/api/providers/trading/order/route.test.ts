@@ -79,8 +79,12 @@ beforeAll(async () => {
 })
 
 const stockListing = {
-  listing_type: 'default',
-  listing_id: 'AAPL',
+  listingIdentity: {
+    listing_type: 'default',
+    listing_id: 'AAPL',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'AAPL',
   quote: 'USD',
   assetClass: 'stock',
@@ -89,11 +93,17 @@ const stockListing = {
 const bareStockListing = {
   listing_type: 'default',
   listing_id: 'AAPL',
+  base_id: '',
+  quote_id: '',
 }
 
 const etfListing = {
-  listing_type: 'default',
-  listing_id: 'SPY',
+  listingIdentity: {
+    listing_type: 'default',
+    listing_id: 'SPY',
+    base_id: '',
+    quote_id: '',
+  },
   base: 'SPY',
   quote: 'USD',
   assetClass: 'etf',
@@ -317,7 +327,12 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createProviderOrderRequest('tradier', {
-        listing: { listing_type: 'default', listing_id: 'UNKNOWN', base: 'UNKNOWN' },
+        listing: {
+          listing_type: 'default',
+          listing_id: 'UNKNOWN',
+          base_id: '',
+          quote_id: '',
+        },
       })
     )
 
@@ -334,6 +349,24 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createProviderOrderRequest('tradier', {
         listing: 'AAPL',
+      })
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({ error: 'Invalid request data' })
+    expect(mockGetSession).not.toHaveBeenCalled()
+    expectNoAccountDiscoveryOrBrokerCall()
+  })
+
+  it('rejects enriched flat listing identities before auth or broker calls', async () => {
+    const { POST } = await import('@/app/api/providers/trading/order/route')
+    const response = await POST(
+      createProviderOrderRequest('tradier', {
+        listing: {
+          ...bareStockListing,
+          base: 'AAPL',
+          assetClass: 'stock',
+        },
       })
     )
 
@@ -789,7 +822,10 @@ describe('Trading provider order route', () => {
       createProviderOrderRequest('tradier', {
         listing: {
           ...stockListing,
-          listing_id: 'IGNORED',
+          listingIdentity: {
+            ...stockListing.listingIdentity,
+            listing_id: 'IGNORED',
+          },
           base: 'TSLA',
           marketCode: 'NASDAQ',
           countryCode: 'US',

@@ -30,16 +30,16 @@ export default function Timeline({ variant = 'default' }: TimelineProps = {}) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant='outline' size='sm' className={filterButtonClass}>
-          {timeRangeLabel(timeRange)}
-          <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
-        </Button>
+      <DropdownMenuTrigger
+        render={<Button variant='outline' size='sm' className={filterButtonClass} />}
+      >
+        {timeRangeLabel(timeRange)}
+        <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align={variant === 'header' ? 'end' : 'start'}
         side='bottom'
-        avoidCollisions={false}
+        collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
         sideOffset={4}
         className={dropdownContentClass}
       >
@@ -49,7 +49,7 @@ export default function Timeline({ variant = 'default' }: TimelineProps = {}) {
         >
           <DropdownMenuItem
             key='all'
-            onSelect={() => {
+            onClick={() => {
               setTimeRange('All time')
             }}
             className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
@@ -63,7 +63,7 @@ export default function Timeline({ variant = 'default' }: TimelineProps = {}) {
           {logTimeRangeOptions.map((range) => (
             <DropdownMenuItem
               key={range}
-              onSelect={() => {
+              onClick={() => {
                 setTimeRange(range)
               }}
               className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'

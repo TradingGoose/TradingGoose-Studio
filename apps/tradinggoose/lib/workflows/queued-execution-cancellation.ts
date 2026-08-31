@@ -2,10 +2,11 @@ import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import {
-  completePendingExecution,
   isPendingExecutionPayload,
+  PENDING_EXECUTION_CANCELLATION_ERROR,
   PENDING_EXECUTION_LOCK_NAMESPACE,
   type PendingExecutionPayload,
+  settlePendingExecutionOwner,
 } from '@/lib/execution/pending-execution'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import type {
@@ -104,7 +105,7 @@ async function recordQueuedWorkflowCancellation(params: {
   })
   await loggingSession.completeWithError({
     workspaceId: params.workspaceId,
-    error: { message: 'Workflow execution was cancelled' },
+    error: { message: PENDING_EXECUTION_CANCELLATION_ERROR },
     billable: false,
   })
 }
@@ -112,6 +113,7 @@ async function recordQueuedWorkflowCancellation(params: {
 export async function cancelPendingWorkflowExecution(params: {
   pendingExecutionId: string
   userId: string
+  wake?: boolean
 }): Promise<PendingExecutionCancellationResult> {
   const [row] = await db
     .select({
@@ -197,18 +199,17 @@ export async function cancelPendingWorkflowExecution(params: {
       throw error
     }
 
-    await completePendingExecution({ pendingExecutionId: claimed.id })
+    await settlePendingExecutionOwner(claimed, { wake: params.wake })
     return { status: 'cancelling' }
   }
 
   if (row.status === 'processing') {
-    const cancelledAt = new Date().toISOString()
-    const payload = withCancellationRequest(row.payload, cancelledAt)
+    const cancelRequestedAt = new Date().toISOString()
 
     const cancellingRows = await db
       .update(pendingExecution)
       .set({
-        payload,
+        payload: sql`${pendingExecution.payload} || jsonb_build_object('cancelRequestedAt', ${cancelRequestedAt})`,
         updatedAt: new Date(),
       })
       .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))

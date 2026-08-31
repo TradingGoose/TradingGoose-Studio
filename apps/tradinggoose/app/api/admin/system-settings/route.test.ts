@@ -14,6 +14,7 @@ const {
   mockIsTriggerConfigurationReady,
   mockUpsertSystemSettings,
   mockLogger,
+  MockTriggerExecutionBusyError,
 } = vi.hoisted(() => ({
   mockBackfillDefaultUserSubscriptions: vi.fn(),
   mockGetSystemAdminAccess: vi.fn(),
@@ -28,6 +29,14 @@ const {
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
+  },
+  MockTriggerExecutionBusyError: class TriggerExecutionBusyError extends Error {
+    code = 'trigger_execution_busy' as const
+
+    constructor() {
+      super('Trigger.dev execution mode cannot change while executions are queued or running.')
+      this.name = 'TriggerExecutionBusyError'
+    }
   },
 }))
 
@@ -55,6 +64,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/system-settings/service', () => ({
   getResolvedSystemSettings: mockGetResolvedSystemSettings,
+  TriggerExecutionBusyError: MockTriggerExecutionBusyError,
   upsertSystemSettings: mockUpsertSystemSettings,
 }))
 
@@ -347,6 +357,31 @@ describe('/api/admin/system-settings route', () => {
       code: ADMIN_ERROR_CODES.TRIGGER_NOT_READY,
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
+  })
+
+  it('rejects changing execution mode while work is queued or running', async () => {
+    mockGetResolvedSystemSettings.mockResolvedValueOnce({
+      settings: null,
+      registrationMode: 'open',
+      billingEnabled: false,
+      triggerDevEnabled: false,
+      allowPromotionCodes: true,
+      emailDomain: 'tradinggoose.ai',
+      fromEmailAddress: '',
+    })
+    mockUpsertSystemSettings.mockRejectedValueOnce(new MockTriggerExecutionBusyError())
+
+    const { PATCH } = await import('./route')
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/system-settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ triggerDevEnabled: true }),
+      }) as any
+    )
+
+    await expect(response.json()).resolves.toMatchObject({ code: 'trigger_execution_busy' })
+    expect(response.status).toBe(409)
+    expect(mockUpsertSystemSettings).toHaveBeenCalledWith({ triggerDevEnabled: true })
   })
 
   it('updates only targeted fields when Stripe is not configured', async () => {

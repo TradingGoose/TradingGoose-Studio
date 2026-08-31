@@ -65,7 +65,13 @@ vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => children,
   TooltipContent: ({ children }: { children: React.ReactNode }) => children,
   TooltipEnvironmentProvider: ({ children }: { children: React.ReactNode }) => children,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => children,
+  TooltipTrigger: ({
+    children,
+    render,
+  }: {
+    children?: React.ReactNode
+    render?: React.ReactNode
+  }) => <>{render ?? children}</>,
 }))
 
 vi.mock('@/hooks/workflow/use-workflow-editor-actions', () => ({

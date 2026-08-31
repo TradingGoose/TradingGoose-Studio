@@ -3,6 +3,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useCallback, useState } from 'react'
 import { Plus, X } from 'lucide-react'
+import { useMessages } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { formatDisplayText } from '@/components/ui/formatted-text'
@@ -42,6 +43,7 @@ export function McpServerForm({
   className,
   disabled = false,
 }: McpServerFormProps) {
+  const copy = useMessages().workspace.widgets.mcpEditor
   const [showEnvVars, setShowEnvVars] = useState(false)
   const [envSearchTerm, setEnvSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
@@ -174,7 +176,11 @@ export function McpServerForm({
 
   return (
     <div className={cn('w-full rounded-md border bg-background shadow-xs', className)}>
-      <fieldset disabled={disabled} className='space-y-4 border-0 p-0'>
+      <fieldset
+        disabled={disabled}
+        className='space-y-4 border-0 p-0'
+        aria-busy={isTestingConnection || undefined}
+      >
         <div>
           <Label htmlFor='server-name'>Server Name</Label>
           <Input
@@ -207,9 +213,16 @@ export function McpServerForm({
           <Label htmlFor='transport'>Transport Type</Label>
           <Select
             value={formData.transport}
-            onValueChange={(value: 'http' | 'sse' | 'streamable-http') => {
-              if (testResult) clearTestResult()
-              setFormData((prev) => ({ ...prev, transport: value }))
+            items={{
+              'streamable-http': 'Streamable HTTP',
+              http: 'HTTP',
+              sse: 'Server-Sent Events',
+            }}
+            onValueChange={(value) => {
+              if (value !== null) {
+                if (testResult) clearTestResult()
+                setFormData((prev) => ({ ...prev, transport: value }))
+              }
             }}
           >
             <SelectTrigger id='transport' className='h-9'>
@@ -513,13 +526,31 @@ export function McpServerForm({
 
         <div className='border-t pt-4'>
           {isTestingConnection ? (
-            <p className='text-muted-foreground text-xs'>Testing connection...</p>
+            <p
+              className='text-muted-foreground text-xs'
+              role='status'
+              aria-live='polite'
+              aria-atomic='true'
+            >
+              {copy.testingConnection}
+            </p>
           ) : testResult?.success ? (
-            <p className='text-green-600 text-xs'>Connection successful.</p>
+            <p
+              className='text-green-600 text-xs'
+              role='status'
+              aria-live='polite'
+              aria-atomic='true'
+            >
+              {copy.connectionSuccessful}
+            </p>
           ) : testResult ? (
-            <div className='rounded border border-red-200 bg-red-50 px-2 py-1.5 text-red-600 text-xs'>
-              <div className='font-medium'>Connection failed</div>
-              <div className='text-red-500'>{testResult.error || testResult.message}</div>
+            <div
+              className='rounded border border-red-200 bg-red-50 px-2 py-1.5 text-red-600 text-xs'
+              role='alert'
+              aria-atomic='true'
+            >
+              <div className='font-medium'>{copy.connectionFailed}</div>
+              <div className='text-red-500'>{copy.connectionFailedDescription}</div>
             </div>
           ) : (
             <p className='text-muted-foreground text-xs'>

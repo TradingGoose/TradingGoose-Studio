@@ -13,6 +13,7 @@ describe('thread-history', () => {
         role: MESSAGE_ROLES.USER,
         content: 'First prompt',
         timestamp: '2026-03-30T12:00:00.000Z',
+        contexts: [{ kind: 'docs', label: 'Docs' }],
       },
       {
         id: 'message-2',
@@ -45,6 +46,7 @@ describe('thread-history', () => {
           itemId: 'message-1',
           sequence: 0,
           messageRole: 'user',
+          contexts: [{ kind: 'docs', label: 'Docs' }],
         }),
         expect.objectContaining({
           itemId: 'message-2',

@@ -93,7 +93,6 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
   const [dragCounter, setDragCounter] = useState(0) // Track drag events to handle nested elements
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const dropZoneRef = useRef<HTMLDivElement>(null)
 
   const { uploadFiles, isUploading, uploadProgress, uploadError, clearError } = useKnowledgeUpload({
     workspaceId,
@@ -491,30 +490,33 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
 
                 {/* File Upload Section - Expands to fill remaining space */}
                 <div className='mt-6 flex flex-1 flex-col'>
-                  <Label className='mb-2'>{t('uploadDocuments')}</Label>
+                  <Label htmlFor='create-knowledge-files' className='mb-2'>
+                    {t('uploadDocuments')}
+                  </Label>
                   <div className='flex flex-1 flex-col'>
+                    <input
+                      ref={fileInputRef}
+                      id='create-knowledge-files'
+                      type='file'
+                      accept={ACCEPT_ATTRIBUTE}
+                      onChange={handleFileChange}
+                      className='hidden'
+                      multiple
+                    />
                     {files.length === 0 ? (
-                      <div
-                        ref={dropZoneRef}
+                      <button
+                        type='button'
                         onDragEnter={handleDragEnter}
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                         onClick={() => fileInputRef.current?.click()}
-                        className={`relative flex flex-1 cursor-pointer items-center justify-center rounded-lg border-[1.5px] border-dashed py-8 text-center transition-all duration-200 ${
+                        className={`relative flex w-full flex-1 cursor-pointer items-center justify-center rounded-lg border-[1.5px] border-dashed py-8 text-center transition-all duration-200 ${
                           isDragging
                             ? 'border-amber-300 bg-amber-50 shadow-sm'
                             : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/40'
                         }`}
                       >
-                        <input
-                          ref={fileInputRef}
-                          type='file'
-                          accept={ACCEPT_ATTRIBUTE}
-                          onChange={handleFileChange}
-                          className='hidden'
-                          multiple
-                        />
                         <div className='flex flex-col items-center gap-3'>
                           <div className='space-y-1'>
                             <p
@@ -527,31 +529,23 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                             <p className='text-muted-foreground text-xs'>{t('supportedFormats')}</p>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ) : (
                       <div className='flex flex-1 flex-col space-y-2'>
                         {/* Compact drop area at top of file list */}
-                        <div
-                          ref={dropZoneRef}
+                        <button
+                          type='button'
                           onDragEnter={handleDragEnter}
                           onDragOver={handleDragOver}
                           onDragLeave={handleDragLeave}
                           onDrop={handleDrop}
                           onClick={() => fileInputRef.current?.click()}
-                          className={`cursor-pointer rounded-md border border-dashed p-3 text-center transition-all duration-200 ${
+                          className={`w-full cursor-pointer rounded-md border border-dashed p-3 text-center transition-all duration-200 ${
                             isDragging
                               ? 'border-amber-300 bg-amber-50'
                               : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/40'
                           }`}
                         >
-                          <input
-                            ref={fileInputRef}
-                            type='file'
-                            accept={ACCEPT_ATTRIBUTE}
-                            onChange={handleFileChange}
-                            className='hidden'
-                            multiple
-                          />
                           <div className='flex items-center justify-center gap-2'>
                             <div>
                               <p
@@ -568,7 +562,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                               </p>
                             </div>
                           </div>
-                        </div>
+                        </button>
 
                         {/* File list */}
                         <div className='space-y-2'>
@@ -612,6 +606,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
                                 </div>
                                 <Button
                                   type='button'
+                                  aria-label={t('removeFile', { name: file.name })}
                                   variant='ghost'
                                   size='sm'
                                   onClick={() => removeFile(index)}

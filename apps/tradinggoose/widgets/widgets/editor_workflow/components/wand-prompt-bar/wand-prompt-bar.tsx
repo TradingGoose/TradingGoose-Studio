@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Send, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,7 @@ interface WandPromptBarProps {
   isVisible: boolean
   isLoading: boolean
   isStreaming: boolean
+  hasFailure: boolean
   promptValue: string
   onSubmit: (prompt: string) => void
   onCancel: () => void
@@ -21,6 +22,7 @@ export function WandPromptBar({
   isVisible,
   isLoading,
   isStreaming,
+  hasFailure,
   promptValue,
   onSubmit,
   onCancel,
@@ -31,6 +33,7 @@ export function WandPromptBar({
   const blockEditorCopy = useWorkflowBlockEditorCopy()
   const copy = blockEditorCopy.shortInput
   const promptBarRef = useRef<HTMLDivElement>(null)
+  const failureId = useId()
   const [isExiting, setIsExiting] = useState(false)
 
   // Handle the fade-out animation
@@ -112,6 +115,7 @@ export function WandPromptBar({
               }
             }}
             disabled={isLoading || isStreaming}
+            aria-describedby={hasFailure ? failureId : undefined}
             autoFocus={!isStreaming}
           />
         </div>
@@ -137,6 +141,17 @@ export function WandPromptBar({
           </Button>
         )}
       </div>
+
+      {hasFailure && (
+        <p
+          id={failureId}
+          role='alert'
+          aria-atomic='true'
+          className='px-3 pb-2 text-destructive text-xs'
+        >
+          {blockEditorCopy.wandPromptBar.generationFailed}
+        </p>
+      )}
 
       <style jsx global>{`
 

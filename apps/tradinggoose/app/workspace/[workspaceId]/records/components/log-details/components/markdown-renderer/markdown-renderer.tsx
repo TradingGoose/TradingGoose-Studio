@@ -5,17 +5,20 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 function LinkWithPreview({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Tooltip delayDuration={300}>
-      <TooltipTrigger asChild>
-        <a
-          href={href}
-          className='font-mono text-blue-600 text-sm underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
-          target='_blank'
-          rel='noopener noreferrer'
-        >
-          {children}
-        </a>
-      </TooltipTrigger>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <a
+            href={href}
+            className='font-mono text-blue-600 text-sm underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            {children}
+          </a>
+        }
+        delay={300}
+      />
       <TooltipContent side='top' align='center' sideOffset={5} className='max-w-sm p-3'>
         <span className='truncate font-medium text-xs'>{href}</span>
       </TooltipContent>

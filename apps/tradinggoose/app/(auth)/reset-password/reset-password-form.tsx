@@ -11,75 +11,16 @@ import { inter } from '@/app/fonts/inter'
 
 const primaryButtonClasses =
   'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
-
-interface RequestResetFormProps {
-  email: string
-  onEmailChange: (email: string) => void
-  onSubmit: (email: string) => Promise<void>
-  isSubmitting: boolean
-  statusType: 'success' | 'error' | null
-  statusMessage: string
-  className?: string
-}
-
-export function RequestResetForm({
-  email,
-  onEmailChange,
-  onSubmit,
-  isSubmitting,
-  statusType,
-  statusMessage,
-  className,
-}: RequestResetFormProps) {
-  const copy = useMessages().auth.resetPassword
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    onSubmit(email)
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className={cn(`${inter.className} space-y-8`, className)}>
-      <div className='space-y-6'>
-        <div className='space-y-2'>
-          <div className='flex items-center justify-between'>
-            <Label htmlFor='reset-email'>{copy.request.emailLabel}</Label>
-          </div>
-          <Input
-            id='reset-email'
-            value={email}
-            onChange={(e) => onEmailChange(e.target.value)}
-            placeholder={copy.request.emailPlaceholder}
-            type='email'
-            disabled={isSubmitting}
-            required
-            className='rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100'
-          />
-          <p className='text-muted-foreground text-sm'>{copy.request.helperText}</p>
-        </div>
-
-        {statusType && statusMessage && (
-          <div
-            className={cn('text-xs', statusType === 'success' ? 'text-[#4CAF50]' : 'text-red-400')}
-          >
-            <p>{statusMessage}</p>
-          </div>
-        )}
-      </div>
-
-      <Button type='submit' disabled={isSubmitting} className={primaryButtonClasses}>
-        {isSubmitting ? copy.request.submitting : copy.request.submit}
-      </Button>
-    </form>
-  )
-}
+const MIN_PASSWORD_LENGTH = 8
 
 interface SetNewPasswordFormProps {
   token: string | null
   onSubmit: (password: string) => Promise<void>
   isSubmitting: boolean
-  statusType: 'success' | 'error' | null
-  statusMessage: string
+  result: {
+    type: 'success' | 'error'
+    message: string
+  } | null
   className?: string
 }
 
@@ -87,8 +28,7 @@ export function SetNewPasswordForm({
   token,
   onSubmit,
   isSubmitting,
-  statusType,
-  statusMessage,
+  result,
   className,
 }: SetNewPasswordFormProps) {
   const copy = useMessages().auth.resetPassword
@@ -101,7 +41,7 @@ export function SetNewPasswordForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (password.length < 8) {
+    if (password.length < MIN_PASSWORD_LENGTH) {
       setValidationMessage(copy.setNew.validation.passwordTooShort)
       return
     }
@@ -116,7 +56,12 @@ export function SetNewPasswordForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className={cn(`${inter.className} space-y-8`, className)}>
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      aria-busy={isSubmitting}
+      className={cn(`${inter.className} space-y-8`, className)}
+    >
       <div className='space-y-6'>
         <div className='space-y-2'>
           <div className='flex items-center justify-between'>
@@ -129,9 +74,12 @@ export function SetNewPasswordForm({
               autoCapitalize='none'
               autoComplete='new-password'
               autoCorrect='off'
+              minLength={MIN_PASSWORD_LENGTH}
               disabled={isSubmitting || !token}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={Boolean(validationMessage)}
+              aria-describedby={validationMessage ? 'reset-password-error' : undefined}
               required
               placeholder={copy.setNew.passwordPlaceholder}
               className={cn(
@@ -164,6 +112,8 @@ export function SetNewPasswordForm({
               disabled={isSubmitting || !token}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              aria-invalid={Boolean(validationMessage)}
+              aria-describedby={validationMessage ? 'reset-password-error' : undefined}
               required
               placeholder={copy.setNew.confirmPasswordPlaceholder}
               className={cn(
@@ -184,24 +134,35 @@ export function SetNewPasswordForm({
         </div>
 
         {validationMessage && (
-          <div className='mt-1 space-y-1 text-red-400 text-xs'>
+          <div
+            id='reset-password-error'
+            role='alert'
+            className='mt-1 space-y-1 text-red-400 text-xs'
+          >
             <p>{validationMessage}</p>
           </div>
         )}
 
-        {statusType && statusMessage && (
+        {result ? (
           <div
+            role={result.type === 'error' ? 'alert' : 'status'}
+            aria-live={result.type === 'success' ? 'polite' : undefined}
             className={cn(
               'mt-1 space-y-1 text-xs',
-              statusType === 'success' ? 'text-[#4CAF50]' : 'text-red-400'
+              result.type === 'success' ? 'text-[#4CAF50]' : 'text-red-400'
             )}
           >
-            <p>{statusMessage}</p>
+            <p>{result.message}</p>
           </div>
-        )}
+        ) : null}
       </div>
 
-      <Button disabled={isSubmitting || !token} type='submit' className={primaryButtonClasses}>
+      <Button
+        disabled={isSubmitting || !token}
+        type='submit'
+        aria-busy={isSubmitting}
+        className={primaryButtonClasses}
+      >
         {isSubmitting ? copy.setNew.submitting : copy.setNew.submit}
       </Button>
     </form>

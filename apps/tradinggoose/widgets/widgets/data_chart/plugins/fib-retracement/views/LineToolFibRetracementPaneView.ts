@@ -162,9 +162,9 @@ export class LineToolFibRetracementPaneView<HorzScaleItem> extends LineToolPaneV
    * @private
    */
   private _getFadedColor(color: string, opacity: number): string {
-    let r = 0,
-      g = 0,
-      b = 0
+    let r = 0
+    let g = 0
+    let b = 0
 
     if (color.startsWith('#')) {
       const hex = color.slice(1)
@@ -315,7 +315,7 @@ export class LineToolFibRetracementPaneView<HorzScaleItem> extends LineToolPaneV
       const levelPrice = levelData.price
       const levelCoord = levelData.coordinate
 
-      if (levelCoord === null || !isFinite(levelCoord)) continue
+      if (levelCoord === null || !Number.isFinite(levelCoord)) continue
 
       // If the user added more levels dynamically, create new renderers now.
       if (!this._levelRenderers[i]) {

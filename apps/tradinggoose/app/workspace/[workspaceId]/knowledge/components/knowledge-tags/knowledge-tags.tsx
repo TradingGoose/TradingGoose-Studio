@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown, Plus, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
@@ -20,14 +20,13 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { MAX_TAG_SLOTS, TAG_SLOTS, type TagSlot } from '@/lib/knowledge/consts'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { DocumentTag } from '@/app/workspace/[workspaceId]/knowledge/components/document-tag-entry/document-tag-entry'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import {
   type TagDefinition,
   useKnowledgeBaseTagDefinitions,
 } from '@/hooks/use-knowledge-base-tag-definitions'
 import { useNextAvailableSlot } from '@/hooks/use-next-available-slot'
-import { type TagDefinitionInput, useTagDefinitions } from '@/hooks/use-tag-definitions'
+import { useTagDefinitions } from '@/hooks/use-tag-definitions'
 import { type DocumentData, useKnowledgeStore } from '@/stores/knowledge/store'
 
 const logger = createLogger('KnowledgeTags')
@@ -36,6 +35,15 @@ interface KnowledgeTagsProps {
   knowledgeBaseId: string
   documentId: string
 }
+
+interface DocumentTag {
+  slot: string
+  displayName: string
+  fieldType: string
+  value: string
+}
+
+type TagSaveState = 'idle' | 'saving' | 'error' | 'success'
 
 // Predetermined colors for each tag slot
 const TAG_SLOT_COLORS = [
@@ -55,6 +63,7 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
   const { getCachedDocuments, updateDocument: updateDocumentInStore } = useKnowledgeStore()
   const userPermissions = useUserPermissionsContext()
   const t = useTranslations('workspace.knowledge.tags')
+  const fieldIdPrefix = useId()
 
   // Use different hooks based on whether we have a documentId
   const documentTagHook = useTagDefinitions(knowledgeBaseId, documentId)
@@ -64,6 +73,8 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
   // Use the document-level hook since we have documentId
   const { saveTagDefinitions, tagDefinitions, fetchTagDefinitions } = documentTagHook
   const { tagDefinitions: kbTagDefinitions, fetchTagDefinitions: refreshTagDefinitions } = kbTagHook
+  const tagDefinitionError = documentTagHook.error || kbTagHook.error
+  const tagDefinitionsLoading = documentTagHook.isLoading || kbTagHook.isLoading
 
   const [documentTags, setDocumentTags] = useState<DocumentTag[]>([])
   const [documentData, setDocumentData] = useState<DocumentData | null>(null)
@@ -73,12 +84,19 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
   // Inline editing state
   const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null)
   const [isCreating, setIsCreating] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const [saveState, setSaveState] = useState<TagSaveState>('idle')
+  const saveInFlightRef = useRef(false)
+  const isSubmitting = saveState === 'saving'
   const [editForm, setEditForm] = useState({
     displayName: '',
     fieldType: 'text',
     value: '',
   })
+  const updateEditForm = (updates: Partial<typeof editForm>) => {
+    if (isSubmitting) return
+    setSaveState('idle')
+    setEditForm((current) => ({ ...current, ...updates }))
+  }
 
   // Function to build document tags from data and definitions
   const buildDocumentTags = useCallback(
@@ -151,15 +169,12 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
         // Update the document in the store and local state
         updateDocumentInStore(knowledgeBaseId, documentId, tagData)
         setDocumentData((prev) => (prev ? { ...prev, ...tagData } : null))
-
-        // Refresh tag definitions to update the display
-        await fetchTagDefinitions()
       } catch (error) {
         logger.error('Error updating document tags:', error)
         throw error // Re-throw so the component can handle it
       }
     },
-    [documentData, knowledgeBaseId, documentId, updateDocumentInStore, fetchTagDefinitions]
+    [documentData, knowledgeBaseId, documentId, updateDocumentInStore]
   )
 
   // Handle removing a tag
@@ -178,6 +193,8 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
 
   // Toggle inline editor for existing tag
   const toggleTagEditor = (index: number) => {
+    if (isSubmitting) return
+    setSaveState('idle')
     if (editingTagIndex === index) {
       // Already editing this tag - collapse it
       cancelEditing()
@@ -196,6 +213,8 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
 
   // Open inline creator for new tag
   const openTagCreator = () => {
+    if (isSubmitting) return
+    setSaveState('idle')
     setEditingTagIndex(null)
     setEditForm({
       displayName: '',
@@ -207,46 +226,70 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
 
   // Save tag (create or edit)
   const saveTag = async () => {
-    if (!editForm.displayName.trim() || !editForm.value.trim()) return
-
-    // Close the edit form immediately and set saving flag
-    const formData = { ...editForm }
-    const currentEditingIndex = editingTagIndex
-    // Capture original tag data before updating
-    const originalTag = currentEditingIndex !== null ? documentTags[currentEditingIndex] : null
-    setEditingTagIndex(null)
-    setIsCreating(false)
-    setIsSaving(true)
+    if (saveInFlightRef.current || !canSubmitTag) return
+    saveInFlightRef.current = true
 
     try {
+      const formData = { ...editForm }
+      const currentEditingIndex = editingTagIndex
+      const originalTag = currentEditingIndex !== null ? documentTags[currentEditingIndex] : null
+      setSaveState('saving')
       let targetSlot: string
+      let definitionChanged = false
 
       if (currentEditingIndex !== null && originalTag) {
-        // EDIT MODE: Editing existing tag - use existing slot
-        targetSlot = originalTag.slot
+        const currentDefinition = kbTagDefinitions.find(
+          (definition) => definition.tagSlot === originalTag.slot
+        )
+        if (!currentDefinition) throw new Error('Tag definition not found')
+        targetSlot = currentDefinition.tagSlot
+
+        if (currentDefinition.displayName !== formData.displayName) {
+          const result = await saveTagDefinitions([
+            {
+              displayName: formData.displayName,
+              fieldType: currentDefinition.fieldType,
+              tagSlot: currentDefinition.tagSlot,
+              _originalDisplayName: currentDefinition.displayName,
+            },
+          ])
+          const updatedDefinition = result.updated[0]
+          if (!updatedDefinition) throw new Error('Updated tag definition missing from response')
+          targetSlot = updatedDefinition.tagSlot
+          definitionChanged = true
+        }
       } else {
-        // CREATE MODE: Check if using existing definition or creating new one
         const existingDefinition = kbTagDefinitions.find(
           (def) => def.displayName.toLowerCase() === formData.displayName.toLowerCase()
         )
 
         if (existingDefinition) {
-          // Using existing definition - use its slot
           targetSlot = existingDefinition.tagSlot
         } else {
-          // Creating new definition - get next available slot from server
           const serverSlot = await getServerNextSlot(formData.fieldType)
           if (!serverSlot) {
             throw new Error(`No available slots for new tag of type '${formData.fieldType}'`)
           }
-          targetSlot = serverSlot
+          const result = await saveTagDefinitions([
+            {
+              displayName: formData.displayName,
+              fieldType: formData.fieldType,
+              tagSlot: serverSlot as TagSlot,
+            },
+          ])
+          const createdDefinition = result.created[0]
+          if (!createdDefinition) throw new Error('Created tag definition missing from response')
+          targetSlot = createdDefinition.tagSlot
+          definitionChanged = true
         }
       }
 
-      // Update the tags array
+      if (definitionChanged) {
+        await Promise.all([fetchTagDefinitions(), refreshTagDefinitions()])
+      }
+
       let updatedTags: DocumentTag[]
       if (currentEditingIndex !== null) {
-        // Editing existing tag
         updatedTags = [...documentTags]
         updatedTags[currentEditingIndex] = {
           ...updatedTags[currentEditingIndex],
@@ -255,73 +298,38 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
           value: formData.value,
         }
       } else {
-        // Creating new tag
-        const newTag: DocumentTag = {
-          slot: targetSlot,
-          displayName: formData.displayName,
-          fieldType: formData.fieldType,
-          value: formData.value,
-        }
-        updatedTags = [...documentTags, newTag]
-      }
-
-      handleTagsChange(updatedTags)
-
-      // Handle tag definition creation/update based on edit mode
-      if (currentEditingIndex !== null && originalTag) {
-        // EDIT MODE: Always update existing definition, never create new slots
-        const currentDefinition = kbTagDefinitions.find(
-          (def) => def.displayName.toLowerCase() === originalTag.displayName.toLowerCase()
-        )
-
-        if (currentDefinition) {
-          const updatedDefinition: TagDefinitionInput = {
-            displayName: formData.displayName,
-            fieldType: currentDefinition.fieldType, // Keep existing field type (can't change in edit mode)
-            tagSlot: currentDefinition.tagSlot, // Keep existing slot
-            _originalDisplayName: originalTag.displayName, // Tell server which definition to update
-          }
-
-          if (saveTagDefinitions) {
-            await saveTagDefinitions([updatedDefinition])
-          }
-          await refreshTagDefinitions()
-        }
-      } else {
-        // CREATE MODE: Adding new tag
-        const existingDefinition = kbTagDefinitions.find(
-          (def) => def.displayName.toLowerCase() === formData.displayName.toLowerCase()
-        )
-
-        if (!existingDefinition) {
-          // Create new definition
-          const newDefinition: TagDefinitionInput = {
+        updatedTags = [
+          ...documentTags,
+          {
+            slot: targetSlot,
             displayName: formData.displayName,
             fieldType: formData.fieldType,
-            tagSlot: targetSlot as TagSlot,
-          }
-
-          if (saveTagDefinitions) {
-            await saveTagDefinitions([newDefinition])
-          }
-          await refreshTagDefinitions()
-        }
+            value: formData.value,
+          },
+        ]
       }
 
-      // Save the actual document tags
       await handleSaveDocumentTags(updatedTags)
-
-      // Reset form
+      handleTagsChange(updatedTags)
+      setEditingTagIndex(null)
+      setIsCreating(false)
       setEditForm({
         displayName: '',
         fieldType: 'text',
         value: '',
       })
+      setSaveState('success')
     } catch (error) {
       logger.error('Error saving tag:', error)
+      setSaveState('error')
     } finally {
-      setIsSaving(false)
+      saveInFlightRef.current = false
     }
+  }
+
+  const handleTagSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    void saveTag()
   }
 
   // Check if tag name already exists on this document
@@ -346,6 +354,8 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
   }
 
   const cancelEditing = () => {
+    if (isSubmitting) return
+    setSaveState('idle')
     setEditForm({
       displayName: '',
       fieldType: 'text',
@@ -415,11 +425,11 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
 
   // Separate effect to rebuild tags when tag definitions change (without re-fetching document)
   useEffect(() => {
-    if (documentData && !isSaving) {
+    if (documentData && !isSubmitting) {
       const rebuiltTags = buildDocumentTags(documentData, tagDefinitions, documentTags)
       setDocumentTags(rebuiltTags)
     }
-  }, [documentData, tagDefinitions, buildDocumentTags, isSaving])
+  }, [documentData, tagDefinitions, buildDocumentTags, isSubmitting])
 
   if (isLoadingDocument) {
     return (
@@ -455,168 +465,262 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
   }
 
   // Check if save should be enabled
-  const canSave =
-    editForm.displayName.trim() && editForm.value.trim() && !nameConflict && hasChanges()
+  const matchingDefinition = kbTagDefinitions.find(
+    (definition) =>
+      definition.displayName.toLowerCase() === editForm.displayName.trim().toLowerCase()
+  )
+  const slotAvailable =
+    editingTagIndex !== null ||
+    kbTagDefinitions.length < MAX_TAG_SLOTS ||
+    Boolean(matchingDefinition)
+  const canSubmitTag = Boolean(
+    !isSubmitting &&
+      editForm.displayName.trim() &&
+      editForm.value.trim() &&
+      !nameConflict &&
+      hasChanges() &&
+      slotAvailable
+  )
+  const createNameId = `${fieldIdPrefix}-create-name`
+  const createNameErrorId = `${createNameId}-error`
+  const createTypeId = `${fieldIdPrefix}-create-type`
+  const createValueId = `${fieldIdPrefix}-create-value`
 
   return (
-    <div className='h-full w-full overflow-hidden'>
+    <div className='h-full w-full overflow-hidden' aria-busy={isSubmitting || undefined}>
       <ScrollArea className='h-full' hideScrollbar={true}>
         <div className='px-2 py-2'>
-          {/* Document Tags Section */}
           <div className='mb-1 space-y-1'>
-            <div className='font-medium text-muted-foreground text-xs'>{t('documentTagsTitle')}</div>
+            <div className='font-medium text-muted-foreground text-xs'>
+              {t('documentTagsTitle')}
+            </div>
+            {tagDefinitionError ? (
+              <div className='space-y-2'>
+                <p role='alert' aria-atomic='true' className='text-destructive text-xs'>
+                  {t('definitionsLoadFailed')}
+                </p>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  disabled={tagDefinitionsLoading}
+                  focusableWhenDisabled={tagDefinitionsLoading}
+                  aria-busy={tagDefinitionsLoading || undefined}
+                  onClick={() => {
+                    void Promise.all([fetchTagDefinitions(), refreshTagDefinitions()])
+                  }}
+                >
+                  {tagDefinitionsLoading ? t('retrying') : t('retry')}
+                </Button>
+              </div>
+            ) : tagDefinitionsLoading ? (
+              <p
+                role='status'
+                aria-live='polite'
+                aria-atomic='true'
+                aria-busy='true'
+                className='text-muted-foreground text-xs'
+              >
+                {t('loadingDefinitions')}
+              </p>
+            ) : null}
+            {saveState !== 'idle' ? (
+              <div
+                className={
+                  saveState === 'error'
+                    ? 'text-destructive text-xs'
+                    : 'text-muted-foreground text-xs'
+                }
+                role={saveState === 'error' ? 'alert' : 'status'}
+                aria-atomic='true'
+              >
+                {saveState === 'saving'
+                  ? t('savingTag')
+                  : saveState === 'success'
+                    ? t('tagSaved')
+                    : t('tagSaveFailed')}
+              </div>
+            ) : null}
             <div>
-              {/* Existing Tags */}
               <div>
                 {documentTags.map((tag, index) => {
+                  const nameId = `${fieldIdPrefix}-${tag.slot}-name`
+                  const nameErrorId = `${nameId}-error`
+                  const typeId = `${fieldIdPrefix}-${tag.slot}-type`
+                  const valueId = `${fieldIdPrefix}-${tag.slot}-value`
+
                   return (
-                    <div key={index} className='mb-1'>
-                      <div
-                        className={`cursor-pointer rounded-md border bg-card transition-colors ${editingTagIndex === index ? 'space-y-2 p-2' : 'p-2'}`}
-                        onClick={() => userPermissions.canEdit && toggleTagEditor(index)}
-                      >
-                        {/* Always show the tag display */}
-                        <div className='flex items-center justify-between text-sm'>
-                          <div className='flex min-w-0 flex-1 items-center gap-2'>
-                            <div
+                    <div
+                      key={tag.slot}
+                      className={`mb-1 rounded-md border bg-card transition-colors ${
+                        editingTagIndex === index ? 'space-y-2 p-2' : 'p-2'
+                      }`}
+                    >
+                      <div className='flex items-center justify-between gap-1 text-sm'>
+                        {userPermissions.canEdit ? (
+                          <button
+                            type='button'
+                            aria-expanded={editingTagIndex === index}
+                            disabled={isSubmitting}
+                            onClick={() => toggleTagEditor(index)}
+                            className='flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                          >
+                            <span
                               className='h-2 w-2 rounded-full'
                               style={{ backgroundColor: getTagColor(tag.slot) }}
                             />
-                            <div className='truncate font-medium'>{tag.displayName}</div>
+                            <span className='truncate font-medium'>{tag.displayName}</span>
+                          </button>
+                        ) : (
+                          <div className='flex min-w-0 flex-1 items-center gap-2'>
+                            <span
+                              className='h-2 w-2 rounded-full'
+                              style={{ backgroundColor: getTagColor(tag.slot) }}
+                            />
+                            <span className='truncate font-medium'>{tag.displayName}</span>
                           </div>
-                          {userPermissions.canEdit && (
-                            <Button
-                              variant='ghost'
-                              size='sm'
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleRemoveTag(index)
-                              }}
-                              className='h-6 w-6 p-0 text-muted-foreground hover:text-red-600'
-                            >
-                              <X className='h-3 w-3' />
-                            </Button>
-                          )}
-                        </div>
+                        )}
+                        {userPermissions.canEdit ? (
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            aria-label={t('removeTag', { name: tag.displayName })}
+                            disabled={isSubmitting}
+                            onClick={() => handleRemoveTag(index)}
+                            className='h-6 w-6 p-0 text-muted-foreground hover:text-red-600'
+                          >
+                            <X className='h-3 w-3' />
+                          </Button>
+                        ) : null}
+                      </div>
 
-                        {/* Show edit form when this tag is being edited */}
-                        {editingTagIndex === index && (
-                          <div className='space-y-1.5' onClick={(e) => e.stopPropagation()}>
-                            <div className='space-y-1.5'>
-                              <Label className='font-medium text-xs'>{t('tagName')}</Label>
-                              <div className='flex gap-1.5'>
-                                <Input
-                                  value={editForm.displayName}
-                                  onChange={(e) =>
-                                    setEditForm({ ...editForm, displayName: e.target.value })
-                                  }
-                                  placeholder={t('enterTagName')}
-                                  className='h-8 min-w-0 flex-1 rounded-md text-sm'
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && canSave) {
-                                      e.preventDefault()
-                                      saveTag()
-                                    }
-                                    if (e.key === 'Escape') {
-                                      e.preventDefault()
-                                      cancelEditing()
-                                    }
-                                  }}
-                                />
-                                {availableDefinitions.length > 0 && (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant='outline'
-                                        size='sm'
-                                        className='h-8 w-7 flex-shrink-0 p-0'
-                                      >
-                                        <ChevronDown className='h-3 w-3' />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                      align='end'
-                                      className='w-[160px] rounded-lg border bg-card shadow-xs'
-                                    >
-                                      {availableDefinitions.map((def) => (
-                                        <DropdownMenuItem
-                                          key={def.id}
-                                          onClick={() =>
-                                            setEditForm({
-                                              ...editForm,
-                                              displayName: def.displayName,
-                                              fieldType: def.fieldType,
-                                            })
-                                          }
-                                          className='cursor-pointer rounded-md px-3 py-2 text-sm hover:bg-secondary/50'
-                                        >
-                                          {def.displayName}
-                                        </DropdownMenuItem>
-                                      ))}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                )}
-                              </div>
-                              {nameConflict && (
-                                <div className='text-red-600 text-xs'>
-                                  A tag with this name already exists on this document
-                                </div>
-                              )}
-                            </div>
-
-                            <div className='space-y-1.5'>
-                              <Label className='font-medium text-xs'>{t('type')}</Label>
-                              <Select
-                                value={editForm.fieldType}
-                                onValueChange={(value) =>
-                                  setEditForm({ ...editForm, fieldType: value })
-                                }
-                                disabled={editingTagIndex !== null} // Disable in edit mode
-                              >
-                                <SelectTrigger className='h-8 w-full text-sm'>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value='text'>{t('text')}</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className='space-y-1.5'>
-                              <Label className='font-medium text-xs'>{t('value')}</Label>
+                      {editingTagIndex === index ? (
+                        <form className='space-y-1.5' onSubmit={handleTagSubmit}>
+                          <div className='space-y-1.5'>
+                            <Label htmlFor={nameId} className='font-medium text-xs'>
+                              {t('tagName')}
+                            </Label>
+                            <div className='flex gap-1.5'>
                               <Input
-                                value={editForm.value}
-                                onChange={(e) =>
-                                  setEditForm({ ...editForm, value: e.target.value })
+                                id={nameId}
+                                value={editForm.displayName}
+                                onChange={(event) =>
+                                  updateEditForm({ displayName: event.target.value })
                                 }
-                                placeholder={t('enterTagValue')}
-                                className='h-8 w-full rounded-md text-sm'
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && canSave) {
-                                    e.preventDefault()
-                                    saveTag()
-                                  }
-                                  if (e.key === 'Escape') {
-                                    e.preventDefault()
+                                aria-invalid={nameConflict || undefined}
+                                aria-describedby={nameConflict ? nameErrorId : undefined}
+                                disabled={isSubmitting}
+                                required={true}
+                                placeholder={t('enterTagName')}
+                                className='h-8 min-w-0 flex-1 rounded-md text-sm'
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Escape') {
+                                    event.preventDefault()
                                     cancelEditing()
                                   }
                                 }}
                               />
+                              {availableDefinitions.length > 0 ? (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger
+                                    render={
+                                      <Button
+                                        type='button'
+                                        variant='outline'
+                                        size='sm'
+                                        aria-label={t('useExistingTag')}
+                                        disabled={isSubmitting}
+                                        className='h-8 w-7 flex-shrink-0 p-0'
+                                      />
+                                    }
+                                  >
+                                    <ChevronDown className='h-3 w-3' />
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align='end'
+                                    className='w-[160px] rounded-lg border bg-card shadow-xs'
+                                  >
+                                    {availableDefinitions.map((definition) => (
+                                      <DropdownMenuItem
+                                        key={definition.id}
+                                        onClick={() =>
+                                          updateEditForm({
+                                            displayName: definition.displayName,
+                                            fieldType: definition.fieldType,
+                                          })
+                                        }
+                                        className='cursor-pointer rounded-md px-3 py-2 text-sm hover:bg-secondary/50'
+                                      >
+                                        {definition.displayName}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              ) : null}
                             </div>
-
-                            <div className='pt-1'>
-                              <Button
-                                onClick={saveTag}
-                                size='sm'
-                                className='h-7 w-full text-xs'
-                                disabled={!canSave}
-                              >
-                                {t('saveChanges')}
-                              </Button>
-                            </div>
+                            {nameConflict ? (
+                              <div id={nameErrorId} className='text-red-600 text-xs'>
+                                {t('tagNameExists')}
+                              </div>
+                            ) : null}
                           </div>
-                        )}
-                      </div>
+
+                          <div className='space-y-1.5'>
+                            <Label htmlFor={typeId} className='font-medium text-xs'>
+                              {t('type')}
+                            </Label>
+                            <Select
+                              value={editForm.fieldType}
+                              items={[{ value: 'text', label: t('text') }]}
+                              onValueChange={(value) => {
+                                if (value !== null) {
+                                  updateEditForm({ fieldType: value })
+                                }
+                              }}
+                              disabled
+                            >
+                              <SelectTrigger id={typeId} className='h-8 w-full text-sm'>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value='text'>{t('text')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className='space-y-1.5'>
+                            <Label htmlFor={valueId} className='font-medium text-xs'>
+                              {t('value')}
+                            </Label>
+                            <Input
+                              id={valueId}
+                              value={editForm.value}
+                              onChange={(event) => updateEditForm({ value: event.target.value })}
+                              disabled={isSubmitting}
+                              required={true}
+                              placeholder={t('enterTagValue')}
+                              className='h-8 w-full rounded-md text-sm'
+                              onKeyDown={(event) => {
+                                if (event.key === 'Escape') {
+                                  event.preventDefault()
+                                  cancelEditing()
+                                }
+                              }}
+                            />
+                          </div>
+
+                          <div className='pt-1'>
+                            <Button
+                              type='submit'
+                              size='sm'
+                              className='h-7 w-full text-xs'
+                              disabled={!canSubmitTag}
+                            >
+                              {t('saveChanges')}
+                            </Button>
+                          </div>
+                        </form>
+                      ) : null}
                     </div>
                   )
                 })}
@@ -628,7 +732,6 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                 </div>
               )}
 
-              {/* Add New Tag Button or Inline Creator */}
               {!isEditing && userPermissions.canEdit && (
                 <div className='mb-1'>
                   <Button
@@ -637,7 +740,9 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                     onClick={openTagCreator}
                     className='w-full justify-start gap-2 rounded-md border border-dashed bg-card text-muted-foreground hover:text-foreground'
                     disabled={
-                      kbTagDefinitions.length >= MAX_TAG_SLOTS && availableDefinitions.length === 0
+                      isSubmitting ||
+                      (kbTagDefinitions.length >= MAX_TAG_SLOTS &&
+                        availableDefinitions.length === 0)
                     }
                   >
                     <Plus className='h-4 w-4' />
@@ -646,15 +751,22 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                 </div>
               )}
 
-              {/* Inline Tag Creation Form */}
               {isCreating && (
-                <div className='mb-1 w-full max-w-full space-y-2 rounded-md border bg-card p-2'>
+                <form
+                  className='mb-1 w-full max-w-full space-y-2 rounded-md border bg-card p-2'
+                  onSubmit={handleTagSubmit}
+                >
                   <div className='space-y-1.5'>
                     <div className='flex items-center justify-between'>
-                      <Label className='font-medium text-xs'>{t('tagName')}</Label>
+                      <Label htmlFor={createNameId} className='font-medium text-xs'>
+                        {t('tagName')}
+                      </Label>
                       <Button
+                        type='button'
                         variant='ghost'
                         size='sm'
+                        aria-label={t('cancel')}
+                        disabled={isSubmitting}
                         onClick={cancelEditing}
                         className='h-6 w-6 p-0 text-muted-foreground hover:text-red-600'
                       >
@@ -663,15 +775,16 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                     </div>
                     <div className='flex gap-1.5'>
                       <Input
+                        id={createNameId}
                         value={editForm.displayName}
-                        onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+                        onChange={(event) => updateEditForm({ displayName: event.target.value })}
+                        aria-invalid={nameConflict || undefined}
+                        aria-describedby={nameConflict ? createNameErrorId : undefined}
+                        disabled={isSubmitting}
+                        required={true}
                         placeholder={t('enterTagName')}
                         className='h-8 min-w-0 flex-1 rounded-md text-sm'
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && canSave) {
-                            e.preventDefault()
-                            saveTag()
-                          }
                           if (e.key === 'Escape') {
                             e.preventDefault()
                             cancelEditing()
@@ -680,14 +793,19 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                       />
                       {availableDefinitions.length > 0 && (
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant='outline'
-                              size='sm'
-                              className='h-8 w-7 flex-shrink-0 p-0'
-                            >
-                              <ChevronDown className='h-3 w-3' />
-                            </Button>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='sm'
+                                aria-label={t('useExistingTag')}
+                                disabled={isSubmitting}
+                                className='h-8 w-7 flex-shrink-0 p-0'
+                              />
+                            }
+                          >
+                            <ChevronDown className='h-3 w-3' />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align='end'
@@ -697,8 +815,7 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                               <DropdownMenuItem
                                 key={def.id}
                                 onClick={() =>
-                                  setEditForm({
-                                    ...editForm,
+                                  updateEditForm({
                                     displayName: def.displayName,
                                     fieldType: def.fieldType,
                                   })
@@ -713,19 +830,25 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                       )}
                     </div>
                     {nameConflict && (
-                      <div className='text-red-600 text-xs'>
-                        A tag with this name already exists on this document
+                      <div id={createNameErrorId} className='text-red-600 text-xs'>
+                        {t('tagNameExists')}
                       </div>
                     )}
                   </div>
 
                   <div className='space-y-1.5'>
-                    <Label className='font-medium text-xs'>{t('type')}</Label>
+                    <Label htmlFor={createTypeId} className='font-medium text-xs'>
+                      {t('type')}
+                    </Label>
                     <Select
                       value={editForm.fieldType}
-                      onValueChange={(value) => setEditForm({ ...editForm, fieldType: value })}
+                      items={[{ value: 'text', label: t('text') }]}
+                      onValueChange={(value) => {
+                        if (value !== null) updateEditForm({ fieldType: value })
+                      }}
+                      disabled={isSubmitting}
                     >
-                      <SelectTrigger className='h-8 w-full text-sm'>
+                      <SelectTrigger id={createTypeId} className='h-8 w-full text-sm'>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -735,17 +858,18 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                   </div>
 
                   <div className='space-y-1.5'>
-                    <Label className='font-medium text-xs'>{t('value')}</Label>
+                    <Label htmlFor={createValueId} className='font-medium text-xs'>
+                      {t('value')}
+                    </Label>
                     <Input
+                      id={createValueId}
                       value={editForm.value}
-                      onChange={(e) => setEditForm({ ...editForm, value: e.target.value })}
+                      onChange={(event) => updateEditForm({ value: event.target.value })}
+                      disabled={isSubmitting}
+                      required={true}
                       placeholder={t('enterTagValue')}
                       className='h-8 w-full rounded-md text-sm'
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && canSave) {
-                          e.preventDefault()
-                          saveTag()
-                        }
                         if (e.key === 'Escape') {
                           e.preventDefault()
                           cancelEditing()
@@ -754,40 +878,35 @@ export function KnowledgeTags({ knowledgeBaseId, documentId }: KnowledgeTagsProp
                     />
                   </div>
 
-                  {/* Warning when at max slots */}
                   {kbTagDefinitions.length >= MAX_TAG_SLOTS && (
                     <div className='rounded-md border border-yellow-200 bg-yellow-50 p-2 dark:border-yellow-800 dark:bg-yellow-950'>
-                      <div className='text-yellow-800 text-xs dark:text-yellow-200'>
+                      <div className='text-xs text-yellow-800 dark:text-yellow-200'>
                         <span className='font-medium'>{t('maximumTagDefinitionsReached')}</span>
                       </div>
-                      <p className='text-yellow-700 text-xs dark:text-yellow-300'>
-                        You can still use existing tag definitions, but cannot create new ones.
+                      <p className='text-xs text-yellow-700 dark:text-yellow-300'>
+                        {t('maximumTagDefinitionsHelp')}
                       </p>
                     </div>
                   )}
 
                   <div className='pt-2'>
                     <Button
-                      onClick={saveTag}
+                      type='submit'
                       size='sm'
                       className='h-7 w-full text-xs'
-                      disabled={
-                        !canSave ||
-                        (kbTagDefinitions.length >= MAX_TAG_SLOTS &&
-                          !kbTagDefinitions.find(
-                            (def) =>
-                              def.displayName.toLowerCase() === editForm.displayName.toLowerCase()
-                          ))
-                      }
+                      disabled={!canSubmitTag}
                     >
-                      Create Tag
+                      {t('createNewTag')}
                     </Button>
                   </div>
-                </div>
+                </form>
               )}
 
               <div className='mt-2 text-muted-foreground text-xs'>
-                {kbTagDefinitions.length} of {MAX_TAG_SLOTS} tag slots used
+                {t('slotsUsed', {
+                  used: kbTagDefinitions.length,
+                  total: MAX_TAG_SLOTS,
+                })}
               </div>
             </div>
           </div>

@@ -111,24 +111,28 @@ export function CopyToWorkspace({
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type='button'
-              className='inline-flex h-7 w-7 items-center justify-center gap-2 rounded-md p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
-              disabled={disabled || isLoading || isCopying}
-              aria-label={t('button')}
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type='button'
+                  className='inline-flex h-7 w-7 items-center justify-center gap-2 rounded-md p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
+                  disabled={disabled || isLoading || isCopying}
+                  aria-label={t('button')}
+                />
+              }
             >
               <CopyPlus className='h-3.5 w-3.5' />
-            </button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
+            </DropdownMenuTrigger>
+          }
+        />
         <TooltipContent side='top'>{t('tooltip')}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
         align='end'
         side='bottom'
-        avoidCollisions={false}
+        collisionAvoidance={{ side: 'none', align: 'none', fallbackAxisSide: 'none' }}
         sideOffset={4}
         className={dropdownContentClass}
       >

@@ -4,10 +4,7 @@
  * @vitest-environment node
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  createMockRequest,
-  mockExecutionDependencies,
-} from '@/app/api/__test-utils__/utils'
+import { createMockRequest, mockExecutionDependencies } from '@/app/api/__test-utils__/utils'
 
 describe('Schedule Configuration API Route', () => {
   beforeEach(() => {

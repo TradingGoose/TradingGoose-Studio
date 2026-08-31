@@ -48,9 +48,7 @@ export class PlanClientTool extends BaseClientTool {
           const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
           const storeApi = getCopilotStoreForToolCall(this.toolCallId)
           const store = storeApi.getState()
-          if (store.setPlanTodos) {
-            store.setPlanTodos(todos)
-          }
+          store.setPlanTodos(todos)
         }
       } catch (e) {
         logger.warn('Failed to update plan todos in store', { message: (e as any)?.message })

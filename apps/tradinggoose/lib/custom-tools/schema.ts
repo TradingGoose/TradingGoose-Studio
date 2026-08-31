@@ -72,9 +72,7 @@ export const CustomToolTransferSchema = z
   .strict()
 
 export const CustomToolCreateRequestSchema = z.object({
-  workspaceId: z
-    .string({ error: 'workspaceId is required' })
-    .min(1, 'workspaceId is required'),
+  workspaceId: z.string({ error: 'workspaceId is required' }).min(1, 'workspaceId is required'),
   tools: z.array(
     z
       .object({

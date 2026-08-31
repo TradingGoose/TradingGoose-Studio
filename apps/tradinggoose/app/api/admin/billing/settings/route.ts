@@ -6,8 +6,8 @@ import { requireAdminBillingUserId } from '@/lib/admin/billing/authorization'
 import { adminBillingSettingsMutationSchema } from '@/lib/admin/billing/settings-mutations'
 import {
   ADMIN_BILLING_UNAVAILABLE_ERROR,
-  getBillingGateState,
   GLOBAL_BILLING_SETTINGS_ID,
+  getBillingGateState,
 } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -24,10 +24,7 @@ export async function PATCH(request: Request) {
     const userId = await requireAdminBillingUserId()
     const { stripeConfigured } = await getBillingGateState()
     if (!stripeConfigured) {
-      return NextResponse.json(
-        { error: ADMIN_BILLING_UNAVAILABLE_ERROR },
-        { status: 409 }
-      )
+      return NextResponse.json({ error: ADMIN_BILLING_UNAVAILABLE_ERROR }, { status: 409 })
     }
     const body = await request.json()
     const parsed = adminBillingSettingsMutationSchema.safeParse(body)

@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     try {
       logger.info('Initializing Stagehand with Browserbase')
-        stagehand = new Stagehand({
+      stagehand = new Stagehand({
         env: 'BROWSERBASE',
         apiKey: browserbaseApiKey,
         projectId: browserbaseConfig.projectId,

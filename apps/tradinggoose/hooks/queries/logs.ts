@@ -1,5 +1,5 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
+import type { ListingIdentity } from '@/lib/listing/identity'
 import {
   parseQuery,
   queryToApiParams,
@@ -191,13 +191,11 @@ export function buildLogsRequestParams(
     }
   }
 
-  const normalizedListings = (resolvedFilters.listings ?? [])
-    .map((listing) => toListingValueObject(listing))
-    .filter((listing): listing is ListingIdentity => Boolean(listing))
+  const listings = resolvedFilters.listings ?? []
 
   const monitorFilters: Array<[string, string | undefined]> = [
     ['monitorId', resolvedFilters.monitorId],
-    ['listings', normalizedListings.length > 0 ? JSON.stringify(normalizedListings) : undefined],
+    ['listings', listings.length > 0 ? JSON.stringify(listings) : undefined],
     ['indicatorId', resolvedFilters.indicatorId],
     ['providerId', resolvedFilters.providerId],
     ['interval', resolvedFilters.interval],

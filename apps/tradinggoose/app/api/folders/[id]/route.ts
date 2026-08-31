@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { refreshWorkflowList } from '@/lib/workflows/db-helpers'
+import { isRootFolderInWorkspace, lockFolderWrites } from '../shared'
 
 const logger = createLogger('FoldersIDAPI')
 
@@ -46,38 +47,64 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       )
     }
 
-    // Prevent setting a folder as its own parent or creating circular references
+    // Prevent setting a folder as its own parent.
     if (parentId && parentId === id) {
       return NextResponse.json({ error: 'Folder cannot be its own parent' }, { status: 400 })
     }
 
-    // Check for circular references if parentId is provided
-    if (parentId) {
-      const wouldCreateCycle = await checkForCircularReference(id, parentId)
-      if (wouldCreateCycle) {
-        return NextResponse.json(
-          { error: 'Cannot create circular folder reference' },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Update the folder
     const updates: any = { updatedAt: new Date() }
     if (name !== undefined) updates.name = name.trim()
     if (color !== undefined) updates.color = color
     if (isExpanded !== undefined) updates.isExpanded = isExpanded
     if (parentId !== undefined) updates.parentId = parentId || null
 
-    const [updatedFolder] = await db
-      .update(workflowFolder)
-      .set(updates)
-      .where(eq(workflowFolder.id, id))
-      .returning()
+    const updateResult = await db.transaction(async (tx) => {
+      await lockFolderWrites(tx, existingFolder.workspaceId)
+
+      if (parentId) {
+        if (!(await isRootFolderInWorkspace(tx, parentId, existingFolder.workspaceId))) {
+          return {
+            error: 'Parent folder must be a root folder in this workspace',
+            status: 400,
+          } as const
+        }
+
+        const [childFolder] = await tx
+          .select({ id: workflowFolder.id })
+          .from(workflowFolder)
+          .where(
+            and(
+              eq(workflowFolder.parentId, id),
+              eq(workflowFolder.workspaceId, existingFolder.workspaceId)
+            )
+          )
+          .limit(1)
+        if (childFolder) {
+          return {
+            error: 'A folder with subfolders cannot be nested under another folder',
+            status: 400,
+          } as const
+        }
+      }
+
+      const [folder] = await tx
+        .update(workflowFolder)
+        .set(updates)
+        .where(
+          and(eq(workflowFolder.id, id), eq(workflowFolder.workspaceId, existingFolder.workspaceId))
+        )
+        .returning()
+      if (!folder) return { error: 'Folder not found', status: 404 } as const
+      return { folder } as const
+    })
+
+    if ('error' in updateResult) {
+      return NextResponse.json({ error: updateResult.error }, { status: updateResult.status })
+    }
 
     logger.info('Updated folder:', { id, updates })
 
-    return NextResponse.json({ folder: updatedFolder })
+    return NextResponse.json({ folder: updateResult.folder })
   } catch (error) {
     logger.error('Error updating folder:', { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -122,89 +149,64 @@ export async function DELETE(
       )
     }
 
-    const parentId = existingFolder.parentId ?? null
-    const childFolders = await db
-      .select({ id: workflowFolder.id })
-      .from(workflowFolder)
-      .where(
-        and(
-          eq(workflowFolder.parentId, id),
-          eq(workflowFolder.workspaceId, existingFolder.workspaceId)
+    const deleteResult = await db.transaction(async (tx) => {
+      await lockFolderWrites(tx, existingFolder.workspaceId)
+
+      const [lockedFolder] = await tx
+        .select({ parentId: workflowFolder.parentId })
+        .from(workflowFolder)
+        .where(
+          and(eq(workflowFolder.id, id), eq(workflowFolder.workspaceId, existingFolder.workspaceId))
         )
-      )
+        .limit(1)
+      if (!lockedFolder) return { error: 'Folder not found', status: 404 } as const
 
-    let movedWorkflows: Array<{ id: string }> = []
-
-    await db.transaction(async (tx) => {
+      const parentId = lockedFolder.parentId ?? null
       const now = new Date()
-      if (childFolders.length > 0) {
-        await tx
-          .update(workflowFolder)
-          .set({ parentId, updatedAt: now })
-          .where(
-            and(
-              eq(workflowFolder.parentId, id),
-              eq(workflowFolder.workspaceId, existingFolder.workspaceId)
-            )
+      const movedFolders = await tx
+        .update(workflowFolder)
+        .set({ parentId, updatedAt: now })
+        .where(
+          and(
+            eq(workflowFolder.parentId, id),
+            eq(workflowFolder.workspaceId, existingFolder.workspaceId)
           )
-      }
+        )
+        .returning({ id: workflowFolder.id })
 
-      movedWorkflows = await tx
+      const movedWorkflows = await tx
         .update(workflow)
         .set({ folderId: parentId, updatedAt: now })
         .where(and(eq(workflow.workspaceId, existingFolder.workspaceId), eq(workflow.folderId, id)))
         .returning({ id: workflow.id })
 
       await tx.delete(workflowFolder).where(eq(workflowFolder.id, id))
+
+      return {
+        parentId,
+        movedFolders: movedFolders.length,
+        movedWorkflows: movedWorkflows.length,
+      } as const
     })
+
+    if ('error' in deleteResult) {
+      return NextResponse.json({ error: deleteResult.error }, { status: deleteResult.status })
+    }
 
     await refreshWorkflowList(existingFolder.workspaceId)
 
     logger.info('Deleted folder and promoted direct children:', {
       id,
-      parentId,
-      movedFolders: childFolders.length,
-      movedWorkflows: movedWorkflows.length,
+      ...deleteResult,
     })
 
     return NextResponse.json({
       success: true,
       deletedFolderId: id,
-      parentId,
-      movedFolders: childFolders.length,
-      movedWorkflows: movedWorkflows.length,
+      ...deleteResult,
     })
   } catch (error) {
     logger.error('Error deleting folder:', { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
-
-// Helper function to check for circular references
-async function checkForCircularReference(folderId: string, parentId: string): Promise<boolean> {
-  let currentParentId: string | null = parentId
-  const visited = new Set<string>()
-
-  while (currentParentId) {
-    if (visited.has(currentParentId)) {
-      return true // Circular reference detected
-    }
-
-    if (currentParentId === folderId) {
-      return true // Would create a cycle
-    }
-
-    visited.add(currentParentId)
-
-    // Get the parent of the current parent
-    const parent: { parentId: string | null } | undefined = await db
-      .select({ parentId: workflowFolder.parentId })
-      .from(workflowFolder)
-      .where(eq(workflowFolder.id, currentParentId))
-      .then((rows) => rows[0])
-
-    currentParentId = parent?.parentId || null
-  }
-
-  return false
 }

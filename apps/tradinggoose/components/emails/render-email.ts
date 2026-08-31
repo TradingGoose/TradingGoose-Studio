@@ -431,7 +431,7 @@ export async function renderPaymentFailedEmail(params: {
   userName?: string
   amountDue?: number
   lastFourDigits?: string
-  billingPortalUrl: string
+  paymentUrl: string
   failureReason?: string
   locale?: EmailLocale
 }): Promise<string> {
@@ -470,7 +470,7 @@ export async function renderPaymentFailedEmail(params: {
       ],
       detailsTitle: copy.billing.paymentFailed.detailsTitle,
       details,
-      cta: { href: params.billingPortalUrl, label: copy.billing.paymentFailed.cta },
+      cta: { href: params.paymentUrl, label: copy.billing.paymentFailed.cta },
       muted: [copy.billing.paymentFailed.nextSteps, copy.billing.paymentFailed.help],
       footerLine: text(params.locale, copy.billing.paymentFailed.sentLine, {
         date: formatEmailDate(params.locale, new Date()),

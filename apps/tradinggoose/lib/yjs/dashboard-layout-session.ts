@@ -1,5 +1,5 @@
 import * as Y from 'yjs'
-import { toListingValueObject } from '@/lib/listing/identity'
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { PairColorContext } from '@/widgets/color-pairs'
 import {
@@ -13,6 +13,7 @@ import {
   normalizeDashboardWidgetDocument,
   normalizeDashboardWidgetStorageDocument,
 } from '@/widgets/layout-document'
+import { getWidgetContract } from '@/widgets/widget-contracts'
 
 const TOPOLOGY_KEY = 'topology'
 const UNSAFE_WIDGET_PARAM_PATH_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype'])
@@ -82,7 +83,10 @@ export function applyDashboardWidgetDocumentDelta(
 ): void {
   const before = normalizeDashboardWidgetDocument(widgetKey, baseline)
   const after = normalizeDashboardWidgetDocument(widgetKey, target)
-  doc.transact(() => applyDashboardWidgetDelta(getDashboardWidgetMap(doc), before, after), origin)
+  doc.transact(
+    () => applyDashboardWidgetDelta(getDashboardWidgetMap(doc), widgetKey, before, after),
+    origin
+  )
 }
 
 export function readDashboardColorPairDocument(doc: Y.Doc): PairColorContext {
@@ -130,17 +134,25 @@ function clearMap(map: Y.Map<unknown>): void {
 
 function applyDashboardWidgetDelta(
   map: Y.Map<unknown>,
+  widgetKey: Extract<DashboardLayoutTopologyNode, { type: 'panel' }>['widgetKey'],
   before: DashboardWidgetDocument,
   after: DashboardWidgetDocument
 ): void {
   if (!areJsonValuesEqual(before.pairColor, after.pairColor)) {
     map.set('pairColor', after.pairColor)
   }
+  const params = getDashboardWidgetParamsMap(map)
   applyMapEntriesDelta(
-    getDashboardWidgetParamsMap(map),
+    params,
     flattenWidgetParams(before.params),
     flattenWidgetParams(after.params)
   )
+  if (map.get('pairColor') !== 'gray' && widgetKey) {
+    const linkedFields = new Set<string>(getWidgetContract(widgetKey).linkedParamFields)
+    for (const key of params.keys()) {
+      if (linkedFields.has(decodeWidgetParamPath(key)[0] ?? '')) params.delete(key)
+    }
+  }
 }
 
 function readDashboardWidgetParams(map: Y.Map<unknown>): Record<string, unknown> | null {
@@ -215,7 +227,7 @@ function isNestedWidgetParamsRecord(value: unknown): value is Record<string, unk
     value !== null &&
     typeof value === 'object' &&
     !Array.isArray(value) &&
-    toListingValueObject(value) === null &&
+    !ListingIdentitySchema.safeParse(value).success &&
     toPortfolioValueObject(value) === null
   )
 }

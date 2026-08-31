@@ -118,21 +118,23 @@ function ChatOutputsHeader({
   return (
     <div className='flex min-w-0 items-center gap-2'>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <div className='min-w-[220px]'>
-            {workspaceId && workflowId ? (
-              <WorkflowChatSessionProviders
-                workspaceId={workspaceId}
-                workflowId={workflowId}
-                channelId={channelId}
-              >
-                {outputSelect}
-              </WorkflowChatSessionProviders>
-            ) : (
-              outputSelect
-            )}
-          </div>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <div className='min-w-[220px]'>
+              {workspaceId && workflowId ? (
+                <WorkflowChatSessionProviders
+                  workspaceId={workspaceId}
+                  workflowId={workflowId}
+                  channelId={channelId}
+                >
+                  {outputSelect}
+                </WorkflowChatSessionProviders>
+              ) : (
+                outputSelect
+              )}
+            </div>
+          }
+        />
         <TooltipContent side='top'>{copy.selectWorkflowOutputs}</TooltipContent>
       </Tooltip>
     </div>
@@ -197,19 +199,21 @@ function ClearChatButton({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <div className='inline-flex'>
-          <button
-            type='button'
-            className={widgetHeaderIconButtonClassName()}
-            onClick={handleClearChat}
-            aria-label={copy.clearChat}
-            disabled={isDisabled}
-          >
-            <Ban className='h-3.5 w-3.5' />
-          </button>
-        </div>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <div className='inline-flex'>
+            <button
+              type='button'
+              className={widgetHeaderIconButtonClassName()}
+              onClick={handleClearChat}
+              aria-label={copy.clearChat}
+              disabled={isDisabled}
+            >
+              <Ban className='h-3.5 w-3.5' />
+            </button>
+          </div>
+        }
+      />
       <TooltipContent side='top'>{copy.clearChat}</TooltipContent>
     </Tooltip>
   )

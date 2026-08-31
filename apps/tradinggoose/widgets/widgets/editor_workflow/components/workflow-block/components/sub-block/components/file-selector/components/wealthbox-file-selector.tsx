@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocale } from 'next-intl'
 import { Check, ChevronDown, RefreshCw, X } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { WealthboxIcon } from '@/components/icons/icons'
 import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
@@ -21,9 +21,8 @@ import {
   getServiceIdFromScopes,
   type OAuthProvider,
 } from '@/lib/oauth'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
+import { formatTemplate } from '@/i18n/utils'
 
 const logger = createLogger('WealthboxFileSelector')
 
@@ -326,32 +325,35 @@ export function WealthboxFileSelector({
             }
           }}
         >
-          <PopoverTrigger asChild>
-            <Button
-              variant='outline'
-              role='combobox'
-              aria-expanded={open}
-              className='w-full justify-between'
-              disabled={disabled}
-            >
-              {selectedItem ? (
-                <div className='flex items-center gap-1 overflow-hidden'>
-                  <WealthboxIcon className='h-4 w-4' />
-                  <span className='truncate font-normal'>{selectedItem.name}</span>
-                </div>
-              ) : selectedItemId && isLoadingSelectedItem && selectedCredentialId ? (
-                <div className='flex items-center gap-1'>
-                  <RefreshCw className='h-4 w-4 animate-spin' />
-                  <span className='text-muted-foreground'>{copy.loading}</span>
-                </div>
-              ) : (
-                <div className='flex items-center gap-1'>
-                  <WealthboxIcon className='h-4 w-4' />
-                  <span className='text-muted-foreground'>{labelText}</span>
-                </div>
-              )}
-              <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-            </Button>
+          <PopoverTrigger
+            disabled={disabled}
+            render={
+              <Button
+                variant='outline'
+                role='combobox'
+                aria-expanded={open}
+                className='w-full justify-between'
+                disabled={disabled}
+              />
+            }
+          >
+            {selectedItem ? (
+              <div className='flex items-center gap-1 overflow-hidden'>
+                <WealthboxIcon className='h-4 w-4' />
+                <span className='truncate font-normal'>{selectedItem.name}</span>
+              </div>
+            ) : selectedItemId && isLoadingSelectedItem && selectedCredentialId ? (
+              <div className='flex items-center gap-1'>
+                <RefreshCw className='h-4 w-4 animate-spin' />
+                <span className='text-muted-foreground'>{copy.loading}</span>
+              </div>
+            ) : (
+              <div className='flex items-center gap-1'>
+                <WealthboxIcon className='h-4 w-4' />
+                <span className='text-muted-foreground'>{labelText}</span>
+              </div>
+            )}
+            <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
           </PopoverTrigger>
           <PopoverContent className='w-[300px] p-0' align='start'>
             <Command shouldFilter={false}>
@@ -362,7 +364,7 @@ export function WealthboxFileSelector({
                   })}
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className='flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50'
+                  className='flex h-11 w-full rounded-md bg-transparent py-3 text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50'
                 />
               </div>
               <CommandList>

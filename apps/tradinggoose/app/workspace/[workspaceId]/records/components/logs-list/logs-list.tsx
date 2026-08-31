@@ -28,7 +28,7 @@ export interface LogsListProps {
   selectedLogId: string | null
   onLogClick: (log: WorkflowLog) => void
   loading: boolean
-  error: string | null
+  failureMode: 'initial' | 'background' | null
   hasMore: boolean
   isFetchingMore: boolean
   loaderRef: RefObject<HTMLDivElement | null>
@@ -41,7 +41,7 @@ export function LogsList({
   selectedLogId,
   onLogClick,
   loading,
-  error,
+  failureMode,
   hasMore,
   isFetchingMore,
   loaderRef,
@@ -51,6 +51,24 @@ export function LogsList({
   const locale = useLocale()
   const t = useTranslations('workspace.logs.list')
   const tFilters = useTranslations('workspace.logs.dashboard.filters')
+  const failureNotice = failureMode ? (
+    <div
+      className={cn(
+        'flex items-center justify-center gap-2 text-destructive',
+        failureMode === 'initial'
+          ? 'h-full p-5'
+          : 'sticky top-0 z-10 border-b bg-background/95 px-4 py-2'
+      )}
+      role='alert'
+      aria-atomic='true'
+    >
+      <AlertCircle className='h-5 w-5' aria-hidden='true' />
+      <span className='text-sm'>
+        {failureMode === 'initial' ? t('initialLoadFailure') : t('backgroundLoadFailure')}
+      </span>
+    </div>
+  ) : null
+
   return (
     <div className='flex h-full max-h-full min-h-0 min-w-0 flex-1 overflow-hidden'>
       <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
@@ -123,138 +141,143 @@ export function LogsList({
                         <span className='text-sm'>{t('loading')}</span>
                       </div>
                     </div>
-                  ) : error ? (
-                    <div className='flex h-full items-center justify-center'>
-                      <div className='flex items-center gap-2 text-destructive'>
-                        <AlertCircle className='h-5 w-5' />
-                        <span className='text-sm'>
-                          {t('errorPrefix')}
-                          {error}
-                        </span>
-                      </div>
-                    </div>
-                  ) : logs.length === 0 ? (
-                    <div className='flex h-full items-center justify-center'>
-                      <div className='flex items-center gap-2 text-muted-foreground'>
-                        <Info className='h-5 w-5' />
-                        <span className='text-sm'>{t('noLogs')}</span>
-                      </div>
-                    </div>
+                  ) : failureMode === 'initial' ? (
+                    failureNotice
                   ) : (
-                    <Table className='w-full table-auto'>
-                      <colgroup>
-                        <col className='w-[20%]' />
-                        <col className='w-[15%]' />
-                        <col className='w-[25%]' />
-                        <col className='w-[20%]' />
-                        <col className='hidden xl:table-column' />
-                        <col className='hidden xl:table-column' />
-                      </colgroup>
-                      <TableBody>
-                        {logs.map((log) => {
-                          const formattedDate = formatDate(log.startedAt ?? log.createdAt, locale)
-                          const isSelected = selectedLogId === log.id
-                          const levelOption = getLogLevelOption(log.level)
-                          const triggerOption = getLogTriggerOption(log.trigger)
+                    <>
+                      {failureNotice}
+                      {logs.length === 0 ? (
+                        <div className='flex h-full items-center justify-center'>
+                          <div className='flex items-center gap-2 text-muted-foreground'>
+                            <Info className='h-5 w-5' />
+                            <span className='text-sm'>{t('noLogs')}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <Table className='w-full table-auto'>
+                          <colgroup>
+                            <col className='w-[20%]' />
+                            <col className='w-[15%]' />
+                            <col className='w-[25%]' />
+                            <col className='w-[20%]' />
+                            <col className='hidden xl:table-column' />
+                            <col className='hidden xl:table-column' />
+                          </colgroup>
+                          <TableBody>
+                            {logs.map((log) => {
+                              const formattedDate = formatDate(
+                                log.startedAt ?? log.createdAt,
+                                locale
+                              )
+                              const isSelected = selectedLogId === log.id
+                              const levelOption = getLogLevelOption(log.level)
+                              const triggerOption = getLogTriggerOption(log.trigger)
 
-                          return (
-                            <TableRow
-                              key={log.id}
-                              ref={isSelected ? selectedRowRef : null}
-                              className={cn(
-                                'cursor-pointer border-b transition-colors hover:bg-card/30',
-                                isSelected && 'selected-row bg-accent'
-                              )}
-                              onClick={() => onLogClick(log)}
-                            >
-                              <TableCell className='px-4 py-3 text-center align-middle'>
-                                <div className='text-[13px]'>
-                                  <span className='font-sm text-muted-foreground'>
-                                    {formattedDate.compactDate}
-                                  </span>
-                                  <span
-                                    className='hidden font-medium sm:inline'
-                                    style={{ marginLeft: '8px' }}
-                                  >
-                                    {formattedDate.compactTime}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className='px-4 py-3 text-center align-middle'>
-                                <div
+                              return (
+                                <TableRow
+                                  key={log.id}
+                                  ref={isSelected ? selectedRowRef : null}
                                   className={cn(
-                                    'inline-flex items-center rounded-sm px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
-                                    log.level === 'error'
-                                      ? 'bg-red-500 text-white'
-                                      : 'bg-secondary text-card-foreground'
+                                    'cursor-pointer border-b transition-colors hover:bg-card/30',
+                                    isSelected && 'selected-row bg-accent'
                                   )}
+                                  onClick={() => onLogClick(log)}
                                 >
-                                  {levelOption ? tFilters(levelOption.labelKey) : log.level}
-                                </div>
-                              </TableCell>
-                              <TableCell className='px-4 py-3 text-center align-middle'>
-                                <div className='truncate font-medium text-[13px]'>
-                                  {log.workflow?.name || t('unknownWorkflow')}
-                                </div>
-                              </TableCell>
-                              <TableCell className='px-4 py-3 text-center align-middle'>
-                                <div className='font-medium text-muted-foreground text-xs'>
-                                  {typeof (log as any)?.cost?.total === 'number'
-                                    ? `$${((log as any).cost.total as number).toFixed(4)}`
-                                    : '—'}
-                                </div>
-                              </TableCell>
-                              <TableCell className='hidden px-4 py-3 text-center align-middle xl:table-cell'>
-                                {log.trigger ? (
-                                  <div
-                                    className={cn(
-                                      'inline-flex items-center rounded-sm px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
-                                      log.trigger.toLowerCase() === 'manual'
-                                        ? 'bg-secondary text-card-foreground'
-                                        : 'text-white'
+                                  <TableCell className='px-4 py-3 text-center align-middle'>
+                                    <div className='text-[13px]'>
+                                      <span className='font-sm text-muted-foreground'>
+                                        {formattedDate.compactDate}
+                                      </span>
+                                      <span
+                                        className='hidden font-medium sm:inline'
+                                        style={{ marginLeft: '8px' }}
+                                      >
+                                        {formattedDate.compactTime}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className='px-4 py-3 text-center align-middle'>
+                                    <div
+                                      className={cn(
+                                        'inline-flex items-center rounded-sm px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
+                                        log.level === 'error'
+                                          ? 'bg-red-500 text-white'
+                                          : 'bg-secondary text-card-foreground'
+                                      )}
+                                    >
+                                      {levelOption ? tFilters(levelOption.labelKey) : log.level}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className='px-4 py-3 text-center align-middle'>
+                                    <div className='truncate font-medium text-[13px]'>
+                                      {log.workflow?.name || t('unknownWorkflow')}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className='px-4 py-3 text-center align-middle'>
+                                    <div className='font-medium text-muted-foreground text-xs'>
+                                      {typeof (log as any)?.cost?.total === 'number'
+                                        ? `$${((log as any).cost.total as number).toFixed(4)}`
+                                        : '—'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className='hidden px-4 py-3 text-center align-middle xl:table-cell'>
+                                    {log.trigger ? (
+                                      <div
+                                        className={cn(
+                                          'inline-flex items-center rounded-sm px-[6px] py-[2px] font-medium text-xs transition-all duration-200 lg:px-[8px]',
+                                          log.trigger.toLowerCase() === 'manual'
+                                            ? 'bg-secondary text-card-foreground'
+                                            : 'text-white'
+                                        )}
+                                        style={
+                                          log.trigger.toLowerCase() === 'manual'
+                                            ? undefined
+                                            : { backgroundColor: getLogTriggerColor(log.trigger) }
+                                        }
+                                      >
+                                        {triggerOption
+                                          ? tFilters(triggerOption.labelKey)
+                                          : log.trigger}
+                                      </div>
+                                    ) : (
+                                      <div className='text-muted-foreground text-xs'>—</div>
                                     )}
-                                    style={
-                                      log.trigger.toLowerCase() === 'manual'
-                                        ? undefined
-                                        : { backgroundColor: getLogTriggerColor(log.trigger) }
-                                    }
-                                  >
-                                    {triggerOption ? tFilters(triggerOption.labelKey) : log.trigger}
-                                  </div>
-                                ) : (
-                                  <div className='text-muted-foreground text-xs'>—</div>
-                                )}
-                              </TableCell>
-                              <TableCell className='hidden px-4 py-3 text-center align-middle text-muted-foreground text-xs xl:table-cell'>
-                                {typeof log.durationMs === 'number'
-                                  ? formatDurationMs(locale, log.durationMs)
-                                  : '—'}
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
+                                  </TableCell>
+                                  <TableCell className='hidden px-4 py-3 text-center align-middle text-muted-foreground text-xs xl:table-cell'>
+                                    {typeof log.durationMs === 'number'
+                                      ? formatDurationMs(locale, log.durationMs)
+                                      : '—'}
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
 
-                        {hasMore && (
-                          <TableRow>
-                            <TableCell colSpan={6} className='px-4 py-4 text-center align-middle'>
-                              <div
-                                ref={loaderRef}
-                                className='flex items-center justify-center gap-2 text-muted-foreground'
-                              >
-                                {isFetchingMore ? (
-                                  <>
-                                    <Loader2 className='h-4 w-4 animate-spin' />
-                                    <span className='text-sm'>{t('loadingMore')}</span>
-                                  </>
-                                ) : (
-                                  <span className='text-sm'>{t('scrollToLoadMore')}</span>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                            {hasMore && (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={6}
+                                  className='px-4 py-4 text-center align-middle'
+                                >
+                                  <div
+                                    ref={loaderRef}
+                                    className='flex items-center justify-center gap-2 text-muted-foreground'
+                                  >
+                                    {isFetchingMore ? (
+                                      <>
+                                        <Loader2 className='h-4 w-4 animate-spin' />
+                                        <span className='text-sm'>{t('loadingMore')}</span>
+                                      </>
+                                    ) : (
+                                      <span className='text-sm'>{t('scrollToLoadMore')}</span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

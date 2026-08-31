@@ -1,16 +1,11 @@
+import { ListingIdentitySchema } from '@/lib/listing/identity'
 import {
   sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
-import {
-  normalizeListingIdentity,
-  normalizePairColorContext,
-  type PairColorContext,
-} from '@/widgets/color-pairs'
+import { normalizePairColorContext, type PairColorContext } from '@/widgets/color-pairs'
 import type { WidgetInstance } from '@/widgets/layout'
-
-export { normalizeListingIdentity } from '@/widgets/color-pairs'
 
 export type WidgetCategory = 'editor' | 'list' | 'utility' | 'trading'
 
@@ -20,7 +15,6 @@ export const WIDGET_KEYS = [
   'editor_workflow',
   'workflow_chat',
   'workflow_console',
-  'copilot',
   'list_indicator',
   'list_mcp',
   'editor_indicator',
@@ -170,7 +164,6 @@ export type WidgetCatalogItem = {
   description: string
   editable: boolean
   editableFields: WidgetParamField[]
-  linkedParamFields: WidgetParamField[]
 }
 
 export type WidgetMetadataProfile = {
@@ -182,7 +175,6 @@ export type WidgetMetadataProfile = {
   defaultParams: Record<string, unknown> | null
   editableFields: WidgetParamField[]
   paramContract: WidgetParamFieldContract[]
-  linkedParamFields: WidgetParamField[]
 }
 
 export type WidgetContract = {
@@ -487,8 +479,10 @@ function normalizeFieldValue(
         : invalidFieldValue(contract, options, 'must be a string')
     }
     case 'listing': {
-      const normalized = normalizeListingIdentity(value) ?? undefined
-      return normalized ?? invalidFieldValue(contract, options, 'must be a listing identity')
+      const listing = ListingIdentitySchema.safeParse(value)
+      return listing.success
+        ? listing.data
+        : invalidFieldValue(contract, options, 'must be a listing identity')
     }
     case 'enum': {
       if (typeof value !== 'string') {

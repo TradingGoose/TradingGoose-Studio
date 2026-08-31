@@ -1,14 +1,24 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useMessages } from 'next-intl'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { renameSavedEntityAction } from '@/lib/saved-entities/actions'
 import { SKILL_NAME_MAX_LENGTH } from '@/lib/skills/import-export'
 import type { SkillDefinition } from '@/lib/skills/types'
 import { useEntityList } from '@/lib/yjs/use-entity-fields'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useDeleteSkill } from '@/hooks/queries/skills'
+import { deleteSkill } from '@/hooks/queries/skills'
 import { formatTemplate } from '@/i18n/utils'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { resolveEntityIdFromList } from '@/widgets/widget-contracts'
@@ -20,12 +30,16 @@ export const SkillListMessage = WidgetStateMessage
 
 export function SkillList({ context, params, onWidgetLinkedParamsPatch }: WidgetComponentProps) {
   const copy = useMessages().workspace.widgets.skillList
+  const listItemCopy = copy.listItem
   const skillValidationCopy = useMessages().workspace.widgets.skillEditor.validation
   const workspaceId = context?.workspaceId ?? null
   const permissions = useUserPermissionsContext()
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+  const deleteLockRef = useRef(false)
+  const deleteTargetRef = useRef<SkillDefinition | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<SkillDefinition | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const { members, isLoading, error } = useEntityList('skill', workspaceId)
-  const deleteMutation = useDeleteSkill()
   const listSkills = useMemo<SkillDefinition[]>(
     () =>
       workspaceId
@@ -49,6 +63,8 @@ export function SkillList({ context, params, onWidgetLinkedParamsPatch }: Widget
     entityIds: listSkills.map((skill) => skill.id),
     useDefaultEntity: false,
   })
+  const selectionScopeRef = useRef({ workspaceId, requestedSkillId })
+  selectionScopeRef.current = { workspaceId, requestedSkillId }
   const handleSelect = useCallback(
     (skillId: string | null) => {
       onWidgetLinkedParamsPatch?.({ skillId })
@@ -57,25 +73,50 @@ export function SkillList({ context, params, onWidgetLinkedParamsPatch }: Widget
   )
 
   const handleDelete = useCallback(
-    async (skillId: string) => {
-      if (!workspaceId || !permissions.canEdit) return
-      if (!skillId) return
-
-      setDeletingIds((prev) => new Set(prev).add(skillId))
-
-      try {
-        await deleteMutation.mutateAsync({ workspaceId, skillId })
-        if (selectedSkillId === skillId) handleSelect(null)
-      } finally {
-        setDeletingIds((prev) => {
-          const next = new Set(prev)
-          next.delete(skillId)
-          return next
-        })
-      }
+    (skillId: string) => {
+      if (!permissions.canEdit || deleteTargetRef.current) return
+      const target = listSkills.find((skill) => skill.id === skillId)
+      if (!target) return
+      deleteTargetRef.current = target
+      setDeleteTarget(target)
+      setDeleteError(null)
     },
-    [deleteMutation, handleSelect, permissions.canEdit, selectedSkillId, workspaceId]
+    [listSkills, permissions.canEdit]
   )
+
+  const handleConfirmDelete = useCallback(async () => {
+    const target = deleteTargetRef.current
+    if (!target || deleteLockRef.current) return
+    deleteLockRef.current = true
+    setIsDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteSkill({
+        workspaceId: target.workspaceId,
+        skillId: target.id,
+      })
+      const currentSelection = selectionScopeRef.current
+      if (
+        currentSelection.workspaceId === target.workspaceId &&
+        currentSelection.requestedSkillId === target.id
+      )
+        handleSelect(null)
+      deleteTargetRef.current = null
+      setDeleteTarget(null)
+    } catch (error) {
+      console.error('Failed to delete skill', error)
+      setDeleteError(listItemCopy.deleteFailed)
+    } finally {
+      deleteLockRef.current = false
+      setIsDeleting(false)
+    }
+  }, [handleSelect, listItemCopy.deleteFailed])
+
+  const closeDeleteDialog = () => {
+    deleteTargetRef.current = null
+    setDeleteTarget(null)
+    setDeleteError(null)
+  }
 
   const handleRename = useCallback(
     async (skillId: string, name: string) => {
@@ -88,7 +129,9 @@ export function SkillList({ context, params, onWidgetLinkedParamsPatch }: Widget
 
       if (normalizedName.length > SKILL_NAME_MAX_LENGTH) {
         throw new Error(
-          formatTemplate(skillValidationCopy.nameTooLong, { max: SKILL_NAME_MAX_LENGTH })
+          formatTemplate(skillValidationCopy.nameTooLong, {
+            max: SKILL_NAME_MAX_LENGTH,
+          })
         )
       }
 
@@ -130,11 +173,55 @@ export function SkillList({ context, params, onWidgetLinkedParamsPatch }: Widget
               onRename={handleRename}
               canEdit={permissions.canEdit}
               canDelete={listSkills.length > 1}
-              isDeleting={deletingIds.has(skill.id)}
+              deleteDisabled={isDeleting}
             />
           ))}
         </div>
       )}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open, eventDetails) => {
+          if (isDeleting) {
+            eventDetails.cancel()
+          } else if (!open) {
+            closeDeleteDialog()
+          }
+        }}
+      >
+        <AlertDialogContent hideCloseButton={isDeleting}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{listItemCopy.deleteDialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {listItemCopy.deleteDialogDescription}
+              <span className='text-red-500 dark:text-red-500'>
+                {' '}
+                {listItemCopy.deleteDialogDescriptionHighlight}
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError ? (
+            <p role='alert' className='text-destructive text-sm'>
+              {deleteError}
+            </p>
+          ) : null}
+          <AlertDialogFooter className='flex'>
+            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
+              {listItemCopy.cancel}
+            </AlertDialogCancel>
+            <Button
+              onClick={() => void handleConfirmDelete()}
+              disabled={isDeleting}
+              focusableWhenDisabled={isDeleting}
+              aria-busy={isDeleting || undefined}
+              variant='destructive'
+              className='h-9 w-full rounded-sm'
+            >
+              {isDeleting ? listItemCopy.deleting : listItemCopy.delete}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

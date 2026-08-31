@@ -5,7 +5,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingResolved } from '@/lib/listing/identity'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import { DataChartListingControl } from '@/widgets/widgets/data_chart/components/listing-control'
 
@@ -15,7 +15,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 
 const fetchListingsMock = vi.fn()
 const listingInputState = vi.hoisted(() => ({
-  onListingChange: null as ((listing: ListingOption | null) => void) | null,
+  onListingChange: null as ((listing: ListingResolved | null) => void) | null,
 }))
 
 vi.mock('@/lib/listing/search', async (importOriginal) => {
@@ -114,11 +114,13 @@ describe('DataChartListingControl', () => {
   })
 
   it('preserves the typed query while editing an existing chart listing selection', async () => {
-    const selectedListing: ListingOption = {
-      listing_id: 'TG_LSTG_E7581A',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
+    const selectedListing: ListingResolved = {
+      listingIdentity: {
+        listing_id: 'TG_LSTG_E7581A',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
       base: 'AAPL',
       quote: 'USD',
       name: 'Apple Inc.',
@@ -131,7 +133,7 @@ describe('DataChartListingControl', () => {
         <DataChartListingControl
           widgetKey='listing-control-test'
           params={{
-            listing: selectedListing as never,
+            listing: selectedListing.listingIdentity,
             data: {
               provider: 'alpaca',
             },
@@ -158,7 +160,6 @@ describe('DataChartListingControl', () => {
 
     const instance = useListingSelectorStore.getState().instances['chart-listing-control-test']
     expect(instance?.query).toBe('M')
-    expect(instance?.selectedListingValue).toBeNull()
     expect(instance?.selectedListing).toBeNull()
   })
 
@@ -182,11 +183,13 @@ describe('DataChartListingControl', () => {
   })
 
   it('routes listing changes through the linked-parameter owner', async () => {
-    const selectedListing: ListingOption = {
-      listing_id: 'TG_LSTG_AAPL',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
+    const selectedListing: ListingResolved = {
+      listingIdentity: {
+        listing_id: 'TG_LSTG_AAPL',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
       base: 'AAPL',
       quote: 'USD',
       name: 'Apple Inc.',

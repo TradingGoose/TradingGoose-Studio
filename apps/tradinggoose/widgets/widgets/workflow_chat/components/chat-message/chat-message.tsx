@@ -1,23 +1,6 @@
 import { useMemo } from 'react'
 import { File, FileText, Image as ImageIcon } from 'lucide-react'
-
-interface ChatAttachment {
-  id: string
-  name: string
-  type: string
-  dataUrl: string
-  size?: number
-}
-
-interface ChatMessageProps {
-  message: {
-    id: string
-    content: any
-    timestamp: string | Date
-    type: 'user' | 'workflow'
-    attachments?: ChatAttachment[]
-  }
-}
+import type { ChatMessage as StoredChatMessage } from '@/stores/chat/types'
 
 // Maximum character length for a word before it's broken up
 const MAX_WORD_LENGTH = 25
@@ -54,7 +37,7 @@ const WordWrap = ({ text }: { text: string }) => {
   )
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message }: { message: StoredChatMessage }) {
   // Format message content as text
   const formattedContent = useMemo(() => {
     if (typeof message.content === 'object' && message.content !== null) {
@@ -93,10 +76,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 return (
                   <div
                     key={attachment.id}
-                    className={`relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${attachment.dataUrl?.trim() && attachment.dataUrl.startsWith('data:')
-                      ? 'cursor-pointer'
-                      : ''
-                      } ${isImage ? 'h-16 w-16' : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'}`}
+                    className={`relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${
+                      attachment.dataUrl?.trim() && attachment.dataUrl.startsWith('data:')
+                        ? 'cursor-pointer'
+                        : ''
+                    } ${isImage ? 'h-16 w-16' : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'}`}
                     onClick={(e) => {
                       const validDataUrl = attachment.dataUrl?.trim()
                       if (validDataUrl?.startsWith('data:')) {
@@ -125,8 +109,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
                     }}
                   >
                     {isImage &&
-                      attachment.dataUrl?.trim() &&
-                      attachment.dataUrl.startsWith('data:') ? (
+                    attachment.dataUrl?.trim() &&
+                    attachment.dataUrl.startsWith('data:') ? (
                       <img
                         src={attachment.dataUrl}
                         alt={attachment.name}
@@ -174,9 +158,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
   // Render agent/workflow messages as full-width text
   return (
-    <div className='w-full py-2'>
-      <div className="flex justify-start">
-        <div className="max-w-[80%]">
+    <div className='w-full py-2' role={message.isExecutionFailure ? 'alert' : undefined}>
+      <div className='flex justify-start'>
+        <div className='max-w-[80%]'>
           <div className='rounded-md bg-muted px-3 py-2'>
             <div className='whitespace-pre-wrap break-words text-foreground'>
               <WordWrap text={formattedContent} />

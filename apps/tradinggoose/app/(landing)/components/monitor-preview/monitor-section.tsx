@@ -1,5 +1,4 @@
 import { getLocale } from 'next-intl/server'
-
 import { MotionPreset } from '@/components/ui/motion-preset'
 import { fetchMonitorStocks } from '@/app/(landing)/components/monitor-preview/fetch-listings'
 import MonitorPreview from '@/app/(landing)/components/monitor-preview/monitor-preview'

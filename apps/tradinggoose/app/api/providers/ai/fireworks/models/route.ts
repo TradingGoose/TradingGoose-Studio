@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveFireworksServiceConfig } from '@/lib/system-services/runtime'
+import { normalizeFireworksCatalogModel } from '@/providers/ai/fireworks/utils'
 import { filterBlacklistedModels } from '@/providers/ai/utils'
 
 const logger = createLogger('FireworksModelsAPI')
@@ -37,7 +38,11 @@ export async function GET() {
 
     const data = (await response.json()) as FireworksModelsResponse
     const models = filterBlacklistedModels(
-      Array.from(new Set((data.data ?? []).map((model) => `fireworks/${model.id}`)))
+      Array.from(
+        new Set(
+          (data.data ?? []).map((model) => `fireworks/${normalizeFireworksCatalogModel(model.id)}`)
+        )
+      )
     )
 
     logger.info('Successfully fetched Fireworks models', {

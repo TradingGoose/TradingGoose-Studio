@@ -106,7 +106,7 @@ export async function GET(
         status: state.status,
         ...(output ? { output } : {}),
         ...(state.status === 'failed'
-          ? { error: state.errorMessage ?? 'Execution failed' }
+          ? { error: state.failureReason ?? 'Execution failed' }
           : state.status === 'processing'
             ? { estimatedDuration: 180000 }
             : {}),

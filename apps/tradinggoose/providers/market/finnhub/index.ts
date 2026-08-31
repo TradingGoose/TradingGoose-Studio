@@ -1,3 +1,6 @@
+import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
+import { fetchFinnhubLiveSnapshot } from '@/providers/market/finnhub/live'
+import { fetchFinnhubSeries } from '@/providers/market/finnhub/series'
 import type { MarketProvider } from '@/providers/market/providers'
 import type {
   MarketLiveRequest,
@@ -5,9 +8,6 @@ import type {
   MarketSeries,
   MarketSeriesRequest,
 } from '@/providers/market/types'
-import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
-import { fetchFinnhubLiveSnapshot } from '@/providers/market/finnhub/live'
-import { fetchFinnhubSeries } from '@/providers/market/finnhub/series'
 
 export const finnhubProvider: MarketProvider = {
   id: 'finnhub',

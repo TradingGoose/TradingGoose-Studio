@@ -594,6 +594,7 @@ IMPORTANT FORMATTING RULES:
           isVisible={!readOnly && schemaGeneration.isPromptVisible}
           isLoading={schemaGeneration.isLoading}
           isStreaming={schemaGeneration.isStreaming}
+          hasFailure={Boolean(schemaGeneration.error)}
           promptValue={schemaGeneration.promptInputValue}
           onSubmit={(prompt: string) => schemaGeneration.generateStream({ prompt })}
           onCancel={
@@ -614,9 +615,9 @@ IMPORTANT FORMATTING RULES:
             </Label>
             {!isSchemaValid && schemaError && !schemaGeneration.isStreaming ? (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <AlertTriangle className='h-4 w-4 cursor-pointer text-destructive' />
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={<AlertTriangle className='h-4 w-4 cursor-pointer text-destructive' />}
+                />
                 <TooltipContent side='top'>
                   <p>{schemaError}</p>
                 </TooltipContent>
@@ -672,6 +673,7 @@ IMPORTANT FORMATTING RULES:
         isVisible={!readOnly && codeGeneration.isPromptVisible}
         isLoading={codeGeneration.isLoading}
         isStreaming={codeGeneration.isStreaming}
+        hasFailure={Boolean(codeGeneration.error)}
         promptValue={codeGeneration.promptInputValue}
         onSubmit={(prompt: string) => codeGeneration.generateStream({ prompt })}
         onCancel={

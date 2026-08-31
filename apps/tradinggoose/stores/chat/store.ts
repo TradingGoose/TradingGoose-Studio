@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools, persist } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import type { ChatMessage, ChatStore } from '@/stores/chat/types'
 
 // MAX across all workflows

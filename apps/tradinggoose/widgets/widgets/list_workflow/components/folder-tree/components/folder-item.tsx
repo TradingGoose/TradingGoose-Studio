@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { Folder, FolderOpen, Pencil, Trash2 } from 'lucide-react'
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -14,7 +14,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { type FolderTreeNode, useFolderStore } from '@/stores/folders/store'
@@ -24,32 +23,33 @@ const logger = createLogger('FolderItem')
 
 interface FolderItemProps {
   folder: FolderTreeNode
-  isCollapsed?: boolean
-  onCreateWorkflow: (folderId?: string) => void
   dragOver?: boolean
   onDragOver?: (e: React.DragEvent) => void
   onDragLeave?: (e: React.DragEvent) => void
   onDrop?: (e: React.DragEvent) => void
-  level: number
+  ownerId: string
 }
 
 export function FolderItem({
   folder,
-  isCollapsed,
-  onCreateWorkflow,
   dragOver = false,
   onDragOver,
   onDragLeave,
   onDrop,
-  level,
+  ownerId,
 }: FolderItemProps) {
-  const { expandedFolders, toggleExpanded, updateFolderAPI, deleteFolder } = useFolderStore()
+  const queryClient = useQueryClient()
+  const expandedFolders = useFolderStore((state) => state.expandedFolders)
+  const toggleExpanded = useFolderStore((state) => state.toggleExpanded)
+  const activeFolderWrite = useFolderStore((state) => state.activeWrite)
+  const folderDataReady = useFolderStore(
+    (state) => state.folderDataReady[folder.workspaceId] === true
+  )
+  const writeFolder = useFolderStore((state) => state.writeFolder)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(folder.name)
-  const [isRenaming, setIsRenaming] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
 
   const dragStartedRef = useRef(false)
@@ -57,6 +57,12 @@ export function FolderItem({
   const workspaceId = useWorkspaceId()
   const isExpanded = expandedFolders.has(folder.id)
   const userPermissions = useUserPermissionsContext()
+  const folderWritesDisabled = Boolean(activeFolderWrite) || !folderDataReady
+  const isDeleting =
+    activeFolderWrite?.kind === 'delete' &&
+    activeFolderWrite.id === folder.id &&
+    activeFolderWrite.ownerId === ownerId &&
+    activeFolderWrite.workspaceId === workspaceId
 
   // Update editValue when folder name changes
   useEffect(() => {
@@ -77,7 +83,15 @@ export function FolderItem({
   }, [folder.id, toggleExpanded, isEditing])
 
   const handleDragStart = (e: React.DragEvent) => {
-    if (isEditing) return
+    const folderState = useFolderStore.getState()
+    if (
+      isEditing ||
+      folderState.activeWrite ||
+      folderState.folderDataReady[folder.workspaceId] !== true
+    ) {
+      e.preventDefault()
+      return
+    }
 
     dragStartedRef.current = true
     setIsDragging(true)
@@ -112,20 +126,31 @@ export function FolderItem({
   }
 
   const handleStartEdit = () => {
+    if (folderWritesDisabled) return
     setIsEditing(true)
     setEditValue(folder.name)
   }
 
   const handleSaveEdit = async () => {
+    if (useFolderStore.getState().activeWrite) return
+
     if (!editValue.trim() || editValue.trim() === folder.name) {
       setIsEditing(false)
       setEditValue(folder.name)
       return
     }
 
-    setIsRenaming(true)
     try {
-      await updateFolderAPI(folder.id, { name: editValue.trim() })
+      await writeFolder(
+        {
+          kind: 'rename',
+          workspaceId,
+          ownerId,
+          id: folder.id,
+          name: editValue.trim(),
+        },
+        queryClient
+      )
       logger.info(`Successfully renamed folder from "${folder.name}" to "${editValue.trim()}"`)
       setIsEditing(false)
     } catch (error) {
@@ -135,14 +160,11 @@ export function FolderItem({
         oldName: folder.name,
         newName: editValue.trim(),
       })
-      // Reset to original name on error
-      setEditValue(folder.name)
-    } finally {
-      setIsRenaming(false)
     }
   }
 
   const handleCancelEdit = () => {
+    if (folderWritesDisabled) return
     setIsEditing(false)
     setEditValue(folder.name)
   }
@@ -161,86 +183,35 @@ export function FolderItem({
     handleSaveEdit()
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
+    if (folderWritesDisabled) return
     setShowDeleteDialog(true)
   }
 
   const confirmDelete = async () => {
-    setIsDeleting(true)
+    if (useFolderStore.getState().activeWrite) return
+
     try {
-      await deleteFolder(folder.id, workspaceId)
-      setShowDeleteDialog(false)
+      await writeFolder(
+        { kind: 'delete', workspaceId, ownerId, id: folder.id, name: folder.name },
+        queryClient
+      )
     } catch (error) {
       logger.error('Failed to delete folder:', { error })
     } finally {
-      setIsDeleting(false)
+      setShowDeleteDialog(false)
     }
   }
 
-  if (isCollapsed) {
-    return (
-      <>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              className={clsx(
-                'group mx-auto mb-1 flex h-8 w-8 cursor-pointer items-center justify-center',
-                isDragging ? 'opacity-50' : ''
-              )}
-              onDragOver={onDragOver}
-              onDragLeave={onDragLeave}
-              onDrop={onDrop}
-              onClick={handleClick}
-              draggable={!isEditing}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <div
-                className={clsx(
-                  'relative flex h-[14px] w-[14px] items-center justify-center rounded transition-colors hover:bg-card',
-                  dragOver &&
-                    'before:pointer-events-none before:absolute before:inset-0 before:rounded before:bg-muted/20 before:ring-2 before:ring-muted-foreground/60'
-                )}
-              >
-                {isExpanded ? (
-                  <FolderOpen className='h-[14px] w-[14px] text-foreground/70 group-hover:text-foreground dark:text-foreground/60' />
-                ) : (
-                  <Folder className='h-[14px] w-[14px] text-foreground/70 group-hover:text-foreground dark:text-foreground/60' />
-                )}
-              </div>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side='right'>
-            <p className='max-w-[200px] break-words'>{folder.name}</p>
-          </TooltipContent>
-        </Tooltip>
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete folder?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Deleting this folder moves its workflows and child folders up one level.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-
-            <AlertDialogFooter className='flex'>
-              <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirmDelete}
-                disabled={isDeleting}
-                className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </>
-    )
+  const handleDeleteDialogOpenChange: React.ComponentProps<typeof AlertDialog>['onOpenChange'] = (
+    open,
+    details
+  ) => {
+    if (!open && useFolderStore.getState().activeWrite) {
+      details.cancel()
+      return
+    }
+    setShowDeleteDialog(open)
   }
 
   return (
@@ -252,7 +223,7 @@ export function FolderItem({
             isDragging ? 'opacity-50' : ''
           )}
           onClick={handleClick}
-          draggable={!isEditing}
+          draggable={!isEditing && !folderWritesDisabled}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onMouseEnter={() => setIsHovered(true)}
@@ -278,7 +249,7 @@ export function FolderItem({
                 'text-muted-foreground group-hover:text-foreground'
               )}
               maxLength={50}
-              disabled={isRenaming}
+              disabled={folderWritesDisabled}
               onClick={(e) => e.stopPropagation()} // Prevent folder toggle when clicking input
               autoComplete='off'
               autoCorrect='off'
@@ -305,6 +276,7 @@ export function FolderItem({
                 variant='ghost'
                 size='icon'
                 className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                disabled={folderWritesDisabled}
                 onClick={(e) => {
                   e.stopPropagation()
                   handleStartEdit()
@@ -317,6 +289,7 @@ export function FolderItem({
                 variant='ghost'
                 size='icon'
                 className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                disabled={folderWritesDisabled}
                 onClick={(e) => {
                   e.stopPropagation()
                   handleDelete()
@@ -331,8 +304,8 @@ export function FolderItem({
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+      <AlertDialog open={showDeleteDialog} onOpenChange={handleDeleteDialogOpenChange}>
+        <AlertDialogContent hideCloseButton={folderWritesDisabled}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete folder?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -341,16 +314,18 @@ export function FolderItem({
           </AlertDialogHeader>
 
           <AlertDialogFooter className='flex'>
-            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeleting}>
+            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={folderWritesDisabled}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction
+            <Button
+              type='button'
               onClick={confirmDelete}
-              disabled={isDeleting}
-              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+              disabled={folderWritesDisabled}
+              variant='destructive'
+              className='h-9 w-full rounded-sm'
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

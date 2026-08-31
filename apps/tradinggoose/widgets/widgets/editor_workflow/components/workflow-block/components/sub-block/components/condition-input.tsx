@@ -524,76 +524,84 @@ export function ConditionInput({
             </span>
             <div className='flex items-center gap-1'>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant='ghost'
-                    size='sm'
-                    onClick={() => addBlock(block.id)}
-                    disabled={isPreview || disabled || isElseBranchTitle(block.title)}
-                    className='h-8 w-8'
-                  >
-                    <Plus className='h-4 w-4' />
-                    <span className='sr-only'>{copy.addBlock}</span>
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => addBlock(block.id)}
+                      disabled={isPreview || disabled || isElseBranchTitle(block.title)}
+                      className='h-8 w-8'
+                    >
+                      <Plus className='h-4 w-4' />
+                      <span className='sr-only'>{copy.addBlock}</span>
+                    </Button>
+                  }
+                />
                 <TooltipContent>{copy.addBlock}</TooltipContent>
               </Tooltip>
 
               <div className='flex items-center'>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      onClick={() => moveBlock(block.id, 'up')}
-                      disabled={
-                        isPreview || index === 0 || disabled || isElseBranchTitle(block.title)
-                      }
-                      className='h-8 w-8'
-                    >
-                      <ChevronUp className='h-4 w-4' />
-                      <span className='sr-only'>{copy.moveUp}</span>
-                    </Button>
-                  </TooltipTrigger>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        onClick={() => moveBlock(block.id, 'up')}
+                        disabled={
+                          isPreview || index === 0 || disabled || isElseBranchTitle(block.title)
+                        }
+                        className='h-8 w-8'
+                      >
+                        <ChevronUp className='h-4 w-4' />
+                        <span className='sr-only'>{copy.moveUp}</span>
+                      </Button>
+                    }
+                  />
                   <TooltipContent>{copy.moveUp}</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      onClick={() => moveBlock(block.id, 'down')}
-                      disabled={
-                        isPreview ||
-                        disabled ||
-                        index === conditionalBlocks.length - 1 ||
-                        isElseBranchTitle(conditionalBlocks[index + 1]?.title ?? '') ||
-                        isElseBranchTitle(block.title)
-                      }
-                      className='h-8 w-8'
-                    >
-                      <ChevronDown className='h-4 w-4' />
-                      <span className='sr-only'>{copy.moveDown}</span>
-                    </Button>
-                  </TooltipTrigger>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        onClick={() => moveBlock(block.id, 'down')}
+                        disabled={
+                          isPreview ||
+                          disabled ||
+                          index === conditionalBlocks.length - 1 ||
+                          isElseBranchTitle(conditionalBlocks[index + 1]?.title ?? '') ||
+                          isElseBranchTitle(block.title)
+                        }
+                        className='h-8 w-8'
+                      >
+                        <ChevronDown className='h-4 w-4' />
+                        <span className='sr-only'>{copy.moveDown}</span>
+                      </Button>
+                    }
+                  />
                   <TooltipContent>{copy.moveDown}</TooltipContent>
                 </Tooltip>
               </div>
 
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant='ghost'
-                    size='sm'
-                    onClick={() => removeBlock(block.id)}
-                    disabled={isPreview || conditionalBlocks.length === 1 || disabled}
-                    className='h-8 w-8 text-destructive hover:text-destructive'
-                  >
-                    <Trash className='h-4 w-4' />
-                    <span className='sr-only'>{copy.deleteBlock}</span>
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => removeBlock(block.id)}
+                      disabled={isPreview || conditionalBlocks.length === 1 || disabled}
+                      className='h-8 w-8 text-destructive hover:text-destructive'
+                    >
+                      <Trash className='h-4 w-4' />
+                      <span className='sr-only'>{copy.deleteBlock}</span>
+                    </Button>
+                  }
+                />
                 <TooltipContent>{copy.deleteCondition}</TooltipContent>
               </Tooltip>
             </div>

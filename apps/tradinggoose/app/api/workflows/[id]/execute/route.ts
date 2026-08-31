@@ -80,7 +80,7 @@ async function waitForApiWorkflowResult(params: {
     }
 
     if (state.status === 'failed') {
-      throw new ApiWorkflowResultFailedError(state.errorMessage || 'Workflow execution failed')
+      throw new ApiWorkflowResultFailedError(state.failureReason || 'Workflow execution failed')
     }
 
     await sleep(API_EXECUTION_POLL_INTERVAL_MS)

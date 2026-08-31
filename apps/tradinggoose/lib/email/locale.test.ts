@@ -56,9 +56,7 @@ describe('email locale resolution', () => {
   it('uses authenticated user settings as the canonical user locale source', async () => {
     mockLimit.mockResolvedValueOnce([{ preferredLocale: 'zh' }])
 
-    await expect(resolveEmailLocale({ fallbackLocale: 'es', userId: 'user-1' })).resolves.toBe(
-      'zh'
-    )
+    await expect(resolveEmailLocale({ fallbackLocale: 'es', userId: 'user-1' })).resolves.toBe('zh')
 
     expect(mockDbSelect).toHaveBeenCalledTimes(1)
   })

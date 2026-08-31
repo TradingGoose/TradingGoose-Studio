@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Maximize2, Minimize2, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -28,6 +29,7 @@ export function FrozenCanvasModal({
   onClose,
 }: FrozenCanvasModalProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const t = useTranslations('workspace.logs.details')
 
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen)
@@ -68,11 +70,31 @@ export function FrozenCanvasModal({
           </div>
 
           <div className='flex items-center gap-2'>
-            <Button variant='ghost' size='sm' onClick={toggleFullscreen} className='h-8 w-8 p-0'>
-              {isFullscreen ? <Minimize2 className='h-4 w-4' /> : <Maximize2 className='h-4 w-4' />}
+            <Button
+              type='button'
+              variant='ghost'
+              size='sm'
+              aria-label={
+                isFullscreen ? t('snapshot.exitFullscreen') : t('snapshot.enterFullscreen')
+              }
+              onClick={toggleFullscreen}
+              className='h-8 w-8 p-0'
+            >
+              {isFullscreen ? (
+                <Minimize2 aria-hidden='true' className='h-4 w-4' />
+              ) : (
+                <Maximize2 aria-hidden='true' className='h-4 w-4' />
+              )}
             </Button>
-            <Button variant='ghost' size='sm' onClick={onClose} className='h-8 w-8 p-0'>
-              <X className='h-4 w-4' />
+            <Button
+              type='button'
+              variant='ghost'
+              size='sm'
+              aria-label={t('close')}
+              onClick={onClose}
+              className='h-8 w-8 p-0'
+            >
+              <X aria-hidden='true' className='h-4 w-4' />
             </Button>
           </div>
         </DialogHeader>

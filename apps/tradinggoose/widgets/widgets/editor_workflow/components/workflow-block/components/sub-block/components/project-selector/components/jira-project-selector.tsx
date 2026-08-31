@@ -1,10 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown, ExternalLink, RefreshCw, X } from 'lucide-react'
-import { useLocale } from 'next-intl'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { Check, ChevronDown, ExternalLink, X } from 'lucide-react'
+import { useLocale, useMessages } from 'next-intl'
 import { JiraIcon } from '@/components/icons/icons'
-import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -16,18 +15,17 @@ import {
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  type Credential,
-  getProviderIdFromServiceId,
-  getServiceIdFromScopes,
-  type OAuthProvider,
-} from '@/lib/oauth'
+import type { OAuthProvider } from '@/lib/oauth'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
-import { useMessages } from 'next-intl'
-import { formatTemplate } from '@/i18n/utils'
 import type { LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('JiraProjectSelector')
+
+const isAbortError = (error: unknown) =>
+  typeof error === 'object' &&
+  error !== null &&
+  'name' in error &&
+  (error as { name?: unknown }).name === 'AbortError'
 
 export interface JiraProjectInfo {
   id: string
@@ -46,14 +44,11 @@ interface JiraProjectSelectorProps {
   value: string
   onChange: (value: string, projectInfo?: JiraProjectInfo) => void
   provider: OAuthProvider
-  requiredScopes?: string[]
   label?: string
   disabled?: boolean
-  serviceId?: string
   domain: string
   showPreview?: boolean
-  onProjectInfoChange?: (projectInfo: JiraProjectInfo | null) => void
-  credentialId?: string
+  credentialId: string
   isForeignCredential?: boolean
   workflowId?: string
   workspaceId?: string
@@ -63,114 +58,152 @@ export function JiraProjectSelector({
   value,
   onChange,
   provider,
-  requiredScopes = [],
   label,
   disabled = false,
-  serviceId,
   domain,
   showPreview = true,
-  onProjectInfoChange,
   credentialId,
   isForeignCredential = false,
   workflowId,
   workspaceId,
 }: JiraProjectSelectorProps) {
   const locale = useLocale() as LocaleCode
-  const copy = useMessages().workspace.widgets.blockEditor.toolInput
   const selectorCopy = useMessages().workspace.widgets.blockEditor.jiraProjectSelector
   const labelText = label ?? translateWorkflowLabel(locale, 'selectJiraProject')
+  const feedbackId = useId()
   const [open, setOpen] = useState(false)
-  const [credentials, setCredentials] = useState<Credential[]>([])
   const [projects, setProjects] = useState<JiraProjectInfo[]>([])
-  const [selectedCredentialId, setSelectedCredentialId] = useState<string>(credentialId || '')
-  const [selectedProjectId, setSelectedProjectId] = useState(value)
-  const [selectedProject, setSelectedProject] = useState<JiraProjectInfo | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [showOAuthModal, setShowOAuthModal] = useState(false)
+  const [selectedProject, setSelectedProject] = useState<{
+    context: string
+    info: JiraProjectInfo | null
+  } | null>(null)
+  const [pendingRequests, setPendingRequests] = useState(0)
   const [errorKey, setErrorKey] = useState<keyof typeof selectorCopy.errors | null>(null)
-  const [cloudId, setCloudId] = useState<string | null>(null)
+  const [cloudBinding, setCloudBinding] = useState<{
+    id: string
+    owner: string
+  } | null>(null)
   const errorMessage = errorKey ? selectorCopy.errors[errorKey] : null
+  const isLoading = pendingRequests > 0
+  const announcedError = isLoading ? null : errorMessage
 
-  // Handle search with debounce
+  const normalizedDomain = domain.trim().toLowerCase()
+  const cloudContext = JSON.stringify([
+    provider,
+    workflowId ?? '',
+    workspaceId ?? '',
+    credentialId,
+    normalizedDomain,
+  ])
+  const listContext = JSON.stringify([cloudContext, isForeignCredential])
+  const selectionContext = JSON.stringify([cloudContext, value, isForeignCredential])
+  const activeCloudId = cloudBinding?.owner === cloudContext ? cloudBinding.id : undefined
+  const activeProject =
+    selectedProject?.context === selectionContext && selectedProject.info?.id === value
+      ? selectedProject.info
+      : null
+  const mountedRef = useRef(false)
+  const projectsRequestRef = useRef(0)
+  const selectionRequestRef = useRef(0)
+  const feedbackRequestRef = useRef(0)
+  const searchIntentRef = useRef(0)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const handleSearch = (value: string) => {
-    // Clear any existing timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    // Set a new timeout
-    searchTimeoutRef.current = setTimeout(() => {
-      if (value.length >= 1) {
-        fetchProjects(value)
-      } else {
-        fetchProjects() // Fetch all projects if no search term
-      }
-    }, 500) // 500ms debounce
+  const projectsAbortRef = useRef<AbortController | null>(null)
+  const selectionAbortRef = useRef<AbortController | null>(null)
+  const selectorContextRef = useRef({
+    cloud: cloudContext,
+    list: listContext,
+    selection: selectionContext,
+  })
+  selectorContextRef.current = {
+    cloud: cloudContext,
+    list: listContext,
+    selection: selectionContext,
   }
+  const previousListContextRef = useRef(listContext)
+  const previousCloudContextRef = useRef(cloudContext)
+  const previousSelectionContextRef = useRef(selectionContext)
 
-  // Clean up the timeout on unmount
   useEffect(() => {
+    mountedRef.current = true
     return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
+      mountedRef.current = false
+      projectsRequestRef.current += 1
+      selectionRequestRef.current += 1
+      feedbackRequestRef.current += 1
+      searchIntentRef.current += 1
+      projectsAbortRef.current?.abort()
+      selectionAbortRef.current?.abort()
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
     }
   }, [])
 
-  // Determine the appropriate service ID based on provider and scopes
-  const getServiceId = (): string => {
-    if (serviceId) return serviceId
-    return getServiceIdFromScopes(provider, requiredScopes)
-  }
+  useEffect(() => {
+    if (previousListContextRef.current === listContext) return
+    previousListContextRef.current = listContext
+    projectsRequestRef.current += 1
+    selectionRequestRef.current += 1
+    feedbackRequestRef.current += 1
+    searchIntentRef.current += 1
+    projectsAbortRef.current?.abort()
+    selectionAbortRef.current?.abort()
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+    setProjects([])
+    setSelectedProject(null)
+    setErrorKey(null)
+  }, [listContext])
 
-  // Determine the appropriate provider ID based on service and scopes (stabilized)
-  const providerId = useMemo(() => {
-    const effectiveServiceId = getServiceId()
-    return getProviderIdFromServiceId(effectiveServiceId)
-  }, [serviceId, provider, requiredScopes])
+  useEffect(() => {
+    if (previousCloudContextRef.current === cloudContext) return
+    previousCloudContextRef.current = cloudContext
+    setCloudBinding(null)
+  }, [cloudContext])
 
-  // Fetch available credentials for this provider
-  const fetchCredentials = useCallback(async () => {
-    if (!providerId) return
-    setIsLoading(true)
-    try {
-      const query = new URLSearchParams({ provider: providerId })
-      if (workflowId) query.set('workflowId', workflowId)
-      else if (workspaceId) query.set('workspaceId', workspaceId)
-      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
+  const handleSearch = (query: string) => {
+    const searchIntent = ++searchIntentRef.current
+    projectsRequestRef.current += 1
+    projectsAbortRef.current?.abort()
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
 
-      if (response.ok) {
-        const data = await response.json()
-        setCredentials(data.credentials)
-        // Do not auto-select credentials. Only use the credentialId provided by the parent.
+    const requestContext = selectorContextRef.current.list
+    searchTimeoutRef.current = setTimeout(() => {
+      if (
+        searchIntent !== searchIntentRef.current ||
+        requestContext !== selectorContextRef.current.list
+      ) {
+        return
       }
-    } catch (error) {
-      logger.error('Error fetching credentials:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [providerId, workflowId, workspaceId])
+      void fetchProjects(query, searchIntent)
+    }, 500)
+  }
 
   // Fetch detailed project information
   const fetchProjectInfo = useCallback(
     async (projectId: string) => {
-      if (!selectedCredentialId || !domain || !projectId) return
+      if (!credentialId || !domain || !projectId) return
 
-      setIsLoading(true)
-      setErrorKey(null)
+      selectionAbortRef.current?.abort()
+      const controller = new AbortController()
+      selectionAbortRef.current = controller
+      const requestGeneration = ++selectionRequestRef.current
+      const feedbackGeneration = ++feedbackRequestRef.current
+      const requestContext = selectionContext
+      const requestCloudContext = cloudContext
+
+      setPendingRequests((count) => count + 1)
+      if (feedbackGeneration === feedbackRequestRef.current) setErrorKey(null)
 
       try {
         const response = await fetch(`/api/tools/jira/projects`, {
           method: 'POST',
+          signal: controller.signal,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             domain,
-            credentialId: selectedCredentialId,
+            credentialId,
             ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
             projectId,
-            cloudId,
+            cloudId: activeCloudId,
           }),
         })
 
@@ -183,56 +216,86 @@ export function JiraProjectSelector({
         const json = await response.json()
         const projectInfo = json?.project
         const newCloudId = json?.cloudId
+        if (
+          !mountedRef.current ||
+          requestGeneration !== selectionRequestRef.current ||
+          requestContext !== selectorContextRef.current.selection
+        ) {
+          return
+        }
 
         if (newCloudId) {
-          setCloudId(newCloudId)
+          setCloudBinding({ id: newCloudId, owner: requestCloudContext })
         }
 
-        if (projectInfo) {
-          setSelectedProject(projectInfo)
-          onProjectInfoChange?.(projectInfo)
-        } else {
-          setSelectedProject(null)
-          onProjectInfoChange?.(null)
-        }
+        setSelectedProject({ context: requestContext, info: projectInfo || null })
       } catch (error) {
-        logger.error('Error fetching project details:', error)
-        setErrorKey('failedToFetchProjectDetails')
+        if (!isAbortError(error)) {
+          logger.error('Error fetching project details:', error)
+          if (
+            mountedRef.current &&
+            requestGeneration === selectionRequestRef.current &&
+            feedbackGeneration === feedbackRequestRef.current &&
+            requestContext === selectorContextRef.current.selection
+          ) {
+            setErrorKey('failedToFetchProjectDetails')
+            setSelectedProject({ context: requestContext, info: null })
+          }
+        }
       } finally {
-        setIsLoading(false)
+        if (mountedRef.current) {
+          setPendingRequests((count) => Math.max(0, count - 1))
+        }
       }
     },
-    [selectedCredentialId, domain, onProjectInfoChange, cloudId, workflowId, workspaceId]
+    [credentialId, domain, activeCloudId, cloudContext, selectionContext, workflowId, workspaceId]
   )
 
   // Fetch projects from Jira
   const fetchProjects = useCallback(
-    async (searchQuery?: string) => {
-      if (!selectedCredentialId || !domain) return
+    async (searchQuery = '', requestIntent?: number) => {
+      if (!credentialId || !domain) return
+      const searchIntent = requestIntent ?? ++searchIntentRef.current
+      if (searchIntent !== searchIntentRef.current) return
+
+      projectsAbortRef.current?.abort()
+      const controller = new AbortController()
+      projectsAbortRef.current = controller
+      const requestGeneration = ++projectsRequestRef.current
+      const feedbackGeneration = ++feedbackRequestRef.current
+      const requestContext = selectorContextRef.current.list
+      const requestCloudContext = selectorContextRef.current.cloud
+      const ownsRequest = () =>
+        mountedRef.current &&
+        requestGeneration === projectsRequestRef.current &&
+        searchIntent === searchIntentRef.current &&
+        requestContext === selectorContextRef.current.list
 
       // Validate domain format
-      const trimmedDomain = domain.trim().toLowerCase()
-      if (!trimmedDomain.includes('.')) {
-        setErrorKey('invalidDomainFormat')
-        setProjects([])
-        setIsLoading(false)
+      if (!normalizedDomain.includes('.')) {
+        if (ownsRequest()) setProjects([])
+        if (ownsRequest() && feedbackGeneration === feedbackRequestRef.current) {
+          setErrorKey('invalidDomainFormat')
+        }
         return
       }
 
-      setIsLoading(true)
-      setErrorKey(null)
+      setPendingRequests((count) => count + 1)
+      if (feedbackGeneration === feedbackRequestRef.current) setErrorKey(null)
 
       try {
         const queryParams = new URLSearchParams({
           domain,
-          credentialId: selectedCredentialId,
+          credentialId,
           ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
           ...(searchQuery && { query: searchQuery }),
-          ...(cloudId && { cloudId }),
+          ...(activeCloudId && { cloudId: activeCloudId }),
         })
 
         // Use the GET endpoint for project search
-        const response = await fetch(`/api/tools/jira/projects?${queryParams.toString()}`)
+        const response = await fetch(`/api/tools/jira/projects?${queryParams.toString()}`, {
+          signal: controller.signal,
+        })
 
         if (!response.ok) {
           const errorData = await response.json()
@@ -241,350 +304,239 @@ export function JiraProjectSelector({
         }
 
         const data = await response.json()
+        if (!ownsRequest()) return
 
         if (data.cloudId) {
-          setCloudId(data.cloudId)
+          setCloudBinding({ id: data.cloudId, owner: requestCloudContext })
         }
 
         // Process the projects results
         const foundProjects = data.projects || []
         logger.info(`Received ${foundProjects.length} projects from API`)
         setProjects(foundProjects)
-
-        // If we have a selected project ID, find the project info
-        if (selectedProjectId) {
-          const projectInfo = foundProjects.find(
-            (project: JiraProjectInfo) => project.id === selectedProjectId
-          )
-          if (projectInfo) {
-            setSelectedProject(projectInfo)
-            onProjectInfoChange?.(projectInfo)
-          } else if (!searchQuery && selectedProjectId) {
-            // If we can't find the project in the list, try to fetch it directly
-            fetchProjectInfo(selectedProjectId)
-          }
-        }
       } catch (error) {
-        logger.error('Error fetching projects:', error)
-        setErrorKey('failedToFetchProjects')
-        setProjects([])
+        if (!isAbortError(error)) {
+          logger.error('Error fetching projects:', error)
+          if (ownsRequest() && feedbackGeneration === feedbackRequestRef.current) {
+            setErrorKey('failedToFetchProjects')
+          }
+          if (ownsRequest()) setProjects([])
+        }
       } finally {
-        setIsLoading(false)
+        if (mountedRef.current) {
+          setPendingRequests((count) => Math.max(0, count - 1))
+        }
       }
     },
-    [
-      selectedCredentialId,
-      domain,
-      selectedProjectId,
-      onProjectInfoChange,
-      fetchProjectInfo,
-      cloudId,
-      workflowId,
-      workspaceId,
-    ]
+    [credentialId, domain, normalizedDomain, activeCloudId, workflowId, workspaceId]
   )
 
-  // Fetch credentials list when dropdown opens (for account switching UI), not on mount
   useEffect(() => {
-    if (open) {
-      fetchCredentials()
-    }
-  }, [open, fetchCredentials])
-
-  // Keep local credential state in sync with persisted credential
-  useEffect(() => {
-    if (credentialId && credentialId !== selectedCredentialId) {
-      setSelectedCredentialId(credentialId)
-    }
-  }, [credentialId, selectedCredentialId])
+    if (previousSelectionContextRef.current === selectionContext) return
+    previousSelectionContextRef.current = selectionContext
+    if (activeProject) return
+    selectionRequestRef.current += 1
+    feedbackRequestRef.current += 1
+    selectionAbortRef.current?.abort()
+    setSelectedProject(null)
+    setErrorKey(null)
+  }, [selectionContext, activeProject])
 
   // Fetch the selected project metadata once credentials are ready or changed
   useEffect(() => {
-    if (value && selectedCredentialId && domain && domain.includes('.')) {
-      if (!selectedProject || selectedProject.id !== value) {
-        fetchProjectInfo(value)
-      }
+    if (value && credentialId && normalizedDomain.includes('.') && !activeProject) {
+      void fetchProjectInfo(value)
     }
-  }, [value, selectedCredentialId, domain, fetchProjectInfo, selectedProject])
-
-  // Keep internal selectedProjectId in sync with the value prop
-  useEffect(() => {
-    if (value !== selectedProjectId) {
-      setSelectedProjectId(value)
-    }
-  }, [value])
-
-  // Clear local preview when value is cleared remotely or via collaborator
-  useEffect(() => {
-    if (!value) {
-      setSelectedProject(null)
-      onProjectInfoChange?.(null)
-    }
-  }, [value, onProjectInfoChange])
+  }, [value, credentialId, normalizedDomain, fetchProjectInfo, activeProject])
 
   // Handle open change
   const handleOpenChange = (isOpen: boolean) => {
+    if (disabled || isForeignCredential) {
+      setOpen(false)
+      return
+    }
     setOpen((prev) => (prev === isOpen ? prev : isOpen))
-    // Only fetch projects when a credential is present; otherwise, do nothing
-    if (isOpen && selectedCredentialId && domain && domain.includes('.')) {
-      fetchProjects('')
+    if (isOpen && credentialId && normalizedDomain.includes('.')) {
+      const searchIntent = ++searchIntentRef.current
+      void fetchProjects('', searchIntent)
     }
   }
 
   // Handle project selection
   const handleSelectProject = (project: JiraProjectInfo) => {
-    setSelectedProjectId(project.id)
-    setSelectedProject(project)
+    selectionRequestRef.current += 1
+    feedbackRequestRef.current += 1
+    selectionAbortRef.current?.abort()
+    setErrorKey(null)
+    setSelectedProject({
+      context: JSON.stringify([cloudContext, project.id, isForeignCredential]),
+      info: project,
+    })
     onChange(project.id, project)
-    onProjectInfoChange?.(project)
-    setOpen(false)
-  }
-
-  // Handle adding a new credential
-  const handleAddCredential = () => {
-    // Show the OAuth modal
-    setShowOAuthModal(true)
     setOpen(false)
   }
 
   // Clear selection
   const handleClearSelection = () => {
-    setSelectedProjectId('')
-    setSelectedProject(null)
+    selectionRequestRef.current += 1
+    feedbackRequestRef.current += 1
+    selectionAbortRef.current?.abort()
+    setSelectedProject({ context: selectionContext, info: null })
     setErrorKey(null)
     onChange('', undefined)
-    onProjectInfoChange?.(null)
   }
 
-  const canShowPreview = !!(showPreview && selectedProject && value && selectedProject.id === value)
+  const canShowPreview = !!(showPreview && activeProject)
 
   return (
-    <>
-      <div className='space-y-2'>
-        <Popover open={open} onOpenChange={handleOpenChange}>
-          <PopoverTrigger asChild>
+    <div className='space-y-2'>
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger
+          disabled={disabled || !domain || !credentialId || isForeignCredential}
+          render={
             <Button
               variant='outline'
               role='combobox'
               aria-expanded={open}
+              aria-busy={isLoading || undefined}
+              aria-describedby={isLoading || announcedError ? feedbackId : undefined}
+              aria-invalid={announcedError ? true : undefined}
+              aria-errormessage={announcedError ? feedbackId : undefined}
               className='w-full justify-between'
-              disabled={disabled || !domain || !selectedCredentialId || isForeignCredential}
-            >
-              {canShowPreview ? (
-                <div className='flex items-center gap-1 overflow-hidden'>
-                  <JiraIcon className='h-4 w-4' />
-                  <span className='truncate font-normal'>{selectedProject.name}</span>
-                </div>
-              ) : selectedProjectId ? (
-                <div className='flex items-center gap-1 overflow-hidden'>
-                  <JiraIcon className='h-4 w-4' />
-                  <span className='truncate font-normal'>{selectedProjectId}</span>
-                </div>
-              ) : (
-                <div className='flex items-center gap-1'>
-                  <JiraIcon className='h-4 w-4' />
-                  <span className='text-muted-foreground'>{labelText}</span>
-                </div>
-              )}
-              <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-            </Button>
-          </PopoverTrigger>
-          {!isForeignCredential && (
-            <PopoverContent className='w-[300px] p-0' align='start'>
-              {selectedCredentialId && credentials.length > 0 && (
-                <div className='flex items-center justify-between border-b px-3 py-2'>
-                  <div className='flex items-center gap-1'>
-                    <JiraIcon className='h-4 w-4' />
-                    <span className='text-muted-foreground text-xs'>
-                      {credentials.find((cred) => cred.id === selectedCredentialId)?.name ||
-                        translateWorkflowLabel(locale, 'unknown')}
-                    </span>
-                  </div>
-                  {credentials.length > 1 && (
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      className='h-6 px-2 text-xs'
-                      onClick={() => setOpen(true)}
-                    >
-                      {translateWorkflowLabel(locale, 'switch')}
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              <Command>
-                <CommandInput
-                  placeholder={translateWorkflowLabel(locale, 'searchProjects')}
-                  onValueChange={handleSearch}
-                />
-                <CommandList>
-                  <CommandEmpty>
-                    {isLoading ? (
-                      <div className='flex items-center justify-center p-4'>
-                        <RefreshCw className='h-4 w-4 animate-spin' />
-                        <span className='ml-2'>{translateWorkflowLabel(locale, 'loading')}</span>
-                      </div>
-                    ) : errorMessage ? (
-                      <div className='p-4 text-center'>
-                        <p className='text-destructive text-sm'>{errorMessage}</p>
-                      </div>
-                    ) : credentials.length === 0 ? (
-                      <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>
-                          {translateWorkflowLabel(locale, 'noAccountsConnected')}
-                        </p>
-                        <p className='text-muted-foreground text-xs'>
-                          {formatTemplate(copy.selectProviderAccount, { provider: 'Jira' })}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className='p-4 text-center'>
-                        <p className='font-medium text-sm'>
-                          {translateWorkflowLabel(locale, 'noProjectsFound')}
-                        </p>
-                        <p className='text-muted-foreground text-xs'>
-                          Try a different search or account.
-                        </p>
-                      </div>
-                    )}
-                  </CommandEmpty>
-
-                  {/* Account selection - only show if we have multiple accounts */}
-                  {credentials.length > 1 && (
-                    <CommandGroup>
-                      <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        {translateWorkflowLabel(locale, 'switchAccount')}
-                      </div>
-                      {credentials.map((cred) => (
-                        <CommandItem
-                          key={cred.id}
-                          value={`account-${cred.id}`}
-                          onSelect={() => setSelectedCredentialId(cred.id)}
-                        >
-                          <div className='flex items-center gap-1'>
-                            <JiraIcon className='h-4 w-4' />
-                            <span className='font-normal'>{cred.name}</span>
-                          </div>
-                          {cred.id === selectedCredentialId && (
-                            <Check className='ml-auto h-4 w-4' />
-                          )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
-
-                  {/* Projects list */}
-                  {projects.length > 0 && (
-                    <CommandGroup>
-                      <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
-                        {translateWorkflowLabel(locale, 'projects')}
-                      </div>
-                      {projects.map((project) => (
-                        <CommandItem
-                          key={project.id}
-                          value={`project-${project.id}-${project.name}`}
-                          onSelect={() => handleSelectProject(project)}
-                        >
-                          <div className='flex items-center gap-1 overflow-hidden'>
-                            {project.avatarUrl ? (
-                              <img
-                                src={project.avatarUrl}
-                                alt={project.name}
-                                className='h-4 w-4 rounded'
-                              />
-                            ) : (
-                              <JiraIcon className='h-4 w-4' />
-                            )}
-                            <span className='truncate font-normal'>{project.name}</span>
-                          </div>
-                          {project.id === selectedProjectId && (
-                            <Check className='ml-auto h-4 w-4' />
-                          )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
-
-                  {/* Connect account option - only show if no credentials */}
-                  {credentials.length === 0 && (
-                    <CommandGroup>
-                      <CommandItem onSelect={handleAddCredential}>
-                        <div className='flex items-center gap-1 text-foreground'>
-                          <JiraIcon className='h-4 w-4' />
-                          <span>
-                            {formatTemplate(copy.selectProviderAccount, { provider: 'Jira' })}
-                          </span>
-                        </div>
-                      </CommandItem>
-                    </CommandGroup>
-                  )}
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          )}
-        </Popover>
-
-        {/* Project preview */}
-        {canShowPreview && (
-          <div className='relative mt-2 rounded-md border border-muted bg-muted/10 p-2'>
-            <div className='absolute top-2 right-2'>
-              <Button
-                variant='ghost'
-                size='icon'
-                className='h-5 w-5 hover:bg-card'
-                onClick={handleClearSelection}
-              >
-                <X className='h-3 w-3' />
-              </Button>
+              disabled={disabled || !domain || !credentialId || isForeignCredential}
+            />
+          }
+        >
+          {canShowPreview ? (
+            <div className='flex items-center gap-1 overflow-hidden'>
+              <JiraIcon className='h-4 w-4' />
+              <span className='truncate font-normal'>{activeProject.name}</span>
             </div>
-            <div className='flex items-center gap-3 pr-4'>
-              <div className='flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-muted/20'>
-                {selectedProject.avatarUrl ? (
-                  <img
-                    src={selectedProject.avatarUrl}
-                    alt={selectedProject.name}
-                    className='h-4 w-4 rounded'
-                  />
-                ) : (
-                  <JiraIcon className='h-4 w-4' />
+          ) : value ? (
+            <div className='flex items-center gap-1 overflow-hidden'>
+              <JiraIcon className='h-4 w-4' />
+              <span className='truncate font-normal'>{value}</span>
+            </div>
+          ) : (
+            <div className='flex items-center gap-1'>
+              <JiraIcon className='h-4 w-4' />
+              <span className='text-muted-foreground'>{labelText}</span>
+            </div>
+          )}
+          <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+        </PopoverTrigger>
+        {!isForeignCredential && (
+          <PopoverContent className='w-[300px] p-0' align='start'>
+            <Command>
+              <CommandInput
+                placeholder={translateWorkflowLabel(locale, 'searchProjects')}
+                onValueChange={handleSearch}
+              />
+              <CommandList>
+                <CommandEmpty>
+                  {!isLoading && !errorMessage
+                    ? translateWorkflowLabel(locale, 'noProjectsFound')
+                    : null}
+                </CommandEmpty>
+
+                {/* Projects list */}
+                {projects.length > 0 && (
+                  <CommandGroup>
+                    <div className='px-2 py-1.5 font-medium text-muted-foreground text-xs'>
+                      {translateWorkflowLabel(locale, 'projects')}
+                    </div>
+                    {projects.map((project) => (
+                      <CommandItem
+                        key={project.id}
+                        value={`project-${project.id}-${project.name}`}
+                        onSelect={() => handleSelectProject(project)}
+                      >
+                        <div className='flex items-center gap-1 overflow-hidden'>
+                          {project.avatarUrl ? (
+                            <img
+                              src={project.avatarUrl}
+                              alt={project.name}
+                              className='h-4 w-4 rounded'
+                            />
+                          ) : (
+                            <JiraIcon className='h-4 w-4' />
+                          )}
+                          <span className='truncate font-normal'>{project.name}</span>
+                        </div>
+                        {project.id === value && <Check className='ml-auto h-4 w-4' />}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
                 )}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        )}
+      </Popover>
+
+      {isLoading ? (
+        <p
+          id={feedbackId}
+          role='status'
+          aria-atomic='true'
+          className='text-muted-foreground text-xs'
+        >
+          {translateWorkflowLabel(locale, 'loading')}
+        </p>
+      ) : announcedError ? (
+        <p id={feedbackId} role='alert' aria-atomic='true' className='text-destructive text-xs'>
+          {announcedError}
+        </p>
+      ) : null}
+
+      {/* Project preview */}
+      {canShowPreview && (
+        <div className='relative mt-2 rounded-md border border-muted bg-muted/10 p-2'>
+          <div className='absolute top-2 right-2'>
+            <Button
+              variant='ghost'
+              size='icon'
+              className='h-5 w-5 hover:bg-card'
+              onClick={handleClearSelection}
+            >
+              <X className='h-3 w-3' />
+            </Button>
+          </div>
+          <div className='flex items-center gap-3 pr-4'>
+            <div className='flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-muted/20'>
+              {activeProject.avatarUrl ? (
+                <img
+                  src={activeProject.avatarUrl}
+                  alt={activeProject.name}
+                  className='h-4 w-4 rounded'
+                />
+              ) : (
+                <JiraIcon className='h-4 w-4' />
+              )}
+            </div>
+            <div className='min-w-0 flex-1 overflow-hidden'>
+              <div className='flex items-center gap-1'>
+                <h4 className='truncate font-medium text-xs'>{activeProject.name}</h4>
+                <span className='whitespace-nowrap text-muted-foreground text-xs'>
+                  {activeProject.key}
+                </span>
               </div>
-              <div className='min-w-0 flex-1 overflow-hidden'>
-                <div className='flex items-center gap-1'>
-                  <h4 className='truncate font-medium text-xs'>{selectedProject.name}</h4>
-                  <span className='whitespace-nowrap text-muted-foreground text-xs'>
-                    {selectedProject.key}
-                  </span>
-                </div>
-                {selectedProject.url && (
-                  <a
-                    href={selectedProject.url}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='flex items-center gap-1 text-foreground text-xs hover:underline'
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span>{translateWorkflowLabel(locale, 'openInJira')}</span>
-                    <ExternalLink className='h-3 w-3' />
-                  </a>
-                )}
-              </div>
+              {activeProject.url && (
+                <a
+                  href={activeProject.url}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='flex items-center gap-1 text-foreground text-xs hover:underline'
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span>{translateWorkflowLabel(locale, 'openInJira')}</span>
+                  <ExternalLink className='h-3 w-3' />
+                </a>
+              )}
             </div>
           </div>
-        )}
-      </div>
-
-      {showOAuthModal && (
-        <OAuthRequiredModal
-          isOpen={showOAuthModal}
-          onClose={() => setShowOAuthModal(false)}
-          provider={provider}
-          toolName='Jira'
-          requiredScopes={requiredScopes}
-          serviceId={getServiceId()}
-        />
+        </div>
       )}
-    </>
+    </div>
   )
 }

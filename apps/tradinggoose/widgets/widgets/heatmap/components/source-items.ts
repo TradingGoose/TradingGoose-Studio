@@ -1,8 +1,4 @@
-import {
-  getListingIdentityKey,
-  type ListingIdentity,
-  toListingValueObject,
-} from '@/lib/listing/identity'
+import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
 import { MARKET_QUOTE_SNAPSHOT_REQUEST_CAP } from '@/lib/market/quote-snapshot-contract'
 import type { WatchlistItem } from '@/lib/watchlists/types'
 
@@ -43,8 +39,7 @@ export const resolveWatchlistHeatmapListings = (watchlists: WatchlistHeatmapSour
 
     for (const item of watchlist.items) {
       if (item.type !== 'listing') continue
-      const listing = toListingValueObject(item.listing)
-      if (!listing) continue
+      const listing = item.listing
       const key = getListingIdentityKey(listing)
       const current = byKey.get(key)
       if (current) {
@@ -70,13 +65,12 @@ export const resolvePortfolioHeatmapListings = (
   const byKey = new Map<string, HeatmapSourceListing>()
 
   for (const listing of listings) {
-    const normalized = toListingValueObject(listing)
-    if (!normalized) continue
-    const key = getListingIdentityKey(normalized)
+    if (!listing) continue
+    const key = getListingIdentityKey(listing)
     if (byKey.has(key)) continue
     byKey.set(key, {
       key,
-      listing: normalized,
+      listing,
       sourceLabels: ['Portfolio'],
     })
   }

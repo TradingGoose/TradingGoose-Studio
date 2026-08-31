@@ -8,6 +8,7 @@ export default {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './global-navbar/**/*.{js,ts,jsx,tsx,mdx}',
+    './lib/**/*.{js,ts,jsx,tsx,mdx}',
     './widgets/**/*.{js,ts,jsx,tsx,mdx}',
     // API routes don't contain Tailwind classes; exclude them to avoid noisy file watching errors
     '!./app/api/**',
@@ -162,22 +163,6 @@ export default {
             opacity: '0.7',
           },
         },
-        'accordion-down': {
-          from: {
-            height: '0',
-          },
-          to: {
-            height: 'var(--radix-accordion-content-height)',
-          },
-        },
-        'accordion-up': {
-          from: {
-            height: 'var(--radix-accordion-content-height)',
-          },
-          to: {
-            height: '0',
-          },
-        },
         'slide-left': {
           '0%': {
             transform: 'translateX(0)',
@@ -220,8 +205,6 @@ export default {
         'run-glow': 'run-glow 2s ease-in-out infinite',
         'caret-blink': 'caret-blink 1.25s ease-out infinite',
         'pulse-slow': 'pulse-slow 3s ease-in-out infinite',
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
         'slide-left': 'slide-left 80s linear infinite',
         'slide-right': 'slide-right 80s linear infinite',
         'marquee-horizontal': 'marquee-horizontal var(--marquee-duration) infinite linear',
