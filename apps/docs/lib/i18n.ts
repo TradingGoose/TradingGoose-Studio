@@ -33,7 +33,8 @@ export const docsLocaleCopy: Record<
   es: {
     displayName: 'Español',
     documentation: 'Documentación',
-    description: 'Documentación del editor visual de workflows de TradingGoose para aplicaciones de IA.',
+    description:
+      'Documentación del editor visual de workflows de TradingGoose para aplicaciones de IA.',
     home: 'Inicio',
     team: 'Equipo de TradingGoose',
     category: 'Herramientas de desarrollo',

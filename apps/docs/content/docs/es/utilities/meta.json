@@ -1,9 +1,4 @@
 {
   "title": "Utilidades",
-  "pages": [
-    "index",
-    "mcp",
-    "skills",
-    "custom-tools"
-  ]
+  "pages": ["index", "mcp", "skills", "custom-tools"]
 }

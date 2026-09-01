@@ -47,11 +47,15 @@ Copilot 可以使用覆盖整个平台的完整工具集：
 
 ## 支持的模型
 
-Copilot 支持 Anthropic 和 OpenAI 的模型。可从输入栏切换当前模型。
+Copilot 恰好支持六个 OpenRouter 模型。Studio 会原样发送每个 OpenRouter 模型的规范标识符，你可以从输入栏切换当前模型。
 
-**Anthropic** -- claude-sonnet-4.6, claude-opus-4.6
+**Anthropic** -- anthropic/claude-fable-5, anthropic/claude-opus-5
 
-**OpenAI** -- gpt-5.4, gpt-5.4-mini
+**DeepSeek** -- deepseek/deepseek-v4-pro
+
+**OpenAI** -- openai/gpt-5.6-terra, openai/gpt-5.6-sol
+
+**xAI** -- x-ai/grok-4.6
 
 ## 设置
 
@@ -97,15 +101,8 @@ Copilot 能感知上下文。当前页面只会发布所选对象的标识，例
 
 ## 计费
 
-Copilot 按底层 LLM 提供商的 token 用量计费：
-
-- **输入 token** -- 按提供商的基础费率计费，不加价。
-- **输出 token** -- 按提供商基础输出费率的 1.5 倍计费。
-
-```
-cost = (inputTokens * inputPrice + outputTokens * outputPrice * 1.5) / 1_000_000
-```
+Copilot 完成费用采用 OpenRouter 报告的权威总成本，再应用你的方案对应的 Copilot 成本倍数。这样可使最终计费与实际路由请求保持一致，包括适用的缓存 token、推理、媒体、搜索、长上下文和特定提供商费用。
 
 <Callout type="info">
-  价格按每百万 token 计算。详细示例请参阅 [Cost Calculation](/execution/costs) 页面。
+  Studio 可以在请求前预留一个保守估算金额。最终费用始终采用 OpenRouter 报告的完成成本，而不是估算值。
 </Callout>

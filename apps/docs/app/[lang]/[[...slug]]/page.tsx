@@ -9,13 +9,7 @@ import { StructuredData } from '@/components/structured-data'
 import { AccordionHashSync } from '@/components/ui/accordion-hash-sync'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
-import {
-  docsLocaleCopy,
-  i18n,
-  isDocsLocale,
-  toOpenGraphLocale,
-  type DocsLocale,
-} from '@/lib/i18n'
+import { type DocsLocale, docsLocaleCopy, i18n, isDocsLocale, toOpenGraphLocale } from '@/lib/i18n'
 import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
 import { source } from '@/lib/source'
 

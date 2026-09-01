@@ -60,6 +60,5 @@ function generateAlternateLinks(baseUrl: string, urlWithoutLang: string): string
       return `    <xhtml:link rel="alternate" hreflang="${lang}" href="${url}" />`
     }),
     `    <xhtml:link rel="alternate" hreflang="x-default" href="${baseUrl}${urlWithoutLang}" />`,
-  ]
-    .join('\n')
+  ].join('\n')
 }

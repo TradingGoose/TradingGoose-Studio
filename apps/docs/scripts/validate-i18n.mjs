@@ -32,15 +32,13 @@ function structure(text) {
       ...new Set([...text.matchAll(/\b([A-Za-z_$][\w$-]*)\s*=/g)].map((match) => match[1])),
     ].sort(),
     objectKeys: [...text.matchAll(/"([^"]+)"\s*:/g)].map((match) => match[1]),
-    technicalValues: [...text.matchAll(/"(?:id|type)"\s*:\s*"([^"]*)"/g)].map(
-      (match) => match[1]
-    ),
+    technicalValues: [...text.matchAll(/"(?:id|type)"\s*:\s*"([^"]*)"/g)].map((match) => match[1]),
     technicalLabels: [...text.matchAll(/"label"\s*:\s*"([^"]*)"/g)]
       .map((match) => match[1])
       .filter((value) => !/\s/.test(value) && /(?:\d|[-_.:/])/.test(value)),
-    urlsAndUris: [
-      ...text.matchAll(/\b(?:https?:\/\/|spotify:)[^\s"')\\]+/g),
-    ].map((match) => match[0]),
+    urlsAndUris: [...text.matchAll(/\b(?:https?:\/\/|spotify:)[^\s"')\\]+/g)].map(
+      (match) => match[0]
+    ),
   }
 }
 
@@ -99,7 +97,10 @@ for (const path of [
 }
 
 const i18nSource = await readFile(new URL('lib/i18n.ts', appRoot), 'utf8')
-if (!/defaultLanguage:\s*'en'/.test(i18nSource) || !/languages:\s*\['en', 'es', 'zh'\]/.test(i18nSource)) {
+if (
+  !/defaultLanguage:\s*'en'/.test(i18nSource) ||
+  !/languages:\s*\['en', 'es', 'zh'\]/.test(i18nSource)
+) {
   errors.push('lib/i18n.ts must own exactly en, es, zh with en as default')
 }
 
@@ -167,4 +168,6 @@ for (const locale of ['es', 'zh']) {
 
 if (errors.length > 0) throw new Error(`Translation validation failed:\n- ${errors.join('\n- ')}`)
 
-console.log(`Validated exact locale parity: en=${inventories.en.length}, es=${inventories.es.length}, zh=${inventories.zh.length}`)
+console.log(
+  `Validated exact locale parity: en=${inventories.en.length}, es=${inventories.es.length}, zh=${inventories.zh.length}`
+)

@@ -1,5 +1,5 @@
 import Script from 'next/script'
-import { docsLocaleCopy, type DocsLocale } from '@/lib/i18n'
+import { type DocsLocale, docsLocaleCopy } from '@/lib/i18n'
 
 interface StructuredDataProps {
   title: string
@@ -92,9 +92,7 @@ export function StructuredData({
       '@type': 'Offer',
       category: copy.category,
     },
-    featureList: [
-      copy.documentation,
-    ],
+    featureList: [copy.documentation],
   }
 
   return (

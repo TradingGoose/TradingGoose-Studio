@@ -47,11 +47,15 @@ El selector de nivel de acceso de la barra de entrada controla la autonomía de 
 
 ## Modelos compatibles
 
-Copilot admite modelos de Anthropic y OpenAI. Cambia el modelo activo desde la barra de entrada.
+Copilot admite exactamente seis modelos de OpenRouter. Studio envía sin cambios el identificador canónico de cada modelo de OpenRouter, y puedes cambiar el modelo activo desde la barra de entrada.
 
-**Anthropic** -- claude-sonnet-4.6, claude-opus-4.6
+**Anthropic** -- anthropic/claude-fable-5, anthropic/claude-opus-5
 
-**OpenAI** -- gpt-5.4, gpt-5.4-mini
+**DeepSeek** -- deepseek/deepseek-v4-pro
+
+**OpenAI** -- openai/gpt-5.6-terra, openai/gpt-5.6-sol
+
+**xAI** -- x-ai/grok-4.6
 
 ## Configuración
 
@@ -97,15 +101,8 @@ Para deshacer una acción de Copilot, puedes revertir o editar cualquier mensaje
 
 ## Facturación
 
-El uso de Copilot se factura por token según el proveedor del LLM subyacente:
-
-- **Tokens de entrada** -- se facturan a la tarifa base del proveedor, sin margen adicional.
-- **Tokens de salida** -- se facturan a 1,5 veces la tarifa base de salida del proveedor.
-
-```
-cost = (inputTokens * inputPrice + outputTokens * outputPrice * 1.5) / 1_000_000
-```
+Los cargos por finalización de Copilot usan el coste total oficial informado por OpenRouter y, después, el multiplicador de coste de Copilot correspondiente a tu plan. Así, la facturación final coincide con la solicitud enrutada real, incluidos los cargos aplicables por tokens almacenados en caché, razonamiento, contenido multimedia, búsqueda, contexto largo y costes específicos del proveedor.
 
 <Callout type="info">
-  Los precios se indican por millón de tokens. Consulta ejemplos detallados en la página [Cost Calculation](/execution/costs).
+  Studio puede reservar una estimación conservadora antes de una solicitud. El cargo final siempre usa el coste de finalización informado por OpenRouter, no la estimación.
 </Callout>

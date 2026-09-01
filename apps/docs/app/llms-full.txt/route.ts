@@ -1,5 +1,5 @@
-import { getLLMText } from '@/lib/llms'
 import { i18n } from '@/lib/i18n'
+import { getLLMText } from '@/lib/llms'
 import { source } from '@/lib/source'
 
 export const revalidate = false

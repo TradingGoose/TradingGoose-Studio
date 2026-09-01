@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Check, ChevronRight } from 'lucide-react'
 import { useParams, usePathname, useRouter } from 'next/navigation'
-import { docsLocaleCopy, i18n, isDocsLocale, type DocsLocale } from '@/lib/i18n'
+import { type DocsLocale, docsLocaleCopy, i18n, isDocsLocale } from '@/lib/i18n'
 
 const languages = Object.fromEntries(
   i18n.languages.map((locale) => [locale, { name: docsLocaleCopy[locale].displayName }])
