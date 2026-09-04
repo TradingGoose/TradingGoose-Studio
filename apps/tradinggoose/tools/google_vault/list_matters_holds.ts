@@ -14,11 +14,36 @@ export const listMattersHoldsTool: ToolConfig<GoogleVaultListMattersHoldsParams>
   },
 
   params: {
-    accessToken: { type: 'string', required: true, visibility: 'hidden' },
-    matterId: { type: 'string', required: true, visibility: 'user-only' },
-    pageSize: { type: 'number', required: false, visibility: 'user-only' },
-    pageToken: { type: 'string', required: false, visibility: 'hidden' },
-    holdId: { type: 'string', required: false, visibility: 'user-only' },
+    accessToken: {
+      type: 'string',
+      required: true,
+      visibility: 'hidden',
+      description: 'OAuth access token for Google Vault',
+    },
+    matterId: {
+      type: 'string',
+      required: true,
+      visibility: 'user-only',
+      description: 'ID of the Vault matter whose holds will be read',
+    },
+    pageSize: {
+      type: 'number',
+      required: false,
+      visibility: 'user-only',
+      description: 'Maximum number of holds to return',
+    },
+    pageToken: {
+      type: 'string',
+      required: false,
+      visibility: 'hidden',
+      description: 'Token for the next page of holds',
+    },
+    holdId: {
+      type: 'string',
+      required: false,
+      visibility: 'user-only',
+      description: 'Optional hold ID to retrieve instead of listing holds',
+    },
   },
 
   request: {

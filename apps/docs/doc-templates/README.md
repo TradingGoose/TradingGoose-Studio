@@ -94,7 +94,7 @@ Wrap **any** visual content (JSON previews, images, videos, mock components) in 
 
 1. **Frontmatter**: Always include `title` and `description`
 2. **Meta.json**: Each category directory needs a `meta.json` listing page order
-3. **Manual content markers**: Use `{/* MANUAL-CONTENT-START:sectionName */}` / `{/* MANUAL-CONTENT-END */}` to protect hand-written sections from the generator
+3. **Generated pages**: Source-backed tool and non-core registry trigger pages are fully overwritten; put durable copy in their runtime contracts
 4. **Code language**: Use `javascript` for PineTS code blocks (not `pinescript` — Shiki doesn't support it)
 5. **No emojis**: Unless explicitly requested
 

@@ -10,7 +10,7 @@ export const HumanInTheLoopBlock: BlockConfig<ResponseBlockOutput> = {
     'Combines response and start functionality. Sends structured responses and allows workflow to resume from this point.',
   category: 'blocks',
   bgColor: '#10B981',
-  docsLink: 'https://docs.tradinggoose.ai/blocks/human-in-the-loop',
+  docsLink: 'https://docs.tradinggoose.ai/blocks/human_in_the_loop',
   icon: HumanInTheLoopIcon,
   subBlocks: [
     {

@@ -15,7 +15,7 @@ export const MemoryBlock: BlockConfig = {
   `,
   icon: BrainIcon,
   category: 'blocks',
-  docsLink: 'https://docs.tradinggoose.ai/tools/memory',
+  docsLink: 'https://docs.tradinggoose.ai/blocks/memory',
   subBlocks: [
     {
       id: 'operation',

@@ -1,18 +1,33 @@
-import fs from 'fs'
-import { globSync } from 'glob'
-import { extractBlockConfig } from './extract-blocks'
 import type { BlockConfig } from './types'
 
 const triggerDocSlugOverrides: Record<string, string> = {
-  'microsoft-teams': 'microsoft-teams',
   microsoftteams: 'microsoft-teams',
   google_forms: 'google-forms',
-  googleforms: 'google-forms',
   twilio_voice: 'twilio-voice',
+}
+
+const providerDisplayNameOverrides: Record<string, string> = {
+  github: 'GitHub',
+  hubspot: 'HubSpot',
+  imap: 'IMAP',
+  microsoftteams: 'Microsoft Teams',
+  rss: 'RSS',
+  whatsapp: 'WhatsApp',
 }
 
 export function providerToTriggerDocSlug(provider: string): string {
   return triggerDocSlugOverrides[provider] || provider
+}
+
+export function providerToDisplayName(provider: string): string {
+  return (
+    providerDisplayNameOverrides[provider] ||
+    provider
+      .split(/[-_]/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
+  )
 }
 
 export function findTriggerDocSlugForToolType(
@@ -37,43 +52,8 @@ export function findToolDocSlugForTriggerProvider(
   return findNormalizedDocSlugMatch(provider, toolSlugs)
 }
 
-export function collectGeneratedToolSlugs(blocksPath: string, rootDir: string): Set<string> {
-  const toolSlugs = new Set<string>()
-
-  for (const blockFile of globSync(`${blocksPath}/*.ts`)) {
-    if (blockFile.endsWith('.test.ts')) continue
-
-    const fileContent = fs.readFileSync(blockFile, 'utf-8')
-    const config = extractBlockConfig(fileContent, {
-      includeTriggerDerivedSubBlocks: true,
-      triggersPath: `${rootDir}/apps/tradinggoose/triggers`,
-    })
-
-    if (!config || !shouldGenerateToolDoc(config)) continue
-    toolSlugs.add(config.type)
-  }
-
-  return toolSlugs
-}
-
 export function shouldGenerateToolDoc(config: BlockConfig): boolean {
-  if (
-    config.category === 'triggers' ||
-    config.type.includes('_trigger') ||
-    config.type.includes('_webhook')
-  ) {
-    return false
-  }
-
-  if (
-    (config.category === 'blocks' && config.type !== 'memory' && config.type !== 'knowledge') ||
-    config.type === 'evaluator' ||
-    config.type === 'number'
-  ) {
-    return false
-  }
-
-  return true
+  return config.category === 'tools' && config.type !== 'evaluator'
 }
 
 function findNormalizedDocSlugMatch(source: string, slugs: Set<string>): string | undefined {

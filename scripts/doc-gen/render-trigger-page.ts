@@ -1,5 +1,5 @@
-import type { TriggerConfig } from './extract-triggers'
-import type { RelatedDocPage } from './types'
+import { providerToDisplayName } from './doc-pages'
+import type { RelatedDocPage, TriggerConfig } from './types'
 
 /** Escape angle brackets so MDX doesn't treat them as JSX tags */
 function escapeMdxText(text: string): string {
@@ -17,17 +17,12 @@ export function renderTriggerPage(
 ): string {
   // Use first trigger's info for the page header
   const primary = triggers[0]
-  const providerName = toProviderDisplayName(provider)
+  const providerName = providerToDisplayName(provider)
   const pageName = `${providerName} Trigger`
   const pageDesc = primary.description || `Trigger workflows from ${providerName} events`
 
-  if (provider === 'portfolio') {
-    return renderPortfolioTriggerPage(primary, pageName, pageDesc, relatedDocPage)
-  }
-
   const isMultiEvent = triggers.length > 1
-  const isPolling = !primary.hasWebhook
-  const triggerType = isPolling ? 'Polling' : 'Webhook'
+  const delivery = getDeliveryDescription(primary)
 
   // Build config + events section
   let configSection: string
@@ -38,7 +33,7 @@ export function renderTriggerPage(
     configSection = buildSingleEventSection(primary)
   }
 
-  return `---
+  const page = `---
 title: ${pageName}
 description: ${pageDesc}
 ---
@@ -58,75 +53,34 @@ ${relatedDocPage ? `import { Card, Cards } from 'fumadocs-ui/components/card'` :
 ${pageDesc}
 
 <Callout type="info">
-  This is a **${triggerType.toLowerCase()}-based** trigger.${isPolling ? ' TradingGoose automatically checks for new data on a regular interval.' : ' Configure the webhook URL in your external service to send events to TradingGoose.'}
+  This is a **${delivery.label}** trigger. ${delivery.description}
 </Callout>
 
 ${renderRelatedDocCard(relatedDocPage)}
-${configSection}
-`
+${configSection}`
+  return `${page.trimEnd()}\n`
 }
 
-function renderPortfolioTriggerPage(
-  trigger: TriggerConfig,
-  pageName: string,
-  pageDesc: string,
-  relatedDocPage?: RelatedDocPage
-): string {
-  const outputs = {
-    input: { type: 'string', description: 'Human-readable portfolio monitor match message.' },
-    event: { type: 'string', description: 'Always portfolio_state_condition_matched.' },
-    portfolio: {
-      identity: { type: 'object', description: 'Canonical trading portfolio identity.' },
-      detail: { type: 'object', description: 'Portfolio detail snapshot at match time.' },
-    },
-    monitor: {
-      id: { type: 'string', description: 'Portfolio monitor ID.' },
-      workflowId: { type: 'string', description: 'Target workflow ID.' },
-      blockId: { type: 'string', description: 'Target trigger block ID.' },
-      providerId: { type: 'string', description: 'Trading provider ID.' },
-      serviceId: { type: 'string', description: 'Trading service ID.' },
-      accountId: { type: 'string', description: 'Broker account ID.' },
-    },
-    condition: { type: 'json', description: 'Matched portfolio fire condition.' },
+function getDeliveryDescription(trigger: TriggerConfig): {
+  label: string
+  description: string
+} {
+  if (trigger.delivery === 'schedule') {
+    return {
+      label: 'schedule-based',
+      description: 'TradingGoose runs the workflow according to the configured schedule.',
+    }
   }
-
-  return `---
-title: ${pageName}
-description: ${pageDesc}
----
-
-import { BlockInfoCard } from "@/components/ui/block-info-card"
-import { SchemaTree } from "@/components/ui/schema-tree"
-import { Callout } from 'fumadocs-ui/components/callout'
-${relatedDocPage ? `import { Card, Cards } from 'fumadocs-ui/components/card'` : ''}
-
-<BlockInfoCard
-  type="portfolio"
-  color=""
-/>
-
-${pageDesc}
-
-<Callout type="info">
-  This is an **event-driven** trigger. Configured portfolio monitors emit workflow events when their condition matches.
-</Callout>
-
-${renderRelatedDocCard(relatedDocPage)}## Configuration
-
-Manage portfolio monitors from the workspace **Monitor** surface. Select a broker account, define the condition to evaluate, and choose the workflow target containing this Portfolio trigger.
-
-The delivered \`event\` is always \`portfolio_state_condition_matched\`. The \`input\` message is \`Portfolio state condition matched for {account}\`, where \`{account}\` uses \`portfolio.identity.accountName\` when available and otherwise falls back to \`portfolio.identity.accountId\`.
-
-${renderOutputsSection(outputs).trimEnd()}
-`
-}
-
-function toProviderDisplayName(provider: string): string {
-  return provider
-    .split(/[-_]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+  if (trigger.delivery === 'polling') {
+    return {
+      label: 'polling-based',
+      description: 'TradingGoose checks the source for matching changes on a regular interval.',
+    }
+  }
+  return {
+    label: 'webhook-based',
+    description: 'Configure the external service to send events to the workflow webhook URL.',
+  }
 }
 
 function renderRelatedDocCard(relatedDocPage?: RelatedDocPage): string {
@@ -142,7 +96,7 @@ function renderRelatedDocCard(relatedDocPage?: RelatedDocPage): string {
 }
 
 function buildSingleEventSection(trigger: TriggerConfig): string {
-  let result = ''
+  let result = renderInstructions(trigger.instructions)
 
   // Config preview
   if (trigger.subBlocks.length > 0) {
@@ -166,7 +120,7 @@ function buildSingleEventSection(trigger: TriggerConfig): string {
   }
 
   // Outputs
-  result += renderOutputsSection(trigger.outputs)
+  result += renderOutputsSection(trigger.outputs, '##')
 
   return result
 }
@@ -185,14 +139,9 @@ function buildMultiEventSection(triggers: TriggerConfig[]): string {
             .join('\n')
         : '[]'
 
-    const accordionId = trigger.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/-+$/g, '')
-
     result += `### ${trigger.name}
 
-${trigger.description ? `${escapeMdxText(trigger.description)}\n\n` : ''}`
+${trigger.description ? `${escapeMdxText(trigger.description)}\n\n` : ''}${renderInstructions(trigger.instructions, '####')}`
 
     if (trigger.subBlocks.length > 0) {
       result += `<ShowcaseCard>
@@ -217,12 +166,38 @@ ${trigger.description ? `${escapeMdxText(trigger.description)}\n\n` : ''}`
   return result
 }
 
-function renderOutputsSection(outputs: Record<string, any>): string {
+function renderInstructions(
+  instructions?: string | string[],
+  heading: '##' | '####' = '##'
+): string {
+  if (!instructions || (Array.isArray(instructions) && instructions.length === 0)) return ''
+
+  const body = Array.isArray(instructions)
+    ? instructions.map((instruction) => `- ${normalizeMdxHtml(instruction)}`).join('\n')
+    : normalizeMdxHtml(instructions)
+  return `${heading} Setup Instructions
+
+${body}
+
+`
+}
+
+function normalizeMdxHtml(value: string): string {
+  return value
+    .replace(/<br\s*\/?>/gi, '<br />')
+    .replace(/\{/g, '&#123;')
+    .replace(/\}/g, '&#125;')
+}
+
+function renderOutputsSection(
+  outputs: Record<string, any>,
+  heading: '##' | '####' = '####'
+): string {
   const schemaFields = outputsToSchemaFields(outputs)
   if (schemaFields.length === 0) {
-    return `#### Output Schema
+    return `${heading} Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using \`<trigger.fieldName>\` syntax.
+This trigger does not declare additional output fields.
 
 `
   }
@@ -232,7 +207,7 @@ The trigger passes the full event payload to your workflow. Access fields using 
     .map((line, i) => (i === 0 ? line : `  ${line}`))
     .join('\n')
 
-  return `#### Output Schema
+  return `${heading} Output Schema
 
 <SchemaTree
   title="Event Payload"
@@ -251,33 +226,56 @@ interface SchemaField {
 
 function outputsToSchemaFields(outputs: Record<string, any>): SchemaField[] {
   const fields: SchemaField[] = []
-  const skipKeys = new Set(['type', 'description', 'items'])
 
   for (const [key, value] of Object.entries(outputs)) {
-    if (skipKeys.has(key)) continue
+    if (isSchemaMetadata(outputs, key, value)) continue
     if (typeof value !== 'object' || value === null) continue
 
     const hasType = value.type && typeof value.type === 'string'
     const type = hasType ? value.type : 'object'
-    const description = value.description || key
+    const description = typeof value.description === 'string' ? value.description : undefined
 
-    // Find nested children
-    const nestedKeys = Object.keys(value).filter(
-      (k) => !skipKeys.has(k) && typeof value[k] === 'object' && value[k] !== null
-    )
-
-    const children =
-      nestedKeys.length > 0
-        ? outputsToSchemaFields(Object.fromEntries(nestedKeys.map((k) => [k, value[k]])))
-        : undefined
+    const childrenSource = getChildrenSource(value)
+    const children = childrenSource ? outputsToSchemaFields(childrenSource) : undefined
 
     fields.push({
       name: key,
       type,
-      description,
+      ...(description ? { description } : {}),
       ...(children && children.length > 0 ? { children } : {}),
     })
   }
 
   return fields
+}
+
+function getChildrenSource(value: Record<string, any>): Record<string, any> | undefined {
+  if (isRecord(value.properties)) return value.properties
+  if (isRecord(value.items)) {
+    if (isRecord(value.items.properties)) return value.items.properties
+    const itemFields = Object.fromEntries(
+      Object.entries(value.items).filter(
+        ([key, child]) => !isSchemaMetadata(value.items, key, child) && isRecord(child)
+      )
+    )
+    return Object.keys(itemFields).length > 0 ? itemFields : undefined
+  }
+
+  const directFields = Object.fromEntries(
+    Object.entries(value).filter(
+      ([key, child]) => !isSchemaMetadata(value, key, child) && isRecord(child)
+    )
+  )
+  return Object.keys(directFields).length > 0 ? directFields : undefined
+}
+
+function isSchemaMetadata(owner: Record<string, any>, key: string, value: unknown): boolean {
+  if (!['type', 'description', 'items', 'properties'].includes(key)) return false
+  if (key === 'type' || key === 'description') return !isRecord(value)
+  if (typeof owner.type === 'string') return true
+  return !isRecord(value) || typeof value.type !== 'string'
+}
+
+function isRecord(value: unknown): value is Record<string, any> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }

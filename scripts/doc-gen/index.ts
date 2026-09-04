@@ -8,8 +8,8 @@
  * Usage:
  *   bun run scripts/doc-gen/index.ts              # Run all generators
  *   bun run scripts/doc-gen/index.ts tools        # Run only tools generator
- *   bun run scripts/doc-gen/index.ts triggers     # Run only triggers generator (future)
- *   bun run scripts/doc-gen/index.ts widgets      # Run only widgets generator (future)
+ *   bun run scripts/doc-gen/index.ts triggers     # Run only triggers generator
+ *   bun run scripts/doc-gen/index.ts widgets      # Run only widgets generator
  */
 import fs from 'fs'
 import path from 'path'
@@ -26,7 +26,6 @@ const rootDir = path.resolve(__dirname, '..', '..')
 
 // ── Paths ─────────────────────────────────────────────────────────
 
-const APP_ROOT = path.join(rootDir, 'apps/tradinggoose')
 const DOCS_ROOT = path.join(rootDir, 'apps/docs/content/docs/en')
 
 // ── Available generators ──────────────────────────────────────────
@@ -66,17 +65,6 @@ async function main() {
   console.log(`   Root: ${rootDir}`)
   console.log('')
 
-  // Resolve trigger outputs from source (resolves function calls like buildMeetingOutputs())
-  if (filter.includes('triggers')) {
-    console.log('🔍 Resolving trigger outputs...')
-    const { execSync } = await import('child_process')
-    execSync(`bun run ${path.join(__dirname, 'resolve-trigger-outputs.ts')}`, {
-      cwd: rootDir,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    console.log('  ✓ Resolved')
-  }
-
   let totalGenerated = 0
 
   for (const key of filter) {
@@ -95,8 +83,6 @@ async function main() {
 
     const ctx: GeneratorContext = {
       rootDir,
-      blocksPath: path.join(APP_ROOT, 'blocks/blocks'),
-      toolsPath: path.join(APP_ROOT, 'tools'),
       docsOutputPath,
     }
 

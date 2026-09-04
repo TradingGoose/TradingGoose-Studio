@@ -32,7 +32,8 @@ export const TranslateBlock: BlockConfig = {
   name: 'Translate',
   description: 'Translate text to any language',
   authMode: AuthMode.ApiKey,
-  longDescription: 'Integrate Translate into the workflow. Can translate text to any language.',
+  longDescription:
+    'Translate text to any language. The model list is loaded at runtime from the base, Ollama, and OpenRouter models available to the deployment.',
   docsLink: 'https://docs.tradinggoose.ai/tools/translate',
   category: 'tools',
   bgColor: '',

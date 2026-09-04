@@ -1,7 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { glob } from 'glob'
-import { extractBlockConfig } from './extract-blocks'
+import { getBlockDocConfigs } from './runtime-metadata'
 import type { GeneratorContext } from './types'
 import { updateMetaJson } from './utils'
 
@@ -18,18 +17,9 @@ export async function generateBlockDocs(ctx: GeneratorContext) {
     fs.mkdirSync(docsDir, { recursive: true })
   }
 
-  const blockFiles = await glob(`${ctx.blocksPath}/*.ts`)
   let generated = 0
 
-  for (const blockFile of blockFiles) {
-    const fileName = path.basename(blockFile, '.ts')
-    if (fileName.endsWith('.test')) continue
-
-    const fileContent = fs.readFileSync(blockFile, 'utf-8')
-    const config = extractBlockConfig(fileContent)
-
-    if (!config || config.category !== 'blocks') continue
-
+  for (const config of getBlockDocConfigs()) {
     // Skip blocks that already have hand-written docs
     const slug = config.type
     const outputPath = path.join(docsDir, `${slug}.mdx`)

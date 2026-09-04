@@ -1,29 +1,5 @@
 import fs from 'fs'
-
-// ── String extraction ─────────────────────────────────────────────
-
-export function extractStringProperty(content: string, propName: string): string | null {
-  const singleQuoteMatch = content.match(new RegExp(`${propName}\\s*:\\s*'(.*?)'`, 'm'))
-  if (singleQuoteMatch) return singleQuoteMatch[1]
-
-  const doubleQuoteMatch = content.match(new RegExp(`${propName}\\s*:\\s*"(.*?)"`, 'm'))
-  if (doubleQuoteMatch) return doubleQuoteMatch[1]
-
-  const templateMatch = content.match(new RegExp(`${propName}\\s*:\\s*\`([^\`]+)\``, 's'))
-  if (templateMatch) {
-    let templateContent = templateMatch[1]
-    templateContent = templateContent.replace(
-      /\$\{[^}]*shouldEnableURLInput[^}]*\?[^:]*:[^}]*\}/g,
-      'Upload files directly. '
-    )
-    templateContent = templateContent.replace(/\$\{[^}]*shouldEnableURLInput[^}]*\}/g, 'false')
-    templateContent = templateContent.replace(/\$\{[^}]+\}/g, '')
-    templateContent = templateContent.replace(/\s+/g, ' ').trim()
-    return templateContent
-  }
-
-  return null
-}
+import type { DocCondition } from './types'
 
 // ── Markdown escaping ─────────────────────────────────────────────
 
@@ -40,80 +16,64 @@ export function escapeMdx(text: string): string {
     .replace(/>/g, '&gt;')
 }
 
-// ── Brace-matching helper ─────────────────────────────────────────
+export function describeVisibilityCondition(
+  condition: DocCondition,
+  resolvedField?: string
+): string | undefined {
+  const conditions = collectConditions(condition).filter(({ field }) => field !== resolvedField)
 
-export function extractBracedContent(content: string, startPos: number): string | null {
-  const openBracePos = content.indexOf('{', startPos)
-  if (openBracePos === -1) return null
-
-  let braceCount = 1
-  let pos = openBracePos + 1
-  while (pos < content.length && braceCount > 0) {
-    if (content[pos] === '{') braceCount++
-    else if (content[pos] === '}') braceCount--
-    pos++
-  }
-
-  if (braceCount !== 0) return null
-  return content.substring(openBracePos + 1, pos - 1).trim()
+  return conditions.length > 0 ? conditions.map(describeCondition).join(' and ') : undefined
 }
 
-// ── Manual content preservation ───────────────────────────────────
-
-export function extractManualContent(existingContent: string): Record<string, string> {
-  const manualSections: Record<string, string> = {}
-  const regex =
-    /\{\/\*\s*MANUAL-CONTENT-START:(\w+)\s*\*\/\}([\s\S]*?)\{\/\*\s*MANUAL-CONTENT-END\s*\*\/\}/g
-
-  let match
-  while ((match = regex.exec(existingContent)) !== null) {
-    manualSections[match[1]] = match[2].trim()
-  }
-  return manualSections
+function collectConditions(condition: DocCondition): DocCondition[] {
+  const nested = condition.and
+    ? (Array.isArray(condition.and) ? condition.and : [condition.and]).flatMap(collectConditions)
+    : []
+  return [condition, ...nested]
 }
 
-export function mergeManualContent(
-  generatedMarkdown: string,
-  manualSections: Record<string, string>
-): string {
-  if (Object.keys(manualSections).length === 0) return generatedMarkdown
-
-  let result = generatedMarkdown
-
-  const insertionPoints: Record<string, RegExp> = {
-    intro: /<BlockInfoCard[\s\S]*?\/>/,
-    usage: /## Usage Instructions/,
-    outputs: /## Outputs/,
-    notes: /## Notes/,
+function describeCondition(condition: DocCondition): string {
+  const values = (Array.isArray(condition.value) ? condition.value : [condition.value]).map(
+    (value) => `'${String(value)}'`
+  )
+  if (values.length === 0) return `applicable to the selected ${condition.field} at runtime`
+  if (values.length === 1) {
+    return `${condition.field} is${condition.not ? ' not' : ''} ${values[0]}`
   }
+  if (condition.not) return `${condition.field} is none of ${values.join(', ')}`
+  return `${condition.field} is one of ${values.join(', ')}`
+}
 
-  for (const [section, content] of Object.entries(manualSections)) {
-    const regex = insertionPoints[section]
-    if (!regex) continue
-
-    const match = result.match(regex)
-    if (match?.index !== undefined) {
-      const pos = match.index + match[0].length
-      result = `${result.slice(0, pos)}\n\n{/* MANUAL-CONTENT-START:${section} */}\n${content}\n{/* MANUAL-CONTENT-END */}\n${result.slice(pos)}`
-    }
-  }
-
-  return result
+export function appendSentence(description: string | undefined, sentence: string): string {
+  const existing = description?.trim()
+  if (!existing) return sentence
+  return `${existing}${/[.!?]$/.test(existing) ? '' : '.'} ${sentence}`
 }
 
 // ── Meta.json updater ─────────────────────────────────────────────
 
 export function updateMetaJson(docsDir: string) {
   const metaJsonPath = `${docsDir}/meta.json`
-  const pages = fs
+  const pageNames = fs
     .readdirSync(docsDir)
     .filter((f: string) => f.endsWith('.mdx'))
     .map((f: string) => f.replace('.mdx', ''))
+  const pageSet = new Set(pageNames)
+  const existing = fs.existsSync(metaJsonPath)
+    ? (JSON.parse(fs.readFileSync(metaJsonPath, 'utf-8')) as Record<string, unknown>)
+    : {}
+  const existingPages = Array.isArray(existing.pages)
+    ? existing.pages.filter((page): page is string => typeof page === 'string')
+    : []
+  const retainedPages = existingPages.filter((page, index) => {
+    return pageSet.has(page) && existingPages.indexOf(page) === index
+  })
+  const retainedSet = new Set(retainedPages)
+  const newPages = pageNames.filter((page) => !retainedSet.has(page)).sort()
 
-  const items = [
-    ...(pages.includes('index') ? ['index'] : []),
-    ...pages.filter((f: string) => f !== 'index').sort(),
-  ]
+  const pages = [...retainedPages, ...newPages]
+  const index = pages.indexOf('index')
+  if (index > 0) pages.unshift(...pages.splice(index, 1))
 
-  fs.writeFileSync(metaJsonPath, JSON.stringify({ pages: items }, null, 2))
+  fs.writeFileSync(metaJsonPath, `${JSON.stringify({ ...existing, pages }, null, 2)}\n`)
 }

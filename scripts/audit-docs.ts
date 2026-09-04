@@ -3,8 +3,7 @@
  * Documentation Audit Script
  *
  * Scans the tradinggoose app source and compares against existing docs
- * to produce a structural page-coverage report. Semantic/API content
- * validation is intentionally separate from this source-to-page inventory.
+ * to produce a gap report across 5 categories:
  *   1. Blocks (built-in workflow blocks)
  *   2. Tools (integration tool pages under /tools/)
  *   3. Indicators (technical analysis indicators)
@@ -19,6 +18,9 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { getAllBlocks } from '../apps/tradinggoose/blocks/registry'
+import { providerToTriggerDocSlug } from './doc-gen/doc-pages'
+import { getTriggerDocConfigs } from './doc-gen/runtime-metadata'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -30,7 +32,6 @@ const DOCS_ROOT = path.join(rootDir, 'apps/docs/content/docs/en')
 
 const PATHS = {
   blocks: path.join(APP_ROOT, 'blocks/blocks'),
-  tools: path.join(APP_ROOT, 'tools'),
   indicators: path.join(APP_ROOT, 'lib/indicators/default'),
   widgets: path.join(APP_ROOT, 'widgets/widgets'),
   triggers: path.join(APP_ROOT, 'triggers'),
@@ -69,28 +70,12 @@ interface CategoryAudit {
   source: SourceItem[]
   docs: DocItem[]
   missing: SourceItem[]
-  unexpectedOrphaned: DocItem[]
-  approvedSupplemental: Array<{ doc: DocItem; reason: string }>
+  orphaned: DocItem[]
   matched: Array<{ source: SourceItem; doc: DocItem }>
   coverage: string
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function listTsFiles(dir: string): string[] {
-  if (!fs.existsSync(dir)) return []
-  return fs
-    .readdirSync(dir)
-    .filter(
-      (f) =>
-        f.endsWith('.ts') &&
-        !f.endsWith('.test.ts') &&
-        f !== 'index.ts' &&
-        f !== 'types.ts' &&
-        f !== 'runtime.ts'
-    )
-    .map((f) => path.join(dir, f))
-}
 
 function listDirs(dir: string): string[] {
   if (!fs.existsSync(dir)) return []
@@ -121,20 +106,6 @@ function listMdxFiles(dir: string, includeIndex = false): DocItem[] {
     })
 }
 
-function extractStringProp(content: string, prop: string): string | null {
-  const m =
-    content.match(new RegExp(`${prop}\\s*:\\s*'([^']*)'`)) ||
-    content.match(new RegExp(`${prop}\\s*:\\s*"([^"]*)"`)) ||
-    content.match(new RegExp(`${prop}\\s*:\\s*\`([^\`]*)\``))
-  return m ? m[1].replace(/\s+/g, ' ').trim() : null
-}
-
-function extractBlockConfigProp(content: string, prop: string): string | null {
-  const configStart = content.search(/BlockConfig(?:<[^>]+>)?\s*=\s*\{/)
-  if (configStart < 0) return null
-  return extractStringProp(content.slice(configStart), prop)
-}
-
 function normalizeSlug(s: string): string {
   return s.toLowerCase().replace(/[-_\s]/g, '')
 }
@@ -144,7 +115,7 @@ function matchSourceToDocs(
   docs: DocItem[]
 ): {
   missing: SourceItem[]
-  unmatchedDocs: DocItem[]
+  orphaned: DocItem[]
   matched: Array<{ source: SourceItem; doc: DocItem }>
 } {
   const matched: Array<{ source: SourceItem; doc: DocItem }> = []
@@ -165,71 +136,52 @@ function matchSourceToDocs(
     }
   }
 
-  const unmatchedDocs = docs.filter((d) => !usedDocs.has(d.slug))
+  const orphaned = docs.filter((d) => !usedDocs.has(d.slug))
 
-  return { missing: unmatchedSources, unmatchedDocs, matched }
+  return { missing: unmatchedSources, orphaned, matched }
 }
 
 // ── Scanners ─────────────────────────────────────────────────────────────────
 
 function scanBlocks(): SourceItem[] {
-  const dir = PATHS.blocks
-  if (!fs.existsSync(dir)) return []
+  const items = getAllBlocks()
+    .filter((block) => block.category === 'blocks' || block.type === 'evaluator')
+    .map((block) => ({
+      id: block.type,
+      name: block.name,
+      description: block.description,
+      sourcePath: PATHS.blocks,
+    }))
 
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
-
-  const items: SourceItem[] = []
-
-  for (const file of files) {
-    const content = fs.readFileSync(path.join(dir, file), 'utf-8')
-    const category = extractBlockConfigProp(content, 'category')
-    const id = extractBlockConfigProp(content, 'type')
-    if (!id || (category !== 'blocks' && id !== 'evaluator')) continue
-
-    const name = extractBlockConfigProp(content, 'name') || id
-    const description = extractBlockConfigProp(content, 'description') || ''
-    items.push({ id, name, description, sourcePath: path.join(dir, file) })
-  }
-
-  const specialContainers = [
-    {
-      id: 'loop',
-      name: 'Loop',
-      sourcePath: path.join(APP_ROOT, 'executor/handlers/loop/loop-handler.ts'),
-    },
-    {
-      id: 'parallel',
-      name: 'Parallel',
-      sourcePath: path.join(APP_ROOT, 'executor/handlers/parallel/parallel-handler.ts'),
-    },
-  ]
-  for (const container of specialContainers) {
-    if (fs.existsSync(container.sourcePath)) items.push(container)
+  for (const container of ['loop', 'parallel']) {
+    const sourcePath = path.join(
+      APP_ROOT,
+      'executor/handlers',
+      container,
+      `${container}-handler.ts`
+    )
+    if (fs.existsSync(sourcePath)) {
+      items.push({
+        id: container,
+        name: container[0].toUpperCase() + container.slice(1),
+        description: '',
+        sourcePath,
+      })
+    }
   }
 
   return items
 }
 
 function scanTools(): SourceItem[] {
-  const dir = PATHS.blocks
-  if (!fs.existsSync(dir)) return []
-
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
-
-  const items: SourceItem[] = []
-
-  for (const file of files) {
-    const content = fs.readFileSync(path.join(dir, file), 'utf-8')
-    const category = extractBlockConfigProp(content, 'category')
-    const id = extractBlockConfigProp(content, 'type')
-    if (!id || category !== 'tools' || id === 'evaluator') continue
-
-    const name = extractBlockConfigProp(content, 'name') || id
-    const description = extractBlockConfigProp(content, 'description') || ''
-    items.push({ id, name, description, sourcePath: path.join(dir, file) })
-  }
-
-  return items
+  return getAllBlocks()
+    .filter((block) => block.category === 'tools' && block.type !== 'evaluator')
+    .map((block) => ({
+      id: block.type,
+      name: block.name,
+      description: block.description,
+      sourcePath: PATHS.blocks,
+    }))
 }
 
 function scanIndicators(): SourceItem[] {
@@ -276,10 +228,6 @@ function scanWidgets(): SourceItem[] {
     )
       continue
 
-    // MCP list behavior is documented within the canonical MCP editor page.
-    const listMergedIntoEditor = new Set(['list_mcp'])
-    if (listMergedIntoEditor.has(dirName)) continue
-
     // Try to read index or component file for metadata
     const indexPath = path.join(widgetDir, 'index.tsx')
     const indexPath2 = path.join(widgetDir, 'index.ts')
@@ -299,66 +247,41 @@ function scanWidgets(): SourceItem[] {
     items.push({ id: dirName, name, description: '', sourcePath: widgetDir })
   }
 
+  const dashboardPath = path.join(APP_ROOT, 'app/workspace/[workspaceId]/dashboard')
+  if (fs.existsSync(dashboardPath)) {
+    items.push({
+      id: 'dashboard-layouts',
+      name: 'Dashboard Layouts',
+      description: 'Dashboard layout management',
+      sourcePath: dashboardPath,
+    })
+  }
+
   return items
 }
 
 function scanTriggers(): SourceItem[] {
-  const dir = PATHS.triggers
-  if (!fs.existsSync(dir)) return []
+  const blocksDir = path.join(PATHS.triggers, 'blocks')
+  const items: SourceItem[] = [
+    ['api', 'API Trigger', 'api_trigger.ts'],
+    ['chat', 'Chat Trigger', 'chat_trigger.ts'],
+    ['input-form', 'Input Form Trigger', 'input_trigger.ts'],
+    ['manual', 'Manual Trigger', 'manual_trigger.ts'],
+    ['webhook', 'Webhooks', 'generic_webhook.ts'],
+  ].map(([id, name, file]) => ({
+    id,
+    name,
+    description: '',
+    sourcePath: path.join(blocksDir, file),
+  }))
 
-  const items: SourceItem[] = []
-  const ownedIds = new Set<string>()
-
-  // 1. Core trigger types from triggers/blocks/ (the fundamental trigger types)
-  const coreBlockTriggers: Record<string, string> = {
-    api_trigger: 'API Trigger',
-    chat_trigger: 'Chat Trigger',
-    manual_trigger: 'Manual Trigger',
-    input_trigger: 'Input Form Trigger',
-    generic_webhook: 'Webhooks',
-    schedule: 'Schedule',
+  const providers = new Map<string, string>()
+  for (const trigger of getTriggerDocConfigs()) {
+    const slug = providerToTriggerDocSlug(trigger.provider)
+    if (!providers.has(slug)) providers.set(slug, trigger.name)
   }
-
-  const blocksDir = path.join(dir, 'blocks')
-  if (fs.existsSync(blocksDir)) {
-    for (const [file, name] of Object.entries(coreBlockTriggers)) {
-      const fullPath = path.join(blocksDir, `${file}.ts`)
-      if (fs.existsSync(fullPath)) {
-        // Map to the doc slug convention
-        const slugMap: Record<string, string> = {
-          api_trigger: 'api',
-          chat_trigger: 'chat',
-          manual_trigger: 'manual',
-          input_trigger: 'input-form',
-          generic_webhook: 'webhook',
-          schedule: 'schedule',
-        }
-        const id = slugMap[file] || file
-        items.push({ id, name, description: '', sourcePath: fullPath })
-        ownedIds.add(normalizeSlug(id))
-      }
-    }
-  }
-
-  // 2. Integration triggers from individual directories
-  const triggerDirs = fs.readdirSync(dir).filter((f) => {
-    const full = path.join(dir, f)
-    return fs.statSync(full).isDirectory() && !['blocks', 'core'].includes(f)
-  })
-
-  for (const triggerDir of triggerDirs) {
-    if (ownedIds.has(normalizeSlug(triggerDir))) continue
-    const fullPath = path.join(dir, triggerDir)
-    let name = triggerDir.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-
-    const indexPath = path.join(fullPath, 'index.ts')
-    if (fs.existsSync(indexPath)) {
-      const content = fs.readFileSync(indexPath, 'utf-8')
-      const nameMatch = content.match(/name:\s*['"]([^'"]+)['"]/)
-      if (nameMatch) name = nameMatch[1]
-    }
-
-    items.push({ id: triggerDir, name, description: '', sourcePath: fullPath })
+  for (const [provider, name] of providers) {
+    items.push({ id: provider, name, description: '', sourcePath: PATHS.triggers })
   }
 
   return items
@@ -407,34 +330,16 @@ function auditCategory(
   description: string,
   sources: SourceItem[],
   docPath: string,
-  includeIndex = false,
-  supplementalApprovals: Record<string, string> = {}
+  includeIndex = false
 ): CategoryAudit {
   const docs = listMdxFiles(docPath, includeIndex)
-  const { missing, unmatchedDocs, matched } = matchSourceToDocs(sources, docs)
-  const approvedSupplemental: Array<{ doc: DocItem; reason: string }> = []
-  const unexpectedOrphaned: DocItem[] = []
-  for (const doc of unmatchedDocs) {
-    const reason = supplementalApprovals[doc.slug]?.trim()
-    if (reason) approvedSupplemental.push({ doc, reason })
-    else unexpectedOrphaned.push(doc)
-  }
+  const { missing, orphaned, matched } = matchSourceToDocs(sources, docs)
   const total = sources.length
   const covered = matched.length
   const coverage =
     total === 0 ? 'N/A' : `${covered}/${total} (${Math.round((covered / total) * 100)}%)`
 
-  return {
-    category,
-    description,
-    source: sources,
-    docs,
-    missing,
-    unexpectedOrphaned,
-    approvedSupplemental,
-    matched,
-    coverage,
-  }
+  return { category, description, source: sources, docs, missing, orphaned, matched, coverage }
 }
 
 function runAudit(filterCategory?: string): CategoryAudit[] {
@@ -447,7 +352,6 @@ function runAudit(filterCategory?: string): CategoryAudit[] {
     scanner: () => SourceItem[]
     docPath: string
     includeIndex?: boolean
-    supplementalApprovals?: Record<string, string>
   }> = [
     {
       key: 'blocks',
@@ -488,8 +392,7 @@ function runAudit(filterCategory?: string): CategoryAudit[] {
     {
       key: 'utilities',
       label: 'Utilities (MCP / Skills / Custom Tools)',
-      description:
-        'Structural page coverage for MCP servers, reusable skills, and custom tools; semantic validation is separate',
+      description: 'Extensibility features: MCP servers, reusable skills, custom tool definitions',
       scanner: scanUtilities,
       docPath: DOC_PATHS.utilities,
     },
@@ -499,16 +402,7 @@ function runAudit(filterCategory?: string): CategoryAudit[] {
     if (filterCategory && cat.key !== filterCategory) continue
 
     const sources = cat.scanner()
-    audits.push(
-      auditCategory(
-        cat.label,
-        cat.description,
-        sources,
-        cat.docPath,
-        cat.includeIndex,
-        cat.supplementalApprovals
-      )
-    )
+    audits.push(auditCategory(cat.label, cat.description, sources, cat.docPath, cat.includeIndex))
   }
 
   return audits
@@ -535,24 +429,20 @@ function printReport(audits: CategoryAudit[]) {
   console.log(`${BOLD}  SUMMARY${RESET}`)
   console.log(`  ${'─'.repeat(66)}`)
   console.log(
-    `  ${BOLD}${'Category'.padEnd(35)}${'Source'.padEnd(9)}${'Docs'.padEnd(8)}${'Missing'.padEnd(9)}${'Unexpected'.padEnd(12)}${'Approved'.padEnd(10)}Coverage${RESET}`
+    `  ${BOLD}${'Category'.padEnd(35)}${'Source'.padEnd(10)}${'Docs'.padEnd(10)}${'Missing'.padEnd(10)}Coverage${RESET}`
   )
   console.log(`  ${'─'.repeat(66)}`)
 
   let totalSource = 0
   let totalMissing = 0
-  let totalUnexpected = 0
-  let totalApproved = 0
 
   for (const audit of audits) {
     totalSource += audit.source.length
     totalMissing += audit.missing.length
-    totalUnexpected += audit.unexpectedOrphaned.length
-    totalApproved += audit.approvedSupplemental.length
 
     const missingColor = audit.missing.length > 0 ? RED : GREEN
     console.log(
-      `  ${audit.category.padEnd(35)}${String(audit.source.length).padEnd(9)}${String(audit.docs.length).padEnd(8)}${missingColor}${String(audit.missing.length).padEnd(9)}${RESET}${String(audit.unexpectedOrphaned.length).padEnd(12)}${String(audit.approvedSupplemental.length).padEnd(10)}${audit.coverage}`
+      `  ${audit.category.padEnd(35)}${String(audit.source.length).padEnd(10)}${String(audit.docs.length).padEnd(10)}${missingColor}${String(audit.missing.length).padEnd(10)}${RESET}${audit.coverage}`
     )
   }
 
@@ -562,11 +452,8 @@ function printReport(audits: CategoryAudit[]) {
       ? 'N/A'
       : `${totalSource - totalMissing}/${totalSource} (${Math.round(((totalSource - totalMissing) / totalSource) * 100)}%)`
   console.log(
-    `  ${BOLD}${'TOTAL'.padEnd(35)}${String(totalSource).padEnd(9)}${''.padEnd(8)}${RED}${String(totalMissing).padEnd(9)}${RESET}${String(totalUnexpected).padEnd(12)}${String(totalApproved).padEnd(10)}${BOLD}${totalCoverage}${RESET}`
+    `  ${BOLD}${'TOTAL'.padEnd(35)}${String(totalSource).padEnd(10)}${''.padEnd(10)}${RED}${String(totalMissing).padEnd(10)}${RESET}${BOLD}${totalCoverage}${RESET}`
   )
-  console.log(`  ${BOLD}Source features documented:${RESET} ${totalCoverage}`)
-  console.log(`  ${BOLD}Unexpected orphaned pages:${RESET} ${totalUnexpected}`)
-  console.log(`  ${BOLD}Approved supplemental pages:${RESET} ${totalApproved}`)
   console.log('')
 
   // Details per category
@@ -585,22 +472,12 @@ function printReport(audits: CategoryAudit[]) {
       console.log('')
     }
 
-    if (audit.unexpectedOrphaned.length > 0) {
+    if (audit.orphaned.length > 0) {
       console.log(
-        `    ${YELLOW}${BOLD}Unexpected orphaned docs (no matching source) (${audit.unexpectedOrphaned.length}):${RESET}`
+        `    ${YELLOW}${BOLD}Orphaned docs (no matching source) (${audit.orphaned.length}):${RESET}`
       )
-      for (const doc of audit.unexpectedOrphaned) {
+      for (const doc of audit.orphaned) {
         console.log(`    ${YELLOW}?${RESET} ${doc.slug.padEnd(30)} ${DIM}${doc.title}${RESET}`)
-      }
-      console.log('')
-    }
-
-    if (audit.approvedSupplemental.length > 0) {
-      console.log(
-        `    ${CYAN}${BOLD}Approved supplemental docs (${audit.approvedSupplemental.length}):${RESET}`
-      )
-      for (const { doc, reason } of audit.approvedSupplemental) {
-        console.log(`    ${CYAN}•${RESET} ${doc.slug.padEnd(30)} ${DIM}${reason}${RESET}`)
       }
       console.log('')
     }
@@ -620,43 +497,18 @@ function printReport(audits: CategoryAudit[]) {
 }
 
 function printJson(audits: CategoryAudit[]) {
-  const totalSource = audits.reduce((sum, audit) => sum + audit.source.length, 0)
-  const totalMissing = audits.reduce((sum, audit) => sum + audit.missing.length, 0)
-  const sourceCoverage =
-    totalSource === 0
-      ? 'N/A'
-      : `${totalSource - totalMissing}/${totalSource} (${Math.round(((totalSource - totalMissing) / totalSource) * 100)}%)`
-  const output = {
-    summary: {
-      sourceFeaturesDocumented: sourceCoverage,
-      unexpectedOrphanedPages: audits.reduce(
-        (sum, audit) => sum + audit.unexpectedOrphaned.length,
-        0
-      ),
-      approvedSupplementalPages: audits.reduce(
-        (sum, audit) => sum + audit.approvedSupplemental.length,
-        0
-      ),
-    },
-    categories: audits.map((a) => ({
-      category: a.category,
-      description: a.description,
-      coverage: a.coverage,
-      sourceCount: a.source.length,
-      docsCount: a.docs.length,
-      missingCount: a.missing.length,
-      unexpectedOrphanedCount: a.unexpectedOrphaned.length,
-      approvedSupplementalCount: a.approvedSupplemental.length,
-      missing: a.missing.map((m) => ({ id: m.id, name: m.name })),
-      unexpectedOrphaned: a.unexpectedOrphaned.map((o) => ({ slug: o.slug, title: o.title })),
-      approvedSupplemental: a.approvedSupplemental.map(({ doc, reason }) => ({
-        slug: doc.slug,
-        title: doc.title,
-        reason,
-      })),
-      matched: a.matched.map((m) => ({ sourceId: m.source.id, docSlug: m.doc.slug })),
-    })),
-  }
+  const output = audits.map((a) => ({
+    category: a.category,
+    description: a.description,
+    coverage: a.coverage,
+    sourceCount: a.source.length,
+    docsCount: a.docs.length,
+    missingCount: a.missing.length,
+    orphanedCount: a.orphaned.length,
+    missing: a.missing.map((m) => ({ id: m.id, name: m.name })),
+    orphaned: a.orphaned.map((o) => ({ slug: o.slug, title: o.title })),
+    matched: a.matched.map((m) => ({ sourceId: m.source.id, docSlug: m.doc.slug })),
+  }))
   console.log(JSON.stringify(output, null, 2))
 }
 
