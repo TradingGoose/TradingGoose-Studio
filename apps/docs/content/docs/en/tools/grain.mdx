@@ -35,41 +35,41 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grain_list_recordings",
             "options": [
                 {
-                    "label": "List Recordings",
-                    "id": "grain_list_recordings"
+                    "id": "grain_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "grain_get_recording"
+                    "id": "grain_get_recording",
+                    "label": "Get Recording"
                 },
                 {
-                    "label": "Get Transcript",
-                    "id": "grain_get_transcript"
+                    "id": "grain_get_transcript",
+                    "label": "Get Transcript"
                 },
                 {
-                    "label": "List Teams",
-                    "id": "grain_list_teams"
+                    "id": "grain_list_teams",
+                    "label": "List Teams"
                 },
                 {
-                    "label": "List Meeting Types",
-                    "id": "grain_list_meeting_types"
+                    "id": "grain_list_meeting_types",
+                    "label": "List Meeting Types"
                 },
                 {
-                    "label": "Create Webhook",
-                    "id": "grain_create_hook"
+                    "id": "grain_create_hook",
+                    "label": "Create Webhook"
                 },
                 {
-                    "label": "List Webhooks",
-                    "id": "grain_list_hooks"
+                    "id": "grain_list_hooks",
+                    "label": "List Webhooks"
                 },
                 {
-                    "label": "Delete Webhook",
-                    "id": "grain_delete_hook"
+                    "id": "grain_delete_hook",
+                    "label": "Delete Webhook"
                 }
-            ],
-            "defaultValue": "grain_list_recordings"
+            ]
         },
         {
             "id": "apiKey",
@@ -101,14 +101,19 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "id": "participantScope",
             "type": "dropdown",
             "title": "Participant Scope",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Internal",
-                    "id": "internal"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "External",
-                    "id": "external"
+                    "id": "internal",
+                    "label": "Internal"
+                },
+                {
+                    "id": "external",
+                    "label": "External"
                 }
             ]
         },
@@ -174,17 +179,8 @@ List recordings from Grain with optional filters and pagination
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Recording UUID |
-| `title` | string | Recording title |
-| `start_datetime` | string | ISO8601 start timestamp |
-| `end_datetime` | string | ISO8601 end timestamp |
-| `duration_ms` | number | Duration in milliseconds |
-| `media_type` | string | audio, transcript, or video |
-| `source` | string | Recording source |
-| `url` | string | URL to view in Grain |
-| `thumbnail_url` | string | Thumbnail URL |
-| `tags` | array | Array of tags |
-| `teams` | array | Teams the recording belongs to |
+| `recordings` | array | Array of recording objects |
+| `cursor` | string | Cursor for next page \(null if no more\) |
 
 </div>
 
@@ -205,41 +201,41 @@ List recordings from Grain with optional filters and pagination
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grain_get_recording",
             "options": [
                 {
-                    "label": "List Recordings",
-                    "id": "grain_list_recordings"
+                    "id": "grain_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "grain_get_recording"
+                    "id": "grain_get_recording",
+                    "label": "Get Recording"
                 },
                 {
-                    "label": "Get Transcript",
-                    "id": "grain_get_transcript"
+                    "id": "grain_get_transcript",
+                    "label": "Get Transcript"
                 },
                 {
-                    "label": "List Teams",
-                    "id": "grain_list_teams"
+                    "id": "grain_list_teams",
+                    "label": "List Teams"
                 },
                 {
-                    "label": "List Meeting Types",
-                    "id": "grain_list_meeting_types"
+                    "id": "grain_list_meeting_types",
+                    "label": "List Meeting Types"
                 },
                 {
-                    "label": "Create Webhook",
-                    "id": "grain_create_hook"
+                    "id": "grain_create_hook",
+                    "label": "Create Webhook"
                 },
                 {
-                    "label": "List Webhooks",
-                    "id": "grain_list_hooks"
+                    "id": "grain_list_hooks",
+                    "label": "List Webhooks"
                 },
                 {
-                    "label": "Delete Webhook",
-                    "id": "grain_delete_hook"
+                    "id": "grain_delete_hook",
+                    "label": "Delete Webhook"
                 }
-            ],
-            "defaultValue": "grain_get_recording"
+            ]
         },
         {
             "id": "apiKey",
@@ -322,6 +318,7 @@ Get details of a single recording by ID
 | `participants` | array | Participants \(if included\) |
 | `ai_summary` | object | AI summary text \(if included\) |
 | `calendar_event` | object | Calendar event data \(if included\) |
+| `hubspot` | object | HubSpot associations \(if included\) |
 
 </div>
 
@@ -342,41 +339,41 @@ Get details of a single recording by ID
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grain_get_transcript",
             "options": [
                 {
-                    "label": "List Recordings",
-                    "id": "grain_list_recordings"
+                    "id": "grain_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "grain_get_recording"
+                    "id": "grain_get_recording",
+                    "label": "Get Recording"
                 },
                 {
-                    "label": "Get Transcript",
-                    "id": "grain_get_transcript"
+                    "id": "grain_get_transcript",
+                    "label": "Get Transcript"
                 },
                 {
-                    "label": "List Teams",
-                    "id": "grain_list_teams"
+                    "id": "grain_list_teams",
+                    "label": "List Teams"
                 },
                 {
-                    "label": "List Meeting Types",
-                    "id": "grain_list_meeting_types"
+                    "id": "grain_list_meeting_types",
+                    "label": "List Meeting Types"
                 },
                 {
-                    "label": "Create Webhook",
-                    "id": "grain_create_hook"
+                    "id": "grain_create_hook",
+                    "label": "Create Webhook"
                 },
                 {
-                    "label": "List Webhooks",
-                    "id": "grain_list_hooks"
+                    "id": "grain_list_hooks",
+                    "label": "List Webhooks"
                 },
                 {
-                    "label": "Delete Webhook",
-                    "id": "grain_delete_hook"
+                    "id": "grain_delete_hook",
+                    "label": "Delete Webhook"
                 }
-            ],
-            "defaultValue": "grain_get_transcript"
+            ]
         },
         {
             "id": "apiKey",
@@ -413,10 +410,7 @@ Get the full transcript of a recording
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `participant_id` | string | Participant UUID \(nullable\) |
-| `speaker` | string | Speaker name |
-| `start` | number | Start timestamp in ms |
-| `end` | number | End timestamp in ms |
+| `transcript` | array | Array of transcript sections |
 
 </div>
 
@@ -437,41 +431,41 @@ Get the full transcript of a recording
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grain_list_teams",
             "options": [
                 {
-                    "label": "List Recordings",
-                    "id": "grain_list_recordings"
+                    "id": "grain_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "grain_get_recording"
+                    "id": "grain_get_recording",
+                    "label": "Get Recording"
                 },
                 {
-                    "label": "Get Transcript",
-                    "id": "grain_get_transcript"
+                    "id": "grain_get_transcript",
+                    "label": "Get Transcript"
                 },
                 {
-                    "label": "List Teams",
-                    "id": "grain_list_teams"
+                    "id": "grain_list_teams",
+                    "label": "List Teams"
                 },
                 {
-                    "label": "List Meeting Types",
-                    "id": "grain_list_meeting_types"
+                    "id": "grain_list_meeting_types",
+                    "label": "List Meeting Types"
                 },
                 {
-                    "label": "Create Webhook",
-                    "id": "grain_create_hook"
+                    "id": "grain_create_hook",
+                    "label": "Create Webhook"
                 },
                 {
-                    "label": "List Webhooks",
-                    "id": "grain_list_hooks"
+                    "id": "grain_list_hooks",
+                    "label": "List Webhooks"
                 },
                 {
-                    "label": "Delete Webhook",
-                    "id": "grain_delete_hook"
+                    "id": "grain_delete_hook",
+                    "label": "Delete Webhook"
                 }
-            ],
-            "defaultValue": "grain_list_teams"
+            ]
         },
         {
             "id": "apiKey",
@@ -500,7 +494,7 @@ List all teams in the workspace
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Team UUID |
+| `teams` | array | Array of team objects |
 
 </div>
 
@@ -521,41 +515,41 @@ List all teams in the workspace
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grain_list_meeting_types",
             "options": [
                 {
-                    "label": "List Recordings",
-                    "id": "grain_list_recordings"
+                    "id": "grain_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "grain_get_recording"
+                    "id": "grain_get_recording",
+                    "label": "Get Recording"
                 },
                 {
-                    "label": "Get Transcript",
-                    "id": "grain_get_transcript"
+                    "id": "grain_get_transcript",
+                    "label": "Get Transcript"
                 },
                 {
-                    "label": "List Teams",
-                    "id": "grain_list_teams"
+                    "id": "grain_list_teams",
+                    "label": "List Teams"
                 },
                 {
-                    "label": "List Meeting Types",
-                    "id": "grain_list_meeting_types"
+                    "id": "grain_list_meeting_types",
+                    "label": "List Meeting Types"
                 },
                 {
-                    "label": "Create Webhook",
-                    "id": "grain_create_hook"
+                    "id": "grain_create_hook",
+                    "label": "Create Webhook"
                 },
                 {
-                    "label": "List Webhooks",
-                    "id": "grain_list_hooks"
+                    "id": "grain_list_hooks",
+                    "label": "List Webhooks"
                 },
                 {
-                    "label": "Delete Webhook",
-                    "id": "grain_delete_hook"
+                    "id": "grain_delete_hook",
+                    "label": "Delete Webhook"
                 }
-            ],
-            "defaultValue": "grain_list_meeting_types"
+            ]
         },
         {
             "id": "apiKey",
@@ -584,8 +578,7 @@ List all meeting types in the workspace
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Meeting type UUID |
-| `name` | string | Meeting type name |
+| `meeting_types` | array | Array of meeting type objects |
 
 </div>
 
@@ -606,41 +599,41 @@ List all meeting types in the workspace
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grain_create_hook",
             "options": [
                 {
-                    "label": "List Recordings",
-                    "id": "grain_list_recordings"
+                    "id": "grain_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "grain_get_recording"
+                    "id": "grain_get_recording",
+                    "label": "Get Recording"
                 },
                 {
-                    "label": "Get Transcript",
-                    "id": "grain_get_transcript"
+                    "id": "grain_get_transcript",
+                    "label": "Get Transcript"
                 },
                 {
-                    "label": "List Teams",
-                    "id": "grain_list_teams"
+                    "id": "grain_list_teams",
+                    "label": "List Teams"
                 },
                 {
-                    "label": "List Meeting Types",
-                    "id": "grain_list_meeting_types"
+                    "id": "grain_list_meeting_types",
+                    "label": "List Meeting Types"
                 },
                 {
-                    "label": "Create Webhook",
-                    "id": "grain_create_hook"
+                    "id": "grain_create_hook",
+                    "label": "Create Webhook"
                 },
                 {
-                    "label": "List Webhooks",
-                    "id": "grain_list_hooks"
+                    "id": "grain_list_hooks",
+                    "label": "List Webhooks"
                 },
                 {
-                    "label": "Delete Webhook",
-                    "id": "grain_delete_hook"
+                    "id": "grain_delete_hook",
+                    "label": "Delete Webhook"
                 }
-            ],
-            "defaultValue": "grain_create_hook"
+            ]
         },
         {
             "id": "apiKey",
@@ -666,14 +659,19 @@ List all meeting types in the workspace
             "id": "participantScope",
             "type": "dropdown",
             "title": "Participant Scope",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Internal",
-                    "id": "internal"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "External",
-                    "id": "external"
+                    "id": "internal",
+                    "label": "Internal"
+                },
+                {
+                    "id": "external",
+                    "label": "External"
                 }
             ]
         },
@@ -744,6 +742,7 @@ Create a webhook to receive recording events
 | `hook_url` | string | The webhook URL |
 | `filter` | object | Applied filters |
 | `include` | object | Included fields |
+| `inserted_at` | string | ISO8601 creation timestamp |
 
 </div>
 
@@ -764,41 +763,41 @@ Create a webhook to receive recording events
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grain_list_hooks",
             "options": [
                 {
-                    "label": "List Recordings",
-                    "id": "grain_list_recordings"
+                    "id": "grain_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "grain_get_recording"
+                    "id": "grain_get_recording",
+                    "label": "Get Recording"
                 },
                 {
-                    "label": "Get Transcript",
-                    "id": "grain_get_transcript"
+                    "id": "grain_get_transcript",
+                    "label": "Get Transcript"
                 },
                 {
-                    "label": "List Teams",
-                    "id": "grain_list_teams"
+                    "id": "grain_list_teams",
+                    "label": "List Teams"
                 },
                 {
-                    "label": "List Meeting Types",
-                    "id": "grain_list_meeting_types"
+                    "id": "grain_list_meeting_types",
+                    "label": "List Meeting Types"
                 },
                 {
-                    "label": "Create Webhook",
-                    "id": "grain_create_hook"
+                    "id": "grain_create_hook",
+                    "label": "Create Webhook"
                 },
                 {
-                    "label": "List Webhooks",
-                    "id": "grain_list_hooks"
+                    "id": "grain_list_hooks",
+                    "label": "List Webhooks"
                 },
                 {
-                    "label": "Delete Webhook",
-                    "id": "grain_delete_hook"
+                    "id": "grain_delete_hook",
+                    "label": "Delete Webhook"
                 }
-            ],
-            "defaultValue": "grain_list_hooks"
+            ]
         },
         {
             "id": "apiKey",
@@ -827,11 +826,7 @@ List all webhooks for the account
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Hook UUID |
-| `enabled` | boolean | Whether hook is active |
-| `hook_url` | string | Webhook URL |
-| `filter` | object | Applied filters |
-| `include` | object | Included fields |
+| `hooks` | array | Array of hook objects |
 
 </div>
 
@@ -852,41 +847,41 @@ List all webhooks for the account
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "grain_delete_hook",
             "options": [
                 {
-                    "label": "List Recordings",
-                    "id": "grain_list_recordings"
+                    "id": "grain_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "grain_get_recording"
+                    "id": "grain_get_recording",
+                    "label": "Get Recording"
                 },
                 {
-                    "label": "Get Transcript",
-                    "id": "grain_get_transcript"
+                    "id": "grain_get_transcript",
+                    "label": "Get Transcript"
                 },
                 {
-                    "label": "List Teams",
-                    "id": "grain_list_teams"
+                    "id": "grain_list_teams",
+                    "label": "List Teams"
                 },
                 {
-                    "label": "List Meeting Types",
-                    "id": "grain_list_meeting_types"
+                    "id": "grain_list_meeting_types",
+                    "label": "List Meeting Types"
                 },
                 {
-                    "label": "Create Webhook",
-                    "id": "grain_create_hook"
+                    "id": "grain_create_hook",
+                    "label": "Create Webhook"
                 },
                 {
-                    "label": "List Webhooks",
-                    "id": "grain_list_hooks"
+                    "id": "grain_list_hooks",
+                    "label": "List Webhooks"
                 },
                 {
-                    "label": "Delete Webhook",
-                    "id": "grain_delete_hook"
+                    "id": "grain_delete_hook",
+                    "label": "Delete Webhook"
                 }
-            ],
-            "defaultValue": "grain_delete_hook"
+            ]
         },
         {
             "id": "apiKey",
@@ -921,7 +916,9 @@ Delete a webhook by ID
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | True when webhook was successfully deleted |
 
 </div>
 

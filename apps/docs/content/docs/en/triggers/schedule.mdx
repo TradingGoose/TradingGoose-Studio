@@ -1,65 +1,170 @@
 ---
 title: Schedule Trigger
-description: Automatically trigger workflows on a recurring schedule
+description: Trigger workflow execution on a schedule
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { BlockConfigPreview } from "@/components/ui/block-config-preview"
 import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
 
 <BlockInfoCard
   type="schedule"
   color=""
-  icon={true}
 />
 
-The Schedule trigger automatically runs workflows on a recurring schedule at specified intervals or times.
+Trigger workflow execution on a schedule
 
 <Callout type="info">
-  This is a **polling-based** trigger. TradingGoose executes the workflow automatically at the configured interval.
+  This is a **schedule-based** trigger. TradingGoose runs the workflow according to the configured schedule.
 </Callout>
+
 
 ## Configuration
 
 <ShowcaseCard>
   <BlockConfigPreview
-    name="Schedule Trigger"
+    name="Schedule"
     type="schedule"
     hideHeader
     subBlocks={[
-      { "id": "scheduleConfig", "title": "Schedule", "type": "dropdown", "layout": "full", "placeholder": "Select schedule interval", "options": [{ "label": "Every 5 minutes", "id": "5m" }, { "label": "Every 15 minutes", "id": "15m" }, { "label": "Every 30 minutes", "id": "30m" }, { "label": "Every hour", "id": "1h" }, { "label": "Every day", "id": "1d" }, { "label": "Custom (Cron)", "id": "cron" }] }
+        {
+            "id": "scheduleType",
+            "type": "dropdown",
+            "title": "Run frequency",
+            "required": true,
+            "options": [
+                {
+                    "id": "minutes",
+                    "label": "Every X Minutes"
+                },
+                {
+                    "id": "hourly",
+                    "label": "Hourly"
+                },
+                {
+                    "id": "daily",
+                    "label": "Daily"
+                },
+                {
+                    "id": "weekly",
+                    "label": "Weekly"
+                },
+                {
+                    "id": "monthly",
+                    "label": "Monthly"
+                },
+                {
+                    "id": "custom",
+                    "label": "Custom Cron"
+                }
+            ],
+            "defaultValue": "daily"
+        },
+        {
+            "id": "minutesInterval",
+            "type": "short-input",
+            "title": "Interval (minutes)",
+            "placeholder": "15",
+            "required": true,
+            "description": "Shown when scheduleType is 'minutes'."
+        },
+        {
+            "id": "hourlyMinute",
+            "type": "short-input",
+            "title": "Minute",
+            "placeholder": "0-59",
+            "required": true,
+            "description": "Shown when scheduleType is 'hourly'."
+        },
+        {
+            "id": "dailyTime",
+            "type": "time-input",
+            "title": "Time",
+            "required": true,
+            "description": "Shown when scheduleType is 'daily'."
+        },
+        {
+            "id": "weeklyDay",
+            "type": "dropdown",
+            "title": "Day of week",
+            "required": true,
+            "options": [
+                {
+                    "id": "MON",
+                    "label": "Monday"
+                },
+                {
+                    "id": "TUE",
+                    "label": "Tuesday"
+                },
+                {
+                    "id": "WED",
+                    "label": "Wednesday"
+                },
+                {
+                    "id": "THU",
+                    "label": "Thursday"
+                },
+                {
+                    "id": "FRI",
+                    "label": "Friday"
+                },
+                {
+                    "id": "SAT",
+                    "label": "Saturday"
+                },
+                {
+                    "id": "SUN",
+                    "label": "Sunday"
+                }
+            ],
+            "description": "Shown when scheduleType is 'weekly'."
+        },
+        {
+            "id": "weeklyDayTime",
+            "type": "time-input",
+            "title": "Time",
+            "required": true,
+            "description": "Shown when scheduleType is 'weekly'."
+        },
+        {
+            "id": "monthlyDay",
+            "type": "short-input",
+            "title": "Day of month",
+            "placeholder": "1-31",
+            "required": true,
+            "description": "Shown when scheduleType is 'monthly'."
+        },
+        {
+            "id": "monthlyTime",
+            "type": "time-input",
+            "title": "Time",
+            "required": true,
+            "description": "Shown when scheduleType is 'monthly'."
+        },
+        {
+            "id": "cronExpression",
+            "type": "short-input",
+            "title": "Cron expression",
+            "placeholder": "0 0 * * *",
+            "required": true,
+            "description": "Shown when scheduleType is 'custom'."
+        },
+        {
+            "id": "timezone",
+            "type": "dropdown",
+            "title": "Timezone",
+            "required": false,
+            "defaultValue": "UTC",
+            "description": "Shown when scheduleType is none of 'minutes', 'hourly'."
+        }
     ]}
   />
 </ShowcaseCard>
 
-## Schedule Options
+## Output Schema
 
-<Tabs items={['Simple Intervals', 'Cron Expressions']}>
-  <Tab>
-    - **Every few minutes**: 5, 15, 30 minute intervals
-    - **Hourly**: Every hour or every few hours
-    - **Daily**: Once or multiple times per day
-    - **Weekly**: Specific days of the week
-    - **Monthly**: Specific days of the month
-  </Tab>
-  <Tab>
-    Use cron expressions for advanced scheduling:
-
-    - `0 9 * * 1-5` — Every weekday at 9 AM
-    - `*/15 * * * *` — Every 15 minutes
-    - `0 0 1 * *` — First day of each month
-  </Tab>
-</Tabs>
-
-## Behavior
-
-- The schedule becomes **active** and shows the next execution time
-- Click the **"Scheduled"** button to deactivate the schedule
-- Schedules automatically deactivate after **3 consecutive failures**
-- Disabled schedules show when they were last active and can be re-enabled at any time
-
-<Callout>
-Schedule blocks cannot receive incoming connections and serve as pure workflow triggers. No outputs are produced — the workflow starts with an empty context.
-</Callout>
+This trigger does not declare additional output fields.

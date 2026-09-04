@@ -29,49 +29,49 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "zoom_create_meeting",
             "options": [
                 {
-                    "label": "Create Meeting",
-                    "id": "zoom_create_meeting"
+                    "id": "zoom_create_meeting",
+                    "label": "Create Meeting"
                 },
                 {
-                    "label": "List Meetings",
-                    "id": "zoom_list_meetings"
+                    "id": "zoom_list_meetings",
+                    "label": "List Meetings"
                 },
                 {
-                    "label": "Get Meeting",
-                    "id": "zoom_get_meeting"
+                    "id": "zoom_get_meeting",
+                    "label": "Get Meeting"
                 },
                 {
-                    "label": "Update Meeting",
-                    "id": "zoom_update_meeting"
+                    "id": "zoom_update_meeting",
+                    "label": "Update Meeting"
                 },
                 {
-                    "label": "Delete Meeting",
-                    "id": "zoom_delete_meeting"
+                    "id": "zoom_delete_meeting",
+                    "label": "Delete Meeting"
                 },
                 {
-                    "label": "Get Meeting Invitation",
-                    "id": "zoom_get_meeting_invitation"
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "Get Meeting Invitation"
                 },
                 {
-                    "label": "List Recordings",
-                    "id": "zoom_list_recordings"
+                    "id": "zoom_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Meeting Recordings",
-                    "id": "zoom_get_meeting_recordings"
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "Get Meeting Recordings"
                 },
                 {
-                    "label": "Delete Recording",
-                    "id": "zoom_delete_recording"
+                    "id": "zoom_delete_recording",
+                    "label": "Delete Recording"
                 },
                 {
-                    "label": "List Past Participants",
-                    "id": "zoom_list_past_participants"
+                    "id": "zoom_list_past_participants",
+                    "label": "List Past Participants"
                 }
-            ],
-            "defaultValue": "zoom_create_meeting"
+            ]
         },
         {
             "id": "credential",
@@ -99,22 +99,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "type",
             "type": "dropdown",
             "title": "Meeting Type",
+            "defaultValue": "2",
             "options": [
                 {
-                    "label": "Scheduled",
-                    "id": "2"
+                    "id": "2",
+                    "label": "Scheduled"
                 },
                 {
-                    "label": "Instant",
-                    "id": "1"
+                    "id": "1",
+                    "label": "Instant"
                 },
                 {
-                    "label": "Recurring (no fixed time)",
-                    "id": "3"
+                    "id": "3",
+                    "label": "Recurring (no fixed time)"
                 },
                 {
-                    "label": "Recurring (fixed time)",
-                    "id": "8"
+                    "id": "8",
+                    "label": "Recurring (fixed time)"
                 }
             ]
         },
@@ -134,7 +135,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "timezone",
             "type": "dropdown",
             "title": "Timezone",
-            "placeholder": "America/Los_Angeles"
+            "placeholder": "America/Los_Angeles",
+            "defaultValue": ""
         },
         {
             "id": "password",
@@ -177,18 +179,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "autoRecording",
             "type": "dropdown",
             "title": "Auto Recording",
+            "defaultValue": "none",
             "options": [
                 {
-                    "label": "None",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None"
                 },
                 {
-                    "label": "Local",
-                    "id": "local"
+                    "id": "local",
+                    "label": "Local"
                 },
                 {
-                    "label": "Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Cloud"
                 }
             ]
         }
@@ -224,21 +227,7 @@ Create a new Zoom meeting
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | number | Meeting ID |
-| `uuid` | string | Meeting UUID |
-| `host_id` | string | Host user ID |
-| `host_email` | string | Host email |
-| `topic` | string | Meeting topic |
-| `type` | number | Meeting type |
-| `status` | string | Meeting status |
-| `start_time` | string | Start time |
-| `duration` | number | Duration in minutes |
-| `timezone` | string | Timezone |
-| `agenda` | string | Meeting agenda |
-| `created_at` | string | Creation timestamp |
-| `start_url` | string | Host start URL |
-| `join_url` | string | Participant join URL |
-| `password` | string | Meeting password |
+| `meeting` | object | The created meeting with all its properties |
 
 </div>
 
@@ -259,49 +248,49 @@ Create a new Zoom meeting
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "zoom_list_meetings",
             "options": [
                 {
-                    "label": "Create Meeting",
-                    "id": "zoom_create_meeting"
+                    "id": "zoom_create_meeting",
+                    "label": "Create Meeting"
                 },
                 {
-                    "label": "List Meetings",
-                    "id": "zoom_list_meetings"
+                    "id": "zoom_list_meetings",
+                    "label": "List Meetings"
                 },
                 {
-                    "label": "Get Meeting",
-                    "id": "zoom_get_meeting"
+                    "id": "zoom_get_meeting",
+                    "label": "Get Meeting"
                 },
                 {
-                    "label": "Update Meeting",
-                    "id": "zoom_update_meeting"
+                    "id": "zoom_update_meeting",
+                    "label": "Update Meeting"
                 },
                 {
-                    "label": "Delete Meeting",
-                    "id": "zoom_delete_meeting"
+                    "id": "zoom_delete_meeting",
+                    "label": "Delete Meeting"
                 },
                 {
-                    "label": "Get Meeting Invitation",
-                    "id": "zoom_get_meeting_invitation"
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "Get Meeting Invitation"
                 },
                 {
-                    "label": "List Recordings",
-                    "id": "zoom_list_recordings"
+                    "id": "zoom_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Meeting Recordings",
-                    "id": "zoom_get_meeting_recordings"
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "Get Meeting Recordings"
                 },
                 {
-                    "label": "Delete Recording",
-                    "id": "zoom_delete_recording"
+                    "id": "zoom_delete_recording",
+                    "label": "Delete Recording"
                 },
                 {
-                    "label": "List Past Participants",
-                    "id": "zoom_list_past_participants"
+                    "id": "zoom_list_past_participants",
+                    "label": "List Past Participants"
                 }
-            ],
-            "defaultValue": "zoom_list_meetings"
+            ]
         },
         {
             "id": "credential",
@@ -322,26 +311,27 @@ Create a new Zoom meeting
             "id": "listType",
             "type": "dropdown",
             "title": "Meeting Type Filter",
+            "defaultValue": "scheduled",
             "options": [
                 {
-                    "label": "Scheduled",
-                    "id": "scheduled"
+                    "id": "scheduled",
+                    "label": "Scheduled"
                 },
                 {
-                    "label": "Live",
-                    "id": "live"
+                    "id": "live",
+                    "label": "Live"
                 },
                 {
-                    "label": "Upcoming",
-                    "id": "upcoming"
+                    "id": "upcoming",
+                    "label": "Upcoming"
                 },
                 {
-                    "label": "Upcoming Meetings",
-                    "id": "upcoming_meetings"
+                    "id": "upcoming_meetings",
+                    "label": "Upcoming Meetings"
                 },
                 {
-                    "label": "Previous Meetings",
-                    "id": "previous_meetings"
+                    "id": "previous_meetings",
+                    "label": "Previous Meetings"
                 }
             ]
         },
@@ -380,10 +370,7 @@ List all meetings for a Zoom user
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `meetings` | array | List of meetings |
-| `pageCount` | number | Total number of pages |
-| `pageNumber` | number | Current page number |
-| `pageSize` | number | Number of records per page |
-| `totalRecords` | number | Total number of records |
+| `pageInfo` | object | Pagination information |
 
 </div>
 
@@ -404,49 +391,49 @@ List all meetings for a Zoom user
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "zoom_get_meeting",
             "options": [
                 {
-                    "label": "Create Meeting",
-                    "id": "zoom_create_meeting"
+                    "id": "zoom_create_meeting",
+                    "label": "Create Meeting"
                 },
                 {
-                    "label": "List Meetings",
-                    "id": "zoom_list_meetings"
+                    "id": "zoom_list_meetings",
+                    "label": "List Meetings"
                 },
                 {
-                    "label": "Get Meeting",
-                    "id": "zoom_get_meeting"
+                    "id": "zoom_get_meeting",
+                    "label": "Get Meeting"
                 },
                 {
-                    "label": "Update Meeting",
-                    "id": "zoom_update_meeting"
+                    "id": "zoom_update_meeting",
+                    "label": "Update Meeting"
                 },
                 {
-                    "label": "Delete Meeting",
-                    "id": "zoom_delete_meeting"
+                    "id": "zoom_delete_meeting",
+                    "label": "Delete Meeting"
                 },
                 {
-                    "label": "Get Meeting Invitation",
-                    "id": "zoom_get_meeting_invitation"
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "Get Meeting Invitation"
                 },
                 {
-                    "label": "List Recordings",
-                    "id": "zoom_list_recordings"
+                    "id": "zoom_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Meeting Recordings",
-                    "id": "zoom_get_meeting_recordings"
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "Get Meeting Recordings"
                 },
                 {
-                    "label": "Delete Recording",
-                    "id": "zoom_delete_recording"
+                    "id": "zoom_delete_recording",
+                    "label": "Delete Recording"
                 },
                 {
-                    "label": "List Past Participants",
-                    "id": "zoom_list_past_participants"
+                    "id": "zoom_list_past_participants",
+                    "label": "List Past Participants"
                 }
-            ],
-            "defaultValue": "zoom_get_meeting"
+            ]
         },
         {
             "id": "credential",
@@ -490,23 +477,7 @@ Get details of a specific Zoom meeting
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | number | Meeting ID |
-| `uuid` | string | Meeting UUID |
-| `host_id` | string | Host user ID |
-| `host_email` | string | Host email |
-| `topic` | string | Meeting topic |
-| `type` | number | Meeting type |
-| `status` | string | Meeting status |
-| `start_time` | string | Start time |
-| `duration` | number | Duration in minutes |
-| `timezone` | string | Timezone |
-| `agenda` | string | Meeting agenda |
-| `created_at` | string | Creation timestamp |
-| `start_url` | string | Host start URL |
-| `join_url` | string | Participant join URL |
-| `password` | string | Meeting password |
-| `settings` | object | Meeting settings |
-| `recurrence` | object | Recurrence settings |
+| `meeting` | object | The meeting details |
 
 </div>
 
@@ -527,49 +498,49 @@ Get details of a specific Zoom meeting
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "zoom_update_meeting",
             "options": [
                 {
-                    "label": "Create Meeting",
-                    "id": "zoom_create_meeting"
+                    "id": "zoom_create_meeting",
+                    "label": "Create Meeting"
                 },
                 {
-                    "label": "List Meetings",
-                    "id": "zoom_list_meetings"
+                    "id": "zoom_list_meetings",
+                    "label": "List Meetings"
                 },
                 {
-                    "label": "Get Meeting",
-                    "id": "zoom_get_meeting"
+                    "id": "zoom_get_meeting",
+                    "label": "Get Meeting"
                 },
                 {
-                    "label": "Update Meeting",
-                    "id": "zoom_update_meeting"
+                    "id": "zoom_update_meeting",
+                    "label": "Update Meeting"
                 },
                 {
-                    "label": "Delete Meeting",
-                    "id": "zoom_delete_meeting"
+                    "id": "zoom_delete_meeting",
+                    "label": "Delete Meeting"
                 },
                 {
-                    "label": "Get Meeting Invitation",
-                    "id": "zoom_get_meeting_invitation"
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "Get Meeting Invitation"
                 },
                 {
-                    "label": "List Recordings",
-                    "id": "zoom_list_recordings"
+                    "id": "zoom_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Meeting Recordings",
-                    "id": "zoom_get_meeting_recordings"
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "Get Meeting Recordings"
                 },
                 {
-                    "label": "Delete Recording",
-                    "id": "zoom_delete_recording"
+                    "id": "zoom_delete_recording",
+                    "label": "Delete Recording"
                 },
                 {
-                    "label": "List Past Participants",
-                    "id": "zoom_list_past_participants"
+                    "id": "zoom_list_past_participants",
+                    "label": "List Past Participants"
                 }
-            ],
-            "defaultValue": "zoom_update_meeting"
+            ]
         },
         {
             "id": "credential",
@@ -596,22 +567,23 @@ Get details of a specific Zoom meeting
             "id": "type",
             "type": "dropdown",
             "title": "Meeting Type",
+            "defaultValue": "2",
             "options": [
                 {
-                    "label": "Scheduled",
-                    "id": "2"
+                    "id": "2",
+                    "label": "Scheduled"
                 },
                 {
-                    "label": "Instant",
-                    "id": "1"
+                    "id": "1",
+                    "label": "Instant"
                 },
                 {
-                    "label": "Recurring (no fixed time)",
-                    "id": "3"
+                    "id": "3",
+                    "label": "Recurring (no fixed time)"
                 },
                 {
-                    "label": "Recurring (fixed time)",
-                    "id": "8"
+                    "id": "8",
+                    "label": "Recurring (fixed time)"
                 }
             ]
         },
@@ -631,7 +603,8 @@ Get details of a specific Zoom meeting
             "id": "timezone",
             "type": "dropdown",
             "title": "Timezone",
-            "placeholder": "America/Los_Angeles"
+            "placeholder": "America/Los_Angeles",
+            "defaultValue": ""
         },
         {
             "id": "password",
@@ -674,18 +647,19 @@ Get details of a specific Zoom meeting
             "id": "autoRecording",
             "type": "dropdown",
             "title": "Auto Recording",
+            "defaultValue": "none",
             "options": [
                 {
-                    "label": "None",
-                    "id": "none"
+                    "id": "none",
+                    "label": "None"
                 },
                 {
-                    "label": "Local",
-                    "id": "local"
+                    "id": "local",
+                    "label": "Local"
                 },
                 {
-                    "label": "Cloud",
-                    "id": "cloud"
+                    "id": "cloud",
+                    "label": "Cloud"
                 }
             ]
         }
@@ -719,7 +693,9 @@ Update an existing Zoom meeting
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the meeting was updated successfully |
 
 </div>
 
@@ -740,49 +716,49 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "zoom_delete_meeting",
             "options": [
                 {
-                    "label": "Create Meeting",
-                    "id": "zoom_create_meeting"
+                    "id": "zoom_create_meeting",
+                    "label": "Create Meeting"
                 },
                 {
-                    "label": "List Meetings",
-                    "id": "zoom_list_meetings"
+                    "id": "zoom_list_meetings",
+                    "label": "List Meetings"
                 },
                 {
-                    "label": "Get Meeting",
-                    "id": "zoom_get_meeting"
+                    "id": "zoom_get_meeting",
+                    "label": "Get Meeting"
                 },
                 {
-                    "label": "Update Meeting",
-                    "id": "zoom_update_meeting"
+                    "id": "zoom_update_meeting",
+                    "label": "Update Meeting"
                 },
                 {
-                    "label": "Delete Meeting",
-                    "id": "zoom_delete_meeting"
+                    "id": "zoom_delete_meeting",
+                    "label": "Delete Meeting"
                 },
                 {
-                    "label": "Get Meeting Invitation",
-                    "id": "zoom_get_meeting_invitation"
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "Get Meeting Invitation"
                 },
                 {
-                    "label": "List Recordings",
-                    "id": "zoom_list_recordings"
+                    "id": "zoom_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Meeting Recordings",
-                    "id": "zoom_get_meeting_recordings"
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "Get Meeting Recordings"
                 },
                 {
-                    "label": "Delete Recording",
-                    "id": "zoom_delete_recording"
+                    "id": "zoom_delete_recording",
+                    "label": "Delete Recording"
                 },
                 {
-                    "label": "List Past Participants",
-                    "id": "zoom_list_past_participants"
+                    "id": "zoom_list_past_participants",
+                    "label": "List Past Participants"
                 }
-            ],
-            "defaultValue": "zoom_delete_meeting"
+            ]
         },
         {
             "id": "credential",
@@ -830,7 +806,9 @@ Delete or cancel a Zoom meeting
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the meeting was deleted successfully |
 
 </div>
 
@@ -851,49 +829,49 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "zoom_get_meeting_invitation",
             "options": [
                 {
-                    "label": "Create Meeting",
-                    "id": "zoom_create_meeting"
+                    "id": "zoom_create_meeting",
+                    "label": "Create Meeting"
                 },
                 {
-                    "label": "List Meetings",
-                    "id": "zoom_list_meetings"
+                    "id": "zoom_list_meetings",
+                    "label": "List Meetings"
                 },
                 {
-                    "label": "Get Meeting",
-                    "id": "zoom_get_meeting"
+                    "id": "zoom_get_meeting",
+                    "label": "Get Meeting"
                 },
                 {
-                    "label": "Update Meeting",
-                    "id": "zoom_update_meeting"
+                    "id": "zoom_update_meeting",
+                    "label": "Update Meeting"
                 },
                 {
-                    "label": "Delete Meeting",
-                    "id": "zoom_delete_meeting"
+                    "id": "zoom_delete_meeting",
+                    "label": "Delete Meeting"
                 },
                 {
-                    "label": "Get Meeting Invitation",
-                    "id": "zoom_get_meeting_invitation"
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "Get Meeting Invitation"
                 },
                 {
-                    "label": "List Recordings",
-                    "id": "zoom_list_recordings"
+                    "id": "zoom_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Meeting Recordings",
-                    "id": "zoom_get_meeting_recordings"
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "Get Meeting Recordings"
                 },
                 {
-                    "label": "Delete Recording",
-                    "id": "zoom_delete_recording"
+                    "id": "zoom_delete_recording",
+                    "label": "Delete Recording"
                 },
                 {
-                    "label": "List Past Participants",
-                    "id": "zoom_list_past_participants"
+                    "id": "zoom_list_past_participants",
+                    "label": "List Past Participants"
                 }
-            ],
-            "defaultValue": "zoom_get_meeting_invitation"
+            ]
         },
         {
             "id": "credential",
@@ -927,7 +905,9 @@ Get the meeting invitation text for a Zoom meeting
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `invitation` | string | The meeting invitation text |
 
 </div>
 
@@ -948,49 +928,49 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "zoom_list_recordings",
             "options": [
                 {
-                    "label": "Create Meeting",
-                    "id": "zoom_create_meeting"
+                    "id": "zoom_create_meeting",
+                    "label": "Create Meeting"
                 },
                 {
-                    "label": "List Meetings",
-                    "id": "zoom_list_meetings"
+                    "id": "zoom_list_meetings",
+                    "label": "List Meetings"
                 },
                 {
-                    "label": "Get Meeting",
-                    "id": "zoom_get_meeting"
+                    "id": "zoom_get_meeting",
+                    "label": "Get Meeting"
                 },
                 {
-                    "label": "Update Meeting",
-                    "id": "zoom_update_meeting"
+                    "id": "zoom_update_meeting",
+                    "label": "Update Meeting"
                 },
                 {
-                    "label": "Delete Meeting",
-                    "id": "zoom_delete_meeting"
+                    "id": "zoom_delete_meeting",
+                    "label": "Delete Meeting"
                 },
                 {
-                    "label": "Get Meeting Invitation",
-                    "id": "zoom_get_meeting_invitation"
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "Get Meeting Invitation"
                 },
                 {
-                    "label": "List Recordings",
-                    "id": "zoom_list_recordings"
+                    "id": "zoom_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Meeting Recordings",
-                    "id": "zoom_get_meeting_recordings"
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "Get Meeting Recordings"
                 },
                 {
-                    "label": "Delete Recording",
-                    "id": "zoom_delete_recording"
+                    "id": "zoom_delete_recording",
+                    "label": "Delete Recording"
                 },
                 {
-                    "label": "List Past Participants",
-                    "id": "zoom_list_past_participants"
+                    "id": "zoom_list_past_participants",
+                    "label": "List Past Participants"
                 }
-            ],
-            "defaultValue": "zoom_list_recordings"
+            ]
         },
         {
             "id": "credential",
@@ -1056,10 +1036,7 @@ List all cloud recordings for a Zoom user
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `recordings` | array | List of recordings |
-| `from` | string | Start date of query range |
-| `to` | string | End date of query range |
-| `pageSize` | number | Number of records per page |
-| `totalRecords` | number | Total number of records |
+| `pageInfo` | object | Pagination information |
 
 </div>
 
@@ -1080,49 +1057,49 @@ List all cloud recordings for a Zoom user
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "zoom_get_meeting_recordings",
             "options": [
                 {
-                    "label": "Create Meeting",
-                    "id": "zoom_create_meeting"
+                    "id": "zoom_create_meeting",
+                    "label": "Create Meeting"
                 },
                 {
-                    "label": "List Meetings",
-                    "id": "zoom_list_meetings"
+                    "id": "zoom_list_meetings",
+                    "label": "List Meetings"
                 },
                 {
-                    "label": "Get Meeting",
-                    "id": "zoom_get_meeting"
+                    "id": "zoom_get_meeting",
+                    "label": "Get Meeting"
                 },
                 {
-                    "label": "Update Meeting",
-                    "id": "zoom_update_meeting"
+                    "id": "zoom_update_meeting",
+                    "label": "Update Meeting"
                 },
                 {
-                    "label": "Delete Meeting",
-                    "id": "zoom_delete_meeting"
+                    "id": "zoom_delete_meeting",
+                    "label": "Delete Meeting"
                 },
                 {
-                    "label": "Get Meeting Invitation",
-                    "id": "zoom_get_meeting_invitation"
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "Get Meeting Invitation"
                 },
                 {
-                    "label": "List Recordings",
-                    "id": "zoom_list_recordings"
+                    "id": "zoom_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Meeting Recordings",
-                    "id": "zoom_get_meeting_recordings"
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "Get Meeting Recordings"
                 },
                 {
-                    "label": "Delete Recording",
-                    "id": "zoom_delete_recording"
+                    "id": "zoom_delete_recording",
+                    "label": "Delete Recording"
                 },
                 {
-                    "label": "List Past Participants",
-                    "id": "zoom_list_past_participants"
+                    "id": "zoom_list_past_participants",
+                    "label": "List Past Participants"
                 }
-            ],
-            "defaultValue": "zoom_get_meeting_recordings"
+            ]
         },
         {
             "id": "credential",
@@ -1160,13 +1137,7 @@ Get all recordings for a specific Zoom meeting
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `uuid` | string | Meeting UUID |
-| `id` | number | Meeting ID |
-| `topic` | string | Meeting topic |
-| `start_time` | string | Meeting start time |
-| `duration` | number | Meeting duration in minutes |
-| `total_size` | number | Total size of recordings in bytes |
-| `share_url` | string | URL to share recordings |
+| `recording` | object | The meeting recording with all files |
 
 </div>
 
@@ -1187,49 +1158,49 @@ Get all recordings for a specific Zoom meeting
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "zoom_delete_recording",
             "options": [
                 {
-                    "label": "Create Meeting",
-                    "id": "zoom_create_meeting"
+                    "id": "zoom_create_meeting",
+                    "label": "Create Meeting"
                 },
                 {
-                    "label": "List Meetings",
-                    "id": "zoom_list_meetings"
+                    "id": "zoom_list_meetings",
+                    "label": "List Meetings"
                 },
                 {
-                    "label": "Get Meeting",
-                    "id": "zoom_get_meeting"
+                    "id": "zoom_get_meeting",
+                    "label": "Get Meeting"
                 },
                 {
-                    "label": "Update Meeting",
-                    "id": "zoom_update_meeting"
+                    "id": "zoom_update_meeting",
+                    "label": "Update Meeting"
                 },
                 {
-                    "label": "Delete Meeting",
-                    "id": "zoom_delete_meeting"
+                    "id": "zoom_delete_meeting",
+                    "label": "Delete Meeting"
                 },
                 {
-                    "label": "Get Meeting Invitation",
-                    "id": "zoom_get_meeting_invitation"
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "Get Meeting Invitation"
                 },
                 {
-                    "label": "List Recordings",
-                    "id": "zoom_list_recordings"
+                    "id": "zoom_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Meeting Recordings",
-                    "id": "zoom_get_meeting_recordings"
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "Get Meeting Recordings"
                 },
                 {
-                    "label": "Delete Recording",
-                    "id": "zoom_delete_recording"
+                    "id": "zoom_delete_recording",
+                    "label": "Delete Recording"
                 },
                 {
-                    "label": "List Past Participants",
-                    "id": "zoom_list_past_participants"
+                    "id": "zoom_list_past_participants",
+                    "label": "List Past Participants"
                 }
-            ],
-            "defaultValue": "zoom_delete_recording"
+            ]
         },
         {
             "id": "credential",
@@ -1256,14 +1227,15 @@ Get all recordings for a specific Zoom meeting
             "id": "deleteAction",
             "type": "dropdown",
             "title": "Delete Action",
+            "defaultValue": "trash",
             "options": [
                 {
-                    "label": "Move to Trash",
-                    "id": "trash"
+                    "id": "trash",
+                    "label": "Move to Trash"
                 },
                 {
-                    "label": "Permanently Delete",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Permanently Delete"
                 }
             ]
         }
@@ -1286,7 +1258,9 @@ Delete cloud recordings for a Zoom meeting
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | Whether the recording was deleted successfully |
 
 </div>
 
@@ -1307,49 +1281,49 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "zoom_list_past_participants",
             "options": [
                 {
-                    "label": "Create Meeting",
-                    "id": "zoom_create_meeting"
+                    "id": "zoom_create_meeting",
+                    "label": "Create Meeting"
                 },
                 {
-                    "label": "List Meetings",
-                    "id": "zoom_list_meetings"
+                    "id": "zoom_list_meetings",
+                    "label": "List Meetings"
                 },
                 {
-                    "label": "Get Meeting",
-                    "id": "zoom_get_meeting"
+                    "id": "zoom_get_meeting",
+                    "label": "Get Meeting"
                 },
                 {
-                    "label": "Update Meeting",
-                    "id": "zoom_update_meeting"
+                    "id": "zoom_update_meeting",
+                    "label": "Update Meeting"
                 },
                 {
-                    "label": "Delete Meeting",
-                    "id": "zoom_delete_meeting"
+                    "id": "zoom_delete_meeting",
+                    "label": "Delete Meeting"
                 },
                 {
-                    "label": "Get Meeting Invitation",
-                    "id": "zoom_get_meeting_invitation"
+                    "id": "zoom_get_meeting_invitation",
+                    "label": "Get Meeting Invitation"
                 },
                 {
-                    "label": "List Recordings",
-                    "id": "zoom_list_recordings"
+                    "id": "zoom_list_recordings",
+                    "label": "List Recordings"
                 },
                 {
-                    "label": "Get Meeting Recordings",
-                    "id": "zoom_get_meeting_recordings"
+                    "id": "zoom_get_meeting_recordings",
+                    "label": "Get Meeting Recordings"
                 },
                 {
-                    "label": "Delete Recording",
-                    "id": "zoom_delete_recording"
+                    "id": "zoom_delete_recording",
+                    "label": "Delete Recording"
                 },
                 {
-                    "label": "List Past Participants",
-                    "id": "zoom_list_past_participants"
+                    "id": "zoom_list_past_participants",
+                    "label": "List Past Participants"
                 }
-            ],
-            "defaultValue": "zoom_list_past_participants"
+            ]
         },
         {
             "id": "credential",
@@ -1400,8 +1374,7 @@ List participants from a past Zoom meeting
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `participants` | array | List of meeting participants |
-| `pageSize` | number | Number of records per page |
-| `totalRecords` | number | Total number of records |
+| `pageInfo` | object | Pagination information |
 
 </div>
 

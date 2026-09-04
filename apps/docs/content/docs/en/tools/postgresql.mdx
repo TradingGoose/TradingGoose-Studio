@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="postgresql"
-  color=""
+  color="#336791"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="PostgreSQL"
     type="postgresql"
-    color=""
+    color="#336791"
     hideHeader
     subBlocks={[
         {
@@ -30,29 +30,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "query",
             "options": [
                 {
-                    "label": "Query (SELECT)",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query (SELECT)"
                 },
                 {
-                    "label": "Insert Data",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Delete Data",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Data"
                 },
                 {
-                    "label": "Execute Raw SQL",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Execute Raw SQL"
                 }
-            ],
-            "defaultValue": "query"
+            ]
         },
         {
             "id": "host",
@@ -68,7 +68,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Port",
             "layout": "full",
             "placeholder": "5432",
-            "required": true
+            "required": true,
+            "defaultValue": "5432"
         },
         {
             "id": "database",
@@ -100,18 +101,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "SSL Mode",
             "layout": "full",
+            "defaultValue": "preferred",
             "options": [
                 {
-                    "label": "Disabled",
-                    "id": "disabled"
+                    "id": "disabled",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Required",
-                    "id": "required"
+                    "id": "required",
+                    "label": "Required"
                 },
                 {
-                    "label": "Preferred",
-                    "id": "preferred"
+                    "id": "preferred",
+                    "label": "Preferred"
                 }
             ]
         },
@@ -151,6 +153,7 @@ Execute a SELECT query on PostgreSQL database
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `rows` | array | Array of rows returned from the query |
+| `rowCount` | number | Number of rows returned |
 
 </div>
 
@@ -164,7 +167,7 @@ Execute a SELECT query on PostgreSQL database
   <BlockConfigPreview
     name="PostgreSQL"
     type="postgresql"
-    color=""
+    color="#336791"
     hideHeader
     subBlocks={[
         {
@@ -172,29 +175,29 @@ Execute a SELECT query on PostgreSQL database
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "insert",
             "options": [
                 {
-                    "label": "Query (SELECT)",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query (SELECT)"
                 },
                 {
-                    "label": "Insert Data",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Delete Data",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Data"
                 },
                 {
-                    "label": "Execute Raw SQL",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Execute Raw SQL"
                 }
-            ],
-            "defaultValue": "insert"
+            ]
         },
         {
             "id": "host",
@@ -210,7 +213,8 @@ Execute a SELECT query on PostgreSQL database
             "title": "Port",
             "layout": "full",
             "placeholder": "5432",
-            "required": true
+            "required": true,
+            "defaultValue": "5432"
         },
         {
             "id": "database",
@@ -242,18 +246,19 @@ Execute a SELECT query on PostgreSQL database
             "type": "dropdown",
             "title": "SSL Mode",
             "layout": "full",
+            "defaultValue": "preferred",
             "options": [
                 {
-                    "label": "Disabled",
-                    "id": "disabled"
+                    "id": "disabled",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Required",
-                    "id": "required"
+                    "id": "required",
+                    "label": "Required"
                 },
                 {
-                    "label": "Preferred",
-                    "id": "preferred"
+                    "id": "preferred",
+                    "label": "Preferred"
                 }
             ]
         },
@@ -270,7 +275,7 @@ Execute a SELECT query on PostgreSQL database
             "type": "code",
             "title": "Data (JSON)",
             "layout": "full",
-            "placeholder": "{\\n  \"name\": \"John Doe\",\\n  \"email\": \"john@example.com\",\\n  \"active\": true\\n}",
+            "placeholder": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"active\": true\n}",
             "language": "json",
             "required": true
         }
@@ -302,6 +307,7 @@ Insert data into PostgreSQL database
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `rows` | array | Inserted data \(if RETURNING clause used\) |
+| `rowCount` | number | Number of rows inserted |
 
 </div>
 
@@ -315,7 +321,7 @@ Insert data into PostgreSQL database
   <BlockConfigPreview
     name="PostgreSQL"
     type="postgresql"
-    color=""
+    color="#336791"
     hideHeader
     subBlocks={[
         {
@@ -323,29 +329,29 @@ Insert data into PostgreSQL database
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "update",
             "options": [
                 {
-                    "label": "Query (SELECT)",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query (SELECT)"
                 },
                 {
-                    "label": "Insert Data",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Delete Data",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Data"
                 },
                 {
-                    "label": "Execute Raw SQL",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Execute Raw SQL"
                 }
-            ],
-            "defaultValue": "update"
+            ]
         },
         {
             "id": "host",
@@ -361,7 +367,8 @@ Insert data into PostgreSQL database
             "title": "Port",
             "layout": "full",
             "placeholder": "5432",
-            "required": true
+            "required": true,
+            "defaultValue": "5432"
         },
         {
             "id": "database",
@@ -393,18 +400,19 @@ Insert data into PostgreSQL database
             "type": "dropdown",
             "title": "SSL Mode",
             "layout": "full",
+            "defaultValue": "preferred",
             "options": [
                 {
-                    "label": "Disabled",
-                    "id": "disabled"
+                    "id": "disabled",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Required",
-                    "id": "required"
+                    "id": "required",
+                    "label": "Required"
                 },
                 {
-                    "label": "Preferred",
-                    "id": "preferred"
+                    "id": "preferred",
+                    "label": "Preferred"
                 }
             ]
         },
@@ -421,7 +429,7 @@ Insert data into PostgreSQL database
             "type": "code",
             "title": "Update Data (JSON)",
             "layout": "full",
-            "placeholder": "{\\n  \"name\": \"Jane Doe\",\\n  \"email\": \"jane@example.com\"\\n}",
+            "placeholder": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\"\n}",
             "language": "json",
             "required": true
         },
@@ -462,6 +470,7 @@ Update data in PostgreSQL database
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `rows` | array | Updated data \(if RETURNING clause used\) |
+| `rowCount` | number | Number of rows updated |
 
 </div>
 
@@ -475,7 +484,7 @@ Update data in PostgreSQL database
   <BlockConfigPreview
     name="PostgreSQL"
     type="postgresql"
-    color=""
+    color="#336791"
     hideHeader
     subBlocks={[
         {
@@ -483,29 +492,29 @@ Update data in PostgreSQL database
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "delete",
             "options": [
                 {
-                    "label": "Query (SELECT)",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query (SELECT)"
                 },
                 {
-                    "label": "Insert Data",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Delete Data",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Data"
                 },
                 {
-                    "label": "Execute Raw SQL",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Execute Raw SQL"
                 }
-            ],
-            "defaultValue": "delete"
+            ]
         },
         {
             "id": "host",
@@ -521,7 +530,8 @@ Update data in PostgreSQL database
             "title": "Port",
             "layout": "full",
             "placeholder": "5432",
-            "required": true
+            "required": true,
+            "defaultValue": "5432"
         },
         {
             "id": "database",
@@ -553,18 +563,19 @@ Update data in PostgreSQL database
             "type": "dropdown",
             "title": "SSL Mode",
             "layout": "full",
+            "defaultValue": "preferred",
             "options": [
                 {
-                    "label": "Disabled",
-                    "id": "disabled"
+                    "id": "disabled",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Required",
-                    "id": "required"
+                    "id": "required",
+                    "label": "Required"
                 },
                 {
-                    "label": "Preferred",
-                    "id": "preferred"
+                    "id": "preferred",
+                    "label": "Preferred"
                 }
             ]
         },
@@ -612,6 +623,7 @@ Delete data from PostgreSQL database
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `rows` | array | Deleted data \(if RETURNING clause used\) |
+| `rowCount` | number | Number of rows deleted |
 
 </div>
 
@@ -625,7 +637,7 @@ Delete data from PostgreSQL database
   <BlockConfigPreview
     name="PostgreSQL"
     type="postgresql"
-    color=""
+    color="#336791"
     hideHeader
     subBlocks={[
         {
@@ -633,29 +645,29 @@ Delete data from PostgreSQL database
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "execute",
             "options": [
                 {
-                    "label": "Query (SELECT)",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query (SELECT)"
                 },
                 {
-                    "label": "Insert Data",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Insert Data"
                 },
                 {
-                    "label": "Update Data",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Data"
                 },
                 {
-                    "label": "Delete Data",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Data"
                 },
                 {
-                    "label": "Execute Raw SQL",
-                    "id": "execute"
+                    "id": "execute",
+                    "label": "Execute Raw SQL"
                 }
-            ],
-            "defaultValue": "execute"
+            ]
         },
         {
             "id": "host",
@@ -671,7 +683,8 @@ Delete data from PostgreSQL database
             "title": "Port",
             "layout": "full",
             "placeholder": "5432",
-            "required": true
+            "required": true,
+            "defaultValue": "5432"
         },
         {
             "id": "database",
@@ -703,18 +716,19 @@ Delete data from PostgreSQL database
             "type": "dropdown",
             "title": "SSL Mode",
             "layout": "full",
+            "defaultValue": "preferred",
             "options": [
                 {
-                    "label": "Disabled",
-                    "id": "disabled"
+                    "id": "disabled",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Required",
-                    "id": "required"
+                    "id": "required",
+                    "label": "Required"
                 },
                 {
-                    "label": "Preferred",
-                    "id": "preferred"
+                    "id": "preferred",
+                    "label": "Preferred"
                 }
             ]
         },
@@ -754,6 +768,7 @@ Execute raw SQL query on PostgreSQL database
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `rows` | array | Array of rows returned from the query |
+| `rowCount` | number | Number of rows affected |
 
 </div>
 

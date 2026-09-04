@@ -9,7 +9,7 @@ import { StructuredData } from '@/components/structured-data'
 import { AccordionHashSync } from '@/components/ui/accordion-hash-sync'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
-import { type DocsLocale, docsLocaleCopy, i18n, isDocsLocale, toOpenGraphLocale } from '@/lib/i18n'
+import { type DocsLocale, i18n, isDocsLocale } from '@/lib/i18n'
 import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
 import { source } from '@/lib/source'
 
@@ -30,7 +30,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
   const MDX = page.data.body
   const neighbours = pageTree ? findNeighbour(pageTree, page.url) : null
 
-  const breadcrumbs = generateBreadcrumbs(page.url, page.data.title, baseUrl, params.lang)
+  const breadcrumbs = generateBreadcrumbs(page.url, page.data.title, baseUrl)
 
   const CustomFooter = () => (
     <div className='mt-12'>
@@ -164,15 +164,10 @@ ${page.data.description || ''}`}
   )
 }
 
-function generateBreadcrumbs(
-  targetUrl: string,
-  pageTitle: string,
-  baseUrl: string,
-  locale: DocsLocale
-) {
+function generateBreadcrumbs(targetUrl: string, pageTitle: string, baseUrl: string) {
   const breadcrumbs: Array<{ name: string; url: string }> = [
     {
-      name: docsLocaleCopy[locale].home,
+      name: 'Home',
       url: baseUrl,
     },
   ]
@@ -215,7 +210,8 @@ export async function generateMetadata(props: {
   if (!isDocsLocale(params.lang)) notFound()
   const slugSegments = params.slug ?? []
   const baseUrl = 'https://docs.tradinggoose.ai'
-  const defaultDescription = docsLocaleCopy[params.lang].description
+  const defaultDescription =
+    'TradingGoose visual workflow builder documentation for AI applications.'
 
   const page =
     source.getPage(slugSegments, params.lang) ??
@@ -223,10 +219,7 @@ export async function generateMetadata(props: {
   if (!page) notFound()
 
   const fullUrl = `${baseUrl}${page.url}`
-  const canonicalPath = page.url.replace(`/${params.lang}`, '') || '/'
-  const alternateLocales = i18n.languages
-    .filter((lang) => lang !== params.lang)
-    .map(toOpenGraphLocale)
+  const canonicalPath = page.url.replace(/^\/en(?:\/|$)/, '/')
   const alternateLanguages = Object.fromEntries(
     i18n.languages.map((lang) => [
       lang,
@@ -251,20 +244,15 @@ export async function generateMetadata(props: {
     ]
       .flat()
       .filter(Boolean),
-    authors: [{ name: docsLocaleCopy[params.lang].team }],
-    category: docsLocaleCopy[params.lang].category,
+    authors: [{ name: 'TradingGoose Team' }],
+    category: 'Developer Tools',
     openGraph: {
       title: page.data.title,
       description: page.data.description || defaultDescription,
       url: fullUrl,
-      siteName: docsLocaleCopy[params.lang].siteName,
+      siteName: 'TradingGoose Documentation',
       type: 'article',
-      locale: toOpenGraphLocale(params.lang),
-      ...(alternateLocales.length > 0
-        ? {
-            alternateLocale: alternateLocales,
-          }
-        : {}),
+      locale: 'en_US',
     },
     twitter: {
       card: 'summary',

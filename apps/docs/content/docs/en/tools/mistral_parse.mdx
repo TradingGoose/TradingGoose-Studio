@@ -32,12 +32,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "PDF Document URL",
-                    "id": "url"
+                    "id": "url",
+                    "label": "PDF Document URL"
                 },
                 {
-                    "label": "Upload PDF Document",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Upload PDF Document"
                 }
             ],
             "defaultValue": "url"
@@ -49,16 +49,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "Markdown (Formatted)",
-                    "id": "markdown"
+                    "id": "markdown",
+                    "label": "Markdown (Formatted)"
                 },
                 {
-                    "label": "Plain Text",
-                    "id": "text"
+                    "id": "text",
+                    "label": "Plain Text"
                 },
                 {
-                    "label": "JSON (Raw)",
-                    "id": "json"
+                    "id": "json",
+                    "label": "JSON (Raw)"
                 }
             ]
         },
@@ -68,26 +68,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Specific Pages",
             "layout": "full",
             "placeholder": "e.g. 0,1,2 (leave empty for all pages)"
-        },
-        {
-            "id": "includeImageBase64",
-            "type": "switch",
-            "title": "Include PDF Images",
-            "layout": "half"
-        },
-        {
-            "id": "imageLimit",
-            "type": "short-input",
-            "title": "Max Images",
-            "layout": "half",
-            "placeholder": "Maximum number of images to extract"
-        },
-        {
-            "id": "imageMinSize",
-            "type": "short-input",
-            "title": "Min Image Size (px)",
-            "layout": "half",
-            "placeholder": "Min width/height in pixels"
         },
         {
             "id": "apiKey",
@@ -110,12 +90,26 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">PDF Document URL (<code>mistral_parser</code>)</div>
+
+Parse PDF documents using Mistral OCR API
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | Yes | URL to a PDF document to be processed |
+| `resultType` | string | No | Type of parsed result \(markdown, text, or json\). Defaults to markdown. |
+| `pages` | array | No | Specific pages to process \(array of page numbers, starting from 0\) |
+| `apiKey` | string | Yes | Mistral API key for this request. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `content` | string | Extracted content |
-| `metadata` | json | Processing metadata |
+| `success` | boolean | Whether the PDF was parsed successfully |
+| `content` | string | Extracted content in the requested format \(markdown, text, or JSON\) |
+| `metadata` | object | Processing metadata including jobId, fileType, pageCount, and usage info |
 
 </div>
 
@@ -139,12 +133,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "PDF Document URL",
-                    "id": "url"
+                    "id": "url",
+                    "label": "PDF Document URL"
                 },
                 {
-                    "label": "Upload PDF Document",
-                    "id": "upload"
+                    "id": "upload",
+                    "label": "Upload PDF Document"
                 }
             ],
             "defaultValue": "upload"
@@ -156,16 +150,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "Markdown (Formatted)",
-                    "id": "markdown"
+                    "id": "markdown",
+                    "label": "Markdown (Formatted)"
                 },
                 {
-                    "label": "Plain Text",
-                    "id": "text"
+                    "id": "text",
+                    "label": "Plain Text"
                 },
                 {
-                    "label": "JSON (Raw)",
-                    "id": "json"
+                    "id": "json",
+                    "label": "JSON (Raw)"
                 }
             ]
         },
@@ -175,26 +169,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Specific Pages",
             "layout": "full",
             "placeholder": "e.g. 0,1,2 (leave empty for all pages)"
-        },
-        {
-            "id": "includeImageBase64",
-            "type": "switch",
-            "title": "Include PDF Images",
-            "layout": "half"
-        },
-        {
-            "id": "imageLimit",
-            "type": "short-input",
-            "title": "Max Images",
-            "layout": "half",
-            "placeholder": "Maximum number of images to extract"
-        },
-        {
-            "id": "imageMinSize",
-            "type": "short-input",
-            "title": "Min Image Size (px)",
-            "layout": "half",
-            "placeholder": "Min width/height in pixels"
         },
         {
             "id": "apiKey",
@@ -216,12 +190,26 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Upload PDF Document (<code>mistral_parser</code>)</div>
+
+Parse PDF documents using Mistral OCR API
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | Yes | URL to a PDF document to be processed |
+| `resultType` | string | No | Type of parsed result \(markdown, text, or json\). Defaults to markdown. |
+| `pages` | array | No | Specific pages to process \(array of page numbers, starting from 0\) |
+| `apiKey` | string | Yes | Mistral API key for this request. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `content` | string | Extracted content |
-| `metadata` | json | Processing metadata |
+| `success` | boolean | Whether the PDF was parsed successfully |
+| `content` | string | Extracted content in the requested format \(markdown, text, or JSON\) |
+| `metadata` | object | Processing metadata including jobId, fileType, pageCount, and usage info |
 
 </div>
 

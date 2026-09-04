@@ -22,14 +22,14 @@ Copilot has access to a comprehensive set of tools spanning the entire platform:
 
 ### Workspace Tools
 - **Manage MCP servers** — create, update, and configure MCP server connections.
-- **Manage skills** — create, edit, and delete reusable skill definitions.
+- **Manage skills** — create, edit, and rename reusable skill definitions.
 - **Manage custom tools** — create and edit custom tool schemas and code.
 - **Knowledge base** — query and reference knowledge base documents.
 
 ### General
 - **Explain** — answer questions about TradingGoose concepts or any workflow in your workspace.
 - **Plan** — for larger tasks, Copilot generates a todo list that tracks progress as it works through each step.
-- **Reference context** — use the `@` mention menu to pull in previous chats, other workflows, specific blocks, knowledge-base documents, docs, templates, or execution logs.
+- **Reference context** — use the `@` mention menu to pull in previous chats, workspace entities, specific blocks, docs, or execution logs.
 - **File attachments** — attach files directly to a message for additional context.
 
 ## Access Levels
@@ -70,8 +70,8 @@ Copilot supports exactly six OpenRouter models. Studio sends each canonical Open
 
     Self-hosted instances need a Copilot API key to connect to the managed inference service.
 
-    1. Sign in at [tradinggoose.ai](https://tradinggoose.ai) and open **Settings > Copilot**.
-    2. Click **Create** to generate a new API key. Copy it immediately -- it is shown only once.
+    1. Sign in at [tradinggoose.ai](https://tradinggoose.ai) and open **Settings > Service API Keys**.
+    2. In the **Copilot** card, click **Create** to generate a new API key. Copy it immediately -- it is shown only once.
     3. Set the `COPILOT_API_KEY` environment variable in your self-hosted deployment to the copied value.
     4. Restart the application. The global Copilot panel will now connect through the key.
   </Step>
@@ -97,7 +97,7 @@ Copilot is context-aware. The current page publishes only the selected object's 
 
 When Copilot streams a response that includes tool calls (for example adding a block, creating a skill, or configuring an MCP server), each action is rendered as an inline preview. In **Limited** mode you approve or reject each change; in **Full** mode changes are applied automatically.
 
-If you need to undo a Copilot action, you can revert or edit any previous message directly in the chat. Messages after the edited point are dimmed to indicate they will be regenerated.
+You can edit an earlier prompt to truncate and regenerate the messages that follow it, but only when no accepted live mutation follows that prompt. Editing chat history does not undo changes already applied to the workspace; reverse an applied action by changing the affected entity again. Messages after an editable point are dimmed to indicate that they will be regenerated.
 
 ## Billing
 

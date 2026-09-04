@@ -35,21 +35,21 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "make_call",
             "options": [
                 {
-                    "label": "Make Call",
-                    "id": "make_call"
+                    "id": "make_call",
+                    "label": "Make Call"
                 },
                 {
-                    "label": "List Calls",
-                    "id": "list_calls"
+                    "id": "list_calls",
+                    "label": "List Calls"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "get_recording"
+                    "id": "get_recording",
+                    "label": "Get Recording"
                 }
-            ],
-            "defaultValue": "make_call"
+            ]
         },
         {
             "id": "accountSid",
@@ -116,12 +116,16 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "title": "Machine Detection",
             "options": [
                 {
-                    "label": "Enable",
-                    "id": "Enable"
+                    "id": "",
+                    "label": "Disabled"
                 },
                 {
-                    "label": "Detect Message End",
-                    "id": "DetectMessageEnd"
+                    "id": "Enable",
+                    "label": "Enable"
+                },
+                {
+                    "id": "DetectMessageEnd",
+                    "label": "Detect Message End"
                 }
             ]
         }
@@ -164,6 +168,7 @@ Make an outbound phone call using Twilio Voice API.
 | `duration` | number | Call duration in seconds |
 | `price` | string | Cost of the call |
 | `priceUnit` | string | Currency of the price |
+| `error` | string | Error message if call failed |
 
 </div>
 
@@ -184,21 +189,21 @@ Make an outbound phone call using Twilio Voice API.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "list_calls",
             "options": [
                 {
-                    "label": "Make Call",
-                    "id": "make_call"
+                    "id": "make_call",
+                    "label": "Make Call"
                 },
                 {
-                    "label": "List Calls",
-                    "id": "list_calls"
+                    "id": "list_calls",
+                    "label": "List Calls"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "get_recording"
+                    "id": "get_recording",
+                    "label": "Get Recording"
                 }
-            ],
-            "defaultValue": "list_calls"
+            ]
         },
         {
             "id": "accountSid",
@@ -233,36 +238,40 @@ Make an outbound phone call using Twilio Voice API.
             "title": "Status",
             "options": [
                 {
-                    "label": "Queued",
-                    "id": "queued"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Ringing",
-                    "id": "ringing"
+                    "id": "queued",
+                    "label": "Queued"
                 },
                 {
-                    "label": "In Progress",
-                    "id": "in-progress"
+                    "id": "ringing",
+                    "label": "Ringing"
                 },
                 {
-                    "label": "Completed",
-                    "id": "completed"
+                    "id": "in-progress",
+                    "label": "In Progress"
                 },
                 {
-                    "label": "Failed",
-                    "id": "failed"
+                    "id": "completed",
+                    "label": "Completed"
                 },
                 {
-                    "label": "Busy",
-                    "id": "busy"
+                    "id": "failed",
+                    "label": "Failed"
                 },
                 {
-                    "label": "No Answer",
-                    "id": "no-answer"
+                    "id": "busy",
+                    "label": "Busy"
                 },
                 {
-                    "label": "Canceled",
-                    "id": "canceled"
+                    "id": "no-answer",
+                    "label": "No Answer"
+                },
+                {
+                    "id": "canceled",
+                    "label": "Canceled"
                 }
             ]
         },
@@ -315,6 +324,7 @@ Retrieve a list of calls made to and from an account.
 | `total` | number | Total number of calls returned |
 | `page` | number | Current page number |
 | `pageSize` | number | Number of calls per page |
+| `error` | string | Error message if retrieval failed |
 
 </div>
 
@@ -335,21 +345,21 @@ Retrieve a list of calls made to and from an account.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_recording",
             "options": [
                 {
-                    "label": "Make Call",
-                    "id": "make_call"
+                    "id": "make_call",
+                    "label": "Make Call"
                 },
                 {
-                    "label": "List Calls",
-                    "id": "list_calls"
+                    "id": "list_calls",
+                    "label": "List Calls"
                 },
                 {
-                    "label": "Get Recording",
-                    "id": "get_recording"
+                    "id": "get_recording",
+                    "label": "Get Recording"
                 }
-            ],
-            "defaultValue": "get_recording"
+            ]
         },
         {
             "id": "accountSid",
@@ -409,6 +419,7 @@ Retrieve call recording information and transcription (if enabled via TwiML).
 | `transcriptionStatus` | string | Transcription status \(completed, in-progress, failed\) |
 | `transcriptionPrice` | string | Cost of the transcription |
 | `transcriptionPriceUnit` | string | Currency of the transcription price |
+| `error` | string | Error message if retrieval failed |
 
 </div>
 

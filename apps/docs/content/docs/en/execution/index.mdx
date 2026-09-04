@@ -8,7 +8,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 TradingGoose's execution engine brings your workflows to life by processing blocks in the correct order, managing data flow, and handling errors gracefully, so you can understand exactly how workflows are executed in TradingGoose.
 
 <Callout type="info">
-  Every workflow execution follows a deterministic path based on your block connections and logic, ensuring predictable and reliable results.
+  Block scheduling follows the workflow graph. Router and Condition outputs update the active path at runtime, so only the selected branches continue.
 </Callout>
 
 ## Documentation Overview
@@ -57,32 +57,32 @@ Workflows can be executed through multiple channels:
 
 - **Manual**: Test and debug directly in the editor
 - **Deploy as API**: Create an HTTP endpoint secured with API keys
-- **Deploy as Chat**: Create a conversational interface on a custom subdomain
+- **Deploy as Chat**: Publish a hosted conversational interface
 - **Webhooks**: Respond to external events from third-party services
 - **Scheduled**: Run on a recurring schedule using cron expressions
 
 ### Deploy as API
 
 When you deploy a workflow as an API, TradingGoose:
-- Creates a unique HTTP endpoint: `https://tradinggoose.ai/api/workflows/{workflowId}/execute`
-- Generates an API key for authentication
+- Exposes `POST /api/workflows/{workflowId}/execute` on your TradingGoose deployment
+- Requires you to create or select an API key and pins that key to the deployment
 - Accepts POST requests with JSON payloads
 - Returns workflow execution results as JSON
 
 Example API call:
 ```bash
-curl -X POST https://tradinggoose.ai/api/workflows/your-workflow-id/execute \
+curl -X POST https://www.tradinggoose.ai/api/workflows/your-workflow-id/execute \
   -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
-  -d '{"input": "your data here"}'
+  -d '{"input": {"message": "your data here"}}'
 ```
 
 ### Deploy as Chat
 
 Chat deployment creates a conversational interface for your workflow:
-- Hosted on a custom subdomain: `https://your-name.tradinggoose.ai`
-- Optional authentication (public, password, or email-based)
-- Customizable UI with your branding
+- Published at `/chat/{identifier}` on your TradingGoose deployment
+- Access control through public, password, email allow-list, or SSO modes
+- Configurable title, description, welcome message, and logo
 - Streaming responses for real-time interaction
 - Perfect for AI assistants, support bots, or interactive tools
 
@@ -90,34 +90,15 @@ Each deployment method passes data to your workflow's starter block, beginning t
 
 ## Deployment Snapshots
 
-All public entry points—API, Chat, Schedule, Webhook, and Manual runs—execute the workflow’s active deployment snapshot. Publish a new deployment whenever you change the canvas so every trigger uses the updated version.
+Public API, hosted Chat, Schedule, and Webhook entry points execute the workflow's active deployment snapshot. Publish a new deployment after changing the canvas when you want those entry points to use the updated version.
 
-The Deploy modal keeps a full version history displayed in a table of deployment snapshots. You can inspect any snapshot, compare it against your draft, and promote or roll back with one click when you need to restore a prior release.
+Manual runs from the Workflow Editor use the current live canvas and workflow variables. This lets you test draft changes before deploying them.
+
+The Deploy modal keeps a version history of deployment snapshots. You can inspect a snapshot, compare it with the current draft and active deployment, activate an older version, or load a deployed version back into the editor.
 
 ## Programmatic Execution
 
-Execute workflows from your applications using our official SDKs:
-
-```bash
-# TypeScript/JavaScript
-npm install tradinggoose-ts-sdk
-
-# Python
-pip install tradinggoose-sdk
-```
-
-```typescript
-// TypeScript Example
-import { TradingGooseClient } from 'tradinggoose-ts-sdk';
-
-const client = new TradingGooseClient({ 
-  apiKey: 'your-api-key' 
-});
-
-const result = await client.executeWorkflow('workflow-id', {
-  input: { message: 'Hello' }
-});
-```
+Use the supported [Execution API](/execution/api) for production integrations. The repository also contains unpublished preview clients for [TypeScript](/sdks/typescript) and [Python](/sdks/python); install those from repository source only when developing or evaluating the SDK packages.
 
 ## Best Practices
 
@@ -129,7 +110,7 @@ const result = await client.executeWorkflow('workflow-id', {
 ### Optimize Performance
 - Minimize external API calls where possible
 - Use parallel execution for independent operations
-- Cache results with Variables blocks when appropriate
+- Store reusable intermediate values with Variables blocks during a run
 
 ### Monitor Executions
 - Review logs regularly to understand performance patterns

@@ -82,13 +82,7 @@ The user prompt represents the primary input data for inference processing. This
 
 ### Model Selection
 
-The Agent block supports multiple LLM providers through a unified inference interface. Available models include:
-
-**OpenAI Models**: GPT-5, GPT-4o, o1, o3, o4-mini, gpt-4.1 (API-based inference)
-**Anthropic Models**: Claude 3.7 Sonnet (API-based inference)
-**Google Models**: Gemini 2.5 Pro, Gemini 2.0 Flash (API-based inference)
-**Alternative Providers**: Groq, Cerebras, xAI, DeepSeek (API-based inference)
-**Local Deployment**: Ollama-compatible models (self-hosted inference)
+The Agent block supports multiple LLM providers through a unified inference interface. Its model selector is grouped by provider and reflects the deployment's current built-in catalog together with models discovered from configured OpenRouter and Ollama connections. Use the selector as the source of truth instead of relying on a fixed model list.
 
 ### Temperature
 
@@ -115,7 +109,7 @@ Control the creativity and randomness of responses:
 
 ### API Key
 
-Your API key for the selected LLM provider. This is securely stored and used for authentication.
+When this field is shown, enter an API key for the selected provider. Hosted models on the managed deployment and local Ollama models do not show this field.
 
 ### Tools
 
@@ -123,7 +117,7 @@ Tools extend the agent's capabilities through external API integrations and serv
 
 **Tool Integration Process**:
 1. Access the Tools configuration section within the Agent block
-2. Select from 60+ pre-built integrations or define custom functions
+2. Select a built-in integration, connected MCP tool, or custom tool
 3. Configure authentication parameters and operational constraints
 
 **Available Tool Categories**:
@@ -135,16 +129,18 @@ Tools extend the agent's capabilities through external API integrations and serv
 
 **Tool Execution Control**:
 - **Auto**: Model determines tool invocation based on context and necessity
-- **Required**: Tool must be called during every inference request
-- **None**: Tool definition available but excluded from model context
+- **Force**: Provider is instructed to use this tool in the response
+- **None**: Tool is excluded from the provider request
 
 ### Response Format
 
-The Response Format parameter enforces structured output generation through JSON Schema validation. This ensures consistent, machine-readable responses that conform to predefined data structures:
+The Response Format parameter requests structured output using a JSON Schema:
 
 ```json
 {
   "name": "user_analysis",
+  "description": "Classifies sentiment with a confidence score",
+  "strict": true,
   "schema": {
     "type": "object",
     "properties": {
@@ -158,21 +154,26 @@ The Response Format parameter enforces structured output generation through JSON
         "maximum": 1
       }
     },
-    "required": ["sentiment", "confidence"]
+    "required": ["sentiment", "confidence"],
+    "additionalProperties": false
   }
 }
 ```
 
-This configuration constrains the model's output to comply with the specified schema, preventing free-form text responses and ensuring structured data generation.
+When the model returns valid JSON, the schema fields are exposed directly at the Agent block's output root. If the response is malformed, the block falls back to its standard output and includes `_responseFormatWarning`.
 
 ### Accessing Results
 
-After an agent completes, you can access its outputs:
+Without a response format, an Agent exposes these standard outputs:
 
-- **`<agent.content>`**: The agent's response text or structured data
-- **`<agent.tokens>`**: Token usage statistics (prompt, completion, total)
-- **`<agent.tool_calls>`**: Details of any tools the agent used during execution
+- **`<agent.content>`**: The agent's response text
+- **`<agent.model>`**: The model used for the response
+- **`<agent.tokens>`**: Provider-reported token usage statistics
+- **`<agent.toolCalls>`**: Details of any tools the agent used during execution
+- **`<agent.toolResults>`**: Results returned by those tools
 - **`<agent.cost>`**: Estimated cost of the API call (if available)
+
+With a valid response format, reference each schema field directly, such as `<agent.sentiment>`. Token, tool, timing, and cost metadata remain available alongside those fields.
 
 ## Advanced Features
 
@@ -220,10 +221,10 @@ See the [`Memory`](/blocks/memory) block reference for details.
         <strong>agent.tokens</strong>: Token usage statistics object
       </li>
       <li>
-        <strong>agent.tool_calls</strong>: Array of tool execution details
+        <strong>agent.toolCalls</strong>: Tool execution details and count
       </li>
       <li>
-        <strong>agent.cost</strong>: Estimated API call cost (if available)
+        <strong>agent.toolResults</strong>: Results returned by invoked tools
       </li>
     </ul>
   </Tab>

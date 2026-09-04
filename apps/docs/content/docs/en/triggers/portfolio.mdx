@@ -4,6 +4,8 @@ description: Trigger workflow from portfolio monitor state changes
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
 import { SchemaTree } from "@/components/ui/schema-tree"
 import { Callout } from 'fumadocs-ui/components/callout'
 
@@ -16,16 +18,18 @@ import { Callout } from 'fumadocs-ui/components/callout'
 Trigger workflow from portfolio monitor state changes
 
 <Callout type="info">
-  This is an **event-driven** trigger. Configured portfolio monitors emit workflow events when their condition matches.
+  This is a **polling-based** trigger. TradingGoose checks the source for matching changes on a regular interval.
 </Callout>
 
-## Configuration
 
-Manage portfolio monitors from the workspace **Monitor** surface. Select a broker account, define the condition to evaluate, and choose the workflow target containing this Portfolio trigger.
+## Setup Instructions
 
-The delivered `event` is always `portfolio_state_condition_matched`. The `input` message is `Portfolio state condition matched for {account}`, where `{account}` uses `portfolio.identity.accountName` when available and otherwise falls back to `portfolio.identity.accountId`.
+- Open `/workspace/[workspaceId]/monitor` and create a portfolio monitor.
+- Select the broker account, portfolio condition, and workflow target.
+- Choose `edge` to run only when the condition changes from false to true, or `while_true` to run repeatedly while it remains true, subject to the cooldown.
+- The polling interval defaults to 60 seconds and accepts 15–3600 seconds. The cooldown defaults to 300 seconds and accepts 0–86400 seconds.
 
-#### Output Schema
+## Output Schema
 
 <SchemaTree
   title="Event Payload"
@@ -33,34 +37,34 @@ The delivered `event` is always `portfolio_state_condition_matched`. The `input`
       {
           "name": "input",
           "type": "string",
-          "description": "Human-readable portfolio monitor match message."
+          "description": "Human-readable summary naming the portfolio whose condition matched."
       },
       {
           "name": "event",
           "type": "string",
-          "description": "Always portfolio_state_condition_matched."
+          "description": "Always `portfolio_state_condition_matched`."
       },
       {
           "name": "portfolio",
           "type": "object",
-          "description": "portfolio",
+          "description": "Monitored portfolio identity and the detail snapshot that matched.",
           "children": [
               {
                   "name": "identity",
                   "type": "object",
-                  "description": "Canonical trading portfolio identity."
+                  "description": "Trading portfolio identity."
               },
               {
                   "name": "detail",
                   "type": "object",
-                  "description": "Portfolio detail snapshot at match time."
+                  "description": "Portfolio detail snapshot."
               }
           ]
       },
       {
           "name": "monitor",
           "type": "object",
-          "description": "monitor",
+          "description": "Identifiers for the monitor, target workflow, provider, service, and account.",
           "children": [
               {
                   "name": "id",
@@ -85,12 +89,12 @@ The delivered `event` is always `portfolio_state_condition_matched`. The `input`
               {
                   "name": "serviceId",
                   "type": "string",
-                  "description": "Trading service ID."
+                  "description": "Connected trading service ID."
               },
               {
                   "name": "accountId",
                   "type": "string",
-                  "description": "Broker account ID."
+                  "description": "Monitored broker account ID."
               }
           ]
       },

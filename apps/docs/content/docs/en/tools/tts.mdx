@@ -30,37 +30,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "openai",
             "options": [
                 {
-                    "label": "OpenAI TTS",
-                    "id": "openai"
+                    "id": "openai",
+                    "label": "OpenAI TTS"
                 },
                 {
-                    "label": "Deepgram Aura",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "Cartesia Sonic",
-                    "id": "cartesia"
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
                 },
                 {
-                    "label": "Google Cloud TTS",
-                    "id": "google"
+                    "id": "google",
+                    "label": "Google Cloud TTS"
                 },
                 {
-                    "label": "Azure TTS",
-                    "id": "azure"
+                    "id": "azure",
+                    "label": "Azure TTS"
                 },
                 {
-                    "label": "PlayHT",
-                    "id": "playht"
+                    "id": "playht",
+                    "label": "PlayHT"
                 }
-            ],
-            "defaultValue": "openai"
+            ]
         },
         {
             "id": "text",
@@ -81,18 +81,20 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "model",
             "type": "dropdown",
             "title": "Model",
+            "required": false,
+            "defaultValue": "tts-1",
             "options": [
                 {
-                    "label": "TTS-1",
-                    "id": "tts-1"
+                    "id": "tts-1",
+                    "label": "TTS-1"
                 },
                 {
-                    "label": "TTS-1-HD",
-                    "id": "tts-1-hd"
+                    "id": "tts-1-hd",
+                    "label": "TTS-1-HD"
                 },
                 {
-                    "label": "GPT-4o Mini TTS",
-                    "id": "gpt-4o-mini-tts"
+                    "id": "gpt-4o-mini-tts",
+                    "label": "GPT-4o Mini TTS"
                 }
             ]
         },
@@ -100,46 +102,48 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "voice",
             "type": "dropdown",
             "title": "Voice",
+            "required": false,
+            "defaultValue": "alloy",
             "options": [
                 {
-                    "label": "Alloy",
-                    "id": "alloy"
+                    "id": "alloy",
+                    "label": "Alloy"
                 },
                 {
-                    "label": "Ash",
-                    "id": "ash"
+                    "id": "ash",
+                    "label": "Ash"
                 },
                 {
-                    "label": "Ballad",
-                    "id": "ballad"
+                    "id": "ballad",
+                    "label": "Ballad"
                 },
                 {
-                    "label": "Cedar",
-                    "id": "cedar"
+                    "id": "cedar",
+                    "label": "Cedar"
                 },
                 {
-                    "label": "Coral",
-                    "id": "coral"
+                    "id": "coral",
+                    "label": "Coral"
                 },
                 {
-                    "label": "Echo",
-                    "id": "echo"
+                    "id": "echo",
+                    "label": "Echo"
                 },
                 {
-                    "label": "Marin",
-                    "id": "marin"
+                    "id": "marin",
+                    "label": "Marin"
                 },
                 {
-                    "label": "Sage",
-                    "id": "sage"
+                    "id": "sage",
+                    "label": "Sage"
                 },
                 {
-                    "label": "Shimmer",
-                    "id": "shimmer"
+                    "id": "shimmer",
+                    "label": "Shimmer"
                 },
                 {
-                    "label": "Verse",
-                    "id": "verse"
+                    "id": "verse",
+                    "label": "Verse"
                 }
             ]
         },
@@ -147,26 +151,28 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "responseFormat",
             "type": "dropdown",
             "title": "Audio Format",
+            "required": false,
+            "defaultValue": "mp3",
             "options": [
                 {
-                    "label": "MP3",
-                    "id": "mp3"
+                    "id": "mp3",
+                    "label": "MP3"
                 },
                 {
-                    "label": "Opus",
-                    "id": "opus"
+                    "id": "opus",
+                    "label": "Opus"
                 },
                 {
-                    "label": "AAC",
-                    "id": "aac"
+                    "id": "aac",
+                    "label": "AAC"
                 },
                 {
-                    "label": "FLAC",
-                    "id": "flac"
+                    "id": "flac",
+                    "label": "FLAC"
                 },
                 {
-                    "label": "WAV",
-                    "id": "wav"
+                    "id": "wav",
+                    "label": "WAV"
                 }
             ]
         },
@@ -176,19 +182,36 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Speed",
             "min": 0.25,
             "max": 4,
-            "step": 0.25
+            "step": 0.25,
+            "required": false,
+            "defaultValue": "1.0"
         }
     ]}
   />
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">OpenAI TTS (<code>tts_openai</code>)</div>
+
+Convert text to speech using OpenAI TTS models
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Yes | The text to convert to speech |
+| `apiKey` | string | Yes | OpenAI API key |
+| `model` | string | No | TTS model to use \(tts-1, tts-1-hd, or gpt-4o-mini-tts\) |
+| `voice` | string | No | Voice to use \(alloy, ash, ballad, cedar, coral, echo, marin, sage, shimmer, verse\) |
+| `responseFormat` | string | No | Audio format \(mp3, opus, aac, flac, wav, pcm\) |
+| `speed` | number | No | Speech speed \(0.25 to 4.0, default: 1.0\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `audioUrl` | string | URL to the generated audio file |
-| `audioFile` | json | Generated audio file object \(UserFile\) |
+| `audioFile` | file | Generated audio file object |
 | `duration` | number | Audio duration in seconds |
 | `characterCount` | number | Number of characters processed |
 | `format` | string | Audio format |
@@ -214,37 +237,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "deepgram",
             "options": [
                 {
-                    "label": "OpenAI TTS",
-                    "id": "openai"
+                    "id": "openai",
+                    "label": "OpenAI TTS"
                 },
                 {
-                    "label": "Deepgram Aura",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "Cartesia Sonic",
-                    "id": "cartesia"
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
                 },
                 {
-                    "label": "Google Cloud TTS",
-                    "id": "google"
+                    "id": "google",
+                    "label": "Google Cloud TTS"
                 },
                 {
-                    "label": "Azure TTS",
-                    "id": "azure"
+                    "id": "azure",
+                    "label": "Azure TTS"
                 },
                 {
-                    "label": "PlayHT",
-                    "id": "playht"
+                    "id": "playht",
+                    "label": "PlayHT"
                 }
-            ],
-            "defaultValue": "deepgram"
+            ]
         },
         {
             "id": "text",
@@ -266,54 +289,55 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Voice",
             "required": true,
+            "defaultValue": "aura-asteria-en",
             "options": [
                 {
-                    "label": "Asteria",
-                    "id": "aura-asteria-en"
+                    "id": "aura-asteria-en",
+                    "label": "Asteria"
                 },
                 {
-                    "label": "Luna",
-                    "id": "aura-luna-en"
+                    "id": "aura-luna-en",
+                    "label": "Luna"
                 },
                 {
-                    "label": "Stella",
-                    "id": "aura-stella-en"
+                    "id": "aura-stella-en",
+                    "label": "Stella"
                 },
                 {
-                    "label": "Athena",
-                    "id": "aura-athena-en"
+                    "id": "aura-athena-en",
+                    "label": "Athena"
                 },
                 {
-                    "label": "Hera",
-                    "id": "aura-hera-en"
+                    "id": "aura-hera-en",
+                    "label": "Hera"
                 },
                 {
-                    "label": "Orion",
-                    "id": "aura-orion-en"
+                    "id": "aura-orion-en",
+                    "label": "Orion"
                 },
                 {
-                    "label": "Arcas",
-                    "id": "aura-arcas-en"
+                    "id": "aura-arcas-en",
+                    "label": "Arcas"
                 },
                 {
-                    "label": "Perseus",
-                    "id": "aura-perseus-en"
+                    "id": "aura-perseus-en",
+                    "label": "Perseus"
                 },
                 {
-                    "label": "Angus",
-                    "id": "aura-angus-en"
+                    "id": "aura-angus-en",
+                    "label": "Angus"
                 },
                 {
-                    "label": "Orpheus",
-                    "id": "aura-orpheus-en"
+                    "id": "aura-orpheus-en",
+                    "label": "Orpheus"
                 },
                 {
-                    "label": "Helios",
-                    "id": "aura-helios-en"
+                    "id": "aura-helios-en",
+                    "label": "Helios"
                 },
                 {
-                    "label": "Zeus",
-                    "id": "aura-zeus-en"
+                    "id": "aura-zeus-en",
+                    "label": "Zeus"
                 }
             ]
         },
@@ -321,26 +345,28 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "encoding",
             "type": "dropdown",
             "title": "Audio Format",
+            "required": false,
+            "defaultValue": "mp3",
             "options": [
                 {
-                    "label": "MP3",
-                    "id": "mp3"
+                    "id": "mp3",
+                    "label": "MP3"
                 },
                 {
-                    "label": "Opus",
-                    "id": "opus"
+                    "id": "opus",
+                    "label": "Opus"
                 },
                 {
-                    "label": "AAC",
-                    "id": "aac"
+                    "id": "aac",
+                    "label": "AAC"
                 },
                 {
-                    "label": "FLAC",
-                    "id": "flac"
+                    "id": "flac",
+                    "label": "FLAC"
                 },
                 {
-                    "label": "Linear16",
-                    "id": "linear16"
+                    "id": "linear16",
+                    "label": "Linear16"
                 }
             ]
         },
@@ -348,36 +374,55 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "sampleRate",
             "type": "dropdown",
             "title": "Sample Rate",
+            "defaultValue": "24000",
             "options": [
                 {
-                    "label": "8000 Hz",
-                    "id": "8000"
+                    "id": "8000",
+                    "label": "8000 Hz"
                 },
                 {
-                    "label": "16000 Hz",
-                    "id": "16000"
+                    "id": "16000",
+                    "label": "16000 Hz"
                 },
                 {
-                    "label": "24000 Hz",
-                    "id": "24000"
+                    "id": "24000",
+                    "label": "24000 Hz"
                 },
                 {
-                    "label": "48000 Hz",
-                    "id": "48000"
+                    "id": "48000",
+                    "label": "48000 Hz"
                 }
-            ]
+            ],
+            "description": "Shown when encoding is 'linear16'."
         }
     ]}
   />
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Deepgram Aura (<code>tts_deepgram</code>)</div>
+
+Convert text to speech using Deepgram Aura
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Yes | The text to convert to speech |
+| `apiKey` | string | Yes | Deepgram API key |
+| `model` | string | No | Deepgram model/voice \(e.g., aura-asteria-en, aura-luna-en\) |
+| `voice` | string | No | Voice identifier \(alternative to model param\) |
+| `encoding` | string | No | Audio encoding \(linear16, mp3, opus, aac, flac\) |
+| `sampleRate` | number | No | Sample rate \(8000, 16000, 24000, 48000\) |
+| `bitRate` | number | No | Bit rate for compressed formats |
+| `container` | string | No | Container format \(none, wav, ogg\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `audioUrl` | string | URL to the generated audio file |
-| `audioFile` | json | Generated audio file object \(UserFile\) |
+| `audioFile` | file | Generated audio file object |
 | `duration` | number | Audio duration in seconds |
 | `characterCount` | number | Number of characters processed |
 | `format` | string | Audio format |
@@ -403,37 +448,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "elevenlabs",
             "options": [
                 {
-                    "label": "OpenAI TTS",
-                    "id": "openai"
+                    "id": "openai",
+                    "label": "OpenAI TTS"
                 },
                 {
-                    "label": "Deepgram Aura",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "Cartesia Sonic",
-                    "id": "cartesia"
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
                 },
                 {
-                    "label": "Google Cloud TTS",
-                    "id": "google"
+                    "id": "google",
+                    "label": "Google Cloud TTS"
                 },
                 {
-                    "label": "Azure TTS",
-                    "id": "azure"
+                    "id": "azure",
+                    "label": "Azure TTS"
                 },
                 {
-                    "label": "PlayHT",
-                    "id": "playht"
+                    "id": "playht",
+                    "label": "PlayHT"
                 }
-            ],
-            "defaultValue": "elevenlabs"
+            ]
         },
         {
             "id": "text",
@@ -461,30 +506,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "modelId",
             "type": "dropdown",
             "title": "Model",
+            "required": false,
+            "defaultValue": "eleven_turbo_v2_5",
             "options": [
                 {
-                    "label": "Turbo v2.5",
-                    "id": "eleven_turbo_v2_5"
+                    "id": "eleven_turbo_v2_5",
+                    "label": "Turbo v2.5"
                 },
                 {
-                    "label": "Flash v2.5",
-                    "id": "eleven_flash_v2_5"
+                    "id": "eleven_flash_v2_5",
+                    "label": "Flash v2.5"
                 },
                 {
-                    "label": "Multilingual v2",
-                    "id": "eleven_multilingual_v2"
+                    "id": "eleven_multilingual_v2",
+                    "label": "Multilingual v2"
                 },
                 {
-                    "label": "Turbo v2",
-                    "id": "eleven_turbo_v2"
+                    "id": "eleven_turbo_v2",
+                    "label": "Turbo v2"
                 },
                 {
-                    "label": "Monolingual v1",
-                    "id": "eleven_monolingual_v1"
+                    "id": "eleven_monolingual_v1",
+                    "label": "Monolingual v1"
                 },
                 {
-                    "label": "Multilingual v1",
-                    "id": "eleven_multilingual_v1"
+                    "id": "eleven_multilingual_v1",
+                    "label": "Multilingual v1"
                 }
             ]
         },
@@ -494,7 +541,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Stability",
             "min": 0,
             "max": 1,
-            "step": 0.05
+            "step": 0.05,
+            "required": false,
+            "defaultValue": "0.5"
         },
         {
             "id": "similarityBoost",
@@ -502,7 +551,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Similarity Boost",
             "min": 0,
             "max": 1,
-            "step": 0.05
+            "step": 0.05,
+            "required": false,
+            "defaultValue": "0.8"
         },
         {
             "id": "style",
@@ -510,19 +561,38 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Style",
             "min": 0,
             "max": 1,
-            "step": 0.05
+            "step": 0.05,
+            "required": false,
+            "defaultValue": "0.0"
         }
     ]}
   />
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">ElevenLabs (<code>tts_elevenlabs</code>)</div>
+
+Convert text to speech using ElevenLabs voices
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Yes | The text to convert to speech |
+| `voiceId` | string | Yes | The ID of the voice to use |
+| `apiKey` | string | Yes | ElevenLabs API key |
+| `modelId` | string | No | Model to use \(e.g., eleven_monolingual_v1, eleven_turbo_v2_5, eleven_flash_v2_5\) |
+| `stability` | number | No | Voice stability \(0.0 to 1.0, default: 0.5\) |
+| `similarityBoost` | number | No | Similarity boost \(0.0 to 1.0, default: 0.8\) |
+| `style` | number | No | Style exaggeration \(0.0 to 1.0\) |
+| `useSpeakerBoost` | boolean | No | Use speaker boost \(default: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `audioUrl` | string | URL to the generated audio file |
-| `audioFile` | json | Generated audio file object \(UserFile\) |
+| `audioFile` | file | Generated audio file object |
 | `duration` | number | Audio duration in seconds |
 | `characterCount` | number | Number of characters processed |
 | `format` | string | Audio format |
@@ -548,37 +618,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "cartesia",
             "options": [
                 {
-                    "label": "OpenAI TTS",
-                    "id": "openai"
+                    "id": "openai",
+                    "label": "OpenAI TTS"
                 },
                 {
-                    "label": "Deepgram Aura",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "Cartesia Sonic",
-                    "id": "cartesia"
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
                 },
                 {
-                    "label": "Google Cloud TTS",
-                    "id": "google"
+                    "id": "google",
+                    "label": "Google Cloud TTS"
                 },
                 {
-                    "label": "Azure TTS",
-                    "id": "azure"
+                    "id": "azure",
+                    "label": "Azure TTS"
                 },
                 {
-                    "label": "PlayHT",
-                    "id": "playht"
+                    "id": "playht",
+                    "label": "PlayHT"
                 }
-            ],
-            "defaultValue": "cartesia"
+            ]
         },
         {
             "id": "text",
@@ -599,26 +669,28 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "modelId",
             "type": "dropdown",
             "title": "Model",
+            "required": false,
+            "defaultValue": "sonic-3",
             "options": [
                 {
-                    "label": "Sonic",
-                    "id": "sonic"
+                    "id": "sonic",
+                    "label": "Sonic"
                 },
                 {
-                    "label": "Sonic 2",
-                    "id": "sonic-2"
+                    "id": "sonic-2",
+                    "label": "Sonic 2"
                 },
                 {
-                    "label": "Sonic Turbo",
-                    "id": "sonic-turbo"
+                    "id": "sonic-turbo",
+                    "label": "Sonic Turbo"
                 },
                 {
-                    "label": "Sonic 3",
-                    "id": "sonic-3"
+                    "id": "sonic-3",
+                    "label": "Sonic 3"
                 },
                 {
-                    "label": "Sonic Multilingual",
-                    "id": "sonic-multilingual"
+                    "id": "sonic-multilingual",
+                    "label": "Sonic Multilingual"
                 }
             ]
         },
@@ -635,19 +707,38 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Speed",
             "min": 0.5,
             "max": 2,
-            "step": 0.1
+            "step": 0.1,
+            "required": false,
+            "defaultValue": "1.0"
         }
     ]}
   />
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Cartesia Sonic (<code>tts_cartesia</code>)</div>
+
+Convert text to speech using Cartesia Sonic (ultra-low latency)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Yes | The text to convert to speech |
+| `apiKey` | string | Yes | Cartesia API key |
+| `modelId` | string | No | Model ID \(sonic-english, sonic-multilingual\) |
+| `voice` | string | No | Voice ID or embedding |
+| `language` | string | No | Language code \(en, es, fr, de, it, pt, etc.\) |
+| `outputFormat` | json | No | Output format configuration \(container, encoding, sampleRate\) |
+| `speed` | number | No | Speed multiplier |
+| `emotion` | array | No | Emotion tags for Sonic-3 \(e.g., \['positivity:high'\]\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `audioUrl` | string | URL to the generated audio file |
-| `audioFile` | json | Generated audio file object \(UserFile\) |
+| `audioFile` | file | Generated audio file object |
 | `duration` | number | Audio duration in seconds |
 | `characterCount` | number | Number of characters processed |
 | `format` | string | Audio format |
@@ -673,37 +764,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "google",
             "options": [
                 {
-                    "label": "OpenAI TTS",
-                    "id": "openai"
+                    "id": "openai",
+                    "label": "OpenAI TTS"
                 },
                 {
-                    "label": "Deepgram Aura",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "Cartesia Sonic",
-                    "id": "cartesia"
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
                 },
                 {
-                    "label": "Google Cloud TTS",
-                    "id": "google"
+                    "id": "google",
+                    "label": "Google Cloud TTS"
                 },
                 {
-                    "label": "Azure TTS",
-                    "id": "azure"
+                    "id": "azure",
+                    "label": "Azure TTS"
                 },
                 {
-                    "label": "PlayHT",
-                    "id": "playht"
+                    "id": "playht",
+                    "label": "PlayHT"
                 }
-            ],
-            "defaultValue": "google"
+            ]
         },
         {
             "id": "text",
@@ -724,14 +815,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "voiceId",
             "type": "short-input",
             "title": "Voice ID",
-            "placeholder": "e.g., en-US-Neural2-A"
+            "placeholder": "e.g., en-US-Neural2-A",
+            "required": false
         },
         {
             "id": "languageCode",
             "type": "short-input",
             "title": "Language Code",
             "placeholder": "e.g., en-US, es-ES",
-            "required": true
+            "required": true,
+            "defaultValue": "en-US"
         },
         {
             "id": "speakingRate",
@@ -739,26 +832,51 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Speaking Rate",
             "min": 0.25,
             "max": 2,
-            "step": 0.25
+            "step": 0.25,
+            "required": false,
+            "defaultValue": "1.0"
         },
         {
             "id": "pitch",
             "type": "slider",
             "title": "Pitch",
+            "min": -20,
             "max": 20,
-            "step": 1
+            "step": 1,
+            "required": false,
+            "defaultValue": "0.0"
         }
     ]}
   />
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Google Cloud TTS (<code>tts_google</code>)</div>
+
+Convert text to speech using Google Cloud Text-to-Speech
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Yes | The text to convert to speech |
+| `apiKey` | string | Yes | Google Cloud API key |
+| `voiceId` | string | No | Voice ID \(e.g., en-US-Neural2-A, en-US-Wavenet-D\) |
+| `languageCode` | string | Yes | Language code \(e.g., en-US, es-ES, fr-FR\) |
+| `gender` | string | No | Voice gender \(MALE, FEMALE, NEUTRAL\) |
+| `audioEncoding` | string | No | Audio encoding \(LINEAR16, MP3, OGG_OPUS, MULAW, ALAW\) |
+| `speakingRate` | number | No | Speaking rate \(0.25 to 2.0, default: 1.0\) |
+| `pitch` | number | No | Voice pitch \(-20.0 to 20.0, default: 0.0\) |
+| `volumeGainDb` | number | No | Volume gain in dB \(-96.0 to 16.0\) |
+| `sampleRateHertz` | number | No | Sample rate in Hz |
+| `effectsProfileId` | array | No | Effects profile \(e.g., \['headphone-class-device'\]\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `audioUrl` | string | URL to the generated audio file |
-| `audioFile` | json | Generated audio file object \(UserFile\) |
+| `audioFile` | file | Generated audio file object |
 | `duration` | number | Audio duration in seconds |
 | `characterCount` | number | Number of characters processed |
 | `format` | string | Audio format |
@@ -784,37 +902,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "azure",
             "options": [
                 {
-                    "label": "OpenAI TTS",
-                    "id": "openai"
+                    "id": "openai",
+                    "label": "OpenAI TTS"
                 },
                 {
-                    "label": "Deepgram Aura",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "Cartesia Sonic",
-                    "id": "cartesia"
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
                 },
                 {
-                    "label": "Google Cloud TTS",
-                    "id": "google"
+                    "id": "google",
+                    "label": "Google Cloud TTS"
                 },
                 {
-                    "label": "Azure TTS",
-                    "id": "azure"
+                    "id": "azure",
+                    "label": "Azure TTS"
                 },
                 {
-                    "label": "PlayHT",
-                    "id": "playht"
+                    "id": "playht",
+                    "label": "PlayHT"
                 }
-            ],
-            "defaultValue": "azure"
+            ]
         },
         {
             "id": "text",
@@ -835,30 +953,34 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "voiceId",
             "type": "short-input",
             "title": "Voice ID",
-            "placeholder": "e.g., en-US-JennyNeural"
+            "placeholder": "e.g., en-US-JennyNeural",
+            "required": false
         },
         {
             "id": "region",
             "type": "short-input",
             "title": "Region",
-            "placeholder": "e.g., eastus, westus"
+            "placeholder": "e.g., eastus, westus",
+            "required": false
         },
         {
             "id": "outputFormat",
             "type": "dropdown",
             "title": "Output Format",
+            "required": false,
+            "defaultValue": "audio-24khz-96kbitrate-mono-mp3",
             "options": [
                 {
-                    "label": "MP3 24kHz 48kbps",
-                    "id": "audio-24khz-48kbitrate-mono-mp3"
+                    "id": "audio-24khz-48kbitrate-mono-mp3",
+                    "label": "MP3 24kHz 48kbps"
                 },
                 {
-                    "label": "MP3 24kHz 96kbps",
-                    "id": "audio-24khz-96kbitrate-mono-mp3"
+                    "id": "audio-24khz-96kbitrate-mono-mp3",
+                    "label": "MP3 24kHz 96kbps"
                 },
                 {
-                    "label": "MP3 48kHz 96kbps",
-                    "id": "audio-48khz-96kbitrate-mono-mp3"
+                    "id": "audio-48khz-96kbitrate-mono-mp3",
+                    "label": "MP3 48kHz 96kbps"
                 }
             ]
         },
@@ -866,19 +988,39 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "style",
             "type": "short-input",
             "title": "Speaking Style",
-            "placeholder": "e.g., cheerful, sad, angry"
+            "placeholder": "e.g., cheerful, sad, angry",
+            "required": false
         }
     ]}
   />
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Azure TTS (<code>tts_azure</code>)</div>
+
+Convert text to speech using Azure Cognitive Services
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Yes | The text to convert to speech |
+| `apiKey` | string | Yes | Azure Speech Services API key |
+| `voiceId` | string | No | Voice ID \(e.g., en-US-JennyNeural, en-US-GuyNeural\) |
+| `region` | string | No | Azure region \(e.g., eastus, westus, westeurope\) |
+| `outputFormat` | string | No | Output audio format |
+| `rate` | string | No | Speaking rate \(e.g., +10%, -20%, 1.5\) |
+| `pitch` | string | No | Voice pitch \(e.g., +5Hz, -2st, low\) |
+| `style` | string | No | Speaking style \(e.g., cheerful, sad, angry - neural voices only\) |
+| `styleDegree` | number | No | Style intensity \(0.01 to 2.0\) |
+| `role` | string | No | Role \(e.g., Girl, Boy, YoungAdultFemale\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `audioUrl` | string | URL to the generated audio file |
-| `audioFile` | json | Generated audio file object \(UserFile\) |
+| `audioFile` | file | Generated audio file object |
 | `duration` | number | Audio duration in seconds |
 | `characterCount` | number | Number of characters processed |
 | `format` | string | Audio format |
@@ -904,37 +1046,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Provider",
             "required": true,
+            "defaultValue": "playht",
             "options": [
                 {
-                    "label": "OpenAI TTS",
-                    "id": "openai"
+                    "id": "openai",
+                    "label": "OpenAI TTS"
                 },
                 {
-                    "label": "Deepgram Aura",
-                    "id": "deepgram"
+                    "id": "deepgram",
+                    "label": "Deepgram Aura"
                 },
                 {
-                    "label": "ElevenLabs",
-                    "id": "elevenlabs"
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
                 },
                 {
-                    "label": "Cartesia Sonic",
-                    "id": "cartesia"
+                    "id": "cartesia",
+                    "label": "Cartesia Sonic"
                 },
                 {
-                    "label": "Google Cloud TTS",
-                    "id": "google"
+                    "id": "google",
+                    "label": "Google Cloud TTS"
                 },
                 {
-                    "label": "Azure TTS",
-                    "id": "azure"
+                    "id": "azure",
+                    "label": "Azure TTS"
                 },
                 {
-                    "label": "PlayHT",
-                    "id": "playht"
+                    "id": "playht",
+                    "label": "PlayHT"
                 }
-            ],
-            "defaultValue": "playht"
+            ]
         },
         {
             "id": "text",
@@ -963,24 +1105,27 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "voice",
             "type": "short-input",
             "title": "Voice",
-            "placeholder": "Voice ID or manifest URL"
+            "placeholder": "Voice ID or manifest URL",
+            "required": false
         },
         {
             "id": "quality",
             "type": "dropdown",
             "title": "Quality",
+            "required": false,
+            "defaultValue": "standard",
             "options": [
                 {
-                    "label": "Draft",
-                    "id": "draft"
+                    "id": "draft",
+                    "label": "Draft"
                 },
                 {
-                    "label": "Standard",
-                    "id": "standard"
+                    "id": "standard",
+                    "label": "Standard"
                 },
                 {
-                    "label": "Premium",
-                    "id": "premium"
+                    "id": "premium",
+                    "label": "Premium"
                 }
             ]
         },
@@ -990,19 +1135,41 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Speed",
             "min": 0.5,
             "max": 2,
-            "step": 0.1
+            "step": 0.1,
+            "required": false,
+            "defaultValue": "1.0"
         }
     ]}
   />
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">PlayHT (<code>tts_playht</code>)</div>
+
+Convert text to speech using PlayHT (voice cloning)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Yes | The text to convert to speech |
+| `apiKey` | string | Yes | PlayHT API key \(AUTHORIZATION header\) |
+| `userId` | string | Yes | PlayHT user ID \(X-USER-ID header\) |
+| `voice` | string | No | Voice ID or manifest URL |
+| `quality` | string | No | Quality level \(draft, standard, premium\) |
+| `outputFormat` | string | No | Output format \(mp3, wav, ogg, flac, mulaw\) |
+| `speed` | number | No | Speed multiplier \(0.5 to 2.0\) |
+| `temperature` | number | No | Creativity/randomness \(0.0 to 2.0\) |
+| `voiceGuidance` | number | No | Voice stability \(1.0 to 6.0\) |
+| `textGuidance` | number | No | Text adherence \(1.0 to 6.0\) |
+| `sampleRate` | number | No | Sample rate \(8000, 16000, 22050, 24000, 44100, 48000\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `audioUrl` | string | URL to the generated audio file |
-| `audioFile` | json | Generated audio file object \(UserFile\) |
+| `audioFile` | file | Generated audio file object |
 | `duration` | number | Audio duration in seconds |
 | `characterCount` | number | Number of characters processed |
 | `format` | string | Audio format |

@@ -5,5 +5,7 @@ const i18nProxy = createI18nMiddleware(i18n)
 export { i18nProxy as proxy }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon|static|robots.txt|sitemap.xml|llms.txt).*)'],
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon|static|robots.txt|sitemap.xml|llms.txt|llms-full.txt|llms.mdx).*)',
+  ],
 }

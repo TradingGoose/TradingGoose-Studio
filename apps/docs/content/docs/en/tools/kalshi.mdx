@@ -29,77 +29,77 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_markets",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_markets"
+            ]
         },
         {
             "id": "status",
@@ -107,20 +107,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Status",
             "options": [
                 {
-                    "label": "Unopened",
-                    "id": "unopened"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Open",
-                    "id": "open"
+                    "id": "unopened",
+                    "label": "Unopened"
                 },
                 {
-                    "label": "Closed",
-                    "id": "closed"
+                    "id": "open",
+                    "label": "Open"
                 },
                 {
-                    "label": "Settled",
-                    "id": "settled"
+                    "id": "closed",
+                    "label": "Closed"
+                },
+                {
+                    "id": "settled",
+                    "label": "Settled"
                 }
             ]
         },
@@ -172,6 +176,7 @@ Retrieve a list of prediction markets from Kalshi with optional filtering
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `markets` | array | Array of market objects |
+| `paging` | object | Pagination cursor for fetching more results |
 
 </div>
 
@@ -192,77 +197,77 @@ Retrieve a list of prediction markets from Kalshi with optional filtering
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_market",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_market"
+            ]
         },
         {
             "id": "ticker",
@@ -288,7 +293,9 @@ Retrieve details of a specific prediction market by ticker
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `market` | object | Market object with details |
 
 </div>
 
@@ -309,77 +316,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_events",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_events"
+            ]
         },
         {
             "id": "status",
@@ -387,20 +394,24 @@ Refer to the block outputs for this operation.
             "title": "Status",
             "options": [
                 {
-                    "label": "Unopened",
-                    "id": "unopened"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Open",
-                    "id": "open"
+                    "id": "unopened",
+                    "label": "Unopened"
                 },
                 {
-                    "label": "Closed",
-                    "id": "closed"
+                    "id": "open",
+                    "label": "Open"
                 },
                 {
-                    "label": "Settled",
-                    "id": "settled"
+                    "id": "closed",
+                    "label": "Closed"
+                },
+                {
+                    "id": "settled",
+                    "label": "Settled"
                 }
             ]
         },
@@ -416,8 +427,12 @@ Refer to the block outputs for this operation.
             "title": "Include Markets",
             "options": [
                 {
-                    "label": "Yes",
-                    "id": "true"
+                    "id": "",
+                    "label": "No"
+                },
+                {
+                    "id": "true",
+                    "label": "Yes"
                 }
             ]
         },
@@ -457,6 +472,7 @@ Retrieve a list of events from Kalshi with optional filtering
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `events` | array | Array of event objects |
+| `paging` | object | Pagination cursor for fetching more results |
 
 </div>
 
@@ -477,83 +493,84 @@ Retrieve a list of events from Kalshi with optional filtering
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_event",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_event"
+            ]
         },
         {
             "id": "eventTicker",
             "type": "short-input",
             "title": "Event Ticker",
-            "placeholder": "Event ticker"
+            "placeholder": "Event ticker",
+            "required": true
         },
         {
             "id": "withNestedMarkets",
@@ -561,8 +578,12 @@ Retrieve a list of events from Kalshi with optional filtering
             "title": "Include Markets",
             "options": [
                 {
-                    "label": "Yes",
-                    "id": "true"
+                    "id": "",
+                    "label": "No"
+                },
+                {
+                    "id": "true",
+                    "label": "Yes"
                 }
             ]
         }
@@ -584,7 +605,9 @@ Retrieve details of a specific event by ticker
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `event` | object | Event object with details |
 
 </div>
 
@@ -605,77 +628,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_balance",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_balance"
+            ]
         },
         {
             "id": "keyId",
@@ -713,6 +736,7 @@ Retrieve your account balance and portfolio value from Kalshi
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `balance` | number | Account balance in cents |
+| `portfolioValue` | number | Portfolio value in cents |
 
 </div>
 
@@ -733,77 +757,77 @@ Retrieve your account balance and portfolio value from Kalshi
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_positions",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_positions"
+            ]
         },
         {
             "id": "keyId",
@@ -838,12 +862,16 @@ Retrieve your account balance and portfolio value from Kalshi
             "title": "Settlement Status",
             "options": [
                 {
-                    "label": "Unsettled",
-                    "id": "unsettled"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Settled",
-                    "id": "settled"
+                    "id": "unsettled",
+                    "label": "Unsettled"
+                },
+                {
+                    "id": "settled",
+                    "label": "Settled"
                 }
             ]
         },
@@ -885,6 +913,7 @@ Retrieve your open positions from Kalshi
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `positions` | array | Array of position objects |
+| `paging` | object | Pagination cursor for fetching more results |
 
 </div>
 
@@ -905,77 +934,77 @@ Retrieve your open positions from Kalshi
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_orders",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_orders"
+            ]
         },
         {
             "id": "keyId",
@@ -1010,16 +1039,20 @@ Retrieve your open positions from Kalshi
             "title": "Order Status",
             "options": [
                 {
-                    "label": "Resting",
-                    "id": "resting"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Canceled",
-                    "id": "canceled"
+                    "id": "resting",
+                    "label": "Resting"
                 },
                 {
-                    "label": "Executed",
-                    "id": "executed"
+                    "id": "canceled",
+                    "label": "Canceled"
+                },
+                {
+                    "id": "executed",
+                    "label": "Executed"
                 }
             ]
         },
@@ -1061,6 +1094,7 @@ Retrieve your orders from Kalshi with optional filtering
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `orders` | array | Array of order objects |
+| `paging` | object | Pagination cursor for fetching more results |
 
 </div>
 
@@ -1081,77 +1115,77 @@ Retrieve your orders from Kalshi with optional filtering
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_order",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_order"
+            ]
         },
         {
             "id": "keyId",
@@ -1194,7 +1228,9 @@ Retrieve details of a specific order by ID from Kalshi
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `order` | object | Order object with details |
 
 </div>
 
@@ -1215,77 +1251,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_orderbook",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_orderbook"
+            ]
         },
         {
             "id": "ticker",
@@ -1311,7 +1347,9 @@ Retrieve the orderbook (yes and no bids) for a specific market
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `orderbook` | object | Orderbook with yes/no bids and asks |
 
 </div>
 
@@ -1332,77 +1370,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_trades",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_trades"
+            ]
         },
         {
             "id": "limit",
@@ -1437,6 +1475,7 @@ Retrieve recent trades across all markets
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `trades` | array | Array of trade objects |
+| `paging` | object | Pagination cursor for fetching more results |
 
 </div>
 
@@ -1457,77 +1496,77 @@ Retrieve recent trades across all markets
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_candlesticks",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_candlesticks"
+            ]
         },
         {
             "id": "seriesTickerCandlesticks",
@@ -1564,16 +1603,16 @@ Retrieve recent trades across all markets
             "required": true,
             "options": [
                 {
-                    "label": "1 minute",
-                    "id": "1"
+                    "id": "1",
+                    "label": "1 minute"
                 },
                 {
-                    "label": "1 hour",
-                    "id": "60"
+                    "id": "60",
+                    "label": "1 hour"
                 },
                 {
-                    "label": "1 day",
-                    "id": "1440"
+                    "id": "1440",
+                    "label": "1 day"
                 }
             ]
         }
@@ -1598,7 +1637,9 @@ Retrieve OHLC candlestick data for a specific market
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `candlesticks` | array | Array of OHLC candlestick data |
 
 </div>
 
@@ -1619,77 +1660,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_fills",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_fills"
+            ]
         },
         {
             "id": "keyId",
@@ -1749,7 +1790,7 @@ Refer to the block outputs for this operation.
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Get Fills (<code>kalshi_get_fills</code>)</div>
 
-Retrieve your portfolio
+Retrieve your portfolio's fills/trades from Kalshi
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
@@ -1769,6 +1810,7 @@ Retrieve your portfolio
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `fills` | array | Array of fill/trade objects |
+| `paging` | object | Pagination cursor for fetching more results |
 
 </div>
 
@@ -1789,77 +1831,77 @@ Retrieve your portfolio
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_series_by_ticker",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_series_by_ticker"
+            ]
         },
         {
             "id": "seriesTickerGet",
@@ -1885,7 +1927,9 @@ Retrieve details of a specific market series by ticker
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `series` | object | Series object with details |
 
 </div>
 
@@ -1906,77 +1950,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_exchange_status",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "get_exchange_status"
+            ]
         }
     ]}
   />
@@ -1989,12 +2033,13 @@ Retrieve the current status of the Kalshi exchange (trading and exchange activit
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
-| Parameter | Type | Required | Description |
-| --------- | ---- | -------- | ----------- |
+This operation has no direct parameters.
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `status` | object | Exchange status with trading_active and exchange_active flags |
 
 </div>
 
@@ -2015,77 +2060,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_order",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "create_order"
+            ]
         },
         {
             "id": "keyId",
@@ -2116,12 +2161,12 @@ Refer to the block outputs for this operation.
             "required": true,
             "options": [
                 {
-                    "label": "Yes",
-                    "id": "yes"
+                    "id": "yes",
+                    "label": "Yes"
                 },
                 {
-                    "label": "No",
-                    "id": "no"
+                    "id": "no",
+                    "label": "No"
                 }
             ]
         },
@@ -2132,12 +2177,12 @@ Refer to the block outputs for this operation.
             "required": true,
             "options": [
                 {
-                    "label": "Buy",
-                    "id": "buy"
+                    "id": "buy",
+                    "label": "Buy"
                 },
                 {
-                    "label": "Sell",
-                    "id": "sell"
+                    "id": "sell",
+                    "label": "Sell"
                 }
             ]
         },
@@ -2154,12 +2199,12 @@ Refer to the block outputs for this operation.
             "title": "Order Type",
             "options": [
                 {
-                    "label": "Limit",
-                    "id": "limit"
+                    "id": "limit",
+                    "label": "Limit"
                 },
                 {
-                    "label": "Market",
-                    "id": "market"
+                    "id": "market",
+                    "label": "Market"
                 }
             ]
         },
@@ -2187,16 +2232,16 @@ Refer to the block outputs for this operation.
             "title": "Time in Force",
             "options": [
                 {
-                    "label": "Good Till Canceled",
-                    "id": "good_till_canceled"
+                    "id": "good_till_canceled",
+                    "label": "Good Till Canceled"
                 },
                 {
-                    "label": "Fill or Kill",
-                    "id": "fill_or_kill"
+                    "id": "fill_or_kill",
+                    "label": "Fill or Kill"
                 },
                 {
-                    "label": "Immediate or Cancel",
-                    "id": "immediate_or_cancel"
+                    "id": "immediate_or_cancel",
+                    "label": "Immediate or Cancel"
                 }
             ]
         },
@@ -2212,8 +2257,12 @@ Refer to the block outputs for this operation.
             "title": "Post Only",
             "options": [
                 {
-                    "label": "Yes",
-                    "id": "true"
+                    "id": "",
+                    "label": "No"
+                },
+                {
+                    "id": "true",
+                    "label": "Yes"
                 }
             ]
         },
@@ -2223,8 +2272,12 @@ Refer to the block outputs for this operation.
             "title": "Reduce Only",
             "options": [
                 {
-                    "label": "Yes",
-                    "id": "true"
+                    "id": "",
+                    "label": "No"
+                },
+                {
+                    "id": "true",
+                    "label": "Yes"
                 }
             ]
         }
@@ -2263,7 +2316,9 @@ Create a new order on a Kalshi prediction market
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `order` | object | The created order object |
 
 </div>
 
@@ -2284,77 +2339,77 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "cancel_order",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "cancel_order"
+            ]
         },
         {
             "id": "keyId",
@@ -2400,6 +2455,7 @@ Cancel an existing order on Kalshi
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `order` | object | The canceled order object |
+| `reducedBy` | number | Number of contracts canceled |
 
 </div>
 
@@ -2420,77 +2476,77 @@ Cancel an existing order on Kalshi
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "amend_order",
             "options": [
                 {
-                    "label": "Get Markets",
-                    "id": "get_markets"
+                    "id": "get_markets",
+                    "label": "Get Markets"
                 },
                 {
-                    "label": "Get Market",
-                    "id": "get_market"
+                    "id": "get_market",
+                    "label": "Get Market"
                 },
                 {
-                    "label": "Get Events",
-                    "id": "get_events"
+                    "id": "get_events",
+                    "label": "Get Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "get_event"
+                    "id": "get_event",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "Get Balance",
-                    "id": "get_balance"
+                    "id": "get_balance",
+                    "label": "Get Balance"
                 },
                 {
-                    "label": "Get Positions",
-                    "id": "get_positions"
+                    "id": "get_positions",
+                    "label": "Get Positions"
                 },
                 {
-                    "label": "Get Orders",
-                    "id": "get_orders"
+                    "id": "get_orders",
+                    "label": "Get Orders"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "get_order"
+                    "id": "get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "Get Orderbook",
-                    "id": "get_orderbook"
+                    "id": "get_orderbook",
+                    "label": "Get Orderbook"
                 },
                 {
-                    "label": "Get Trades",
-                    "id": "get_trades"
+                    "id": "get_trades",
+                    "label": "Get Trades"
                 },
                 {
-                    "label": "Get Candlesticks",
-                    "id": "get_candlesticks"
+                    "id": "get_candlesticks",
+                    "label": "Get Candlesticks"
                 },
                 {
-                    "label": "Get Fills",
-                    "id": "get_fills"
+                    "id": "get_fills",
+                    "label": "Get Fills"
                 },
                 {
-                    "label": "Get Series by Ticker",
-                    "id": "get_series_by_ticker"
+                    "id": "get_series_by_ticker",
+                    "label": "Get Series by Ticker"
                 },
                 {
-                    "label": "Get Exchange Status",
-                    "id": "get_exchange_status"
+                    "id": "get_exchange_status",
+                    "label": "Get Exchange Status"
                 },
                 {
-                    "label": "Create Order",
-                    "id": "create_order"
+                    "id": "create_order",
+                    "label": "Create Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "cancel_order"
+                    "id": "cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Amend Order",
-                    "id": "amend_order"
+                    "id": "amend_order",
+                    "label": "Amend Order"
                 }
-            ],
-            "defaultValue": "amend_order"
+            ]
         },
         {
             "id": "keyId",
@@ -2528,12 +2584,12 @@ Cancel an existing order on Kalshi
             "required": true,
             "options": [
                 {
-                    "label": "Yes",
-                    "id": "yes"
+                    "id": "yes",
+                    "label": "Yes"
                 },
                 {
-                    "label": "No",
-                    "id": "no"
+                    "id": "no",
+                    "label": "No"
                 }
             ]
         },
@@ -2544,12 +2600,12 @@ Cancel an existing order on Kalshi
             "required": true,
             "options": [
                 {
-                    "label": "Buy",
-                    "id": "buy"
+                    "id": "buy",
+                    "label": "Buy"
                 },
                 {
-                    "label": "Sell",
-                    "id": "sell"
+                    "id": "sell",
+                    "label": "Sell"
                 }
             ]
         },
@@ -2614,7 +2670,9 @@ Modify the price or quantity of an existing order on Kalshi
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `order` | object | The amended order object |
 
 </div>
 

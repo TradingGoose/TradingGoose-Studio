@@ -29,93 +29,93 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_create_product",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_create_product"
+            ]
         },
         {
             "id": "credential",
@@ -129,7 +129,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "title",
             "type": "short-input",
             "title": "Product Title",
-            "placeholder": "Enter product title"
+            "placeholder": "Enter product title",
+            "required": true
         },
         {
             "id": "descriptionHtml",
@@ -159,18 +160,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "status",
             "type": "dropdown",
             "title": "Status",
+            "defaultValue": "ACTIVE",
             "options": [
                 {
-                    "label": "Active",
-                    "id": "ACTIVE"
+                    "id": "ACTIVE",
+                    "label": "Active"
                 },
                 {
-                    "label": "Draft",
-                    "id": "DRAFT"
+                    "id": "DRAFT",
+                    "label": "Draft"
                 },
                 {
-                    "label": "Archived",
-                    "id": "ARCHIVED"
+                    "id": "ARCHIVED",
+                    "label": "Archived"
                 }
             ]
         }
@@ -197,7 +199,9 @@ Create a new product in your Shopify store
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `product` | object | The created product |
 
 </div>
 
@@ -218,93 +222,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_get_product",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_get_product"
+            ]
         },
         {
             "id": "credential",
@@ -339,7 +343,9 @@ Get a single product by ID from your Shopify store
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `product` | object | The product details |
 
 </div>
 
@@ -360,93 +366,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_list_products",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_list_products"
+            ]
         },
         {
             "id": "credential",
@@ -484,6 +490,7 @@ List products from your Shopify store with optional filtering
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `products` | array | List of products |
+| `pageInfo` | object | Pagination information |
 
 </div>
 
@@ -504,93 +511,93 @@ List products from your Shopify store with optional filtering
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_update_product",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_update_product"
+            ]
         },
         {
             "id": "credential",
@@ -641,18 +648,19 @@ List products from your Shopify store with optional filtering
             "id": "status",
             "type": "dropdown",
             "title": "Status",
+            "defaultValue": "ACTIVE",
             "options": [
                 {
-                    "label": "Active",
-                    "id": "ACTIVE"
+                    "id": "ACTIVE",
+                    "label": "Active"
                 },
                 {
-                    "label": "Draft",
-                    "id": "DRAFT"
+                    "id": "DRAFT",
+                    "label": "Draft"
                 },
                 {
-                    "label": "Archived",
-                    "id": "ARCHIVED"
+                    "id": "ARCHIVED",
+                    "label": "Archived"
                 }
             ]
         }
@@ -680,7 +688,9 @@ Update an existing product in your Shopify store
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `product` | object | The updated product |
 
 </div>
 
@@ -701,93 +711,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_delete_product",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_delete_product"
+            ]
         },
         {
             "id": "credential",
@@ -822,7 +832,9 @@ Delete a product from your Shopify store
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `deletedId` | string | The ID of the deleted product |
 
 </div>
 
@@ -843,93 +855,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_get_order",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_get_order"
+            ]
         },
         {
             "id": "credential",
@@ -964,7 +976,9 @@ Get a single order by ID from your Shopify store
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `order` | object | The order details |
 
 </div>
 
@@ -985,93 +999,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_list_orders",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_list_orders"
+            ]
         },
         {
             "id": "credential",
@@ -1085,22 +1099,23 @@ Refer to the block outputs for this operation.
             "id": "orderStatus",
             "type": "dropdown",
             "title": "Order Status",
+            "defaultValue": "any",
             "options": [
                 {
-                    "label": "Any",
-                    "id": "any"
+                    "id": "any",
+                    "label": "Any"
                 },
                 {
-                    "label": "Open",
-                    "id": "open"
+                    "id": "open",
+                    "label": "Open"
                 },
                 {
-                    "label": "Closed",
-                    "id": "closed"
+                    "id": "closed",
+                    "label": "Closed"
                 },
                 {
-                    "label": "Cancelled",
-                    "id": "cancelled"
+                    "id": "cancelled",
+                    "label": "Cancelled"
                 }
             ]
         }
@@ -1127,6 +1142,7 @@ List orders from your Shopify store with optional filtering
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `orders` | array | List of orders |
+| `pageInfo` | object | Pagination information |
 
 </div>
 
@@ -1147,93 +1163,93 @@ List orders from your Shopify store with optional filtering
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_update_order",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_update_order"
+            ]
         },
         {
             "id": "credential",
@@ -1289,7 +1305,9 @@ Update an existing order in your Shopify store (note, tags, email)
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `order` | object | The updated order |
 
 </div>
 
@@ -1310,93 +1328,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_cancel_order",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_cancel_order"
+            ]
         },
         {
             "id": "credential",
@@ -1418,26 +1436,27 @@ Refer to the block outputs for this operation.
             "type": "dropdown",
             "title": "Cancel Reason",
             "required": true,
+            "defaultValue": "OTHER",
             "options": [
                 {
-                    "label": "Customer Request",
-                    "id": "CUSTOMER"
+                    "id": "CUSTOMER",
+                    "label": "Customer Request"
                 },
                 {
-                    "label": "Declined Payment",
-                    "id": "DECLINED"
+                    "id": "DECLINED",
+                    "label": "Declined Payment"
                 },
                 {
-                    "label": "Fraud",
-                    "id": "FRAUD"
+                    "id": "FRAUD",
+                    "label": "Fraud"
                 },
                 {
-                    "label": "Inventory Issue",
-                    "id": "INVENTORY"
+                    "id": "INVENTORY",
+                    "label": "Inventory Issue"
                 },
                 {
-                    "label": "Other",
-                    "id": "OTHER"
+                    "id": "OTHER",
+                    "label": "Other"
                 }
             ]
         },
@@ -1470,7 +1489,9 @@ Cancel an order in your Shopify store
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `order` | object | The cancellation result |
 
 </div>
 
@@ -1491,93 +1512,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_create_customer",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_create_customer"
+            ]
         },
         {
             "id": "credential",
@@ -1652,7 +1673,9 @@ Create a new customer in your Shopify store
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `customer` | object | The created customer |
 
 </div>
 
@@ -1673,93 +1696,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_get_customer",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_get_customer"
+            ]
         },
         {
             "id": "credential",
@@ -1794,7 +1817,9 @@ Get a single customer by ID from your Shopify store
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `customer` | object | The customer details |
 
 </div>
 
@@ -1815,93 +1840,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_list_customers",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_list_customers"
+            ]
         },
         {
             "id": "credential",
@@ -1939,6 +1964,7 @@ List customers from your Shopify store with optional filtering
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `customers` | array | List of customers |
+| `pageInfo` | object | Pagination information |
 
 </div>
 
@@ -1959,93 +1985,93 @@ List customers from your Shopify store with optional filtering
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_update_customer",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_update_customer"
+            ]
         },
         {
             "id": "credential",
@@ -2127,7 +2153,9 @@ Update an existing customer in your Shopify store
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `customer` | object | The updated customer |
 
 </div>
 
@@ -2148,93 +2176,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_delete_customer",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_delete_customer"
+            ]
         },
         {
             "id": "credential",
@@ -2269,7 +2297,9 @@ Delete a customer from your Shopify store
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `deletedId` | string | The ID of the deleted customer |
 
 </div>
 
@@ -2290,93 +2320,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_list_inventory_items",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_list_inventory_items"
+            ]
         },
         {
             "id": "credential",
@@ -2414,6 +2444,7 @@ List inventory items from your Shopify store. Use this to find inventory item ID
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `inventoryItems` | array | List of inventory items with their IDs, SKUs, and stock levels |
+| `pageInfo` | object | Pagination information |
 
 </div>
 
@@ -2434,93 +2465,93 @@ List inventory items from your Shopify store. Use this to find inventory item ID
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_get_inventory_level",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_get_inventory_level"
+            ]
         },
         {
             "id": "credential",
@@ -2562,7 +2593,9 @@ Get inventory level for a product variant at a specific location
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `inventoryLevel` | object | The inventory level details |
 
 </div>
 
@@ -2583,93 +2616,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_adjust_inventory",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_adjust_inventory"
+            ]
         },
         {
             "id": "credential",
@@ -2690,7 +2723,8 @@ Refer to the block outputs for this operation.
             "id": "locationId",
             "type": "short-input",
             "title": "Location ID",
-            "placeholder": "gid://shopify/Location/123456789"
+            "placeholder": "gid://shopify/Location/123456789",
+            "required": true
         },
         {
             "id": "delta",
@@ -2719,7 +2753,9 @@ Adjust inventory quantity for a product variant at a specific location
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `inventoryLevel` | object | The inventory adjustment result |
 
 </div>
 
@@ -2740,93 +2776,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_list_locations",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_list_locations"
+            ]
         },
         {
             "id": "credential",
@@ -2858,6 +2894,7 @@ List inventory locations from your Shopify store. Use this to find location IDs 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `locations` | array | List of locations with their IDs, names, and addresses |
+| `pageInfo` | object | Pagination information |
 
 </div>
 
@@ -2878,93 +2915,93 @@ List inventory locations from your Shopify store. Use this to find location IDs 
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_create_fulfillment",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_create_fulfillment"
+            ]
         },
         {
             "id": "credential",
@@ -3026,7 +3063,9 @@ Create a fulfillment to mark order items as shipped. Requires a fulfillment orde
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `fulfillment` | object | The created fulfillment with tracking info and fulfilled items |
 
 </div>
 
@@ -3047,93 +3086,93 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_list_collections",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_list_collections"
+            ]
         },
         {
             "id": "credential",
@@ -3171,6 +3210,7 @@ List product collections from your Shopify store. Filter by title, type (custom/
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `collections` | array | List of collections with their IDs, titles, and product counts |
+| `pageInfo` | object | Pagination information |
 
 </div>
 
@@ -3191,93 +3231,93 @@ List product collections from your Shopify store. Filter by title, type (custom/
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "shopify_get_collection",
             "options": [
                 {
-                    "label": "Create Product",
-                    "id": "shopify_create_product"
+                    "id": "shopify_create_product",
+                    "label": "Create Product"
                 },
                 {
-                    "label": "Get Product",
-                    "id": "shopify_get_product"
+                    "id": "shopify_get_product",
+                    "label": "Get Product"
                 },
                 {
-                    "label": "List Products",
-                    "id": "shopify_list_products"
+                    "id": "shopify_list_products",
+                    "label": "List Products"
                 },
                 {
-                    "label": "Update Product",
-                    "id": "shopify_update_product"
+                    "id": "shopify_update_product",
+                    "label": "Update Product"
                 },
                 {
-                    "label": "Delete Product",
-                    "id": "shopify_delete_product"
+                    "id": "shopify_delete_product",
+                    "label": "Delete Product"
                 },
                 {
-                    "label": "Get Order",
-                    "id": "shopify_get_order"
+                    "id": "shopify_get_order",
+                    "label": "Get Order"
                 },
                 {
-                    "label": "List Orders",
-                    "id": "shopify_list_orders"
+                    "id": "shopify_list_orders",
+                    "label": "List Orders"
                 },
                 {
-                    "label": "Update Order",
-                    "id": "shopify_update_order"
+                    "id": "shopify_update_order",
+                    "label": "Update Order"
                 },
                 {
-                    "label": "Cancel Order",
-                    "id": "shopify_cancel_order"
+                    "id": "shopify_cancel_order",
+                    "label": "Cancel Order"
                 },
                 {
-                    "label": "Create Customer",
-                    "id": "shopify_create_customer"
+                    "id": "shopify_create_customer",
+                    "label": "Create Customer"
                 },
                 {
-                    "label": "Get Customer",
-                    "id": "shopify_get_customer"
+                    "id": "shopify_get_customer",
+                    "label": "Get Customer"
                 },
                 {
-                    "label": "List Customers",
-                    "id": "shopify_list_customers"
+                    "id": "shopify_list_customers",
+                    "label": "List Customers"
                 },
                 {
-                    "label": "Update Customer",
-                    "id": "shopify_update_customer"
+                    "id": "shopify_update_customer",
+                    "label": "Update Customer"
                 },
                 {
-                    "label": "Delete Customer",
-                    "id": "shopify_delete_customer"
+                    "id": "shopify_delete_customer",
+                    "label": "Delete Customer"
                 },
                 {
-                    "label": "List Inventory Items",
-                    "id": "shopify_list_inventory_items"
+                    "id": "shopify_list_inventory_items",
+                    "label": "List Inventory Items"
                 },
                 {
-                    "label": "Get Inventory Level",
-                    "id": "shopify_get_inventory_level"
+                    "id": "shopify_get_inventory_level",
+                    "label": "Get Inventory Level"
                 },
                 {
-                    "label": "Adjust Inventory",
-                    "id": "shopify_adjust_inventory"
+                    "id": "shopify_adjust_inventory",
+                    "label": "Adjust Inventory"
                 },
                 {
-                    "label": "List Locations",
-                    "id": "shopify_list_locations"
+                    "id": "shopify_list_locations",
+                    "label": "List Locations"
                 },
                 {
-                    "label": "Create Fulfillment",
-                    "id": "shopify_create_fulfillment"
+                    "id": "shopify_create_fulfillment",
+                    "label": "Create Fulfillment"
                 },
                 {
-                    "label": "List Collections",
-                    "id": "shopify_list_collections"
+                    "id": "shopify_list_collections",
+                    "label": "List Collections"
                 },
                 {
-                    "label": "Get Collection",
-                    "id": "shopify_get_collection"
+                    "id": "shopify_get_collection",
+                    "label": "Get Collection"
                 }
-            ],
-            "defaultValue": "shopify_get_collection"
+            ]
         },
         {
             "id": "credential",
@@ -3313,7 +3353,9 @@ Get a specific collection by ID, including its products. Use this to retrieve pr
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `collection` | object | The collection details including its products |
 
 </div>
 

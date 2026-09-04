@@ -1,5 +1,5 @@
 import Script from 'next/script'
-import { type DocsLocale, docsLocaleCopy } from '@/lib/i18n'
+import type { DocsLocale } from '@/lib/i18n'
 
 interface StructuredDataProps {
   title: string
@@ -19,7 +19,6 @@ export function StructuredData({
   breadcrumb,
 }: StructuredDataProps) {
   const baseUrl = 'https://docs.tradinggoose.ai'
-  const copy = docsLocaleCopy[lang]
 
   const articleStructuredData = {
     '@context': 'https://schema.org',
@@ -31,7 +30,7 @@ export function StructuredData({
     dateModified: dateModified || new Date().toISOString(),
     author: {
       '@type': 'Organization',
-      name: copy.team,
+      name: 'TradingGoose Team',
       url: baseUrl,
     },
     publisher: {
@@ -50,7 +49,7 @@ export function StructuredData({
     inLanguage: lang,
     isPartOf: {
       '@type': 'WebSite',
-      name: copy.siteName,
+      name: 'TradingGoose Documentation',
       url: baseUrl,
     },
     potentialAction: {
@@ -70,6 +69,29 @@ export function StructuredData({
     })),
   }
 
+  const websiteStructuredData = url === baseUrl && {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'TradingGoose Documentation',
+    url: baseUrl,
+    description:
+      'Comprehensive documentation for TradingGoose visual workflow builder for AI applications. Create powerful AI agents, automation workflows, and data processing pipelines.',
+    publisher: {
+      '@type': 'Organization',
+      name: 'TradingGoose',
+      url: baseUrl,
+    },
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${baseUrl}/search?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+    inLanguage: 'en',
+  }
+
   const faqStructuredData = title.toLowerCase().includes('faq') && {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -82,17 +104,25 @@ export function StructuredData({
     name: 'TradingGoose',
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Any',
-    description: copy.description,
+    description:
+      'Visual workflow builder for AI applications. Create powerful AI agents, automation workflows, and data processing pipelines by connecting blocks on a canvas—no coding required.',
     url: baseUrl,
     author: {
       '@type': 'Organization',
-      name: copy.team,
+      name: 'TradingGoose Team',
     },
     offers: {
       '@type': 'Offer',
-      category: copy.category,
+      category: 'Developer Tools',
     },
-    featureList: [copy.documentation],
+    featureList: [
+      'Visual workflow builder with drag-and-drop interface',
+      'AI agent creation and automation',
+      '80+ built-in integrations',
+      'Real-time team collaboration',
+      'Multiple deployment options',
+      'Custom integrations via MCP protocol',
+    ],
   }
 
   return (
@@ -110,6 +140,15 @@ export function StructuredData({
           type='application/ld+json'
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(breadcrumbStructuredData),
+          }}
+        />
+      )}
+      {websiteStructuredData && (
+        <Script
+          id='website-structured-data'
+          type='application/ld+json'
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteStructuredData),
           }}
         />
       )}

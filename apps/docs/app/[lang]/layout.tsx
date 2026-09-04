@@ -1,26 +1,22 @@
 import type { ReactNode } from 'react'
 import { Analytics } from '@vercel/analytics/next'
-import { defineI18nUI } from 'fumadocs-ui/i18n'
 import { RootProvider } from 'fumadocs-ui/provider/next'
+import { Geist_Mono, Inter } from 'next/font/google'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { DocsLayout } from '@/components/layout/docs'
 import '../global.css'
-import { docsLocaleCopy, i18n, isDocsLocale } from '@/lib/i18n'
+import { isDocsLocale } from '@/lib/i18n'
 import { source } from '@/lib/source'
 
-const { provider } = defineI18nUI(i18n, {
-  translations: {
-    en: {
-      displayName: docsLocaleCopy.en.displayName,
-    },
-    es: {
-      displayName: docsLocaleCopy.es.displayName,
-    },
-    zh: {
-      displayName: docsLocaleCopy.zh.displayName,
-    },
-  },
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-geist-sans',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
 })
 
 type LayoutProps = {
@@ -44,8 +40,9 @@ export default async function Layout({ children, params }: LayoutProps) {
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: docsLocaleCopy[locale].siteName,
-    description: docsLocaleCopy[locale].description,
+    name: 'TradingGoose Documentation',
+    description:
+      'Comprehensive documentation for TradingGoose - the visual workflow builder for AI Agent Workflows.',
     url: 'https://docs.tradinggoose.ai',
     publisher: {
       '@type': 'Organization',
@@ -68,7 +65,11 @@ export default async function Layout({ children, params }: LayoutProps) {
   }
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html
+      lang={locale}
+      className={`${inter.variable} ${geistMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script
           type='application/ld+json'
@@ -76,16 +77,16 @@ export default async function Layout({ children, params }: LayoutProps) {
         />
       </head>
       <body className='flex min-h-screen flex-col font-sans'>
-        <RootProvider i18n={provider(locale)}>
+        <RootProvider>
           <DocsLayout
             tree={tree}
-            i18n
+            i18n={false}
             themeSwitch={{
               enabled: true,
             }}
             nav={{
-              title: docsLocaleCopy[locale].documentation,
-              url: `/${locale}`,
+              title: 'Documentation',
+              url: '/',
               logo: (
                 <div className='flex h-8 w-8 items-center justify-center rounded-md bg-fd-primary'>
                   <Image

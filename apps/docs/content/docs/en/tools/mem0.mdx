@@ -31,21 +31,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Operation",
             "layout": "half",
             "placeholder": "Select an operation",
+            "defaultValue": "add",
             "options": [
                 {
-                    "label": "Add Memories",
-                    "id": "add"
+                    "id": "add",
+                    "label": "Add Memories"
                 },
                 {
-                    "label": "Search Memories",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search Memories"
                 },
                 {
-                    "label": "Get Memories",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Memories"
                 }
-            ],
-            "defaultValue": "add"
+            ]
         },
         {
             "id": "userId",
@@ -53,7 +53,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "User ID",
             "layout": "full",
             "placeholder": "Enter user identifier",
-            "required": true
+            "required": true,
+            "defaultValue": "userid"
         },
         {
             "id": "apiKey",
@@ -78,13 +79,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Add Memories (<code>mem0_add_memories</code>)</div>
+
+Add memories to Mem0 for persistent storage and retrieval
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Yes | User ID associated with the memory |
+| `messages` | json | Yes | Array of message objects with role and content |
+| `apiKey` | string | Yes | Your Mem0 API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `ids` | json | Memory identifiers |
-| `memories` | json | Memory data |
-| `searchResults` | json | Search results |
+| `ids` | array | Array of memory IDs that were created |
+| `memories` | array | Array of memory objects that were created |
 
 </div>
 
@@ -107,21 +119,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Operation",
             "layout": "half",
             "placeholder": "Select an operation",
+            "defaultValue": "search",
             "options": [
                 {
-                    "label": "Add Memories",
-                    "id": "add"
+                    "id": "add",
+                    "label": "Add Memories"
                 },
                 {
-                    "label": "Search Memories",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search Memories"
                 },
                 {
-                    "label": "Get Memories",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Memories"
                 }
-            ],
-            "defaultValue": "search"
+            ]
         },
         {
             "id": "userId",
@@ -129,7 +141,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "User ID",
             "layout": "full",
             "placeholder": "Enter user identifier",
-            "required": true
+            "required": true,
+            "defaultValue": "userid"
         },
         {
             "id": "apiKey",
@@ -162,13 +175,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Search Memories (<code>mem0_search_memories</code>)</div>
+
+Search for memories in Mem0 using semantic search
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Yes | User ID to search memories for |
+| `query` | string | Yes | Search query to find relevant memories |
+| `limit` | number | No | Maximum number of results to return |
+| `apiKey` | string | Yes | Your Mem0 API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `ids` | json | Memory identifiers |
-| `memories` | json | Memory data |
-| `searchResults` | json | Search results |
+| `searchResults` | array | Array of search results with memory data, each containing id, data, and score |
+| `ids` | array | Array of memory IDs found in the search results |
 
 </div>
 
@@ -191,21 +216,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Operation",
             "layout": "half",
             "placeholder": "Select an operation",
+            "defaultValue": "get",
             "options": [
                 {
-                    "label": "Add Memories",
-                    "id": "add"
+                    "id": "add",
+                    "label": "Add Memories"
                 },
                 {
-                    "label": "Search Memories",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search Memories"
                 },
                 {
-                    "label": "Get Memories",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Memories"
                 }
-            ],
-            "defaultValue": "get"
+            ]
         },
         {
             "id": "userId",
@@ -213,7 +238,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "User ID",
             "layout": "full",
             "placeholder": "Enter user identifier",
-            "required": true
+            "required": true,
+            "defaultValue": "userid"
         },
         {
             "id": "apiKey",
@@ -259,13 +285,26 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Get Memories (<code>mem0_get_memories</code>)</div>
+
+Retrieve memories from Mem0 by ID or filter criteria
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `userId` | string | Yes | User ID to retrieve memories for |
+| `memoryId` | string | No | Specific memory ID to retrieve |
+| `startDate` | string | No | Start date for filtering by created_at \(format: YYYY-MM-DD\) |
+| `endDate` | string | No | End date for filtering by created_at \(format: YYYY-MM-DD\) |
+| `apiKey` | string | Yes | Your Mem0 API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `ids` | json | Memory identifiers |
-| `memories` | json | Memory data |
-| `searchResults` | json | Search results |
+| `memories` | array | Array of retrieved memory objects |
+| `ids` | array | Array of memory IDs that were retrieved |
 
 </div>
 

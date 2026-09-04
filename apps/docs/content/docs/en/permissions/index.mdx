@@ -63,9 +63,9 @@ Here's a detailed breakdown of what users can do with each permission level:
 - Manage workspace settings and integrations
 - Configure external tool connections
 - Delete workflows created by other users
+- Delete the workspace, provided it is not their last accessible workspace
 
 **What they cannot do:**
-- Delete the workspace (only the workspace owner can do this)
 - Remove the workspace owner from the workspace
 
 ---
@@ -76,13 +76,14 @@ Every workspace has one **Owner** (the person who created it) plus any number of
 
 ### Workspace Owner
 - Has all Admin permissions
-- Can delete the workspace
 - Cannot be removed from the workspace
-- Can transfer ownership to another user
 
 ### Workspace Admin  
-- Can do everything except delete the workspace or remove the owner
+- Has the same workspace-management permissions as the owner, including workspace deletion
+- Cannot remove the workspace owner
 - Can be removed from the workspace by the owner or other admins
+
+Owners and admins cannot delete their last accessible workspace. TradingGoose does not currently provide a workspace-ownership transfer action.
 
 ---
 
@@ -147,8 +148,14 @@ When inviting someone to your organization, you can assign one of two roles:
 **What they can do:**
 - Invite and remove team members from the organization
 - Create new workspaces
-- Manage billing and subscription settings
-- Access all workspaces within the organization
+- View the organization's billed-workspace list
+- Assign or release organization billing for workspaces where they also have workspace Admin access
+
+**What they cannot do:**
+- Access workspace content unless they own that workspace or have been granted workspace access
+- Change the organization's subscription, seat count, or usage limit
+
+Only the **Organization Owner** can change the organization's subscription, seat count, or usage limit. Organization Admins can manage which eligible workspaces use organization billing, but the organization role alone does not grant access to workspace content.
 
 ### Organization Member  
 **What they can do:**

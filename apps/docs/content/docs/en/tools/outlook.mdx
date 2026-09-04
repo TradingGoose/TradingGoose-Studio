@@ -10,7 +10,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 <BlockInfoCard
   type="outlook"
-  color=""
+  color="#50D9FF"
 />
 
 <Cards>
@@ -28,7 +28,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
   <BlockConfigPreview
     name="Outlook"
     type="outlook"
-    color=""
+    color="#50D9FF"
     hideHeader
     subBlocks={[
         {
@@ -36,25 +36,25 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "send_outlook",
             "options": [
                 {
-                    "label": "Send Email",
-                    "id": "send_outlook"
+                    "id": "send_outlook",
+                    "label": "Send Email"
                 },
                 {
-                    "label": "Draft Email",
-                    "id": "draft_outlook"
+                    "id": "draft_outlook",
+                    "label": "Draft Email"
                 },
                 {
-                    "label": "Read Email",
-                    "id": "read_outlook"
+                    "id": "read_outlook",
+                    "label": "Read Email"
                 },
                 {
-                    "label": "Forward Email",
-                    "id": "forward_outlook"
+                    "id": "forward_outlook",
+                    "label": "Forward Email"
                 }
-            ],
-            "defaultValue": "send_outlook"
+            ]
         },
         {
             "id": "credential",
@@ -94,42 +94,48 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "type": "file-upload",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Upload files to attach"
+            "placeholder": "Upload files to attach",
+            "required": false
         },
         {
             "id": "attachments",
             "type": "short-input",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Reference files from previous blocks"
+            "placeholder": "Reference files from previous blocks",
+            "required": false
         },
         {
             "id": "replyToMessageId",
             "type": "short-input",
             "title": "Reply to Message ID",
             "layout": "full",
-            "placeholder": "Message ID to reply to (for threading)"
+            "placeholder": "Message ID to reply to (for threading)",
+            "required": false
         },
         {
             "id": "conversationId",
             "type": "short-input",
             "title": "Conversation ID",
             "layout": "full",
-            "placeholder": "Conversation ID for threading"
+            "placeholder": "Conversation ID for threading",
+            "required": false
         },
         {
             "id": "cc",
             "type": "short-input",
             "title": "CC",
             "layout": "full",
-            "placeholder": "CC recipients (comma-separated)"
+            "placeholder": "CC recipients (comma-separated)",
+            "required": false
         },
         {
             "id": "bcc",
             "type": "short-input",
             "title": "BCC",
             "layout": "full",
-            "placeholder": "BCC recipients (comma-separated)"
+            "placeholder": "BCC recipients (comma-separated)",
+            "required": false
         }
     ]}
   />
@@ -161,6 +167,7 @@ Send emails using Outlook
 | `success` | boolean | Email send success status |
 | `status` | string | Delivery status of the email |
 | `timestamp` | string | Timestamp when email was sent |
+| `message` | string | Success or error message |
 
 </div>
 
@@ -174,7 +181,7 @@ Send emails using Outlook
   <BlockConfigPreview
     name="Outlook"
     type="outlook"
-    color=""
+    color="#50D9FF"
     hideHeader
     subBlocks={[
         {
@@ -182,25 +189,25 @@ Send emails using Outlook
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "draft_outlook",
             "options": [
                 {
-                    "label": "Send Email",
-                    "id": "send_outlook"
+                    "id": "send_outlook",
+                    "label": "Send Email"
                 },
                 {
-                    "label": "Draft Email",
-                    "id": "draft_outlook"
+                    "id": "draft_outlook",
+                    "label": "Draft Email"
                 },
                 {
-                    "label": "Read Email",
-                    "id": "read_outlook"
+                    "id": "read_outlook",
+                    "label": "Read Email"
                 },
                 {
-                    "label": "Forward Email",
-                    "id": "forward_outlook"
+                    "id": "forward_outlook",
+                    "label": "Forward Email"
                 }
-            ],
-            "defaultValue": "draft_outlook"
+            ]
         },
         {
             "id": "credential",
@@ -240,28 +247,32 @@ Send emails using Outlook
             "type": "file-upload",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Upload files to attach"
+            "placeholder": "Upload files to attach",
+            "required": false
         },
         {
             "id": "attachments",
             "type": "short-input",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Reference files from previous blocks"
+            "placeholder": "Reference files from previous blocks",
+            "required": false
         },
         {
             "id": "cc",
             "type": "short-input",
             "title": "CC",
             "layout": "full",
-            "placeholder": "CC recipients (comma-separated)"
+            "placeholder": "CC recipients (comma-separated)",
+            "required": false
         },
         {
             "id": "bcc",
             "type": "short-input",
             "title": "BCC",
             "layout": "full",
-            "placeholder": "BCC recipients (comma-separated)"
+            "placeholder": "BCC recipients (comma-separated)",
+            "required": false
         }
     ]}
   />
@@ -293,6 +304,7 @@ Draft emails using Outlook
 | `status` | string | Draft status of the email |
 | `subject` | string | Subject of the drafted email |
 | `timestamp` | string | Timestamp when draft was created |
+| `message` | string | Success or error message |
 
 </div>
 
@@ -306,7 +318,7 @@ Draft emails using Outlook
   <BlockConfigPreview
     name="Outlook"
     type="outlook"
-    color=""
+    color="#50D9FF"
     hideHeader
     subBlocks={[
         {
@@ -314,25 +326,25 @@ Draft emails using Outlook
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read_outlook",
             "options": [
                 {
-                    "label": "Send Email",
-                    "id": "send_outlook"
+                    "id": "send_outlook",
+                    "label": "Send Email"
                 },
                 {
-                    "label": "Draft Email",
-                    "id": "draft_outlook"
+                    "id": "draft_outlook",
+                    "label": "Draft Email"
                 },
                 {
-                    "label": "Read Email",
-                    "id": "read_outlook"
+                    "id": "read_outlook",
+                    "label": "Read Email"
                 },
                 {
-                    "label": "Forward Email",
-                    "id": "forward_outlook"
+                    "id": "forward_outlook",
+                    "label": "Forward Email"
                 }
-            ],
-            "defaultValue": "read_outlook"
+            ]
         },
         {
             "id": "credential",
@@ -363,8 +375,7 @@ Draft emails using Outlook
             "type": "short-input",
             "title": "Number of Emails",
             "layout": "full",
-            "placeholder": "Number of emails to retrieve (default: 1, max: 10)",
-            "max": 10
+            "placeholder": "Number of emails to retrieve (default: 1, max: 10)"
         },
         {
             "id": "includeAttachments",
@@ -395,6 +406,7 @@ Read emails from Outlook
 | --------- | ---- | ----------- |
 | `message` | string | Success or status message |
 | `results` | array | Array of email message objects |
+| `attachments` | file[] | All email attachments flattened from all emails |
 
 </div>
 
@@ -408,7 +420,7 @@ Read emails from Outlook
   <BlockConfigPreview
     name="Outlook"
     type="outlook"
-    color=""
+    color="#50D9FF"
     hideHeader
     subBlocks={[
         {
@@ -416,25 +428,25 @@ Read emails from Outlook
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "forward_outlook",
             "options": [
                 {
-                    "label": "Send Email",
-                    "id": "send_outlook"
+                    "id": "send_outlook",
+                    "label": "Send Email"
                 },
                 {
-                    "label": "Draft Email",
-                    "id": "draft_outlook"
+                    "id": "draft_outlook",
+                    "label": "Draft Email"
                 },
                 {
-                    "label": "Read Email",
-                    "id": "read_outlook"
+                    "id": "read_outlook",
+                    "label": "Read Email"
                 },
                 {
-                    "label": "Forward Email",
-                    "id": "forward_outlook"
+                    "id": "forward_outlook",
+                    "label": "Forward Email"
                 }
-            ],
-            "defaultValue": "forward_outlook"
+            ]
         },
         {
             "id": "credential",
@@ -466,7 +478,8 @@ Read emails from Outlook
             "type": "long-input",
             "title": "Comment",
             "layout": "full",
-            "placeholder": "Optional comment to include when forwarding"
+            "placeholder": "Optional comment to include when forwarding",
+            "required": false
         }
     ]}
   />
@@ -490,8 +503,7 @@ Forward an existing Outlook message to specified recipients
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Success or error message |
-| `status` | string | Delivery status of the email |
-| `timestamp` | string | Timestamp when email was forwarded |
+| `results` | object | Delivery result details |
 
 </div>
 

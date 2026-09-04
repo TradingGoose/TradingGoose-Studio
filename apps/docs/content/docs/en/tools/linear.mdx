@@ -30,17 +30,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read",
             "options": [
                 {
-                    "label": "Read Issues",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Issues"
                 },
                 {
-                    "label": "Create Issue",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Create Issue"
                 }
-            ],
-            "defaultValue": "read"
+            ]
         },
         {
             "id": "credential",
@@ -86,12 +86,22 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Read Issues (<code>linear_read_issues</code>)</div>
+
+Fetch and filter issues from Linear
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `teamId` | string | Yes | Linear team ID |
+| `projectId` | string | Yes | Linear project ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `issues` | json | Issues list |
-| `issue` | json | Single issue data |
+| `issues` | array | Array of issues from the specified Linear team and project, each containing id, title, description, state, teamId, and projectId |
 
 </div>
 
@@ -113,17 +123,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "write",
             "options": [
                 {
-                    "label": "Read Issues",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Issues"
                 },
                 {
-                    "label": "Create Issue",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Create Issue"
                 }
-            ],
-            "defaultValue": "write"
+            ]
         },
         {
             "id": "credential",
@@ -182,12 +192,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Create Issue (<code>linear_create_issue</code>)</div>
+
+Create a new issue in Linear
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `teamId` | string | Yes | Linear team ID |
+| `projectId` | string | Yes | Linear project ID |
+| `title` | string | Yes | Issue title |
+| `description` | string | No | Issue description |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `issues` | json | Issues list |
-| `issue` | json | Single issue data |
+| `issue` | object | The created issue containing id, title, description, state, teamId, and projectId |
 
 </div>
 

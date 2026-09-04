@@ -29,53 +29,53 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "list_groups",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "list_groups"
+            ]
         },
         {
             "id": "credential",
@@ -122,10 +122,9 @@ List all groups in a Google Workspace domain
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `customer` | string | No | Customer ID or "my_customer" for the authenticated user\'s domain |
+| `customer` | string | No | Customer ID or "my_customer" for the authenticated user's domain |
 | `domain` | string | No | Domain name to filter groups by |
 | `maxResults` | number | No | Maximum number of results to return \(1-200\) |
-| `pageToken` | string | No | Token for pagination |
 | `query` | string | No | Search query to filter groups \(e.g., "email:admin*"\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -133,6 +132,7 @@ List all groups in a Google Workspace domain
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `groups` | json | Array of group objects |
+| `nextPageToken` | string | Token for fetching next page of results |
 
 </div>
 
@@ -153,53 +153,53 @@ List all groups in a Google Workspace domain
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_group",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "get_group"
+            ]
         },
         {
             "id": "credential",
@@ -233,7 +233,9 @@ Get details of a specific Google Group by email or group ID
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `group` | json | Group object |
 
 </div>
 
@@ -254,53 +256,53 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_group",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "create_group"
+            ]
         },
         {
             "id": "credential",
@@ -349,7 +351,9 @@ Create a new Google Group in the domain
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `group` | json | Created group object |
 
 </div>
 
@@ -370,53 +374,53 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_group",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "update_group"
+            ]
         },
         {
             "id": "credential",
@@ -471,7 +475,9 @@ Update an existing Google Group
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `group` | json | Updated group object |
 
 </div>
 
@@ -492,53 +498,53 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete_group",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "delete_group"
+            ]
         },
         {
             "id": "credential",
@@ -572,7 +578,9 @@ Delete a Google Group
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Success message |
 
 </div>
 
@@ -593,53 +601,53 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "list_members",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "list_members"
+            ]
         },
         {
             "id": "credential",
@@ -683,7 +691,6 @@ List all members of a Google Group
 | --------- | ---- | -------- | ----------- |
 | `groupKey` | string | Yes | Group email address or unique group ID |
 | `maxResults` | number | No | Maximum number of results to return \(1-200\) |
-| `pageToken` | string | No | Token for pagination |
 | `roles` | string | No | Filter by roles \(comma-separated: OWNER, MANAGER, MEMBER\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -691,6 +698,7 @@ List all members of a Google Group
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `members` | json | Array of member objects |
+| `nextPageToken` | string | Token for fetching next page of results |
 
 </div>
 
@@ -711,53 +719,53 @@ List all members of a Google Group
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_member",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "get_member"
+            ]
         },
         {
             "id": "credential",
@@ -799,7 +807,9 @@ Get details of a specific member in a Google Group
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `member` | json | Member object |
 
 </div>
 
@@ -820,53 +830,53 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_member",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "add_member"
+            ]
         },
         {
             "id": "credential",
@@ -896,16 +906,16 @@ Refer to the block outputs for this operation.
             "title": "Member Role",
             "options": [
                 {
-                    "label": "Member",
-                    "id": "MEMBER"
+                    "id": "MEMBER",
+                    "label": "Member"
                 },
                 {
-                    "label": "Manager",
-                    "id": "MANAGER"
+                    "id": "MANAGER",
+                    "label": "Manager"
                 },
                 {
-                    "label": "Owner",
-                    "id": "OWNER"
+                    "id": "OWNER",
+                    "label": "Owner"
                 }
             ]
         }
@@ -928,7 +938,9 @@ Add a new member to a Google Group
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `member` | json | Added member object |
 
 </div>
 
@@ -949,53 +961,53 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_member",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "update_member"
+            ]
         },
         {
             "id": "credential",
@@ -1025,16 +1037,16 @@ Refer to the block outputs for this operation.
             "title": "Member Role",
             "options": [
                 {
-                    "label": "Member",
-                    "id": "MEMBER"
+                    "id": "MEMBER",
+                    "label": "Member"
                 },
                 {
-                    "label": "Manager",
-                    "id": "MANAGER"
+                    "id": "MANAGER",
+                    "label": "Manager"
                 },
                 {
-                    "label": "Owner",
-                    "id": "OWNER"
+                    "id": "OWNER",
+                    "label": "Owner"
                 }
             ]
         }
@@ -1045,7 +1057,7 @@ Refer to the block outputs for this operation.
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Update Member Role (<code>google_groups_update_member</code>)</div>
 
-Update a member
+Update a member's role in a Google Group (promote or demote)
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
@@ -1057,7 +1069,9 @@ Update a member
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `member` | json | Updated member object |
 
 </div>
 
@@ -1078,53 +1092,53 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "remove_member",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "remove_member"
+            ]
         },
         {
             "id": "credential",
@@ -1166,7 +1180,9 @@ Remove a member from a Google Group
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Success message |
 
 </div>
 
@@ -1187,53 +1203,53 @@ Refer to the block outputs for this operation.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "has_member",
             "options": [
                 {
-                    "label": "List Groups",
-                    "id": "list_groups"
+                    "id": "list_groups",
+                    "label": "List Groups"
                 },
                 {
-                    "label": "Get Group",
-                    "id": "get_group"
+                    "id": "get_group",
+                    "label": "Get Group"
                 },
                 {
-                    "label": "Create Group",
-                    "id": "create_group"
+                    "id": "create_group",
+                    "label": "Create Group"
                 },
                 {
-                    "label": "Update Group",
-                    "id": "update_group"
+                    "id": "update_group",
+                    "label": "Update Group"
                 },
                 {
-                    "label": "Delete Group",
-                    "id": "delete_group"
+                    "id": "delete_group",
+                    "label": "Delete Group"
                 },
                 {
-                    "label": "List Members",
-                    "id": "list_members"
+                    "id": "list_members",
+                    "label": "List Members"
                 },
                 {
-                    "label": "Get Member",
-                    "id": "get_member"
+                    "id": "get_member",
+                    "label": "Get Member"
                 },
                 {
-                    "label": "Add Member",
-                    "id": "add_member"
+                    "id": "add_member",
+                    "label": "Add Member"
                 },
                 {
-                    "label": "Update Member Role",
-                    "id": "update_member"
+                    "id": "update_member",
+                    "label": "Update Member Role"
                 },
                 {
-                    "label": "Remove Member",
-                    "id": "remove_member"
+                    "id": "remove_member",
+                    "label": "Remove Member"
                 },
                 {
-                    "label": "Check Membership",
-                    "id": "has_member"
+                    "id": "has_member",
+                    "label": "Check Membership"
                 }
-            ],
-            "defaultValue": "has_member"
+            ]
         },
         {
             "id": "credential",
@@ -1275,7 +1291,9 @@ Check if a user is a member of a Google Group
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `isMember` | boolean | Whether the user is a member of the group |
 
 </div>
 

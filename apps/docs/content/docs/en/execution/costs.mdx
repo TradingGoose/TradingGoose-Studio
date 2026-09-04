@@ -4,24 +4,24 @@ title: Cost Calculation
 
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { Callout } from 'fumadocs-ui/components/callout'
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 
-TradingGoose automatically calculates costs for all workflow executions, providing transparent pricing based on AI model usage and execution charges. Understanding these costs helps you optimize workflows and manage your budget effectively.
+TradingGoose calculates workflow costs from the configured execution charge and any metered model usage. Both values can be adjusted by the effective tier of the workspace's configured user or organization billing owner.
 
 ## How Costs Are Calculated
 
-Every workflow execution includes two cost components:
+When billing is enabled, a workflow can have two cost components:
 
-**Base Execution Charge**: $0.001 per execution
+- **Execution charge**: the instance's configured workflow charge multiplied by the current tier's workflow execution multiplier.
+- **AI model usage**: the provider-model cost recorded by each execution span, multiplied by the current tier's workflow model-cost multiplier.
 
-**AI Model Usage**: Variable cost based on token consumption
 ```javascript
-modelCost = (inputTokens × inputPrice + outputTokens × outputPrice) / 1,000,000
-totalCost = baseExecutionCharge + modelCost
+executionCost = configuredWorkflowCharge * tierWorkflowExecutionMultiplier
+adjustedModelCost = recordedModelCost * tierWorkflowModelCostMultiplier
+totalCost = executionCost + sum(adjustedModelCost)
 ```
 
 <Callout type="info">
-  AI model prices are per million tokens. The calculation divides by 1,000,000 to get the actual cost. Workflows without AI blocks only incur the base execution charge.
+  When billing is disabled, the execution charge is zero and recorded model costs use a multiplier of one. Billing-tier configuration, rather than fixed values in this guide, is the source of truth for charges and multipliers.
 </Callout>
 
 ## Model Breakdown in Logs
@@ -30,53 +30,23 @@ For workflows using AI blocks, you can view detailed cost information in the log
 
 The log detail sidebar includes a model breakdown section that shows:
 - **Token Usage**: Input and output token counts for each model
-- **Cost Breakdown**: Individual costs per model and operation
-- **Model Distribution**: Which models were used and how many times
+- **Cost Breakdown**: Input, output, and total cost for each model
+- **Models Used**: Which models contributed to the execution cost
 - **Total Cost**: Aggregate cost for the entire workflow execution
 
-## Pricing Options
+## Pricing and Limits
 
-<Tabs items={['Hosted Models', 'Bring Your Own API Key']}>
-  <Tab>
-    **Hosted Models** - TradingGoose provides API keys with a 2.5x pricing multiplier:
-    
-    | Model | Base Price (Input/Output) | Hosted Price (Input/Output) |
-    |-------|---------------------------|----------------------------|
-    | GPT-4o | $2.50 / $10.00 | $6.25 / $25.00 |
-    | GPT-4.1 | $2.00 / $8.00 | $5.00 / $20.00 |
-    | o1 | $15.00 / $60.00 | $37.50 / $150.00 |
-    | o3 | $2.00 / $8.00 | $5.00 / $20.00 |
-    | Claude 3.5 Sonnet | $3.00 / $15.00 | $7.50 / $37.50 |
-    | Claude Opus 4.0 | $15.00 / $75.00 | $37.50 / $187.50 |
-    
-    *The 2.5x multiplier covers infrastructure and API management costs.*
-  </Tab>
-  
-  <Tab>
-    **Your Own API Keys** - Use any model at base pricing:
-    
-    | Provider | Models | Input / Output |
-    |----------|---------|----------------|
-    | Google | Gemini 2.5 | $0.15 / $0.60 |
-    | Deepseek | V3, R1 | $0.75 / $1.00 |
-    | xAI | Grok 4, Grok 3 | $5.00 / $25.00 |
-    | Groq | Llama 4 Scout | $0.40 / $0.60 |
-    | Cerebras | Llama 3.3 70B | $0.94 / $0.94 |
-    | Ollama | Local models | Free |
-    
-    *Pay providers directly with no markup*
-  </Tab>
-</Tabs>
+The available billing tiers and model catalog are configured by the TradingGoose deployment and can change independently of this documentation. Use **Settings → Subscription** for current usage, the usage limit, and the available plans, prices, and advertised features. The usage-limits API below reports rate, storage, retention, and multiplier values for the authenticated user's personal billing scope; it does not resolve an organization's effective tier for a workspace. Use the Agent block's model selector for the models currently available to your workspace.
 
-<Callout type="warning">
-  Pricing shown reflects rates as of September 10, 2025. Check provider documentation for current pricing.
-</Callout>
+If you receive an access code for a private tier, enter it in **Settings → Subscription**. Codes are case-sensitive, although surrounding whitespace is ignored. A valid code makes the corresponding private plan available to your user.
+
+A billing tier can also impose a maximum duration on each queued workflow execution. An execution that reaches that limit is terminated and recorded with the error `Workflow execution time limit exceeded`.
 
 ## Cost Optimization Strategies
 
 <Accordions>
   <Accordion title="Model Selection">
-    Choose models based on task complexity. Simple tasks can use GPT-4.1-nano ($0.10/$0.40) while complex reasoning might need o1 or Claude Opus.
+    Choose a model that matches the task's complexity and review its current provider pricing before deployment.
   </Accordion>
   
   <Accordion title="Prompt Engineering">
@@ -84,11 +54,11 @@ The log detail sidebar includes a model breakdown section that shows:
   </Accordion>
   
   <Accordion title="Local Models">
-    Use Ollama for non-critical tasks to eliminate API costs entirely.
+    Use Ollama when a local model is appropriate to avoid external model-provider charges. The workflow execution charge can still apply.
   </Accordion>
   
   <Accordion title="Caching and Reuse">
-    Store frequently used results in variables or files to avoid repeated AI model calls.
+    Reuse upstream outputs or workflow variables within a run instead of repeating AI model calls.
   </Accordion>
   
   <Accordion title="Batch Processing">
@@ -100,14 +70,13 @@ The log detail sidebar includes a model breakdown section that shows:
 
 Monitor your usage and billing in Settings → Subscription:
 
-- **Current Usage**: Real-time usage and costs for the current period
-- **Usage Limits**: Plan limits with visual progress indicators
-- **Billing Details**: Projected charges and minimum commitments
-- **Plan Management**: Upgrade options and billing history
+- **Current Usage**: Usage and costs accumulated in the current period
+- **Usage Limit**: The effective spending limit and percentage consumed
+- **Plan Management**: Available subscription actions when billing is enabled
 
-### Programmatic Usage Tracking
+### Programmatic Personal Usage Tracking
 
-You can query your current usage and limits programmatically using the API:
+You can query the authenticated user's personal usage and limits programmatically using the API:
 
 **Endpoint:**
 ```text
@@ -119,11 +88,11 @@ GET /api/users/me/usage-limits
 
 **Example Request:**
 ```bash
-curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://tradinggoose.ai/api/users/me/usage-limits
+curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" https://www.tradinggoose.ai/api/users/me/usage-limits
 ```
 
 **Example Response:**
-```json
+```jsonc
 {
   "success": true,
   "rateLimit": {
@@ -134,70 +103,47 @@ curl -X GET -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" htt
   "usage": {
     "currentPeriodCost": 12.34,
     "limit": 100,
-    "plan": "pro"
+    "tier": {
+      "id": "tier_example",
+      "displayName": "Example Tier",
+      "ownerType": "user",
+      "usageScope": "individual",
+      "syncRateLimitPerMinute": 10,
+      "asyncRateLimitPerMinute": 50,
+      "apiEndpointRateLimitPerMinute": 60,
+      "logRetentionDays": 30,
+      "workflowExecutionMultiplier": 1,
+      "workflowModelCostMultiplier": 1
+      // The response includes the remaining BillingTierSummary fields.
+    }
+  },
+  "storage": {
+    "usedBytes": 5242880,
+    "limitBytes": 1073741824,
+    "percentUsed": 0.48828125
   }
 }
 ```
 
 **Response Fields:**
 - `currentPeriodCost` reflects usage in the current billing period
-- `limit` is derived from individual limits (Free/Pro) or pooled organization limits (Team/Enterprise)
-- `plan` is the highest-priority active plan associated with your user
+- `limit` is the effective usage limit for the authenticated user's billing scope
+- `tier` is the complete billing-tier summary, including its configured rate limits, retention, and cost multipliers
+- `storage` reports the current byte usage, byte limit, and percentage used
 
-## Plan Limits
-
-Different subscription plans have different usage limits:
-
-| Plan | Monthly Usage Limit | Rate Limits (per minute) |
-|------|-------------------|-------------------------|
-| **Free** | $10 | 10 sync, 50 async |
-| **Pro** | $20 | 25 sync, 200 async |
-| **Team** | $40/seat (pooled) | 75 sync, 500 async |
-| **Enterprise** | Custom | 150 sync, 1000 async |
-
-## Billing Model
-
-TradingGoose uses a **base subscription + overage** billing model:
-
-### How It Works
-
-**Pro Plan ($20/month):**
-- Monthly subscription includes $20 of usage
-- Usage under $20 → No additional charges
-- Usage over $20 → Pay the overage at month end
-- Example: $35 usage = $20 (subscription) + $15 (overage)
-
-**Team Plan ($40/seat/month):**
-- Pooled usage across all team members
-- Overage calculated from total team usage
-- Organization owner receives one bill
-
-**Enterprise Plans:**
-- Fixed monthly price, no overages
-- Custom usage limits per agreement
-
-### Threshold Billing
-
-When unbilled overage reaches $50, TradingGoose automatically bills the full unbilled amount.
-
-**Example:**
-- Day 10: $70 overage → Bill $70 immediately
-- Day 15: Additional $35 usage ($105 total) → Already billed, no action
-- Day 20: Another $50 usage ($155 total, $85 unbilled) → Bill $85 immediately
-
-This spreads large overage charges throughout the month instead of one large bill at period end.
+The example values are illustrative. Read the response returned for your account instead of relying on fixed plan names or limits.
 
 ## Cost Management Best Practices
 
 1. **Monitor Regularly**: Check your usage dashboard frequently to avoid surprises
-2. **Set Budgets**: Use plan limits as guardrails for your spending
+2. **Set Budgets**: Where your tier permits it, use the editable usage limit as a spending guardrail
 3. **Optimize Workflows**: Review high-cost executions and optimize prompts or model selection
 4. **Use Appropriate Models**: Match model complexity to task requirements
 5. **Batch Similar Tasks**: Combine multiple requests when possible to reduce overhead
 
 ## Next Steps
 
-- Review your current usage in [Settings → Subscription](https://tradinggoose.ai/settings/subscription)
+- Review your current usage in **Settings → Subscription**
 - Learn about [Logging](/execution/logging) to track execution details
 - Explore the [External API](/execution/api) for programmatic cost monitoring
 - Check out [workflow optimization techniques](/blocks) to reduce costs

@@ -36,18 +36,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "layout": "full",
+            "defaultValue": "text-embedding-3-small",
             "options": [
                 {
-                    "label": "text-embedding-3-small",
-                    "id": "text-embedding-3-small"
+                    "id": "text-embedding-3-small",
+                    "label": "text-embedding-3-small"
                 },
                 {
-                    "label": "text-embedding-3-large",
-                    "id": "text-embedding-3-large"
+                    "id": "text-embedding-3-large",
+                    "label": "text-embedding-3-large"
                 },
                 {
-                    "label": "text-embedding-ada-002",
-                    "id": "text-embedding-ada-002"
+                    "id": "text-embedding-ada-002",
+                    "label": "text-embedding-ada-002"
                 }
             ]
         },
@@ -68,7 +69,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ### `openai_embeddings`
 
-Generate embeddings from text using OpenAI
+Generate embeddings from text using OpenAI's embedding models
 
 #### Input
 
@@ -76,7 +77,6 @@ Generate embeddings from text using OpenAI
 | --------- | ---- | -------- | ----------- |
 | `input` | string | Yes | Text to generate embeddings for |
 | `model` | string | No | Model to use for embeddings |
-| `encodingFormat` | string | No | The format to return the embeddings in |
 | `apiKey` | string | Yes | OpenAI API key |
 
 #### Output
@@ -84,9 +84,7 @@ Generate embeddings from text using OpenAI
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
-| `embeddings` | array | Array of embedding vectors |
-| `model` | string | Model used for generating embeddings |
-| `prompt_tokens` | number | Number of tokens in the prompt |
+| `output` | object | Embeddings generation results |
 
 
 ## Usage Instructions

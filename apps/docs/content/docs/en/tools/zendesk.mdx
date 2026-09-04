@@ -29,113 +29,113 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_tickets",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "get_tickets"
+            ]
         },
         {
             "id": "email",
@@ -195,8 +195,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "perPage",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (default: 100, max: 100)",
-            "max": 100
+            "placeholder": "Results per page (default: 100, max: 100)"
         },
         {
             "id": "page",
@@ -218,7 +217,6 @@ Retrieve a list of tickets from Zendesk with optional filtering
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain \(e.g., "mycompany" for mycompany.zendesk.com\) |
 | `status` | string | No | Filter by status \(new, open, pending, hold, solved, closed\) |
 | `priority` | string | No | Filter by priority \(low, normal, high, urgent\) |
@@ -236,6 +234,7 @@ Retrieve a list of tickets from Zendesk with optional filtering
 | --------- | ---- | ----------- |
 | `tickets` | array | Array of ticket objects |
 | `paging` | object | Pagination information |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -256,113 +255,113 @@ Retrieve a list of tickets from Zendesk with optional filtering
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_ticket",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "get_ticket"
+            ]
         },
         {
             "id": "email",
@@ -409,7 +408,6 @@ Get a single ticket by ID from Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `ticketId` | string | Yes | Ticket ID to retrieve |
 
@@ -418,6 +416,7 @@ Get a single ticket by ID from Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `ticket` | object | Ticket object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -438,113 +437,113 @@ Get a single ticket by ID from Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_ticket",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "create_ticket"
+            ]
         },
         {
             "id": "email",
@@ -580,7 +579,8 @@ Get a single ticket by ID from Zendesk
             "id": "description",
             "type": "long-input",
             "title": "Description",
-            "placeholder": "Ticket description"
+            "placeholder": "Ticket description",
+            "required": true
         },
         {
             "id": "status",
@@ -644,7 +644,6 @@ Create a new ticket in Zendesk with support for custom fields
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `subject` | string | No | Ticket subject \(optional - will be auto-generated if not provided\) |
 | `description` | string | Yes | Ticket description \(first comment\) |
@@ -653,12 +652,16 @@ Create a new ticket in Zendesk with support for custom fields
 | `type` | string | No | Type \(problem, incident, question, task\) |
 | `tags` | string | No | Comma-separated tags |
 | `assigneeId` | string | No | Assignee user ID |
+| `groupId` | string | No | Group ID |
+| `requesterId` | string | No | Requester user ID |
+| `customFields` | string | No | Custom fields as JSON object \(e.g., \{"field_id": "value"\}\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `ticket` | object | Created ticket object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -679,113 +682,113 @@ Create a new ticket in Zendesk with support for custom fields
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_tickets_bulk",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "create_tickets_bulk"
+            ]
         },
         {
             "id": "email",
@@ -832,7 +835,6 @@ Create multiple tickets in Zendesk at once (max 100)
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `tickets` | string | Yes | JSON array of ticket objects to create \(max 100\). Each ticket should have subject and comment properties. |
 
@@ -841,6 +843,7 @@ Create multiple tickets in Zendesk at once (max 100)
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `jobStatus` | object | Job status object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -861,113 +864,113 @@ Create multiple tickets in Zendesk at once (max 100)
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_ticket",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "update_ticket"
+            ]
         },
         {
             "id": "email",
@@ -1068,7 +1071,6 @@ Update an existing ticket in Zendesk with support for custom fields
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `ticketId` | string | Yes | Ticket ID to update |
 | `subject` | string | No | New ticket subject |
@@ -1086,6 +1088,7 @@ Update an existing ticket in Zendesk with support for custom fields
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `ticket` | object | Updated ticket object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -1106,113 +1109,113 @@ Update an existing ticket in Zendesk with support for custom fields
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_tickets_bulk",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "update_tickets_bulk"
+            ]
         },
         {
             "id": "email",
@@ -1259,7 +1262,6 @@ Update multiple tickets in Zendesk at once (max 100)
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `ticketIds` | string | Yes | Comma-separated ticket IDs to update \(max 100\) |
 | `status` | string | No | New status for all tickets |
@@ -1273,6 +1275,7 @@ Update multiple tickets in Zendesk at once (max 100)
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `jobStatus` | object | Job status object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -1293,113 +1296,113 @@ Update multiple tickets in Zendesk at once (max 100)
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete_ticket",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "delete_ticket"
+            ]
         },
         {
             "id": "email",
@@ -1446,7 +1449,6 @@ Delete a ticket from Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `ticketId` | string | Yes | Ticket ID to delete |
 
@@ -1455,6 +1457,7 @@ Delete a ticket from Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `deleted` | boolean | Deletion success |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -1475,113 +1478,113 @@ Delete a ticket from Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "merge_tickets",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "merge_tickets"
+            ]
         },
         {
             "id": "email",
@@ -1635,7 +1638,6 @@ Merge multiple tickets into a target ticket
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `targetTicketId` | string | Yes | Target ticket ID \(tickets will be merged into this one\) |
 | `sourceTicketIds` | string | Yes | Comma-separated source ticket IDs to merge |
@@ -1646,6 +1648,7 @@ Merge multiple tickets into a target ticket
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `jobStatus` | object | Job status object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -1666,113 +1669,113 @@ Merge multiple tickets into a target ticket
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_users",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "get_users"
+            ]
         },
         {
             "id": "email",
@@ -1802,8 +1805,7 @@ Merge multiple tickets into a target ticket
             "id": "perPage",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (default: 100, max: 100)",
-            "max": 100
+            "placeholder": "Results per page (default: 100, max: 100)"
         },
         {
             "id": "page",
@@ -1825,7 +1827,6 @@ Retrieve a list of users from Zendesk with optional filtering
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain \(e.g., "mycompany" for mycompany.zendesk.com\) |
 | `role` | string | No | Filter by role \(end-user, agent, admin\) |
 | `permissionSet` | string | No | Filter by permission set ID |
@@ -1838,6 +1839,7 @@ Retrieve a list of users from Zendesk with optional filtering
 | --------- | ---- | ----------- |
 | `users` | array | Array of user objects |
 | `paging` | object | Pagination information |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -1858,113 +1860,113 @@ Retrieve a list of users from Zendesk with optional filtering
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_user",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "get_user"
+            ]
         },
         {
             "id": "email",
@@ -2011,7 +2013,6 @@ Get a single user by ID from Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `userId` | string | Yes | User ID to retrieve |
 
@@ -2020,6 +2021,7 @@ Get a single user by ID from Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `user` | object | User object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -2040,113 +2042,113 @@ Get a single user by ID from Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_current_user",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "get_current_user"
+            ]
         },
         {
             "id": "email",
@@ -2186,7 +2188,6 @@ Get the currently authenticated user from Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -2194,6 +2195,7 @@ Get the currently authenticated user from Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `user` | object | Current user object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -2214,113 +2216,113 @@ Get the currently authenticated user from Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "search_users",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "search_users"
+            ]
         },
         {
             "id": "email",
@@ -2356,8 +2358,7 @@ Get the currently authenticated user from Zendesk
             "id": "perPage",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (default: 100, max: 100)",
-            "max": 100
+            "placeholder": "Results per page (default: 100, max: 100)"
         },
         {
             "id": "page",
@@ -2379,7 +2380,6 @@ Search for users in Zendesk using a query string
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `query` | string | No | Search query string |
 | `externalId` | string | No | External ID to search by |
@@ -2392,6 +2392,7 @@ Search for users in Zendesk using a query string
 | --------- | ---- | ----------- |
 | `users` | array | Array of user objects |
 | `paging` | object | Pagination information |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -2412,113 +2413,113 @@ Search for users in Zendesk using a query string
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_user",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "create_user"
+            ]
         },
         {
             "id": "email",
@@ -2548,7 +2549,8 @@ Search for users in Zendesk using a query string
             "id": "name",
             "type": "short-input",
             "title": "Name",
-            "placeholder": "User name"
+            "placeholder": "User name",
+            "required": true
         },
         {
             "id": "userEmail",
@@ -2576,7 +2578,6 @@ Create a new user in Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `name` | string | Yes | User name |
 | `userEmail` | string | No | User email |
@@ -2592,6 +2593,7 @@ Create a new user in Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `user` | object | Created user object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -2612,113 +2614,113 @@ Create a new user in Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_users_bulk",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "create_users_bulk"
+            ]
         },
         {
             "id": "email",
@@ -2765,7 +2767,6 @@ Create multiple users in Zendesk using bulk import
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `users` | string | Yes | JSON array of user objects to create |
 
@@ -2774,6 +2775,7 @@ Create multiple users in Zendesk using bulk import
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `jobStatus` | object | Job status object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -2794,113 +2796,113 @@ Create multiple users in Zendesk using bulk import
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_user",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "update_user"
+            ]
         },
         {
             "id": "email",
@@ -2965,7 +2967,6 @@ Update an existing user in Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `userId` | string | Yes | User ID to update |
 | `name` | string | No | New user name |
@@ -2982,6 +2983,7 @@ Update an existing user in Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `user` | object | Updated user object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -3002,113 +3004,113 @@ Update an existing user in Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_users_bulk",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "update_users_bulk"
+            ]
         },
         {
             "id": "email",
@@ -3155,7 +3157,6 @@ Update multiple users in Zendesk using bulk update
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `users` | string | Yes | JSON array of user objects to update \(must include id field\) |
 
@@ -3164,6 +3165,7 @@ Update multiple users in Zendesk using bulk update
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `jobStatus` | object | Job status object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -3184,113 +3186,113 @@ Update multiple users in Zendesk using bulk update
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete_user",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "delete_user"
+            ]
         },
         {
             "id": "email",
@@ -3337,7 +3339,6 @@ Delete a user from Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `userId` | string | Yes | User ID to delete |
 
@@ -3346,6 +3347,7 @@ Delete a user from Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `deleted` | boolean | Deletion success |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -3366,113 +3368,113 @@ Delete a user from Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_organizations",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "get_organizations"
+            ]
         },
         {
             "id": "email",
@@ -3502,8 +3504,7 @@ Delete a user from Zendesk
             "id": "perPage",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (default: 100, max: 100)",
-            "max": 100
+            "placeholder": "Results per page (default: 100, max: 100)"
         },
         {
             "id": "page",
@@ -3525,7 +3526,6 @@ Retrieve a list of organizations from Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain \(e.g., "mycompany" for mycompany.zendesk.com\) |
 | `perPage` | string | No | Results per page \(default: 100, max: 100\) |
 | `page` | string | No | Page number |
@@ -3536,6 +3536,7 @@ Retrieve a list of organizations from Zendesk
 | --------- | ---- | ----------- |
 | `organizations` | array | Array of organization objects |
 | `paging` | object | Pagination information |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -3556,113 +3557,113 @@ Retrieve a list of organizations from Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_organization",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "get_organization"
+            ]
         },
         {
             "id": "email",
@@ -3692,7 +3693,8 @@ Retrieve a list of organizations from Zendesk
             "id": "organizationId",
             "type": "short-input",
             "title": "Organization ID",
-            "placeholder": "Organization ID"
+            "placeholder": "Organization ID",
+            "required": true
         }
     ]}
   />
@@ -3708,7 +3710,6 @@ Get a single organization by ID from Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `organizationId` | string | Yes | Organization ID to retrieve |
 
@@ -3717,6 +3718,7 @@ Get a single organization by ID from Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `organization` | object | Organization object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -3737,113 +3739,113 @@ Get a single organization by ID from Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "autocomplete_organizations",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "autocomplete_organizations"
+            ]
         },
         {
             "id": "email",
@@ -3873,14 +3875,14 @@ Get a single organization by ID from Zendesk
             "id": "organizationName",
             "type": "short-input",
             "title": "Organization Name",
-            "placeholder": "Organization name"
+            "placeholder": "Organization name",
+            "required": true
         },
         {
             "id": "perPage",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (default: 100, max: 100)",
-            "max": 100
+            "placeholder": "Results per page (default: 100, max: 100)"
         },
         {
             "id": "page",
@@ -3902,7 +3904,6 @@ Autocomplete organizations in Zendesk by name prefix (for name matching/autocomp
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `name` | string | Yes | Organization name to search for |
 | `perPage` | string | No | Results per page \(default: 100, max: 100\) |
@@ -3914,6 +3915,7 @@ Autocomplete organizations in Zendesk by name prefix (for name matching/autocomp
 | --------- | ---- | ----------- |
 | `organizations` | array | Array of organization objects |
 | `paging` | object | Pagination information |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -3934,113 +3936,113 @@ Autocomplete organizations in Zendesk by name prefix (for name matching/autocomp
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_organization",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "create_organization"
+            ]
         },
         {
             "id": "email",
@@ -4086,7 +4088,6 @@ Create a new organization in Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `name` | string | Yes | Organization name |
 | `domainNames` | string | No | Comma-separated domain names |
@@ -4100,6 +4101,7 @@ Create a new organization in Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `organization` | object | Created organization object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -4120,113 +4122,113 @@ Create a new organization in Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_organizations_bulk",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "create_organizations_bulk"
+            ]
         },
         {
             "id": "email",
@@ -4273,7 +4275,6 @@ Create multiple organizations in Zendesk using bulk import
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `organizations` | string | Yes | JSON array of organization objects to create |
 
@@ -4282,6 +4283,7 @@ Create multiple organizations in Zendesk using bulk import
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `jobStatus` | object | Job status object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -4302,113 +4304,113 @@ Create multiple organizations in Zendesk using bulk import
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_organization",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "update_organization"
+            ]
         },
         {
             "id": "email",
@@ -4460,7 +4462,6 @@ Update an existing organization in Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `organizationId` | string | Yes | Organization ID to update |
 | `name` | string | No | New organization name |
@@ -4475,6 +4476,7 @@ Update an existing organization in Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `organization` | object | Updated organization object |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -4495,113 +4497,113 @@ Update an existing organization in Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete_organization",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "delete_organization"
+            ]
         },
         {
             "id": "email",
@@ -4631,7 +4633,8 @@ Update an existing organization in Zendesk
             "id": "organizationId",
             "type": "short-input",
             "title": "Organization ID",
-            "placeholder": "Organization ID"
+            "placeholder": "Organization ID",
+            "required": true
         }
     ]}
   />
@@ -4647,7 +4650,6 @@ Delete an organization from Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `organizationId` | string | Yes | Organization ID to delete |
 
@@ -4656,6 +4658,7 @@ Delete an organization from Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `deleted` | boolean | Deletion success |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -4676,113 +4679,113 @@ Delete an organization from Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "search",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "search"
+            ]
         },
         {
             "id": "email",
@@ -4812,7 +4815,8 @@ Delete an organization from Zendesk
             "id": "query",
             "type": "short-input",
             "title": "Query",
-            "placeholder": "Search query"
+            "placeholder": "Search query",
+            "required": true
         },
         {
             "id": "sortBy",
@@ -4820,28 +4824,28 @@ Delete an organization from Zendesk
             "title": "Sort By",
             "options": [
                 {
-                    "label": "Relevance",
-                    "id": "relevance"
+                    "id": "relevance",
+                    "label": "Relevance"
                 },
                 {
-                    "label": "Created At",
-                    "id": "created_at"
+                    "id": "created_at",
+                    "label": "Created At"
                 },
                 {
-                    "label": "Updated At",
-                    "id": "updated_at"
+                    "id": "updated_at",
+                    "label": "Updated At"
                 },
                 {
-                    "label": "Priority",
-                    "id": "priority"
+                    "id": "priority",
+                    "label": "Priority"
                 },
                 {
-                    "label": "Status",
-                    "id": "status"
+                    "id": "status",
+                    "label": "Status"
                 },
                 {
-                    "label": "Ticket Type",
-                    "id": "ticket_type"
+                    "id": "ticket_type",
+                    "label": "Ticket Type"
                 }
             ]
         },
@@ -4851,12 +4855,12 @@ Delete an organization from Zendesk
             "title": "Sort Order",
             "options": [
                 {
-                    "label": "Ascending",
-                    "id": "asc"
+                    "id": "asc",
+                    "label": "Ascending"
                 },
                 {
-                    "label": "Descending",
-                    "id": "desc"
+                    "id": "desc",
+                    "label": "Descending"
                 }
             ]
         },
@@ -4864,8 +4868,7 @@ Delete an organization from Zendesk
             "id": "perPage",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (default: 100, max: 100)",
-            "max": 100
+            "placeholder": "Results per page (default: 100, max: 100)"
         },
         {
             "id": "page",
@@ -4887,7 +4890,6 @@ Unified search across tickets, users, and organizations in Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `query` | string | Yes | Search query string |
 | `sortBy` | string | No | Sort field \(relevance, created_at, updated_at, priority, status, ticket_type\) |
@@ -4901,6 +4903,7 @@ Unified search across tickets, users, and organizations in Zendesk
 | --------- | ---- | ----------- |
 | `results` | array | Array of result objects |
 | `paging` | object | Pagination information |
+| `metadata` | object | Operation metadata |
 
 </div>
 
@@ -4921,113 +4924,113 @@ Unified search across tickets, users, and organizations in Zendesk
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "search_count",
             "options": [
                 {
-                    "label": "Get Tickets",
-                    "id": "get_tickets"
+                    "id": "get_tickets",
+                    "label": "Get Tickets"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Create Tickets Bulk",
-                    "id": "create_tickets_bulk"
+                    "id": "create_tickets_bulk",
+                    "label": "Create Tickets Bulk"
                 },
                 {
-                    "label": "Update Ticket",
-                    "id": "update_ticket"
+                    "id": "update_ticket",
+                    "label": "Update Ticket"
                 },
                 {
-                    "label": "Update Tickets Bulk",
-                    "id": "update_tickets_bulk"
+                    "id": "update_tickets_bulk",
+                    "label": "Update Tickets Bulk"
                 },
                 {
-                    "label": "Delete Ticket",
-                    "id": "delete_ticket"
+                    "id": "delete_ticket",
+                    "label": "Delete Ticket"
                 },
                 {
-                    "label": "Merge Tickets",
-                    "id": "merge_tickets"
+                    "id": "merge_tickets",
+                    "label": "Merge Tickets"
                 },
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get User",
-                    "id": "get_user"
+                    "id": "get_user",
+                    "label": "Get User"
                 },
                 {
-                    "label": "Get Current User",
-                    "id": "get_current_user"
+                    "id": "get_current_user",
+                    "label": "Get Current User"
                 },
                 {
-                    "label": "Search Users",
-                    "id": "search_users"
+                    "id": "search_users",
+                    "label": "Search Users"
                 },
                 {
-                    "label": "Create User",
-                    "id": "create_user"
+                    "id": "create_user",
+                    "label": "Create User"
                 },
                 {
-                    "label": "Create Users Bulk",
-                    "id": "create_users_bulk"
+                    "id": "create_users_bulk",
+                    "label": "Create Users Bulk"
                 },
                 {
-                    "label": "Update User",
-                    "id": "update_user"
+                    "id": "update_user",
+                    "label": "Update User"
                 },
                 {
-                    "label": "Update Users Bulk",
-                    "id": "update_users_bulk"
+                    "id": "update_users_bulk",
+                    "label": "Update Users Bulk"
                 },
                 {
-                    "label": "Delete User",
-                    "id": "delete_user"
+                    "id": "delete_user",
+                    "label": "Delete User"
                 },
                 {
-                    "label": "Get Organizations",
-                    "id": "get_organizations"
+                    "id": "get_organizations",
+                    "label": "Get Organizations"
                 },
                 {
-                    "label": "Get Organization",
-                    "id": "get_organization"
+                    "id": "get_organization",
+                    "label": "Get Organization"
                 },
                 {
-                    "label": "Autocomplete Organizations",
-                    "id": "autocomplete_organizations"
+                    "id": "autocomplete_organizations",
+                    "label": "Autocomplete Organizations"
                 },
                 {
-                    "label": "Create Organization",
-                    "id": "create_organization"
+                    "id": "create_organization",
+                    "label": "Create Organization"
                 },
                 {
-                    "label": "Create Organizations Bulk",
-                    "id": "create_organizations_bulk"
+                    "id": "create_organizations_bulk",
+                    "label": "Create Organizations Bulk"
                 },
                 {
-                    "label": "Update Organization",
-                    "id": "update_organization"
+                    "id": "update_organization",
+                    "label": "Update Organization"
                 },
                 {
-                    "label": "Delete Organization",
-                    "id": "delete_organization"
+                    "id": "delete_organization",
+                    "label": "Delete Organization"
                 },
                 {
-                    "label": "Search",
-                    "id": "search"
+                    "id": "search",
+                    "label": "Search"
                 },
                 {
-                    "label": "Search Count",
-                    "id": "search_count"
+                    "id": "search_count",
+                    "label": "Search Count"
                 }
-            ],
-            "defaultValue": "search_count"
+            ]
         },
         {
             "id": "email",
@@ -5057,7 +5060,8 @@ Unified search across tickets, users, and organizations in Zendesk
             "id": "query",
             "type": "short-input",
             "title": "Query",
-            "placeholder": "Search query"
+            "placeholder": "Search query",
+            "required": true
         }
     ]}
   />
@@ -5073,7 +5077,6 @@ Count the number of search results matching a query in Zendesk
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `email` | string | Yes | Your Zendesk email address |
-| `apiToken` | string | Yes | Zendesk API token |
 | `subdomain` | string | Yes | Your Zendesk subdomain |
 | `query` | string | Yes | Search query string |
 
@@ -5082,6 +5085,7 @@ Count the number of search results matching a query in Zendesk
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `count` | number | Number of matching results |
+| `metadata` | object | Operation metadata |
 
 </div>
 

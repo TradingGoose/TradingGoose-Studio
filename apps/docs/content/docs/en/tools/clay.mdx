@@ -37,6 +37,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Data (JSON or Plain Text)",
             "layout": "full",
             "placeholder": "Enter your JSON data to populate your Clay table",
+            "description": "JSON vs. Plain Text:\nJSON: Best for populating multiple columns.\nPlain Text: Best for populating a table in free-form style.\n      ",
             "required": true
         },
         {
@@ -46,7 +47,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "placeholder": "Enter your Clay webhook auth token",
             "description": "Optional: If your Clay table has webhook authentication enabled, enter the auth token here. This will be sent in the x-clay-webhook-auth header.",
-            "password": true
+            "password": true,
+            "required": false
         }
     ]}
   />
@@ -71,10 +73,7 @@ Populate Clay with data from a JSON file. Enables direct communication and notif
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `data` | json | Response data from Clay webhook |
-| `status` | number | HTTP status code |
-| `statusText` | string | HTTP status text |
-| `headers` | object | Response headers from Clay |
-| `timestamp` | string | ISO timestamp when webhook was received |
+| `metadata` | object | Webhook response metadata |
 
 
 ## Usage Instructions

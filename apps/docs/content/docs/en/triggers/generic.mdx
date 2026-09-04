@@ -18,9 +18,13 @@ import { Callout } from 'fumadocs-ui/components/callout'
 Receive webhooks from any service or API
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
+
+## Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Copy the webhook URL and use it in your external service or API.</div><div class="mb-3"><strong>2.</strong> Configure your service to send webhooks to this URL.</div><div class="mb-3"><strong>3.</strong> The webhook will receive any HTTP method (GET, POST, PUT, DELETE, etc.).</div><div class="mb-3"><strong>4.</strong> All request data (headers, body, query parameters) will be available in your workflow.</div><div class="mb-3"><strong>5.</strong> If authentication is enabled, include the token in requests using either the custom header or "Authorization: Bearer TOKEN".</div><div class="mb-3"><strong>6.</strong> Common fields like "event", "id", and "data" will be automatically extracted from the payload when available.</div>
 
 ## Configuration
 
@@ -34,7 +38,8 @@ Receive webhooks from any service or API
             "id": "requireAuth",
             "type": "switch",
             "title": "Require Authentication",
-            "description": "Require authentication for all webhook requests"
+            "description": "Require authentication for all webhook requests",
+            "defaultValue": false
         },
         {
             "id": "token",
@@ -42,14 +47,16 @@ Receive webhooks from any service or API
             "title": "Authentication Token",
             "placeholder": "Enter an auth token",
             "description": "Token used to authenticate webhook requests via Bearer token or custom header",
-            "password": true
+            "password": true,
+            "required": false
         },
         {
             "id": "secretHeaderName",
             "type": "short-input",
             "title": "Secret Header Name (Optional)",
             "placeholder": "X-Secret-Key",
-            "description": "Custom HTTP header name for the auth token. If blank, uses \"Authorization: Bearer TOKEN\""
+            "description": "Custom HTTP header name for the auth token. If blank, uses \"Authorization: Bearer TOKEN\"",
+            "required": false
         },
         {
             "id": "inputFormat",
@@ -61,8 +68,6 @@ Receive webhooks from any service or API
   />
 </ShowcaseCard>
 
-#### Output Schema
+## Output Schema
 
-The trigger passes the full event payload to your workflow. Access fields using `<trigger.fieldName>` syntax.
-
-
+This trigger does not declare additional output fields.

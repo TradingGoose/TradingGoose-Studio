@@ -30,29 +30,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "generate",
             "options": [
                 {
-                    "label": "Generate Embeddings",
-                    "id": "generate"
+                    "id": "generate",
+                    "label": "Generate Embeddings"
                 },
                 {
-                    "label": "Upsert Text",
-                    "id": "upsert_text"
+                    "id": "upsert_text",
+                    "label": "Upsert Text"
                 },
                 {
-                    "label": "Search With Text",
-                    "id": "search_text"
+                    "id": "search_text",
+                    "label": "Search With Text"
                 },
                 {
-                    "label": "Search With Vector",
-                    "id": "search_vector"
+                    "id": "search_vector",
+                    "label": "Search With Vector"
                 },
                 {
-                    "label": "Fetch Vectors",
-                    "id": "fetch"
+                    "id": "fetch",
+                    "label": "Fetch Vectors"
                 }
-            ],
-            "defaultValue": "generate"
+            ]
         },
         {
             "id": "apiKey",
@@ -68,18 +68,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Model",
             "layout": "full",
+            "defaultValue": "multilingual-e5-large",
             "options": [
                 {
-                    "label": "multilingual-e5-large",
-                    "id": "multilingual-e5-large"
+                    "id": "multilingual-e5-large",
+                    "label": "multilingual-e5-large"
                 },
                 {
-                    "label": "llama-text-embed-v2",
-                    "id": "llama-text-embed-v2"
+                    "id": "llama-text-embed-v2",
+                    "label": "llama-text-embed-v2"
                 },
                 {
-                    "label": "pinecone-sparse-english-v0",
-                    "id": "pinecone-sparse-english-v0"
+                    "id": "pinecone-sparse-english-v0",
+                    "label": "pinecone-sparse-english-v0"
                 }
             ]
         },
@@ -96,16 +97,26 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Generate Embeddings (<code>pinecone_generate_embeddings</code>)</div>
+
+Generate embeddings from text using Pinecone's hosted models
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `model` | string | Yes | Model to use for generating embeddings |
+| `inputs` | array | Yes | Array of text inputs to generate embeddings for |
+| `apiKey` | string | Yes | Pinecone API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `matches` | json | Search matches |
-| `upsertedCount` | number | Upserted count |
-| `data` | json | Response data |
-| `model` | string | Model information |
-| `vector_type` | string | Vector type |
-| `usage` | json | Usage statistics |
+| `data` | array | Generated embeddings data with values and vector type |
+| `model` | string | Model used for generating embeddings |
+| `vector_type` | string | Type of vector generated \(dense/sparse\) |
+| `usage` | object | Usage statistics for embeddings generation |
 
 </div>
 
@@ -127,29 +138,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "upsert_text",
             "options": [
                 {
-                    "label": "Generate Embeddings",
-                    "id": "generate"
+                    "id": "generate",
+                    "label": "Generate Embeddings"
                 },
                 {
-                    "label": "Upsert Text",
-                    "id": "upsert_text"
+                    "id": "upsert_text",
+                    "label": "Upsert Text"
                 },
                 {
-                    "label": "Search With Text",
-                    "id": "search_text"
+                    "id": "search_text",
+                    "label": "Search With Text"
                 },
                 {
-                    "label": "Search With Vector",
-                    "id": "search_vector"
+                    "id": "search_vector",
+                    "label": "Search With Vector"
                 },
                 {
-                    "label": "Fetch Vectors",
-                    "id": "fetch"
+                    "id": "fetch",
+                    "label": "Fetch Vectors"
                 }
-            ],
-            "defaultValue": "upsert_text"
+            ]
         },
         {
             "id": "apiKey",
@@ -181,7 +192,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "long-input",
             "title": "Records",
             "layout": "full",
-            "placeholder": "{\"_id\": \"rec1\", \"text\": \"Apple\"}",
+            "placeholder": "{\"_id\": \"rec1\", \"text\": \"Apple's first product, the Apple I, was released in 1976.\", \"category\": \"product\"}\n{\"_id\": \"rec2\", \"chunk_text\": \"Apples are a great source of dietary fiber.\", \"category\": \"nutrition\"}",
             "required": true
         }
     ]}
@@ -189,16 +200,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Upsert Text (<code>pinecone_upsert_text</code>)</div>
+
+Insert or update text records in a Pinecone index
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `indexHost` | string | Yes | Full Pinecone index host URL |
+| `namespace` | string | Yes | Namespace to upsert records into |
+| `records` | array | Yes | Record or array of records to upsert, each containing _id, text, and optional metadata |
+| `apiKey` | string | Yes | Pinecone API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `matches` | json | Search matches |
-| `upsertedCount` | number | Upserted count |
-| `data` | json | Response data |
-| `model` | string | Model information |
-| `vector_type` | string | Vector type |
-| `usage` | json | Usage statistics |
+| `statusText` | string | Status of the upsert operation |
+| `upsertedCount` | number | Number of records successfully upserted |
 
 </div>
 
@@ -220,29 +240,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "search_text",
             "options": [
                 {
-                    "label": "Generate Embeddings",
-                    "id": "generate"
+                    "id": "generate",
+                    "label": "Generate Embeddings"
                 },
                 {
-                    "label": "Upsert Text",
-                    "id": "upsert_text"
+                    "id": "upsert_text",
+                    "label": "Upsert Text"
                 },
                 {
-                    "label": "Search With Text",
-                    "id": "search_text"
+                    "id": "search_text",
+                    "label": "Search With Text"
                 },
                 {
-                    "label": "Search With Vector",
-                    "id": "search_vector"
+                    "id": "search_vector",
+                    "label": "Search With Vector"
                 },
                 {
-                    "label": "Fetch Vectors",
-                    "id": "fetch"
+                    "id": "fetch",
+                    "label": "Fetch Vectors"
                 }
-            ],
-            "defaultValue": "search_text"
+            ]
         },
         {
             "id": "apiKey",
@@ -310,16 +330,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Search With Text (<code>pinecone_search_text</code>)</div>
+
+Search for similar text in a Pinecone index
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `indexHost` | string | Yes | Full Pinecone index host URL |
+| `namespace` | string | No | Namespace to search in |
+| `searchQuery` | string | Yes | Text to search for |
+| `topK` | string | No | Number of results to return |
+| `fields` | array | No | Fields to return in the results |
+| `filter` | object | No | Filter to apply to the search |
+| `rerank` | object | No | Reranking parameters |
+| `apiKey` | string | Yes | Pinecone API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `matches` | json | Search matches |
-| `upsertedCount` | number | Upserted count |
-| `data` | json | Response data |
-| `model` | string | Model information |
-| `vector_type` | string | Vector type |
-| `usage` | json | Usage statistics |
+| `matches` | array | Search results with ID, score, and metadata |
+| `usage` | object | Usage statistics including tokens, read units, and rerank units |
 
 </div>
 
@@ -341,29 +374,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "search_vector",
             "options": [
                 {
-                    "label": "Generate Embeddings",
-                    "id": "generate"
+                    "id": "generate",
+                    "label": "Generate Embeddings"
                 },
                 {
-                    "label": "Upsert Text",
-                    "id": "upsert_text"
+                    "id": "upsert_text",
+                    "label": "Upsert Text"
                 },
                 {
-                    "label": "Search With Text",
-                    "id": "search_text"
+                    "id": "search_text",
+                    "label": "Search With Text"
                 },
                 {
-                    "label": "Search With Vector",
-                    "id": "search_vector"
+                    "id": "search_vector",
+                    "label": "Search With Vector"
                 },
                 {
-                    "label": "Fetch Vectors",
-                    "id": "fetch"
+                    "id": "fetch",
+                    "label": "Fetch Vectors"
                 }
-            ],
-            "defaultValue": "search_vector"
+            ]
         },
         {
             "id": "apiKey",
@@ -412,12 +445,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "Include Values",
-                    "id": "includeValues"
+                    "id": "includeValues",
+                    "label": "Include Values"
                 },
                 {
-                    "label": "Include Metadata",
-                    "id": "includeMetadata"
+                    "id": "includeMetadata",
+                    "label": "Include Metadata"
                 }
             ]
         }
@@ -426,16 +459,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Search With Vector (<code>pinecone_search_vector</code>)</div>
+
+Search for similar vectors in a Pinecone index
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `indexHost` | string | Yes | Full Pinecone index host URL |
+| `namespace` | string | No | Namespace to search in |
+| `vector` | array | Yes | Vector to search for |
+| `topK` | number | No | Number of results to return |
+| `filter` | object | No | Filter to apply to the search |
+| `includeValues` | boolean | No | Include vector values in response |
+| `includeMetadata` | boolean | No | Include metadata in response |
+| `apiKey` | string | Yes | Pinecone API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `matches` | json | Search matches |
-| `upsertedCount` | number | Upserted count |
-| `data` | json | Response data |
-| `model` | string | Model information |
-| `vector_type` | string | Vector type |
-| `usage` | json | Usage statistics |
+| `matches` | array | Vector search results with ID, score, values, and metadata |
+| `namespace` | string | Namespace where the search was performed |
 
 </div>
 
@@ -457,29 +503,29 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "fetch",
             "options": [
                 {
-                    "label": "Generate Embeddings",
-                    "id": "generate"
+                    "id": "generate",
+                    "label": "Generate Embeddings"
                 },
                 {
-                    "label": "Upsert Text",
-                    "id": "upsert_text"
+                    "id": "upsert_text",
+                    "label": "Upsert Text"
                 },
                 {
-                    "label": "Search With Text",
-                    "id": "search_text"
+                    "id": "search_text",
+                    "label": "Search With Text"
                 },
                 {
-                    "label": "Search With Vector",
-                    "id": "search_vector"
+                    "id": "search_vector",
+                    "label": "Search With Vector"
                 },
                 {
-                    "label": "Fetch Vectors",
-                    "id": "fetch"
+                    "id": "fetch",
+                    "label": "Fetch Vectors"
                 }
-            ],
-            "defaultValue": "fetch"
+            ]
         },
         {
             "id": "apiKey",
@@ -519,16 +565,26 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Fetch Vectors (<code>pinecone_fetch</code>)</div>
+
+Fetch vectors by ID from a Pinecone index
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `indexHost` | string | Yes | Full Pinecone index host URL |
+| `ids` | array | Yes | Array of vector IDs to fetch |
+| `namespace` | string | No | Namespace to fetch vectors from |
+| `apiKey` | string | Yes | Pinecone API key |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `matches` | json | Search matches |
-| `upsertedCount` | number | Upserted count |
-| `data` | json | Response data |
-| `model` | string | Model information |
-| `vector_type` | string | Vector type |
-| `usage` | json | Usage statistics |
+| `matches` | array | Fetched vectors with ID, values, metadata, and score |
+| `data` | array | Vector data with values and vector type |
+| `usage` | object | Usage statistics including total read units |
 
 </div>
 

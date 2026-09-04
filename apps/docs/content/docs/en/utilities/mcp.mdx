@@ -1,13 +1,64 @@
 ---
 title: MCP (Model Context Protocol)
-description: Connect external tools and services to your agents using the Model Context Protocol standard.
+description: Connect TradingGoose to external tools, services, and coding agents with the Model Context Protocol.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Steps, Step } from 'fumadocs-ui/components/steps'
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-The [Model Context Protocol](https://modelcontextprotocol.com/) (MCP) is an open standard that lets AI agents securely connect to external tools and data sources. TradingGoose implements an MCP client that speaks JSON-RPC 2.0 and supports protocol version negotiation across multiple spec revisions (`2025-06-18`, `2025-03-26`, `2024-11-05`).
+The [Model Context Protocol](https://modelcontextprotocol.com/) (MCP) is an open standard that lets AI agents connect to tools and data sources. TradingGoose supports MCP in both directions:
+
+- **MCP server** -- Use TradingGoose's server-side Copilot tools from a trusted coding agent.
+- **MCP client** -- Connect Agent blocks in Studio to tools exposed by an external MCP server.
+
+## Use TradingGoose from a coding agent
+
+TradingGoose exposes its server-side Copilot tools through a Streamable HTTP MCP endpoint at `<studio-url>/api/copilot/mcp`. The endpoint accepts `POST` requests and requires a personal TradingGoose API key as a Bearer token.
+
+### Automatic setup
+
+The setup command signs you in through a browser approval link, saves the resulting personal credential locally, and writes the MCP configuration for the clients you select. Node.js 18 or newer is required.
+
+On macOS or Linux:
+
+```bash
+curl -fsSL https://tradinggoose.ai/mcp/setup | sh
+```
+
+On Windows PowerShell:
+
+```powershell
+irm https://tradinggoose.ai/mcp/setup | iex
+```
+
+The interactive installer supports Claude Code, Cursor, OpenCode, Codex, Antigravity, and Gemini CLI. To configure one target without the picker, append its target name; for example:
+
+```bash
+curl -fsSL https://tradinggoose.ai/mcp/setup/codex | sh
+```
+
+Use `/mcp/setup/all` to configure every supported client. For a self-hosted deployment, replace `https://tradinggoose.ai` with the deployment's public origin.
+
+### Manual client configuration
+
+If your client is not supported by the automatic installer, run the login command:
+
+```bash
+curl -fsSL https://tradinggoose.ai/mcp/login | sh
+```
+
+The command authenticates when needed, then prints the MCP endpoint and `Authorization: Bearer <token>` header for your client configuration. The endpoint accepts personal keys only; workspace IDs and entity IDs belong in individual tool calls, not in the MCP connection configuration.
+
+After connecting, use `tools/list` as the source of truth for tool names and input schemas. The server instructions identify the workspaces available to the authenticated user. Workspace-scoped operations require a `workspaceId`, and credential or environment operations require an explicit personal or workspace scope.
+
+<Callout type="warn">
+  External MCP tools run with full access for the authenticated user, and mutation tools apply changes directly without a Studio approval prompt. Configure only trusted clients, protect the personal token, and revoke it if it is exposed.
+</Callout>
+
+## Connect Studio to an MCP server
+
+TradingGoose's MCP client speaks JSON-RPC 2.0 and supports protocol version negotiation across multiple spec revisions (`2025-06-18`, `2025-03-26`, `2024-11-05`).
 
 ## Supported Transports
 
@@ -17,7 +68,7 @@ Every MCP server you register uses one of three HTTP-based transport modes:
 |-----------|-------------|
 | **HTTP** | Standard HTTP POST with JSON responses. Suitable for simple request/response tools. |
 | **SSE** | Server-Sent Events. The server may reply with `text/event-stream` for streamed results. |
-| **Streamable HTTP** | The latest MCP transport (spec 2025-03-26). Supports session management via `Mcp-Session-Id` headers and content-type negotiation between JSON and SSE. |
+| **Streamable HTTP** | Transport introduced in spec 2025-03-26 and supported in 2025-06-18. Supports session management via `Mcp-Session-Id` headers and content-type negotiation between JSON and SSE. |
 
 All three transports are handled by the same underlying client -- the transport field controls how the connection is labeled, but the client will negotiate the response format automatically based on the server's `Content-Type` header.
 
@@ -27,7 +78,7 @@ All three transports are handled by the same underlying client -- the transport 
 <Step>
 ### Open the MCP Editor widget
 
-Add the **MCP Editor** widget to your dashboard, or navigate to **Workspace Settings > MCP Servers**. See the [MCP Editor widget docs](/widgets/editor-mcp) for details on the widget interface.
+Add the **MCP Servers** list and **MCP Editor** widgets to your dashboard. Create a server from the list, then select it in the editor. See the [MCP Editor widget docs](/widgets/editor-mcp) for details on the editor interface.
 </Step>
 <Step>
 ### Provide the server configuration
@@ -39,7 +90,7 @@ Each server requires:
 - **URL** -- The server endpoint (e.g. `https://mcp.example.com/v1`).
 - **Headers** (optional) -- Custom headers such as `Authorization`. Supports environment variable interpolation (see below).
 - **Timeout** (optional) -- Request timeout in milliseconds. Defaults to 30 000 ms.
-- **Retries** (optional) -- Number of retry attempts. Defaults to 3.
+- **Retries** (optional) -- Saved with the server. The current URL transport runtime does not apply this setting.
 </Step>
 <Step>
 ### Save and test
@@ -56,7 +107,7 @@ You can reference workspace or personal environment variables in the server URL 
 Authorization: Bearer {{MY_API_KEY}}
 ```
 
-At runtime the service resolves these placeholders against your effective decrypted environment. If a referenced variable is missing, the request fails with a descriptive error listing the unresolved variable names.
+At runtime the service tries to resolve these placeholders against your effective decrypted environment. If a referenced variable is missing, Studio logs the resolution error and leaves the unresolved placeholder in the URL or header. The downstream server may then reject the request or receive the literal placeholder.
 
 <Callout type="warn">
 Never hard-code secrets directly in server configurations. Always store sensitive values as environment variables and reference them with the `{{VAR_NAME}}` syntax.
@@ -70,7 +121,7 @@ When you connect to a server, the client sends a `tools/list` JSON-RPC request. 
 - **description** -- What the tool does.
 - **inputSchema** -- A JSON Schema describing the expected arguments.
 
-Discovered tools are cached per workspace with an LRU eviction policy (max 1000 entries). The cache refreshes automatically on expiry, or you can force a refresh from the MCP Editor toolbar.
+The Studio UI caches discovered tools for five minutes using the workspace and current server records as its cache key. It reloads tools after server changes and on the periodic refresh, or you can force a refresh from the MCP Editor toolbar.
 
 ## Using MCP Tools in Agent Blocks
 
@@ -89,17 +140,17 @@ During execution, the agent calls `tools/call` on the appropriate MCP server, pa
 </Step>
 </Steps>
 
-Each tool execution goes through a consent and audit framework. The client checks the server against a security policy (blocked origins, rate limits) and logs an audit trail before dispatching the call.
+Each tool call uses the authenticated user's workspace access and receives an audit identifier in the server logs before dispatch.
 
 ## Security
 
-The MCP client enforces several security measures by default:
+The MCP client applies these safeguards:
 
-- **Consent gating** -- Every tool execution is checked against the active security policy before dispatch.
-- **Origin allowlisting** -- The server URL origin is automatically added to the allowed origins list.
-- **Rate limiting** -- Configurable cap on tool executions per hour (default: 1000).
-- **Audit logging** -- Each consent decision is tagged with a unique audit ID for traceability.
-- **Blocked origins** -- Servers on the blocked list are rejected immediately.
+- **Workspace authorization** -- Server management and tool operations require access to the target workspace.
+- **URL validation during connection tests** -- Studio accepts HTTP or HTTPS and rejects known local/private destinations and blocked service ports.
+- **Secret interpolation** -- Credentials can remain in personal or workspace environment variables instead of the saved server definition.
+- **Request boundaries** -- Server requests use the configured timeout, and Studio applies an overall timeout to tool execution.
+- **Audit correlation** -- Tool calls receive an audit identifier in server logs.
 
 ## Troubleshooting
 
@@ -110,8 +161,8 @@ Verify the URL is correct and the server is running. The client tries both with 
 <Card title="Tools not appearing">
 Confirm the server is **enabled** and not soft-deleted. Use the **Refresh tools** button in the MCP Editor to force a cache clear and re-discovery.
 </Card>
-<Card title="Missing environment variable errors">
-The error message lists exactly which variables are unresolved. Add them in your workspace or personal environment settings, then retry.
+<Card title="Unresolved environment variables">
+Studio leaves a missing `{{VAR_NAME}}` placeholder unchanged instead of rejecting the configuration itself. Add the variable in your workspace or personal environment settings, then retry the connection or tool call.
 </Card>
 <Card title="Timeout errors">
 Increase the server timeout value in the MCP Editor. The default is 30 seconds. Slow servers or large tool responses may need more time.

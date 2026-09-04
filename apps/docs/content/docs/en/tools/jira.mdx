@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="jira"
-  color=""
+  color="#2684FF"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Jira"
     type="jira"
-    color=""
+    color="#2684FF"
     hideHeader
     subBlocks={[
         {
@@ -30,21 +30,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read",
             "options": [
                 {
-                    "label": "Read Issue",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "Write Issue",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write Issue"
                 }
-            ],
-            "defaultValue": "read"
+            ]
         },
         {
             "id": "domain",
@@ -98,18 +98,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Read Issue (<code>jira_retrieve</code>)</div>
+
+Retrieve detailed information about a specific Jira issue
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Yes | Your Jira domain \(e.g., yourcompany.atlassian.net\) |
+| `projectId` | string | No | Jira project ID \(optional; not required to retrieve a single issue\). |
+| `issueKey` | string | Yes | Jira issue key to retrieve \(e.g., PROJ-123\) |
+| `cloudId` | string | No | Jira Cloud ID for the instance. If not provided, it will be fetched using the domain. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `ts` | string | Timestamp of the operation |
-| `issueKey` | string | Issue key \(e.g., PROJ-123\) |
-| `summary` | string | Issue summary/title |
-| `description` | string | Issue description content |
-| `created` | string | Issue creation date |
-| `updated` | string | Issue last update date |
-| `success` | boolean | Whether the update operation was successful |
-| `url` | string | URL to the created/accessed issue |
+| `success` | boolean | Operation success status |
+| `output` | object | Jira issue details with issue key, summary, description, created and updated timestamps |
 
 </div>
 
@@ -123,7 +130,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Jira"
     type="jira"
-    color=""
+    color="#2684FF"
     hideHeader
     subBlocks={[
         {
@@ -131,21 +138,21 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "update",
             "options": [
                 {
-                    "label": "Read Issue",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "Write Issue",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write Issue"
                 }
-            ],
-            "defaultValue": "update"
+            ]
         },
         {
             "id": "domain",
@@ -238,6 +245,7 @@ Update a Jira issue
 | --------- | ---- | ----------- |
 | `ts` | string | Timestamp of the operation |
 | `issueKey` | string | Updated issue key \(e.g., PROJ-123\) |
+| `summary` | string | Issue summary after update |
 
 </div>
 
@@ -251,7 +259,7 @@ Update a Jira issue
   <BlockConfigPreview
     name="Jira"
     type="jira"
-    color=""
+    color="#2684FF"
     hideHeader
     subBlocks={[
         {
@@ -259,21 +267,21 @@ Update a Jira issue
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "write",
             "options": [
                 {
-                    "label": "Read Issue",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "Write Issue",
-                    "id": "write"
+                    "id": "write",
+                    "label": "Write Issue"
                 }
-            ],
-            "defaultValue": "write"
+            ]
         },
         {
             "id": "domain",
@@ -341,8 +349,6 @@ Write a Jira issue
 | `description` | string | No | Description for the issue |
 | `priority` | string | No | Priority ID or name for the issue \(e.g., "10000" or "High"\) |
 | `assignee` | string | No | Assignee account ID for the issue |
-| `cloudId` | string | No | Jira Cloud ID for the instance. If not provided, it will be fetched using the domain. |
-| `issueType` | string | Yes | Type of issue to create \(e.g., Task, Story\) |
 | `labels` | array | No | Labels for the issue \(array of label names\) |
 | `duedate` | string | No | Due date for the issue \(format: YYYY-MM-DD\) |
 | `reporter` | string | No | Reporter account ID for the issue |
@@ -358,6 +364,7 @@ Write a Jira issue
 | `issueKey` | string | Created issue key \(e.g., PROJ-123\) |
 | `summary` | string | Issue summary |
 | `url` | string | URL to the created issue |
+| `assigneeId` | string | Account ID of the assigned user \(if assigned\) |
 
 </div>
 

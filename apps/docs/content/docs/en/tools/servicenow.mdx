@@ -29,25 +29,25 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "servicenow_create_record",
             "options": [
                 {
-                    "label": "Create Record",
-                    "id": "servicenow_create_record"
+                    "id": "servicenow_create_record",
+                    "label": "Create Record"
                 },
                 {
-                    "label": "Read Records",
-                    "id": "servicenow_read_record"
+                    "id": "servicenow_read_record",
+                    "label": "Read Records"
                 },
                 {
-                    "label": "Update Record",
-                    "id": "servicenow_update_record"
+                    "id": "servicenow_update_record",
+                    "label": "Update Record"
                 },
                 {
-                    "label": "Delete Record",
-                    "id": "servicenow_delete_record"
+                    "id": "servicenow_delete_record",
+                    "label": "Delete Record"
                 }
-            ],
-            "defaultValue": "servicenow_create_record"
+            ]
         },
         {
             "id": "instanceUrl",
@@ -86,7 +86,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "fields",
             "type": "code",
             "title": "Fields (JSON)",
-            "placeholder": "{\\n  \"short_description\": \"Issue description\",\\n  \"priority\": \"1\"\\n}",
+            "placeholder": "{\n  \"short_description\": \"Issue description\",\n  \"priority\": \"1\"\n}",
             "language": "json",
             "required": true
         }
@@ -114,6 +114,7 @@ Create a new record in a ServiceNow table
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `record` | json | Created ServiceNow record with sys_id and other fields |
+| `metadata` | json | Operation metadata |
 
 </div>
 
@@ -134,25 +135,25 @@ Create a new record in a ServiceNow table
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "servicenow_read_record",
             "options": [
                 {
-                    "label": "Create Record",
-                    "id": "servicenow_create_record"
+                    "id": "servicenow_create_record",
+                    "label": "Create Record"
                 },
                 {
-                    "label": "Read Records",
-                    "id": "servicenow_read_record"
+                    "id": "servicenow_read_record",
+                    "label": "Read Records"
                 },
                 {
-                    "label": "Update Record",
-                    "id": "servicenow_update_record"
+                    "id": "servicenow_update_record",
+                    "label": "Update Record"
                 },
                 {
-                    "label": "Delete Record",
-                    "id": "servicenow_delete_record"
+                    "id": "servicenow_delete_record",
+                    "label": "Delete Record"
                 }
-            ],
-            "defaultValue": "servicenow_read_record"
+            ]
         },
         {
             "id": "instanceUrl",
@@ -247,6 +248,7 @@ Read records from a ServiceNow table
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `records` | array | Array of ServiceNow records |
+| `metadata` | json | Operation metadata |
 
 </div>
 
@@ -267,25 +269,25 @@ Read records from a ServiceNow table
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "servicenow_update_record",
             "options": [
                 {
-                    "label": "Create Record",
-                    "id": "servicenow_create_record"
+                    "id": "servicenow_create_record",
+                    "label": "Create Record"
                 },
                 {
-                    "label": "Read Records",
-                    "id": "servicenow_read_record"
+                    "id": "servicenow_read_record",
+                    "label": "Read Records"
                 },
                 {
-                    "label": "Update Record",
-                    "id": "servicenow_update_record"
+                    "id": "servicenow_update_record",
+                    "label": "Update Record"
                 },
                 {
-                    "label": "Delete Record",
-                    "id": "servicenow_delete_record"
+                    "id": "servicenow_delete_record",
+                    "label": "Delete Record"
                 }
-            ],
-            "defaultValue": "servicenow_update_record"
+            ]
         },
         {
             "id": "instanceUrl",
@@ -331,7 +333,7 @@ Read records from a ServiceNow table
             "id": "fields",
             "type": "code",
             "title": "Fields to Update (JSON)",
-            "placeholder": "{\\n  \"state\": \"2\",\\n  \"assigned_to\": \"user.sys_id\"\\n}",
+            "placeholder": "{\n  \"state\": \"2\",\n  \"assigned_to\": \"user.sys_id\"\n}",
             "language": "json",
             "required": true
         }
@@ -360,6 +362,7 @@ Update an existing record in a ServiceNow table
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `record` | json | Updated ServiceNow record |
+| `metadata` | json | Operation metadata |
 
 </div>
 
@@ -380,25 +383,25 @@ Update an existing record in a ServiceNow table
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "servicenow_delete_record",
             "options": [
                 {
-                    "label": "Create Record",
-                    "id": "servicenow_create_record"
+                    "id": "servicenow_create_record",
+                    "label": "Create Record"
                 },
                 {
-                    "label": "Read Records",
-                    "id": "servicenow_read_record"
+                    "id": "servicenow_read_record",
+                    "label": "Read Records"
                 },
                 {
-                    "label": "Update Record",
-                    "id": "servicenow_update_record"
+                    "id": "servicenow_update_record",
+                    "label": "Update Record"
                 },
                 {
-                    "label": "Delete Record",
-                    "id": "servicenow_delete_record"
+                    "id": "servicenow_delete_record",
+                    "label": "Delete Record"
                 }
-            ],
-            "defaultValue": "servicenow_delete_record"
+            ]
         },
         {
             "id": "instanceUrl",
@@ -464,6 +467,7 @@ Delete a record from a ServiceNow table
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Whether the deletion was successful |
+| `metadata` | json | Operation metadata |
 
 </div>
 

@@ -29,33 +29,33 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get",
             "options": [
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Put Item",
-                    "id": "put"
+                    "id": "put",
+                    "label": "Put Item"
                 },
                 {
-                    "label": "Query",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query"
                 },
                 {
-                    "label": "Scan",
-                    "id": "scan"
+                    "id": "scan",
+                    "label": "Scan"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "get"
+            ]
         },
         {
             "id": "region",
@@ -91,7 +91,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "key",
             "type": "code",
             "title": "Key (JSON)",
-            "placeholder": "{\\n  \"pk\": \"user#123\"\\n}",
+            "placeholder": "{\n  \"pk\": \"user#123\"\n}",
             "language": "json",
             "required": true
         },
@@ -99,14 +99,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "consistentRead",
             "type": "dropdown",
             "title": "Consistent Read",
+            "defaultValue": "false",
             "options": [
                 {
-                    "label": "Eventually Consistent",
-                    "id": "false"
+                    "id": "false",
+                    "label": "Eventually Consistent"
                 },
                 {
-                    "label": "Strongly Consistent",
-                    "id": "true"
+                    "id": "true",
+                    "label": "Strongly Consistent"
                 }
             ]
         }
@@ -135,6 +136,7 @@ Get an item from a DynamoDB table by primary key
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `item` | object | Retrieved item |
 
 </div>
 
@@ -155,33 +157,33 @@ Get an item from a DynamoDB table by primary key
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "put",
             "options": [
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Put Item",
-                    "id": "put"
+                    "id": "put",
+                    "label": "Put Item"
                 },
                 {
-                    "label": "Query",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query"
                 },
                 {
-                    "label": "Scan",
-                    "id": "scan"
+                    "id": "scan",
+                    "label": "Scan"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "put"
+            ]
         },
         {
             "id": "region",
@@ -217,7 +219,7 @@ Get an item from a DynamoDB table by primary key
             "id": "item",
             "type": "code",
             "title": "Item (JSON)",
-            "placeholder": "{\\n  \"pk\": \"user#123\",\\n  \"name\": \"John Doe\",\\n  \"email\": \"john@example.com\"\\n}",
+            "placeholder": "{\n  \"pk\": \"user#123\",\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\"\n}",
             "language": "json",
             "required": true
         }
@@ -245,6 +247,7 @@ Put an item into a DynamoDB table
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `item` | object | Created item |
 
 </div>
 
@@ -265,33 +268,33 @@ Put an item into a DynamoDB table
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "query",
             "options": [
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Put Item",
-                    "id": "put"
+                    "id": "put",
+                    "label": "Put Item"
                 },
                 {
-                    "label": "Query",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query"
                 },
                 {
-                    "label": "Scan",
-                    "id": "scan"
+                    "id": "scan",
+                    "label": "Scan"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "query"
+            ]
         },
         {
             "id": "region",
@@ -340,14 +343,14 @@ Put an item into a DynamoDB table
             "id": "expressionAttributeNames",
             "type": "code",
             "title": "Expression Attribute Names (JSON)",
-            "placeholder": "{\\n  \"#name\": \"name\"\\n}",
+            "placeholder": "{\n  \"#name\": \"name\"\n}",
             "language": "json"
         },
         {
             "id": "expressionAttributeValues",
             "type": "code",
             "title": "Expression Attribute Values (JSON)",
-            "placeholder": "{\\n  \":pk\": \"user#123\",\\n  \":name\": \"Jane\"\\n}",
+            "placeholder": "{\n  \":pk\": \"user#123\",\n  \":name\": \"Jane\"\n}",
             "language": "json"
         },
         {
@@ -392,6 +395,7 @@ Query items from a DynamoDB table using key conditions
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `items` | array | Array of items returned |
+| `count` | number | Number of items returned |
 
 </div>
 
@@ -412,33 +416,33 @@ Query items from a DynamoDB table using key conditions
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "scan",
             "options": [
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Put Item",
-                    "id": "put"
+                    "id": "put",
+                    "label": "Put Item"
                 },
                 {
-                    "label": "Query",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query"
                 },
                 {
-                    "label": "Scan",
-                    "id": "scan"
+                    "id": "scan",
+                    "label": "Scan"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "scan"
+            ]
         },
         {
             "id": "region",
@@ -486,14 +490,14 @@ Query items from a DynamoDB table using key conditions
             "id": "expressionAttributeNames",
             "type": "code",
             "title": "Expression Attribute Names (JSON)",
-            "placeholder": "{\\n  \"#name\": \"name\"\\n}",
+            "placeholder": "{\n  \"#name\": \"name\"\n}",
             "language": "json"
         },
         {
             "id": "expressionAttributeValues",
             "type": "code",
             "title": "Expression Attribute Values (JSON)",
-            "placeholder": "{\\n  \":status\": \"active\"\\n}",
+            "placeholder": "{\n  \":status\": \"active\"\n}",
             "language": "json"
         },
         {
@@ -531,6 +535,7 @@ Scan all items in a DynamoDB table
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
 | `items` | array | Array of items returned |
+| `count` | number | Number of items returned |
 
 </div>
 
@@ -551,33 +556,33 @@ Scan all items in a DynamoDB table
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update",
             "options": [
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Put Item",
-                    "id": "put"
+                    "id": "put",
+                    "label": "Put Item"
                 },
                 {
-                    "label": "Query",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query"
                 },
                 {
-                    "label": "Scan",
-                    "id": "scan"
+                    "id": "scan",
+                    "label": "Scan"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "update"
+            ]
         },
         {
             "id": "region",
@@ -613,7 +618,7 @@ Scan all items in a DynamoDB table
             "id": "key",
             "type": "code",
             "title": "Key (JSON)",
-            "placeholder": "{\\n  \"pk\": \"user#123\"\\n}",
+            "placeholder": "{\n  \"pk\": \"user#123\"\n}",
             "language": "json",
             "required": true
         },
@@ -628,14 +633,14 @@ Scan all items in a DynamoDB table
             "id": "expressionAttributeNames",
             "type": "code",
             "title": "Expression Attribute Names (JSON)",
-            "placeholder": "{\\n  \"#name\": \"name\"\\n}",
+            "placeholder": "{\n  \"#name\": \"name\"\n}",
             "language": "json"
         },
         {
             "id": "expressionAttributeValues",
             "type": "code",
             "title": "Expression Attribute Values (JSON)",
-            "placeholder": "{\\n  \":name\": \"Jane Doe\"\\n}",
+            "placeholder": "{\n  \":name\": \"Jane Doe\"\n}",
             "language": "json"
         },
         {
@@ -672,6 +677,7 @@ Update an item in a DynamoDB table
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `item` | object | Updated item |
 
 </div>
 
@@ -692,33 +698,33 @@ Update an item in a DynamoDB table
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete",
             "options": [
                 {
-                    "label": "Get Item",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Item"
                 },
                 {
-                    "label": "Put Item",
-                    "id": "put"
+                    "id": "put",
+                    "label": "Put Item"
                 },
                 {
-                    "label": "Query",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Query"
                 },
                 {
-                    "label": "Scan",
-                    "id": "scan"
+                    "id": "scan",
+                    "label": "Scan"
                 },
                 {
-                    "label": "Update Item",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Item"
                 },
                 {
-                    "label": "Delete Item",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete Item"
                 }
-            ],
-            "defaultValue": "delete"
+            ]
         },
         {
             "id": "region",
@@ -754,7 +760,7 @@ Update an item in a DynamoDB table
             "id": "key",
             "type": "code",
             "title": "Key (JSON)",
-            "placeholder": "{\\n  \"pk\": \"user#123\"\\n}",
+            "placeholder": "{\n  \"pk\": \"user#123\"\n}",
             "language": "json",
             "required": true
         },
@@ -786,7 +792,9 @@ Delete an item from a DynamoDB table
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
-Refer to the block outputs for this operation.
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Operation status message |
 
 </div>
 

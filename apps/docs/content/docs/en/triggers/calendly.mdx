@@ -1,6 +1,6 @@
 ---
 title: Calendly Trigger
-description: Trigger workflow when someone schedules a new event on Calendly
+description: Trigger workflow from any Calendly webhook event
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
@@ -15,10 +15,10 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
   color=""
 />
 
-Trigger workflow when someone schedules a new event on Calendly
+Trigger workflow from any Calendly webhook event
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
@@ -30,615 +30,13 @@ Trigger workflow when someone schedules a new event on Calendly
 
 ## Events
 
-### Calendly Invitee Created
-
-Trigger workflow when someone schedules a new event on Calendly
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Calendly Invitee Created"
-    type="calendly_invitee_created"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "selectedTriggerId",
-            "type": "dropdown",
-            "title": "Trigger Type",
-            "required": true
-        },
-        {
-            "id": "apiKey",
-            "type": "short-input",
-            "title": "Personal Access Token",
-            "placeholder": "Enter your Calendly personal access token",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "organization",
-            "type": "short-input",
-            "title": "Organization URI",
-            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
-            "description": "Organization URI for the webhook subscription. Get this from \"Get Current User\" operation.",
-            "required": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "event",
-          "type": "string",
-          "description": "Event type (invitee.created or invitee.canceled)"
-      },
-      {
-          "name": "created_at",
-          "type": "string",
-          "description": "Webhook event creation timestamp"
-      },
-      {
-          "name": "created_by",
-          "type": "string",
-          "description": "URI of the Calendly user who created this webhook"
-      },
-      {
-          "name": "payload",
-          "type": "object",
-          "description": "payload",
-          "children": [
-              {
-                  "name": "uri",
-                  "type": "string",
-                  "description": "Invitee URI"
-              },
-              {
-                  "name": "email",
-                  "type": "string",
-                  "description": "Invitee email address"
-              },
-              {
-                  "name": "name",
-                  "type": "string",
-                  "description": "Invitee full name"
-              },
-              {
-                  "name": "first_name",
-                  "type": "string",
-                  "description": "Invitee first name"
-              },
-              {
-                  "name": "last_name",
-                  "type": "string",
-                  "description": "Invitee last name"
-              },
-              {
-                  "name": "status",
-                  "type": "string",
-                  "description": "Invitee status (active or canceled)"
-              },
-              {
-                  "name": "timezone",
-                  "type": "string",
-                  "description": "Invitee timezone"
-              },
-              {
-                  "name": "event",
-                  "type": "string",
-                  "description": "Scheduled event URI"
-              },
-              {
-                  "name": "questions_and_answers",
-                  "type": "array",
-                  "description": "Questions and answers from the booking form"
-              },
-              {
-                  "name": "tracking",
-                  "type": "object",
-                  "description": "tracking",
-                  "children": [
-                      {
-                          "name": "utm_campaign",
-                          "type": "string",
-                          "description": "UTM campaign parameter"
-                      },
-                      {
-                          "name": "utm_source",
-                          "type": "string",
-                          "description": "UTM source parameter"
-                      },
-                      {
-                          "name": "utm_medium",
-                          "type": "string",
-                          "description": "UTM medium parameter"
-                      },
-                      {
-                          "name": "utm_content",
-                          "type": "string",
-                          "description": "UTM content parameter"
-                      },
-                      {
-                          "name": "utm_term",
-                          "type": "string",
-                          "description": "UTM term parameter"
-                      },
-                      {
-                          "name": "salesforce_uuid",
-                          "type": "string",
-                          "description": "Salesforce UUID"
-                      }
-                  ]
-              },
-              {
-                  "name": "text_reminder_number",
-                  "type": "string",
-                  "description": "Phone number for text reminders"
-              },
-              {
-                  "name": "rescheduled",
-                  "type": "boolean",
-                  "description": "Whether this invitee rescheduled"
-              },
-              {
-                  "name": "old_invitee",
-                  "type": "string",
-                  "description": "URI of the old invitee (if rescheduled)"
-              },
-              {
-                  "name": "new_invitee",
-                  "type": "string",
-                  "description": "URI of the new invitee (if rescheduled)"
-              },
-              {
-                  "name": "cancel_url",
-                  "type": "string",
-                  "description": "URL to cancel the event"
-              },
-              {
-                  "name": "reschedule_url",
-                  "type": "string",
-                  "description": "URL to reschedule the event"
-              },
-              {
-                  "name": "created_at",
-                  "type": "string",
-                  "description": "Invitee creation timestamp"
-              },
-              {
-                  "name": "updated_at",
-                  "type": "string",
-                  "description": "Invitee last update timestamp"
-              },
-              {
-                  "name": "canceled",
-                  "type": "boolean",
-                  "description": "Whether the event was canceled"
-              },
-              {
-                  "name": "cancellation",
-                  "type": "object",
-                  "description": "Cancellation details",
-                  "children": [
-                      {
-                          "name": "properties",
-                          "type": "object",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "canceled_by",
-                                  "type": "string",
-                                  "description": "Who canceled the event"
-                              },
-                              {
-                                  "name": "reason",
-                                  "type": "string",
-                                  "description": "Cancellation reason"
-                              }
-                          ]
-                      }
-                  ]
-              },
-              {
-                  "name": "payment",
-                  "type": "object",
-                  "description": "Payment details",
-                  "children": [
-                      {
-                          "name": "properties",
-                          "type": "object",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "id",
-                                  "type": "string",
-                                  "description": "Payment ID"
-                              },
-                              {
-                                  "name": "provider",
-                                  "type": "string",
-                                  "description": "Payment provider"
-                              },
-                              {
-                                  "name": "amount",
-                                  "type": "number",
-                                  "description": "Payment amount"
-                              },
-                              {
-                                  "name": "currency",
-                                  "type": "string",
-                                  "description": "Payment currency"
-                              },
-                              {
-                                  "name": "terms",
-                                  "type": "string",
-                                  "description": "Payment terms"
-                              },
-                              {
-                                  "name": "successful",
-                                  "type": "boolean",
-                                  "description": "Whether payment was successful"
-                              }
-                          ]
-                      }
-                  ]
-              },
-              {
-                  "name": "no_show",
-                  "type": "object",
-                  "description": "No-show details",
-                  "children": [
-                      {
-                          "name": "properties",
-                          "type": "object",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "created_at",
-                                  "type": "string",
-                                  "description": "No-show marked timestamp"
-                              }
-                          ]
-                      }
-                  ]
-              },
-              {
-                  "name": "reconfirmation",
-                  "type": "object",
-                  "description": "Reconfirmation details",
-                  "children": [
-                      {
-                          "name": "properties",
-                          "type": "object",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "created_at",
-                                  "type": "string",
-                                  "description": "Reconfirmation timestamp"
-                              },
-                              {
-                                  "name": "confirmed_at",
-                                  "type": "string",
-                                  "description": "Confirmation timestamp"
-                              }
-                          ]
-                      }
-                  ]
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
-### Calendly Invitee Canceled
-
-Trigger workflow when someone cancels a scheduled event on Calendly
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Calendly Invitee Canceled"
-    type="calendly_invitee_canceled"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "apiKey",
-            "type": "short-input",
-            "title": "Personal Access Token",
-            "placeholder": "Enter your Calendly personal access token",
-            "required": true,
-            "password": true
-        },
-        {
-            "id": "organization",
-            "type": "short-input",
-            "title": "Organization URI",
-            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
-            "description": "Organization URI for the webhook subscription. Get this from \"Get Current User\" operation.",
-            "required": true
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-#### Output Schema
-
-<SchemaTree
-  title="Event Payload"
-  fields={[
-      {
-          "name": "event",
-          "type": "string",
-          "description": "Event type (invitee.created or invitee.canceled)"
-      },
-      {
-          "name": "created_at",
-          "type": "string",
-          "description": "Webhook event creation timestamp"
-      },
-      {
-          "name": "created_by",
-          "type": "string",
-          "description": "URI of the Calendly user who created this webhook"
-      },
-      {
-          "name": "payload",
-          "type": "object",
-          "description": "payload",
-          "children": [
-              {
-                  "name": "uri",
-                  "type": "string",
-                  "description": "Invitee URI"
-              },
-              {
-                  "name": "email",
-                  "type": "string",
-                  "description": "Invitee email address"
-              },
-              {
-                  "name": "name",
-                  "type": "string",
-                  "description": "Invitee full name"
-              },
-              {
-                  "name": "first_name",
-                  "type": "string",
-                  "description": "Invitee first name"
-              },
-              {
-                  "name": "last_name",
-                  "type": "string",
-                  "description": "Invitee last name"
-              },
-              {
-                  "name": "status",
-                  "type": "string",
-                  "description": "Invitee status (active or canceled)"
-              },
-              {
-                  "name": "timezone",
-                  "type": "string",
-                  "description": "Invitee timezone"
-              },
-              {
-                  "name": "event",
-                  "type": "string",
-                  "description": "Scheduled event URI"
-              },
-              {
-                  "name": "questions_and_answers",
-                  "type": "array",
-                  "description": "Questions and answers from the booking form"
-              },
-              {
-                  "name": "tracking",
-                  "type": "object",
-                  "description": "tracking",
-                  "children": [
-                      {
-                          "name": "utm_campaign",
-                          "type": "string",
-                          "description": "UTM campaign parameter"
-                      },
-                      {
-                          "name": "utm_source",
-                          "type": "string",
-                          "description": "UTM source parameter"
-                      },
-                      {
-                          "name": "utm_medium",
-                          "type": "string",
-                          "description": "UTM medium parameter"
-                      },
-                      {
-                          "name": "utm_content",
-                          "type": "string",
-                          "description": "UTM content parameter"
-                      },
-                      {
-                          "name": "utm_term",
-                          "type": "string",
-                          "description": "UTM term parameter"
-                      },
-                      {
-                          "name": "salesforce_uuid",
-                          "type": "string",
-                          "description": "Salesforce UUID"
-                      }
-                  ]
-              },
-              {
-                  "name": "text_reminder_number",
-                  "type": "string",
-                  "description": "Phone number for text reminders"
-              },
-              {
-                  "name": "rescheduled",
-                  "type": "boolean",
-                  "description": "Whether this invitee rescheduled"
-              },
-              {
-                  "name": "old_invitee",
-                  "type": "string",
-                  "description": "URI of the old invitee (if rescheduled)"
-              },
-              {
-                  "name": "new_invitee",
-                  "type": "string",
-                  "description": "URI of the new invitee (if rescheduled)"
-              },
-              {
-                  "name": "cancel_url",
-                  "type": "string",
-                  "description": "URL to cancel the event"
-              },
-              {
-                  "name": "reschedule_url",
-                  "type": "string",
-                  "description": "URL to reschedule the event"
-              },
-              {
-                  "name": "created_at",
-                  "type": "string",
-                  "description": "Invitee creation timestamp"
-              },
-              {
-                  "name": "updated_at",
-                  "type": "string",
-                  "description": "Invitee last update timestamp"
-              },
-              {
-                  "name": "canceled",
-                  "type": "boolean",
-                  "description": "Whether the event was canceled"
-              },
-              {
-                  "name": "cancellation",
-                  "type": "object",
-                  "description": "Cancellation details",
-                  "children": [
-                      {
-                          "name": "properties",
-                          "type": "object",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "canceled_by",
-                                  "type": "string",
-                                  "description": "Who canceled the event"
-                              },
-                              {
-                                  "name": "reason",
-                                  "type": "string",
-                                  "description": "Cancellation reason"
-                              }
-                          ]
-                      }
-                  ]
-              },
-              {
-                  "name": "payment",
-                  "type": "object",
-                  "description": "Payment details",
-                  "children": [
-                      {
-                          "name": "properties",
-                          "type": "object",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "id",
-                                  "type": "string",
-                                  "description": "Payment ID"
-                              },
-                              {
-                                  "name": "provider",
-                                  "type": "string",
-                                  "description": "Payment provider"
-                              },
-                              {
-                                  "name": "amount",
-                                  "type": "number",
-                                  "description": "Payment amount"
-                              },
-                              {
-                                  "name": "currency",
-                                  "type": "string",
-                                  "description": "Payment currency"
-                              },
-                              {
-                                  "name": "terms",
-                                  "type": "string",
-                                  "description": "Payment terms"
-                              },
-                              {
-                                  "name": "successful",
-                                  "type": "boolean",
-                                  "description": "Whether payment was successful"
-                              }
-                          ]
-                      }
-                  ]
-              },
-              {
-                  "name": "no_show",
-                  "type": "object",
-                  "description": "No-show details",
-                  "children": [
-                      {
-                          "name": "properties",
-                          "type": "object",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "created_at",
-                                  "type": "string",
-                                  "description": "No-show marked timestamp"
-                              }
-                          ]
-                      }
-                  ]
-              },
-              {
-                  "name": "reconfirmation",
-                  "type": "object",
-                  "description": "Reconfirmation details",
-                  "children": [
-                      {
-                          "name": "properties",
-                          "type": "object",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "created_at",
-                                  "type": "string",
-                                  "description": "Reconfirmation timestamp"
-                              },
-                              {
-                                  "name": "confirmed_at",
-                                  "type": "string",
-                                  "description": "Confirmation timestamp"
-                              }
-                          ]
-                      }
-                  ]
-              }
-          ]
-      }
-  ]}
-/>
-
----
-
 ### Calendly Webhook
 
 Trigger workflow from any Calendly webhook event
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> <strong>Note:</strong> This trigger requires a paid Calendly subscription (Professional, Teams, or Enterprise plan).</div><div class="mb-3"><strong>2.</strong> Get your Personal Access Token from <strong>Settings > Integrations > API & Webhooks</strong> in your Calendly account.</div><div class="mb-3"><strong>3.</strong> Use the "Get Current User" operation in a Calendly block to retrieve your Organization URI.</div><div class="mb-3"><strong>4.</strong> The webhook will be automatically created in Calendly when you save this trigger.</div><div class="mb-3"><strong>5.</strong> This webhook subscribes to all Calendly events (invitee created, invitee canceled, and routing form submitted). Use the <code>event</code> field in the payload to determine the event type.</div>
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -651,8 +49,8 @@ Trigger workflow from any Calendly webhook event
             "type": "short-input",
             "title": "Personal Access Token",
             "placeholder": "Enter your Calendly personal access token",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "organization",
@@ -696,9 +94,585 @@ Trigger workflow from any Calendly webhook event
 
 ---
 
+### Calendly Invitee Created
+
+Trigger workflow when someone schedules a new event on Calendly
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> <strong>Note:</strong> This trigger requires a paid Calendly subscription (Professional, Teams, or Enterprise plan).</div><div class="mb-3"><strong>2.</strong> Get your Personal Access Token from <strong>Settings > Integrations > API & Webhooks</strong> in your Calendly account.</div><div class="mb-3"><strong>3.</strong> Use the "Get Current User" operation in a Calendly block to retrieve your Organization URI.</div><div class="mb-3"><strong>4.</strong> The webhook will be automatically created in Calendly when you save this trigger.</div><div class="mb-3"><strong>5.</strong> This webhook triggers when an invitee schedules a new event. Rescheduling triggers both cancellation and creation events.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Invitee Created"
+    type="calendly_invitee_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Access Token",
+            "placeholder": "Enter your Calendly personal access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "Organization URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Organization URI for the webhook subscription. Get this from \"Get Current User\" operation.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Event type (invitee.created or invitee.canceled)"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Webhook event creation timestamp"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "URI of the Calendly user who created this webhook"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "uri",
+                  "type": "string",
+                  "description": "Invitee URI"
+              },
+              {
+                  "name": "email",
+                  "type": "string",
+                  "description": "Invitee email address"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Invitee full name"
+              },
+              {
+                  "name": "first_name",
+                  "type": "string",
+                  "description": "Invitee first name"
+              },
+              {
+                  "name": "last_name",
+                  "type": "string",
+                  "description": "Invitee last name"
+              },
+              {
+                  "name": "status",
+                  "type": "string",
+                  "description": "Invitee status (active or canceled)"
+              },
+              {
+                  "name": "timezone",
+                  "type": "string",
+                  "description": "Invitee timezone"
+              },
+              {
+                  "name": "event",
+                  "type": "string",
+                  "description": "Scheduled event URI"
+              },
+              {
+                  "name": "questions_and_answers",
+                  "type": "array",
+                  "description": "Questions and answers from the booking form",
+                  "children": [
+                      {
+                          "name": "question",
+                          "type": "string",
+                          "description": "Question text"
+                      },
+                      {
+                          "name": "answer",
+                          "type": "string",
+                          "description": "Answer text"
+                      }
+                  ]
+              },
+              {
+                  "name": "tracking",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "utm_campaign",
+                          "type": "string",
+                          "description": "UTM campaign parameter"
+                      },
+                      {
+                          "name": "utm_source",
+                          "type": "string",
+                          "description": "UTM source parameter"
+                      },
+                      {
+                          "name": "utm_medium",
+                          "type": "string",
+                          "description": "UTM medium parameter"
+                      },
+                      {
+                          "name": "utm_content",
+                          "type": "string",
+                          "description": "UTM content parameter"
+                      },
+                      {
+                          "name": "utm_term",
+                          "type": "string",
+                          "description": "UTM term parameter"
+                      },
+                      {
+                          "name": "salesforce_uuid",
+                          "type": "string",
+                          "description": "Salesforce UUID"
+                      }
+                  ]
+              },
+              {
+                  "name": "text_reminder_number",
+                  "type": "string",
+                  "description": "Phone number for text reminders"
+              },
+              {
+                  "name": "rescheduled",
+                  "type": "boolean",
+                  "description": "Whether this invitee rescheduled"
+              },
+              {
+                  "name": "old_invitee",
+                  "type": "string",
+                  "description": "URI of the old invitee (if rescheduled)"
+              },
+              {
+                  "name": "new_invitee",
+                  "type": "string",
+                  "description": "URI of the new invitee (if rescheduled)"
+              },
+              {
+                  "name": "cancel_url",
+                  "type": "string",
+                  "description": "URL to cancel the event"
+              },
+              {
+                  "name": "reschedule_url",
+                  "type": "string",
+                  "description": "URL to reschedule the event"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Invitee creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Invitee last update timestamp"
+              },
+              {
+                  "name": "canceled",
+                  "type": "boolean",
+                  "description": "Whether the event was canceled"
+              },
+              {
+                  "name": "cancellation",
+                  "type": "object",
+                  "description": "Cancellation details",
+                  "children": [
+                      {
+                          "name": "canceled_by",
+                          "type": "string",
+                          "description": "Who canceled the event"
+                      },
+                      {
+                          "name": "reason",
+                          "type": "string",
+                          "description": "Cancellation reason"
+                      }
+                  ]
+              },
+              {
+                  "name": "payment",
+                  "type": "object",
+                  "description": "Payment details",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "string",
+                          "description": "Payment ID"
+                      },
+                      {
+                          "name": "provider",
+                          "type": "string",
+                          "description": "Payment provider"
+                      },
+                      {
+                          "name": "amount",
+                          "type": "number",
+                          "description": "Payment amount"
+                      },
+                      {
+                          "name": "currency",
+                          "type": "string",
+                          "description": "Payment currency"
+                      },
+                      {
+                          "name": "terms",
+                          "type": "string",
+                          "description": "Payment terms"
+                      },
+                      {
+                          "name": "successful",
+                          "type": "boolean",
+                          "description": "Whether payment was successful"
+                      }
+                  ]
+              },
+              {
+                  "name": "no_show",
+                  "type": "object",
+                  "description": "No-show details",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "No-show marked timestamp"
+                      }
+                  ]
+              },
+              {
+                  "name": "reconfirmation",
+                  "type": "object",
+                  "description": "Reconfirmation details",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "Reconfirmation timestamp"
+                      },
+                      {
+                          "name": "confirmed_at",
+                          "type": "string",
+                          "description": "Confirmation timestamp"
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Calendly Invitee Canceled
+
+Trigger workflow when someone cancels a scheduled event on Calendly
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> <strong>Note:</strong> This trigger requires a paid Calendly subscription (Professional, Teams, or Enterprise plan).</div><div class="mb-3"><strong>2.</strong> Get your Personal Access Token from <strong>Settings > Integrations > API & Webhooks</strong> in your Calendly account.</div><div class="mb-3"><strong>3.</strong> Use the "Get Current User" operation in a Calendly block to retrieve your Organization URI.</div><div class="mb-3"><strong>4.</strong> The webhook will be automatically created in Calendly when you save this trigger.</div><div class="mb-3"><strong>5.</strong> This webhook triggers when an invitee cancels an event. The payload includes cancellation details and reason.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Calendly Invitee Canceled"
+    type="calendly_invitee_canceled"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Personal Access Token",
+            "placeholder": "Enter your Calendly personal access token",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "Organization URI",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "Organization URI for the webhook subscription. Get this from \"Get Current User\" operation.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Output Schema
+
+<SchemaTree
+  title="Event Payload"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Event type (invitee.created or invitee.canceled)"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Webhook event creation timestamp"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "URI of the Calendly user who created this webhook"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "uri",
+                  "type": "string",
+                  "description": "Invitee URI"
+              },
+              {
+                  "name": "email",
+                  "type": "string",
+                  "description": "Invitee email address"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Invitee full name"
+              },
+              {
+                  "name": "first_name",
+                  "type": "string",
+                  "description": "Invitee first name"
+              },
+              {
+                  "name": "last_name",
+                  "type": "string",
+                  "description": "Invitee last name"
+              },
+              {
+                  "name": "status",
+                  "type": "string",
+                  "description": "Invitee status (active or canceled)"
+              },
+              {
+                  "name": "timezone",
+                  "type": "string",
+                  "description": "Invitee timezone"
+              },
+              {
+                  "name": "event",
+                  "type": "string",
+                  "description": "Scheduled event URI"
+              },
+              {
+                  "name": "questions_and_answers",
+                  "type": "array",
+                  "description": "Questions and answers from the booking form",
+                  "children": [
+                      {
+                          "name": "question",
+                          "type": "string",
+                          "description": "Question text"
+                      },
+                      {
+                          "name": "answer",
+                          "type": "string",
+                          "description": "Answer text"
+                      }
+                  ]
+              },
+              {
+                  "name": "tracking",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "utm_campaign",
+                          "type": "string",
+                          "description": "UTM campaign parameter"
+                      },
+                      {
+                          "name": "utm_source",
+                          "type": "string",
+                          "description": "UTM source parameter"
+                      },
+                      {
+                          "name": "utm_medium",
+                          "type": "string",
+                          "description": "UTM medium parameter"
+                      },
+                      {
+                          "name": "utm_content",
+                          "type": "string",
+                          "description": "UTM content parameter"
+                      },
+                      {
+                          "name": "utm_term",
+                          "type": "string",
+                          "description": "UTM term parameter"
+                      },
+                      {
+                          "name": "salesforce_uuid",
+                          "type": "string",
+                          "description": "Salesforce UUID"
+                      }
+                  ]
+              },
+              {
+                  "name": "text_reminder_number",
+                  "type": "string",
+                  "description": "Phone number for text reminders"
+              },
+              {
+                  "name": "rescheduled",
+                  "type": "boolean",
+                  "description": "Whether this invitee rescheduled"
+              },
+              {
+                  "name": "old_invitee",
+                  "type": "string",
+                  "description": "URI of the old invitee (if rescheduled)"
+              },
+              {
+                  "name": "new_invitee",
+                  "type": "string",
+                  "description": "URI of the new invitee (if rescheduled)"
+              },
+              {
+                  "name": "cancel_url",
+                  "type": "string",
+                  "description": "URL to cancel the event"
+              },
+              {
+                  "name": "reschedule_url",
+                  "type": "string",
+                  "description": "URL to reschedule the event"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Invitee creation timestamp"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Invitee last update timestamp"
+              },
+              {
+                  "name": "canceled",
+                  "type": "boolean",
+                  "description": "Whether the event was canceled"
+              },
+              {
+                  "name": "cancellation",
+                  "type": "object",
+                  "description": "Cancellation details",
+                  "children": [
+                      {
+                          "name": "canceled_by",
+                          "type": "string",
+                          "description": "Who canceled the event"
+                      },
+                      {
+                          "name": "reason",
+                          "type": "string",
+                          "description": "Cancellation reason"
+                      }
+                  ]
+              },
+              {
+                  "name": "payment",
+                  "type": "object",
+                  "description": "Payment details",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "string",
+                          "description": "Payment ID"
+                      },
+                      {
+                          "name": "provider",
+                          "type": "string",
+                          "description": "Payment provider"
+                      },
+                      {
+                          "name": "amount",
+                          "type": "number",
+                          "description": "Payment amount"
+                      },
+                      {
+                          "name": "currency",
+                          "type": "string",
+                          "description": "Payment currency"
+                      },
+                      {
+                          "name": "terms",
+                          "type": "string",
+                          "description": "Payment terms"
+                      },
+                      {
+                          "name": "successful",
+                          "type": "boolean",
+                          "description": "Whether payment was successful"
+                      }
+                  ]
+              },
+              {
+                  "name": "no_show",
+                  "type": "object",
+                  "description": "No-show details",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "No-show marked timestamp"
+                      }
+                  ]
+              },
+              {
+                  "name": "reconfirmation",
+                  "type": "object",
+                  "description": "Reconfirmation details",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "Reconfirmation timestamp"
+                      },
+                      {
+                          "name": "confirmed_at",
+                          "type": "string",
+                          "description": "Confirmation timestamp"
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
 ### Calendly Routing Form Submitted
 
 Trigger workflow when someone submits a Calendly routing form
+
+#### Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> <strong>Note:</strong> This trigger requires a paid Calendly subscription (Professional, Teams, or Enterprise plan).</div><div class="mb-3"><strong>2.</strong> Get your Personal Access Token from <strong>Settings > Integrations > API & Webhooks</strong> in your Calendly account.</div><div class="mb-3"><strong>3.</strong> Use the "Get Current User" operation in a Calendly block to retrieve your Organization URI.</div><div class="mb-3"><strong>4.</strong> The webhook will be automatically created in Calendly when you save this trigger.</div><div class="mb-3"><strong>5.</strong> This webhook triggers when someone submits a routing form, regardless of whether they book an event.</div>
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -711,8 +685,8 @@ Trigger workflow when someone submits a Calendly routing form
             "type": "short-input",
             "title": "Personal Access Token",
             "placeholder": "Enter your Calendly personal access token",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "organization",
@@ -749,7 +723,6 @@ Trigger workflow when someone submits a Calendly routing form
       {
           "name": "payload",
           "type": "object",
-          "description": "payload",
           "children": [
               {
                   "name": "uri",
@@ -767,26 +740,19 @@ Trigger workflow when someone submits a Calendly routing form
                   "description": "Submitter details",
                   "children": [
                       {
-                          "name": "properties",
-                          "type": "object",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "uri",
-                                  "type": "string",
-                                  "description": "Submitter URI"
-                              },
-                              {
-                                  "name": "email",
-                                  "type": "string",
-                                  "description": "Submitter email address"
-                              },
-                              {
-                                  "name": "name",
-                                  "type": "string",
-                                  "description": "Submitter full name"
-                              }
-                          ]
+                          "name": "uri",
+                          "type": "string",
+                          "description": "Submitter URI"
+                      },
+                      {
+                          "name": "email",
+                          "type": "string",
+                          "description": "Submitter email address"
+                      },
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "Submitter full name"
                       }
                   ]
               },
@@ -798,12 +764,23 @@ Trigger workflow when someone submits a Calendly routing form
               {
                   "name": "questions_and_answers",
                   "type": "array",
-                  "description": "Questions and answers from the booking form"
+                  "description": "Questions and answers from the booking form",
+                  "children": [
+                      {
+                          "name": "question",
+                          "type": "string",
+                          "description": "Question text"
+                      },
+                      {
+                          "name": "answer",
+                          "type": "string",
+                          "description": "Answer text"
+                      }
+                  ]
               },
               {
                   "name": "tracking",
                   "type": "object",
-                  "description": "tracking",
                   "children": [
                       {
                           "name": "utm_campaign",
@@ -843,16 +820,14 @@ Trigger workflow when someone submits a Calendly routing form
                   "description": "Routing result details",
                   "children": [
                       {
-                          "name": "properties",
-                          "type": "[object Object]",
-                          "description": "properties",
-                          "children": [
-                              {
-                                  "name": "value",
-                                  "type": "string",
-                                  "description": "Result value (event type URI, message, or URL)"
-                              }
-                          ]
+                          "name": "type",
+                          "type": "string",
+                          "description": "Result type (event_type, custom_message, or external_url)"
+                      },
+                      {
+                          "name": "value",
+                          "type": "string",
+                          "description": "Result value (event type URI, message, or URL)"
                       }
                   ]
               },
@@ -872,5 +847,3 @@ Trigger workflow when someone submits a Calendly routing form
 />
 
 ---
-
-

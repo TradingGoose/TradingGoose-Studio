@@ -29,109 +29,109 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "people_search",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "people_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -185,8 +185,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "per_page",
             "type": "short-input",
             "title": "Results Per Page",
-            "placeholder": "25 (max: 100)",
-            "max": 100
+            "placeholder": "25 (max: 100)"
         }
     ]}
   />
@@ -195,13 +194,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Search People (<code>apollo_people_search</code>)</div>
 
-Search Apollo
+Search Apollo's database for people using demographic filters
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `person_titles` | array | No | Job titles to search for \(e.g., \["CEO", "VP of Sales"\]\) |
 | `person_locations` | array | No | Locations to search in \(e.g., \["San Francisco, CA", "New York, NY"\]\) |
 | `person_seniorities` | array | No | Seniority levels \(e.g., \["senior", "executive", "manager"\]\) |
@@ -215,6 +213,7 @@ Search Apollo
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `people` | json | Array of people matching the search criteria |
+| `metadata` | json | Pagination information including page, per_page, and total_entries |
 
 </div>
 
@@ -235,109 +234,109 @@ Search Apollo
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "people_enrich",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "people_enrich"
+            ]
         },
         {
             "id": "apiKey",
@@ -400,7 +399,6 @@ Enrich data for a single person using Apollo
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `first_name` | string | No | First name of the person |
 | `last_name` | string | No | Last name of the person |
 | `email` | string | No | Email address of the person |
@@ -415,6 +413,7 @@ Enrich data for a single person using Apollo
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `person` | json | Enriched person data from Apollo |
+| `metadata` | json | Enrichment metadata including enriched status |
 
 </div>
 
@@ -435,109 +434,109 @@ Enrich data for a single person using Apollo
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "people_bulk_enrich",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "people_bulk_enrich"
+            ]
         },
         {
             "id": "apiKey",
@@ -578,7 +577,6 @@ Enrich data for up to 10 people at once using Apollo
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `people` | array | Yes | Array of people to enrich \(max 10\) |
 | `reveal_personal_emails` | boolean | No | Reveal personal email addresses \(uses credits\) |
 | `reveal_phone_number` | boolean | No | Reveal phone numbers \(uses credits\) |
@@ -588,6 +586,7 @@ Enrich data for up to 10 people at once using Apollo
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `people` | json | Array of enriched people data |
+| `metadata` | json | Bulk enrichment metadata including total and enriched counts |
 
 </div>
 
@@ -608,109 +607,109 @@ Enrich data for up to 10 people at once using Apollo
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "organization_search",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "organization_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -757,8 +756,7 @@ Enrich data for up to 10 people at once using Apollo
             "id": "per_page",
             "type": "short-input",
             "title": "Results Per Page",
-            "placeholder": "25 (max: 100)",
-            "max": 100
+            "placeholder": "25 (max: 100)"
         }
     ]}
   />
@@ -767,13 +765,12 @@ Enrich data for up to 10 people at once using Apollo
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Search Organizations (<code>apollo_organization_search</code>)</div>
 
-Search Apollo
+Search Apollo's database for companies using filters
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `organization_locations` | array | No | Company locations to search |
 | `organization_num_employees_ranges` | array | No | Employee count ranges \(e.g., \["1-10", "11-50"\]\) |
 | `q_organization_keyword_tags` | array | No | Industry or keyword tags |
@@ -786,6 +783,7 @@ Search Apollo
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `organizations` | json | Array of organizations matching the search criteria |
+| `metadata` | json | Pagination information including page, per_page, and total_entries |
 
 </div>
 
@@ -806,109 +804,109 @@ Search Apollo
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "organization_enrich",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "organization_enrich"
+            ]
         },
         {
             "id": "apiKey",
@@ -943,7 +941,6 @@ Enrich data for a single organization using Apollo
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `organization_name` | string | No | Name of the organization \(at least one of organization_name or domain is required\) |
 | `domain` | string | No | Company domain \(e.g., apollo.io\) \(at least one of domain or organization_name is required\) |
 
@@ -952,6 +949,7 @@ Enrich data for a single organization using Apollo
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `organization` | json | Enriched organization data from Apollo |
+| `metadata` | json | Enrichment metadata including enriched status |
 
 </div>
 
@@ -972,109 +970,109 @@ Enrich data for a single organization using Apollo
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "organization_bulk_enrich",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "organization_bulk_enrich"
+            ]
         },
         {
             "id": "apiKey",
@@ -1105,7 +1103,6 @@ Enrich data for up to 10 organizations at once using Apollo
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `organizations` | array | Yes | Array of organizations to enrich \(max 10\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -1113,6 +1110,7 @@ Enrich data for up to 10 organizations at once using Apollo
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `organizations` | json | Array of enriched organization data |
+| `metadata` | json | Bulk enrichment metadata including total and enriched counts |
 
 </div>
 
@@ -1133,109 +1131,109 @@ Enrich data for up to 10 organizations at once using Apollo
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "contact_create",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "contact_create"
+            ]
         },
         {
             "id": "apiKey",
@@ -1249,13 +1247,15 @@ Enrich data for up to 10 organizations at once using Apollo
             "id": "first_name",
             "type": "short-input",
             "title": "First Name",
-            "placeholder": "First name"
+            "placeholder": "First name",
+            "required": true
         },
         {
             "id": "last_name",
             "type": "short-input",
             "title": "Last Name",
-            "placeholder": "Last name"
+            "placeholder": "Last name",
+            "required": true
         },
         {
             "id": "email",
@@ -1294,7 +1294,6 @@ Create a new contact in your Apollo database
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `first_name` | string | Yes | First name of the contact |
 | `last_name` | string | Yes | Last name of the contact |
 | `email` | string | No | Email address of the contact |
@@ -1307,6 +1306,7 @@ Create a new contact in your Apollo database
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `contact` | json | Created contact data from Apollo |
+| `metadata` | json | Creation metadata including created status |
 
 </div>
 
@@ -1327,109 +1327,109 @@ Create a new contact in your Apollo database
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "contact_update",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "contact_update"
+            ]
         },
         {
             "id": "apiKey",
@@ -1495,7 +1495,6 @@ Update an existing contact in your Apollo database
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `contact_id` | string | Yes | ID of the contact to update |
 | `first_name` | string | No | First name of the contact |
 | `last_name` | string | No | Last name of the contact |
@@ -1509,6 +1508,7 @@ Update an existing contact in your Apollo database
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `contact` | json | Updated contact data from Apollo |
+| `metadata` | json | Update metadata including updated status |
 
 </div>
 
@@ -1529,109 +1529,109 @@ Update an existing contact in your Apollo database
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "contact_search",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "contact_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -1664,8 +1664,7 @@ Update an existing contact in your Apollo database
             "id": "per_page",
             "type": "short-input",
             "title": "Results Per Page",
-            "placeholder": "25 (max: 100)",
-            "max": 100
+            "placeholder": "25 (max: 100)"
         }
     ]}
   />
@@ -1674,13 +1673,12 @@ Update an existing contact in your Apollo database
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Search Contacts (<code>apollo_contact_search</code>)</div>
 
-Search your team
+Search your team's contacts in Apollo
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `q_keywords` | string | No | Keywords to search for |
 | `contact_stage_ids` | array | No | Filter by contact stage IDs |
 | `page` | number | No | Page number for pagination |
@@ -1691,6 +1689,7 @@ Search your team
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `contacts` | json | Array of contacts matching the search criteria |
+| `metadata` | json | Pagination information including page, per_page, and total_entries |
 
 </div>
 
@@ -1711,109 +1710,109 @@ Search your team
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "contact_bulk_create",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "contact_bulk_create"
+            ]
         },
         {
             "id": "apiKey",
@@ -1849,7 +1848,6 @@ Create up to 100 contacts at once in your Apollo database. Supports deduplicatio
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
 | `contacts` | array | Yes | Array of contacts to create \(max 100\). Each contact should include first_name, last_name, and optionally email, title, account_id, owner_id |
 | `run_dedupe` | boolean | No | Enable deduplication to prevent creating duplicate contacts. When true, existing contacts are returned without modification |
 
@@ -1859,6 +1857,7 @@ Create up to 100 contacts at once in your Apollo database. Supports deduplicatio
 | --------- | ---- | ----------- |
 | `created_contacts` | json | Array of newly created contacts |
 | `existing_contacts` | json | Array of existing contacts \(when deduplication is enabled\) |
+| `metadata` | json | Bulk creation metadata including counts of created and existing contacts |
 
 </div>
 
@@ -1879,109 +1878,109 @@ Create up to 100 contacts at once in your Apollo database. Supports deduplicatio
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "contact_bulk_update",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "contact_bulk_update"
+            ]
         },
         {
             "id": "apiKey",
@@ -2012,7 +2011,6 @@ Update up to 100 existing contacts at once in your Apollo database. Each contact
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
 | `contacts` | array | Yes | Array of contacts to update \(max 100\). Each contact must include id field, and optionally first_name, last_name, email, title, account_id, owner_id |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -2021,6 +2019,7 @@ Update up to 100 existing contacts at once in your Apollo database. Each contact
 | --------- | ---- | ----------- |
 | `updated_contacts` | json | Array of successfully updated contacts |
 | `failed_contacts` | json | Array of contacts that failed to update |
+| `metadata` | json | Bulk update metadata including counts of updated and failed contacts |
 
 </div>
 
@@ -2041,109 +2040,109 @@ Update up to 100 existing contacts at once in your Apollo database. Each contact
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "account_create",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "account_create"
+            ]
         },
         {
             "id": "apiKey",
@@ -2163,7 +2162,8 @@ Update up to 100 existing contacts at once in your Apollo database. Each contact
             "id": "account_name",
             "type": "short-input",
             "title": "Account Name",
-            "placeholder": "Company name"
+            "placeholder": "Company name",
+            "required": true
         },
         {
             "id": "website_url",
@@ -2190,7 +2190,6 @@ Create a new account (company) in your Apollo database
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `name` | string | Yes | Company name |
 | `website_url` | string | No | Company website URL |
 | `phone` | string | No | Company phone number |
@@ -2201,6 +2200,7 @@ Create a new account (company) in your Apollo database
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `account` | json | Created account data from Apollo |
+| `metadata` | json | Creation metadata including created status |
 
 </div>
 
@@ -2221,109 +2221,109 @@ Create a new account (company) in your Apollo database
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "account_update",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "account_update"
+            ]
         },
         {
             "id": "apiKey",
@@ -2337,7 +2337,8 @@ Create a new account (company) in your Apollo database
             "id": "account_id",
             "type": "short-input",
             "title": "Account ID",
-            "placeholder": "Apollo account ID"
+            "placeholder": "Apollo account ID",
+            "required": true
         },
         {
             "id": "owner_id",
@@ -2376,7 +2377,6 @@ Update an existing account in your Apollo database
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `account_id` | string | Yes | ID of the account to update |
 | `name` | string | No | Company name |
 | `website_url` | string | No | Company website URL |
@@ -2388,6 +2388,7 @@ Update an existing account in your Apollo database
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `account` | json | Updated account data from Apollo |
+| `metadata` | json | Update metadata including updated status |
 
 </div>
 
@@ -2408,109 +2409,109 @@ Update an existing account in your Apollo database
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "account_search",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "account_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -2549,8 +2550,7 @@ Update an existing account in your Apollo database
             "id": "per_page",
             "type": "short-input",
             "title": "Results Per Page",
-            "placeholder": "25 (max: 100)",
-            "max": 100
+            "placeholder": "25 (max: 100)"
         }
     ]}
   />
@@ -2559,13 +2559,12 @@ Update an existing account in your Apollo database
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Search Accounts (<code>apollo_account_search</code>)</div>
 
-Search your team
+Search your team's accounts in Apollo. Display limit: 50,000 records (100 records per page, 500 pages max). Use filters to narrow results. Master key required.
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
 | `q_keywords` | string | No | Keywords to search for in account data |
 | `owner_id` | string | No | Filter by account owner user ID |
 | `account_stage_ids` | array | No | Filter by account stage IDs |
@@ -2577,6 +2576,7 @@ Search your team
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `accounts` | json | Array of accounts matching the search criteria |
+| `metadata` | json | Pagination information including page, per_page, and total_entries |
 
 </div>
 
@@ -2597,109 +2597,109 @@ Search your team
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "account_bulk_create",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "account_bulk_create"
+            ]
         },
         {
             "id": "apiKey",
@@ -2730,7 +2730,6 @@ Create up to 100 accounts at once in your Apollo database. Note: Apollo does not
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
 | `accounts` | array | Yes | Array of accounts to create \(max 100\). Each account should include name \(required\), and optionally website_url, phone, owner_id |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -2739,6 +2738,7 @@ Create up to 100 accounts at once in your Apollo database. Note: Apollo does not
 | --------- | ---- | ----------- |
 | `created_accounts` | json | Array of newly created accounts |
 | `failed_accounts` | json | Array of accounts that failed to create |
+| `metadata` | json | Bulk creation metadata including counts of created and failed accounts |
 
 </div>
 
@@ -2759,109 +2759,109 @@ Create up to 100 accounts at once in your Apollo database. Note: Apollo does not
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "account_bulk_update",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "account_bulk_update"
+            ]
         },
         {
             "id": "apiKey",
@@ -2892,7 +2892,6 @@ Update up to 1000 existing accounts at once in your Apollo database (higher limi
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
 | `accounts` | array | Yes | Array of accounts to update \(max 1000\). Each account must include id field, and optionally name, website_url, phone, owner_id |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -2901,6 +2900,7 @@ Update up to 1000 existing accounts at once in your Apollo database (higher limi
 | --------- | ---- | ----------- |
 | `updated_accounts` | json | Array of successfully updated accounts |
 | `failed_accounts` | json | Array of accounts that failed to update |
+| `metadata` | json | Bulk update metadata including counts of updated and failed accounts |
 
 </div>
 
@@ -2921,109 +2921,109 @@ Update up to 1000 existing accounts at once in your Apollo database (higher limi
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "opportunity_create",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "opportunity_create"
+            ]
         },
         {
             "id": "apiKey",
@@ -3037,7 +3037,8 @@ Update up to 1000 existing accounts at once in your Apollo database (higher limi
             "id": "account_id",
             "type": "short-input",
             "title": "Account ID",
-            "placeholder": "Apollo account ID"
+            "placeholder": "Apollo account ID",
+            "required": true
         },
         {
             "id": "owner_id",
@@ -3049,7 +3050,8 @@ Update up to 1000 existing accounts at once in your Apollo database (higher limi
             "id": "opportunity_name",
             "type": "short-input",
             "title": "Opportunity Name",
-            "placeholder": "Opportunity name"
+            "placeholder": "Opportunity name",
+            "required": true
         },
         {
             "id": "amount",
@@ -3088,7 +3090,6 @@ Create a new deal for an account in your Apollo database (master key required)
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
 | `name` | string | Yes | Name of the opportunity/deal |
 | `account_id` | string | Yes | ID of the account this opportunity belongs to |
 | `amount` | number | No | Monetary value of the opportunity |
@@ -3102,6 +3103,7 @@ Create a new deal for an account in your Apollo database (master key required)
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `opportunity` | json | Created opportunity data from Apollo |
+| `metadata` | json | Creation metadata including created status |
 
 </div>
 
@@ -3122,109 +3124,109 @@ Create a new deal for an account in your Apollo database (master key required)
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "opportunity_search",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "opportunity_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -3271,8 +3273,7 @@ Create a new deal for an account in your Apollo database (master key required)
             "id": "per_page",
             "type": "short-input",
             "title": "Results Per Page",
-            "placeholder": "25 (max: 100)",
-            "max": 100
+            "placeholder": "25 (max: 100)"
         }
     ]}
   />
@@ -3281,13 +3282,12 @@ Create a new deal for an account in your Apollo database (master key required)
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Search Opportunities (<code>apollo_opportunity_search</code>)</div>
 
-Search and list all deals/opportunities in your team
+Search and list all deals/opportunities in your team's Apollo account
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `q_keywords` | string | No | Keywords to search for in opportunity names |
 | `account_ids` | array | No | Filter by specific account IDs |
 | `stage_ids` | array | No | Filter by deal stage IDs |
@@ -3300,6 +3300,7 @@ Search and list all deals/opportunities in your team
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `opportunities` | json | Array of opportunities matching the search criteria |
+| `metadata` | json | Pagination information including page, per_page, and total_entries |
 
 </div>
 
@@ -3320,109 +3321,109 @@ Search and list all deals/opportunities in your team
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "opportunity_get",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "opportunity_get"
+            ]
         },
         {
             "id": "apiKey",
@@ -3452,7 +3453,6 @@ Retrieve complete details of a specific deal/opportunity by ID
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `opportunity_id` | string | Yes | ID of the opportunity to retrieve |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
@@ -3460,6 +3460,7 @@ Retrieve complete details of a specific deal/opportunity by ID
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `opportunity` | json | Complete opportunity data from Apollo |
+| `metadata` | json | Retrieval metadata including found status |
 
 </div>
 
@@ -3480,109 +3481,109 @@ Retrieve complete details of a specific deal/opportunity by ID
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "opportunity_update",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "opportunity_update"
+            ]
         },
         {
             "id": "apiKey",
@@ -3648,7 +3649,6 @@ Update an existing deal/opportunity in your Apollo database
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key |
 | `opportunity_id` | string | Yes | ID of the opportunity to update |
 | `name` | string | No | Name of the opportunity/deal |
 | `amount` | number | No | Monetary value of the opportunity |
@@ -3662,6 +3662,7 @@ Update an existing deal/opportunity in your Apollo database
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `opportunity` | json | Updated opportunity data from Apollo |
+| `metadata` | json | Update metadata including updated status |
 
 </div>
 
@@ -3682,109 +3683,109 @@ Update an existing deal/opportunity in your Apollo database
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sequence_search",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "sequence_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -3815,8 +3816,7 @@ Update an existing deal/opportunity in your Apollo database
             "id": "per_page",
             "type": "short-input",
             "title": "Results Per Page",
-            "placeholder": "25 (max: 100)",
-            "max": 100
+            "placeholder": "25 (max: 100)"
         }
     ]}
   />
@@ -3825,13 +3825,12 @@ Update an existing deal/opportunity in your Apollo database
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Search Sequences (<code>apollo_sequence_search</code>)</div>
 
-Search for sequences/campaigns in your team
+Search for sequences/campaigns in your team's Apollo account (master key required)
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
 | `q_name` | string | No | Search sequences by name |
 | `active` | boolean | No | Filter by active status \(true for active sequences, false for inactive\) |
 | `page` | number | No | Page number for pagination |
@@ -3842,6 +3841,7 @@ Search for sequences/campaigns in your team
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `sequences` | json | Array of sequences/campaigns matching the search criteria |
+| `metadata` | json | Pagination information including page, per_page, and total_entries |
 
 </div>
 
@@ -3862,109 +3862,109 @@ Search for sequences/campaigns in your team
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sequence_add",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "sequence_add"
+            ]
         },
         {
             "id": "apiKey",
@@ -4002,7 +4002,6 @@ Add contacts to an Apollo sequence
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
 | `sequence_id` | string | Yes | ID of the sequence to add contacts to |
 | `contact_ids` | array | Yes | Array of contact IDs to add to the sequence |
 | `emailer_campaign_id` | string | No | Optional emailer campaign ID |
@@ -4013,6 +4012,7 @@ Add contacts to an Apollo sequence
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `contacts_added` | json | Array of contact IDs added to the sequence |
+| `metadata` | json | Sequence metadata including sequence_id and total_added count |
 
 </div>
 
@@ -4033,109 +4033,109 @@ Add contacts to an Apollo sequence
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "task_create",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "task_create"
+            ]
         },
         {
             "id": "apiKey",
@@ -4177,7 +4177,6 @@ Create a new task in Apollo
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
 | `note` | string | Yes | Task note/description |
 | `contact_id` | string | No | Contact ID to associate with |
 | `account_id` | string | No | Account ID to associate with |
@@ -4190,6 +4189,7 @@ Create a new task in Apollo
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `task` | json | Created task data from Apollo |
+| `metadata` | json | Creation metadata including created status |
 
 </div>
 
@@ -4210,109 +4210,109 @@ Create a new task in Apollo
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "task_search",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "task_search"
+            ]
         },
         {
             "id": "apiKey",
@@ -4337,8 +4337,7 @@ Create a new task in Apollo
             "id": "per_page",
             "type": "short-input",
             "title": "Results Per Page",
-            "placeholder": "25 (max: 100)",
-            "max": 100
+            "placeholder": "25 (max: 100)"
         }
     ]}
   />
@@ -4353,7 +4352,6 @@ Search for tasks in Apollo
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
 | `contact_id` | string | No | Filter by contact ID |
 | `account_id` | string | No | Filter by account ID |
 | `completed` | boolean | No | Filter by completion status |
@@ -4365,6 +4363,7 @@ Search for tasks in Apollo
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `tasks` | json | Array of tasks matching the search criteria |
+| `metadata` | json | Pagination information including page, per_page, and total_entries |
 
 </div>
 
@@ -4385,109 +4384,109 @@ Search for tasks in Apollo
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "email_accounts",
             "options": [
                 {
-                    "label": "Search People",
-                    "id": "people_search"
+                    "id": "people_search",
+                    "label": "Search People"
                 },
                 {
-                    "label": "Enrich Person",
-                    "id": "people_enrich"
+                    "id": "people_enrich",
+                    "label": "Enrich Person"
                 },
                 {
-                    "label": "Bulk Enrich People",
-                    "id": "people_bulk_enrich"
+                    "id": "people_bulk_enrich",
+                    "label": "Bulk Enrich People"
                 },
                 {
-                    "label": "Search Organizations",
-                    "id": "organization_search"
+                    "id": "organization_search",
+                    "label": "Search Organizations"
                 },
                 {
-                    "label": "Enrich Organization",
-                    "id": "organization_enrich"
+                    "id": "organization_enrich",
+                    "label": "Enrich Organization"
                 },
                 {
-                    "label": "Bulk Enrich Organizations",
-                    "id": "organization_bulk_enrich"
+                    "id": "organization_bulk_enrich",
+                    "label": "Bulk Enrich Organizations"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "contact_create"
+                    "id": "contact_create",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "contact_update"
+                    "id": "contact_update",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "contact_search"
+                    "id": "contact_search",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Bulk Create Contacts",
-                    "id": "contact_bulk_create"
+                    "id": "contact_bulk_create",
+                    "label": "Bulk Create Contacts"
                 },
                 {
-                    "label": "Bulk Update Contacts",
-                    "id": "contact_bulk_update"
+                    "id": "contact_bulk_update",
+                    "label": "Bulk Update Contacts"
                 },
                 {
-                    "label": "Create Account",
-                    "id": "account_create"
+                    "id": "account_create",
+                    "label": "Create Account"
                 },
                 {
-                    "label": "Update Account",
-                    "id": "account_update"
+                    "id": "account_update",
+                    "label": "Update Account"
                 },
                 {
-                    "label": "Search Accounts",
-                    "id": "account_search"
+                    "id": "account_search",
+                    "label": "Search Accounts"
                 },
                 {
-                    "label": "Bulk Create Accounts",
-                    "id": "account_bulk_create"
+                    "id": "account_bulk_create",
+                    "label": "Bulk Create Accounts"
                 },
                 {
-                    "label": "Bulk Update Accounts",
-                    "id": "account_bulk_update"
+                    "id": "account_bulk_update",
+                    "label": "Bulk Update Accounts"
                 },
                 {
-                    "label": "Create Opportunity",
-                    "id": "opportunity_create"
+                    "id": "opportunity_create",
+                    "label": "Create Opportunity"
                 },
                 {
-                    "label": "Search Opportunities",
-                    "id": "opportunity_search"
+                    "id": "opportunity_search",
+                    "label": "Search Opportunities"
                 },
                 {
-                    "label": "Get Opportunity",
-                    "id": "opportunity_get"
+                    "id": "opportunity_get",
+                    "label": "Get Opportunity"
                 },
                 {
-                    "label": "Update Opportunity",
-                    "id": "opportunity_update"
+                    "id": "opportunity_update",
+                    "label": "Update Opportunity"
                 },
                 {
-                    "label": "Search Sequences",
-                    "id": "sequence_search"
+                    "id": "sequence_search",
+                    "label": "Search Sequences"
                 },
                 {
-                    "label": "Add to Sequence",
-                    "id": "sequence_add"
+                    "id": "sequence_add",
+                    "label": "Add to Sequence"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "task_create"
+                    "id": "task_create",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "task_search"
+                    "id": "task_search",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Get Email Accounts",
-                    "id": "email_accounts"
+                    "id": "email_accounts",
+                    "label": "Get Email Accounts"
                 }
-            ],
-            "defaultValue": "email_accounts"
+            ]
         },
         {
             "id": "apiKey",
@@ -4504,19 +4503,18 @@ Search for tasks in Apollo
 <div className="mt-6 border-t border-fd-border pt-4">
 <div className="text-base font-semibold mb-2">Get Email Accounts (<code>apollo_email_accounts</code>)</div>
 
-Get list of team
+Get list of team's linked email accounts in Apollo
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
 
-| Parameter | Type | Required | Description |
-| --------- | ---- | -------- | ----------- |
-| `apiKey` | string | Yes | Apollo API key \(master key required\) |
+This operation has no direct parameters.
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `email_accounts` | json | Array of team email accounts linked in Apollo |
+| `metadata` | json | Metadata including total count of email accounts |
 
 </div>
 

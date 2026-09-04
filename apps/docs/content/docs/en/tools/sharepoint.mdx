@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="sharepoint"
-  color=""
+  color="#1A9BA1"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -32,36 +32,36 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Page",
-                    "id": "create_page"
+                    "id": "create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Read Page",
-                    "id": "read_page"
+                    "id": "read_page",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "List Sites",
-                    "id": "list_sites"
+                    "id": "list_sites",
+                    "label": "List Sites"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Read List",
-                    "id": "read_list"
+                    "id": "read_list",
+                    "label": "Read List"
                 },
                 {
-                    "label": "Update List",
-                    "id": "update_list"
+                    "id": "update_list",
+                    "label": "Update List"
                 },
                 {
-                    "label": "Add List Items",
-                    "id": "add_list_items"
+                    "id": "add_list_items",
+                    "label": "Add List Items"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload_file"
+                    "id": "upload_file",
+                    "label": "Upload File"
                 }
             ],
             "defaultValue": "create_page"
@@ -109,8 +109,7 @@ Create a new page in a SharePoint site
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
-| `siteSelector` | string | No | Select the SharePoint site |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `pageName` | string | Yes | The name of the page to create |
 | `pageTitle` | string | No | The title of the page \(defaults to page name if not provided\) |
 | `pageContent` | string | No | The content of the page |
@@ -119,12 +118,7 @@ Create a new page in a SharePoint site
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | The unique ID of the created page |
-| `name` | string | The name of the created page |
-| `title` | string | The title of the created page |
-| `webUrl` | string | The URL to access the page |
-| `pageLayout` | string | The layout type of the page |
-| `createdDateTime` | string | When the page was created |
+| `page` | object | Created SharePoint page information |
 
 </div>
 
@@ -138,7 +132,7 @@ Create a new page in a SharePoint site
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -148,36 +142,36 @@ Create a new page in a SharePoint site
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Page",
-                    "id": "create_page"
+                    "id": "create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Read Page",
-                    "id": "read_page"
+                    "id": "read_page",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "List Sites",
-                    "id": "list_sites"
+                    "id": "list_sites",
+                    "label": "List Sites"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Read List",
-                    "id": "read_list"
+                    "id": "read_list",
+                    "label": "Read List"
                 },
                 {
-                    "label": "Update List",
-                    "id": "update_list"
+                    "id": "update_list",
+                    "label": "Update List"
                 },
                 {
-                    "label": "Add List Items",
-                    "id": "add_list_items"
+                    "id": "add_list_items",
+                    "label": "Add List Items"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload_file"
+                    "id": "upload_file",
+                    "label": "Upload File"
                 }
             ],
             "defaultValue": "read_page"
@@ -225,8 +219,7 @@ Read a specific page from a SharePoint site
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | string | No | Select the SharePoint site |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `pageId` | string | No | The ID of the page to read |
 | `pageName` | string | No | The name of the page to read \(alternative to pageId\) |
 | `maxPages` | number | No | Maximum number of pages to return when listing all pages \(default: 10, max: 50\) |
@@ -235,12 +228,10 @@ Read a specific page from a SharePoint site
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | The unique ID of the page |
-| `name` | string | The name of the page |
-| `title` | string | The title of the page |
-| `webUrl` | string | The URL to access the page |
-| `pageLayout` | string | The layout type of the page |
-| `createdDateTime` | string | When the page was created |
+| `page` | object | Information about the SharePoint page |
+| `pages` | array | List of SharePoint pages |
+| `content` | object | Content of the SharePoint page |
+| `totalPages` | number | Total number of pages found |
 
 </div>
 
@@ -254,7 +245,7 @@ Read a specific page from a SharePoint site
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -264,36 +255,36 @@ Read a specific page from a SharePoint site
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Page",
-                    "id": "create_page"
+                    "id": "create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Read Page",
-                    "id": "read_page"
+                    "id": "read_page",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "List Sites",
-                    "id": "list_sites"
+                    "id": "list_sites",
+                    "label": "List Sites"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Read List",
-                    "id": "read_list"
+                    "id": "read_list",
+                    "label": "Read List"
                 },
                 {
-                    "label": "Update List",
-                    "id": "update_list"
+                    "id": "update_list",
+                    "label": "Update List"
                 },
                 {
-                    "label": "Add List Items",
-                    "id": "add_list_items"
+                    "id": "add_list_items",
+                    "label": "Add List Items"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload_file"
+                    "id": "upload_file",
+                    "label": "Upload File"
                 }
             ],
             "defaultValue": "list_sites"
@@ -327,21 +318,15 @@ List details of all SharePoint sites
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | string | No | Select the SharePoint site |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `groupId` | string | No | The group ID for accessing a group team site |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | The unique ID of the site |
-| `name` | string | The name of the site |
-| `displayName` | string | The display name of the site |
-| `webUrl` | string | The URL to access the site |
-| `description` | string | The description of the site |
-| `createdDateTime` | string | When the site was created |
-| `lastModifiedDateTime` | string | When the site was last modified |
-| `isPersonalSite` | boolean | Whether this is a personal site |
+| `site` | object | Information about the current SharePoint site |
+| `sites` | array | List of all accessible SharePoint sites |
 
 </div>
 
@@ -355,7 +340,7 @@ List details of all SharePoint sites
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -365,36 +350,36 @@ List details of all SharePoint sites
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Page",
-                    "id": "create_page"
+                    "id": "create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Read Page",
-                    "id": "read_page"
+                    "id": "read_page",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "List Sites",
-                    "id": "list_sites"
+                    "id": "list_sites",
+                    "label": "List Sites"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Read List",
-                    "id": "read_list"
+                    "id": "read_list",
+                    "label": "Read List"
                 },
                 {
-                    "label": "Update List",
-                    "id": "update_list"
+                    "id": "update_list",
+                    "label": "Update List"
                 },
                 {
-                    "label": "Add List Items",
-                    "id": "add_list_items"
+                    "id": "add_list_items",
+                    "label": "Add List Items"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload_file"
+                    "id": "upload_file",
+                    "label": "Upload File"
                 }
             ],
             "defaultValue": "create_list"
@@ -456,8 +441,7 @@ Create a new list in a SharePoint site
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
-| `siteSelector` | string | No | Select the SharePoint site |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `listDisplayName` | string | Yes | Display name of the list to create |
 | `listDescription` | string | No | Description of the list |
 | `listTemplate` | string | No | List template name \(e.g., 'genericList'\) |
@@ -467,12 +451,7 @@ Create a new list in a SharePoint site
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | The unique ID of the list |
-| `displayName` | string | The display name of the list |
-| `name` | string | The internal name of the list |
-| `webUrl` | string | The web URL of the list |
-| `createdDateTime` | string | When the list was created |
-| `lastModifiedDateTime` | string | When the list was last modified |
+| `list` | object | Created SharePoint list information |
 
 </div>
 
@@ -486,7 +465,7 @@ Create a new list in a SharePoint site
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -496,36 +475,36 @@ Create a new list in a SharePoint site
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Page",
-                    "id": "create_page"
+                    "id": "create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Read Page",
-                    "id": "read_page"
+                    "id": "read_page",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "List Sites",
-                    "id": "list_sites"
+                    "id": "list_sites",
+                    "label": "List Sites"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Read List",
-                    "id": "read_list"
+                    "id": "read_list",
+                    "label": "Read List"
                 },
                 {
-                    "label": "Update List",
-                    "id": "update_list"
+                    "id": "update_list",
+                    "label": "Update List"
                 },
                 {
-                    "label": "Add List Items",
-                    "id": "add_list_items"
+                    "id": "add_list_items",
+                    "label": "Add List Items"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload_file"
+                    "id": "upload_file",
+                    "label": "Upload File"
                 }
             ],
             "defaultValue": "read_list"
@@ -566,21 +545,15 @@ Get metadata (and optionally columns/items) for a SharePoint list
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | string | No | Select the SharePoint site |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `listId` | string | No | The ID of the list to retrieve |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | The unique ID of the list |
-| `displayName` | string | The display name of the list |
-| `name` | string | The internal name of the list |
-| `webUrl` | string | The web URL of the list |
-| `createdDateTime` | string | When the list was created |
-| `lastModifiedDateTime` | string | When the list was last modified |
-| `list` | object | List properties \(e.g., template\) |
+| `list` | object | Information about the SharePoint list |
+| `lists` | array | All lists in the site when no listId/title provided |
 
 </div>
 
@@ -594,7 +567,7 @@ Get metadata (and optionally columns/items) for a SharePoint list
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -604,36 +577,36 @@ Get metadata (and optionally columns/items) for a SharePoint list
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Page",
-                    "id": "create_page"
+                    "id": "create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Read Page",
-                    "id": "read_page"
+                    "id": "read_page",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "List Sites",
-                    "id": "list_sites"
+                    "id": "list_sites",
+                    "label": "List Sites"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Read List",
-                    "id": "read_list"
+                    "id": "read_list",
+                    "label": "Read List"
                 },
                 {
-                    "label": "Update List",
-                    "id": "update_list"
+                    "id": "update_list",
+                    "label": "Update List"
                 },
                 {
-                    "label": "Add List Items",
-                    "id": "add_list_items"
+                    "id": "add_list_items",
+                    "label": "Add List Items"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload_file"
+                    "id": "upload_file",
+                    "label": "Upload File"
                 }
             ],
             "defaultValue": "update_list"
@@ -688,8 +661,7 @@ Update the properties (fields) on a SharePoint list item
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | string | No | Select the SharePoint site |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `listId` | string | No | The ID of the list containing the item |
 | `itemId` | string | Yes | The ID of the list item to update |
 | `listItemFields` | object | Yes | Field values to update on the list item |
@@ -698,7 +670,7 @@ Update the properties (fields) on a SharePoint list item
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Item ID |
+| `item` | object | Updated SharePoint list item |
 
 </div>
 
@@ -712,7 +684,7 @@ Update the properties (fields) on a SharePoint list item
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -722,36 +694,36 @@ Update the properties (fields) on a SharePoint list item
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Page",
-                    "id": "create_page"
+                    "id": "create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Read Page",
-                    "id": "read_page"
+                    "id": "read_page",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "List Sites",
-                    "id": "list_sites"
+                    "id": "list_sites",
+                    "label": "List Sites"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Read List",
-                    "id": "read_list"
+                    "id": "read_list",
+                    "label": "Read List"
                 },
                 {
-                    "label": "Update List",
-                    "id": "update_list"
+                    "id": "update_list",
+                    "label": "Update List"
                 },
                 {
-                    "label": "Add List Items",
-                    "id": "add_list_items"
+                    "id": "add_list_items",
+                    "label": "Add List Items"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload_file"
+                    "id": "upload_file",
+                    "label": "Upload File"
                 }
             ],
             "defaultValue": "add_list_items"
@@ -799,8 +771,7 @@ Add a new item to a SharePoint list
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteSelector` | string | No | Select the SharePoint site |
-| `siteId` | string | No | The ID of the SharePoint site \(internal use\) |
+| `siteId` | string | No | The ID of the SharePoint site |
 | `listId` | string | Yes | The ID of the list to add the item to |
 | `listItemFields` | object | Yes | Field values for the new list item |
 
@@ -808,7 +779,7 @@ Add a new item to a SharePoint list
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Item ID |
+| `item` | object | Created SharePoint list item |
 
 </div>
 
@@ -822,7 +793,7 @@ Add a new item to a SharePoint list
   <BlockConfigPreview
     name="Sharepoint"
     type="sharepoint"
-    color=""
+    color="#1A9BA1"
     hideHeader
     subBlocks={[
         {
@@ -832,36 +803,36 @@ Add a new item to a SharePoint list
             "layout": "full",
             "options": [
                 {
-                    "label": "Create Page",
-                    "id": "create_page"
+                    "id": "create_page",
+                    "label": "Create Page"
                 },
                 {
-                    "label": "Read Page",
-                    "id": "read_page"
+                    "id": "read_page",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "List Sites",
-                    "id": "list_sites"
+                    "id": "list_sites",
+                    "label": "List Sites"
                 },
                 {
-                    "label": "Create List",
-                    "id": "create_list"
+                    "id": "create_list",
+                    "label": "Create List"
                 },
                 {
-                    "label": "Read List",
-                    "id": "read_list"
+                    "id": "read_list",
+                    "label": "Read List"
                 },
                 {
-                    "label": "Update List",
-                    "id": "update_list"
+                    "id": "update_list",
+                    "label": "Update List"
                 },
                 {
-                    "label": "Add List Items",
-                    "id": "add_list_items"
+                    "id": "add_list_items",
+                    "label": "Add List Items"
                 },
                 {
-                    "label": "Upload File",
-                    "id": "upload_file"
+                    "id": "upload_file",
+                    "label": "Upload File"
                 }
             ],
             "defaultValue": "upload_file"
@@ -894,28 +865,32 @@ Add a new item to a SharePoint list
             "type": "short-input",
             "title": "Folder Path",
             "layout": "full",
-            "placeholder": "Optional folder path (e.g., /Documents/Subfolder)"
+            "placeholder": "Optional folder path (e.g., /Documents/Subfolder)",
+            "required": false
         },
         {
             "id": "fileName",
             "type": "short-input",
             "title": "File Name",
             "layout": "full",
-            "placeholder": "Optional: override uploaded file name"
+            "placeholder": "Optional: override uploaded file name",
+            "required": false
         },
         {
             "id": "uploadFiles",
             "type": "file-upload",
             "title": "Files",
             "layout": "full",
-            "placeholder": "Upload files to SharePoint"
+            "placeholder": "Upload files to SharePoint",
+            "required": false
         },
         {
             "id": "files",
             "type": "short-input",
             "title": "Files",
             "layout": "full",
-            "placeholder": "Reference files from previous blocks"
+            "placeholder": "Reference files from previous blocks",
+            "required": false
         }
     ]}
   />
@@ -930,7 +905,6 @@ Upload files to a SharePoint document library
 
 | Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `siteId` | string | No | The ID of the SharePoint site |
 | `driveId` | string | No | The ID of the document library \(drive\). If not provided, uses default drive. |
 | `folderPath` | string | No | Optional folder path within the document library \(e.g., /Documents/Subfolder\) |
 | `fileName` | string | No | Optional: override the uploaded file name |
@@ -940,11 +914,8 @@ Upload files to a SharePoint document library
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | The unique ID of the uploaded file |
-| `name` | string | The name of the uploaded file |
-| `webUrl` | string | The URL to access the file |
-| `size` | number | The size of the file in bytes |
-| `createdDateTime` | string | When the file was created |
+| `uploadedFiles` | array | Array of uploaded file objects |
+| `fileCount` | number | Number of files uploaded |
 
 </div>
 

@@ -18,7 +18,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 Trigger workflow from Telegram bot messages and events
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
@@ -27,6 +27,10 @@ Trigger workflow from Telegram bot messages and events
   </Card>
 </Cards>
 
+
+## Setup Instructions
+
+<div class="mb-3"><strong>1.</strong> Message "/newbot" to <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" class="text-muted-foreground underline transition-colors hover:text-muted-foreground/80">@BotFather</a> in Telegram to create a bot and copy its token.</div><div class="mb-3"><strong>2.</strong> Enter your Bot Token above.</div><div class="mb-3"><strong>3.</strong> Save settings and any message sent to your bot will trigger the workflow.</div>
 
 ## Configuration
 
@@ -42,14 +46,14 @@ Trigger workflow from Telegram bot messages and events
             "title": "Bot Token",
             "placeholder": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
             "description": "Your Telegram Bot Token from BotFather",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         }
     ]}
   />
 </ShowcaseCard>
 
-#### Output Schema
+## Output Schema
 
 <SchemaTree
   title="Event Payload"
@@ -57,7 +61,6 @@ Trigger workflow from Telegram bot messages and events
       {
           "name": "message",
           "type": "object",
-          "description": "message",
           "children": [
               {
                   "name": "id",
@@ -82,7 +85,6 @@ Trigger workflow from Telegram bot messages and events
               {
                   "name": "raw",
                   "type": "object",
-                  "description": "raw",
                   "children": [
                       {
                           "name": "message_id",
@@ -107,7 +109,6 @@ Trigger workflow from Telegram bot messages and events
                       {
                           "name": "chat",
                           "type": "object",
-                          "description": "chat",
                           "children": [
                               {
                                   "name": "id",
@@ -134,7 +135,6 @@ Trigger workflow from Telegram bot messages and events
                       {
                           "name": "from",
                           "type": "object",
-                          "description": "from",
                           "children": [
                               {
                                   "name": "id",
@@ -170,7 +170,6 @@ Trigger workflow from Telegram bot messages and events
       {
           "name": "sender",
           "type": "object",
-          "description": "sender",
           "children": [
               {
                   "name": "id",
@@ -216,5 +215,3 @@ Trigger workflow from Telegram bot messages and events
       }
   ]}
 />
-
-

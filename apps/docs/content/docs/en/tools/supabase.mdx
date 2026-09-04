@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="supabase"
-  color=""
+  color="#3ECF8E"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Supabase"
     type="supabase"
-    color=""
+    color="#3ECF8E"
     hideHeader
     subBlocks={[
         {
@@ -30,37 +30,37 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "query",
             "options": [
                 {
-                    "label": "Get Many Rows",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Get Many Rows"
                 },
                 {
-                    "label": "Get a Row",
-                    "id": "get_row"
+                    "id": "get_row",
+                    "label": "Get a Row"
                 },
                 {
-                    "label": "Create a Row",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Create a Row"
                 },
                 {
-                    "label": "Update a Row",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update a Row"
                 },
                 {
-                    "label": "Delete a Row",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete a Row"
                 },
                 {
-                    "label": "Upsert a Row",
-                    "id": "upsert"
+                    "id": "upsert",
+                    "label": "Upsert a Row"
                 },
                 {
-                    "label": "Vector Search",
-                    "id": "vector_search"
+                    "id": "vector_search",
+                    "label": "Vector Search"
                 }
-            ],
-            "defaultValue": "query"
+            ]
         },
         {
             "id": "projectId",
@@ -134,6 +134,7 @@ Query data from a Supabase table
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `results` | array | Array of records returned from the query |
 
 </div>
 
@@ -147,7 +148,7 @@ Query data from a Supabase table
   <BlockConfigPreview
     name="Supabase"
     type="supabase"
-    color=""
+    color="#3ECF8E"
     hideHeader
     subBlocks={[
         {
@@ -155,37 +156,37 @@ Query data from a Supabase table
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "get_row",
             "options": [
                 {
-                    "label": "Get Many Rows",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Get Many Rows"
                 },
                 {
-                    "label": "Get a Row",
-                    "id": "get_row"
+                    "id": "get_row",
+                    "label": "Get a Row"
                 },
                 {
-                    "label": "Create a Row",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Create a Row"
                 },
                 {
-                    "label": "Update a Row",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update a Row"
                 },
                 {
-                    "label": "Delete a Row",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete a Row"
                 },
                 {
-                    "label": "Upsert a Row",
-                    "id": "upsert"
+                    "id": "upsert",
+                    "label": "Upsert a Row"
                 },
                 {
-                    "label": "Vector Search",
-                    "id": "vector_search"
+                    "id": "vector_search",
+                    "label": "Vector Search"
                 }
-            ],
-            "defaultValue": "get_row"
+            ]
         },
         {
             "id": "projectId",
@@ -244,6 +245,7 @@ Get a single row from a Supabase table based on filter criteria
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `results` | array | Array containing the row data if found, empty array if not found |
 
 </div>
 
@@ -257,7 +259,7 @@ Get a single row from a Supabase table based on filter criteria
   <BlockConfigPreview
     name="Supabase"
     type="supabase"
-    color=""
+    color="#3ECF8E"
     hideHeader
     subBlocks={[
         {
@@ -265,37 +267,37 @@ Get a single row from a Supabase table based on filter criteria
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "insert",
             "options": [
                 {
-                    "label": "Get Many Rows",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Get Many Rows"
                 },
                 {
-                    "label": "Get a Row",
-                    "id": "get_row"
+                    "id": "get_row",
+                    "label": "Get a Row"
                 },
                 {
-                    "label": "Create a Row",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Create a Row"
                 },
                 {
-                    "label": "Update a Row",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update a Row"
                 },
                 {
-                    "label": "Delete a Row",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete a Row"
                 },
                 {
-                    "label": "Upsert a Row",
-                    "id": "upsert"
+                    "id": "upsert",
+                    "label": "Upsert a Row"
                 },
                 {
-                    "label": "Vector Search",
-                    "id": "vector_search"
+                    "id": "vector_search",
+                    "label": "Vector Search"
                 }
-            ],
-            "defaultValue": "insert"
+            ]
         },
         {
             "id": "projectId",
@@ -328,7 +330,7 @@ Get a single row from a Supabase table based on filter criteria
             "type": "code",
             "title": "Data",
             "layout": "full",
-            "placeholder": "{\\n  \"column1\": \"value1\",\\n  \"column2\": \"value2\"\\n}",
+            "placeholder": "{\n  \"column1\": \"value1\",\n  \"column2\": \"value2\"\n}",
             "language": "json",
             "required": true
         }
@@ -355,6 +357,7 @@ Insert data into a Supabase table
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `results` | array | Array of inserted records |
 
 </div>
 
@@ -368,7 +371,7 @@ Insert data into a Supabase table
   <BlockConfigPreview
     name="Supabase"
     type="supabase"
-    color=""
+    color="#3ECF8E"
     hideHeader
     subBlocks={[
         {
@@ -376,37 +379,37 @@ Insert data into a Supabase table
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "update",
             "options": [
                 {
-                    "label": "Get Many Rows",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Get Many Rows"
                 },
                 {
-                    "label": "Get a Row",
-                    "id": "get_row"
+                    "id": "get_row",
+                    "label": "Get a Row"
                 },
                 {
-                    "label": "Create a Row",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Create a Row"
                 },
                 {
-                    "label": "Update a Row",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update a Row"
                 },
                 {
-                    "label": "Delete a Row",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete a Row"
                 },
                 {
-                    "label": "Upsert a Row",
-                    "id": "upsert"
+                    "id": "upsert",
+                    "label": "Upsert a Row"
                 },
                 {
-                    "label": "Vector Search",
-                    "id": "vector_search"
+                    "id": "vector_search",
+                    "label": "Vector Search"
                 }
-            ],
-            "defaultValue": "update"
+            ]
         },
         {
             "id": "projectId",
@@ -439,7 +442,7 @@ Insert data into a Supabase table
             "type": "code",
             "title": "Data",
             "layout": "full",
-            "placeholder": "{\\n  \"column1\": \"value1\",\\n  \"column2\": \"value2\"\\n}",
+            "placeholder": "{\n  \"column1\": \"value1\",\n  \"column2\": \"value2\"\n}",
             "language": "json",
             "required": true
         },
@@ -475,6 +478,7 @@ Update rows in a Supabase table based on filter criteria
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `results` | array | Array of updated records |
 
 </div>
 
@@ -488,7 +492,7 @@ Update rows in a Supabase table based on filter criteria
   <BlockConfigPreview
     name="Supabase"
     type="supabase"
-    color=""
+    color="#3ECF8E"
     hideHeader
     subBlocks={[
         {
@@ -496,37 +500,37 @@ Update rows in a Supabase table based on filter criteria
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "delete",
             "options": [
                 {
-                    "label": "Get Many Rows",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Get Many Rows"
                 },
                 {
-                    "label": "Get a Row",
-                    "id": "get_row"
+                    "id": "get_row",
+                    "label": "Get a Row"
                 },
                 {
-                    "label": "Create a Row",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Create a Row"
                 },
                 {
-                    "label": "Update a Row",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update a Row"
                 },
                 {
-                    "label": "Delete a Row",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete a Row"
                 },
                 {
-                    "label": "Upsert a Row",
-                    "id": "upsert"
+                    "id": "upsert",
+                    "label": "Upsert a Row"
                 },
                 {
-                    "label": "Vector Search",
-                    "id": "vector_search"
+                    "id": "vector_search",
+                    "label": "Vector Search"
                 }
-            ],
-            "defaultValue": "delete"
+            ]
         },
         {
             "id": "projectId",
@@ -585,6 +589,7 @@ Delete rows from a Supabase table based on filter criteria
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `results` | array | Array of deleted records |
 
 </div>
 
@@ -598,7 +603,7 @@ Delete rows from a Supabase table based on filter criteria
   <BlockConfigPreview
     name="Supabase"
     type="supabase"
-    color=""
+    color="#3ECF8E"
     hideHeader
     subBlocks={[
         {
@@ -606,37 +611,37 @@ Delete rows from a Supabase table based on filter criteria
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "upsert",
             "options": [
                 {
-                    "label": "Get Many Rows",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Get Many Rows"
                 },
                 {
-                    "label": "Get a Row",
-                    "id": "get_row"
+                    "id": "get_row",
+                    "label": "Get a Row"
                 },
                 {
-                    "label": "Create a Row",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Create a Row"
                 },
                 {
-                    "label": "Update a Row",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update a Row"
                 },
                 {
-                    "label": "Delete a Row",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete a Row"
                 },
                 {
-                    "label": "Upsert a Row",
-                    "id": "upsert"
+                    "id": "upsert",
+                    "label": "Upsert a Row"
                 },
                 {
-                    "label": "Vector Search",
-                    "id": "vector_search"
+                    "id": "vector_search",
+                    "label": "Vector Search"
                 }
-            ],
-            "defaultValue": "upsert"
+            ]
         },
         {
             "id": "projectId",
@@ -669,7 +674,7 @@ Delete rows from a Supabase table based on filter criteria
             "type": "code",
             "title": "Data",
             "layout": "full",
-            "placeholder": "{\\n  \"column1\": \"value1\",\\n  \"column2\": \"value2\"\\n}",
+            "placeholder": "{\n  \"column1\": \"value1\",\n  \"column2\": \"value2\"\n}",
             "language": "json",
             "required": true
         }
@@ -696,6 +701,7 @@ Insert or update data in a Supabase table (upsert operation)
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `results` | array | Array of upserted records |
 
 </div>
 
@@ -709,7 +715,7 @@ Insert or update data in a Supabase table (upsert operation)
   <BlockConfigPreview
     name="Supabase"
     type="supabase"
-    color=""
+    color="#3ECF8E"
     hideHeader
     subBlocks={[
         {
@@ -717,37 +723,37 @@ Insert or update data in a Supabase table (upsert operation)
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "vector_search",
             "options": [
                 {
-                    "label": "Get Many Rows",
-                    "id": "query"
+                    "id": "query",
+                    "label": "Get Many Rows"
                 },
                 {
-                    "label": "Get a Row",
-                    "id": "get_row"
+                    "id": "get_row",
+                    "label": "Get a Row"
                 },
                 {
-                    "label": "Create a Row",
-                    "id": "insert"
+                    "id": "insert",
+                    "label": "Create a Row"
                 },
                 {
-                    "label": "Update a Row",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update a Row"
                 },
                 {
-                    "label": "Delete a Row",
-                    "id": "delete"
+                    "id": "delete",
+                    "label": "Delete a Row"
                 },
                 {
-                    "label": "Upsert a Row",
-                    "id": "upsert"
+                    "id": "upsert",
+                    "label": "Upsert a Row"
                 },
                 {
-                    "label": "Vector Search",
-                    "id": "vector_search"
+                    "id": "vector_search",
+                    "label": "Vector Search"
                 }
-            ],
-            "defaultValue": "vector_search"
+            ]
         },
         {
             "id": "projectId",
@@ -831,6 +837,7 @@ Perform similarity search using pgvector in a Supabase table
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `message` | string | Operation status message |
+| `results` | array | Array of records with similarity scores from the vector search. Each record includes a similarity field \(0-1\) indicating how similar it is to the query vector. |
 
 </div>
 

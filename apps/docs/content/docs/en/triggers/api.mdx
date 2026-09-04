@@ -53,7 +53,7 @@ Add an **Input Format** field for each parameter. Supported types:
 
 ```bash
 curl -X POST \
-  https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
+  https://www.tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: YOUR_KEY' \
   -d '{"userId":"demo-user","maxTokens":1024}'
@@ -72,7 +72,7 @@ Enable real-time streaming to receive workflow output as it's generated.
 
 ```bash
 curl -X POST \
-  https://tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
+  https://www.tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: YOUR_KEY' \
   -d '{"message": "Count to five", "stream": true, "selectedOutputs": ["agent1.content"]}'

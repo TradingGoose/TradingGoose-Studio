@@ -35,49 +35,49 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_users",
             "options": [
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get Contacts",
-                    "id": "get_contacts"
+                    "id": "get_contacts",
+                    "label": "Get Contacts"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Get Companies",
-                    "id": "get_companies"
+                    "id": "get_companies",
+                    "label": "Get Companies"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Update Company",
-                    "id": "update_company"
+                    "id": "update_company",
+                    "label": "Update Company"
                 },
                 {
-                    "label": "Search Companies",
-                    "id": "search_companies"
+                    "id": "search_companies",
+                    "label": "Search Companies"
                 },
                 {
-                    "label": "Get Deals",
-                    "id": "get_deals"
+                    "id": "get_deals",
+                    "label": "Get Deals"
                 }
-            ],
-            "defaultValue": "get_users"
+            ]
         },
         {
             "id": "credential",
@@ -114,6 +114,7 @@ Retrieve all users from HubSpot account
 | --------- | ---- | ----------- |
 | `users` | array | Array of HubSpot user objects |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -134,49 +135,49 @@ Retrieve all users from HubSpot account
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_contacts",
             "options": [
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get Contacts",
-                    "id": "get_contacts"
+                    "id": "get_contacts",
+                    "label": "Get Contacts"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Get Companies",
-                    "id": "get_companies"
+                    "id": "get_companies",
+                    "label": "Get Companies"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Update Company",
-                    "id": "update_company"
+                    "id": "update_company",
+                    "label": "Update Company"
                 },
                 {
-                    "label": "Search Companies",
-                    "id": "search_companies"
+                    "id": "search_companies",
+                    "label": "Search Companies"
                 },
                 {
-                    "label": "Get Deals",
-                    "id": "get_deals"
+                    "id": "get_deals",
+                    "label": "Get Deals"
                 }
-            ],
-            "defaultValue": "get_contacts"
+            ]
         },
         {
             "id": "credential",
@@ -227,32 +228,27 @@ Retrieve all users from HubSpot account
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Get Contacts (<code>hubspot_list_contacts</code>)</div>
+
+Retrieve all contacts from HubSpot account with pagination support
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Maximum number of results per page \(max 100, default 100\) |
+| `after` | string | No | Pagination cursor for next page of results |
+| `properties` | string | No | Comma-separated list of properties to return \(e.g., "email,firstname,lastname"\) |
+| `associations` | string | No | Comma-separated list of object types to retrieve associated IDs for |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `users` | json | Array of user objects |
-| `contacts` | json | Array of contact objects |
-| `contact` | json | Single contact object |
-| `companies` | json | Array of company objects |
-| `company` | json | Single company object |
-| `deals` | json | Array of deal objects |
-| `total` | number | Total number of matching results \(for search\) |
-| `paging` | json | Pagination info with next/prev cursors |
-| `metadata` | json | Operation metadata |
+| `contacts` | array | Array of HubSpot contact objects |
+| `paging` | object | Pagination information |
+| `metadata` | object | Operation metadata |
 | `success` | boolean | Operation success status |
-| `payload` | json | Full webhook payload array from HubSpot containing event details |
-| `provider` | string | Provider name \(hubspot\) |
-| `providerConfig` | string | HubSpot App ID |
-| `appId` | string | HubSpot App ID |
-| `clientId` | string | HubSpot Client ID |
-| `triggerId` | string | Trigger ID \(e.g., hubspot_company_created\) |
-| `clientSecret` | string | HubSpot Client Secret |
-| `developerApiKey` | string | HubSpot Developer API Key |
-| `curlSetWebhookUrl` | string | curl command to set webhook URL |
-| `curlCreateSubscription` | string | curl command to create subscription |
-| `webhookUrlDisplay` | string | Webhook URL display value |
-| `propertyName` | string | Optional property name filter \(for property change triggers\) |
 
 </div>
 
@@ -273,49 +269,49 @@ Retrieve all users from HubSpot account
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_contact",
             "options": [
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get Contacts",
-                    "id": "get_contacts"
+                    "id": "get_contacts",
+                    "label": "Get Contacts"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Get Companies",
-                    "id": "get_companies"
+                    "id": "get_companies",
+                    "label": "Get Companies"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Update Company",
-                    "id": "update_company"
+                    "id": "update_company",
+                    "label": "Update Company"
                 },
                 {
-                    "label": "Search Companies",
-                    "id": "search_companies"
+                    "id": "search_companies",
+                    "label": "Search Companies"
                 },
                 {
-                    "label": "Get Deals",
-                    "id": "get_deals"
+                    "id": "get_deals",
+                    "label": "Get Deals"
                 }
-            ],
-            "defaultValue": "create_contact"
+            ]
         },
         {
             "id": "credential",
@@ -359,6 +355,7 @@ Create a new contact in HubSpot. Requires at least one of: email, firstname, or 
 | --------- | ---- | ----------- |
 | `contact` | object | Created HubSpot contact object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -379,49 +376,49 @@ Create a new contact in HubSpot. Requires at least one of: email, firstname, or 
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_contact",
             "options": [
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get Contacts",
-                    "id": "get_contacts"
+                    "id": "get_contacts",
+                    "label": "Get Contacts"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Get Companies",
-                    "id": "get_companies"
+                    "id": "get_companies",
+                    "label": "Get Companies"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Update Company",
-                    "id": "update_company"
+                    "id": "update_company",
+                    "label": "Update Company"
                 },
                 {
-                    "label": "Search Companies",
-                    "id": "search_companies"
+                    "id": "search_companies",
+                    "label": "Search Companies"
                 },
                 {
-                    "label": "Get Deals",
-                    "id": "get_deals"
+                    "id": "get_deals",
+                    "label": "Get Deals"
                 }
-            ],
-            "defaultValue": "update_contact"
+            ]
         },
         {
             "id": "credential",
@@ -473,6 +470,7 @@ Update an existing contact in HubSpot by ID or email
 | --------- | ---- | ----------- |
 | `contact` | object | Updated HubSpot contact object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -493,49 +491,49 @@ Update an existing contact in HubSpot by ID or email
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "search_contacts",
             "options": [
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get Contacts",
-                    "id": "get_contacts"
+                    "id": "get_contacts",
+                    "label": "Get Contacts"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Get Companies",
-                    "id": "get_companies"
+                    "id": "get_companies",
+                    "label": "Get Companies"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Update Company",
-                    "id": "update_company"
+                    "id": "update_company",
+                    "label": "Update Company"
                 },
                 {
-                    "label": "Search Companies",
-                    "id": "search_companies"
+                    "id": "search_companies",
+                    "label": "Search Companies"
                 },
                 {
-                    "label": "Get Deals",
-                    "id": "get_deals"
+                    "id": "get_deals",
+                    "label": "Get Deals"
                 }
-            ],
-            "defaultValue": "search_contacts"
+            ]
         },
         {
             "id": "credential",
@@ -609,6 +607,7 @@ Search for contacts in HubSpot using filters, sorting, and queries
 | `total` | number | Total number of matching contacts |
 | `paging` | object | Pagination information |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -629,49 +628,49 @@ Search for contacts in HubSpot using filters, sorting, and queries
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_companies",
             "options": [
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get Contacts",
-                    "id": "get_contacts"
+                    "id": "get_contacts",
+                    "label": "Get Contacts"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Get Companies",
-                    "id": "get_companies"
+                    "id": "get_companies",
+                    "label": "Get Companies"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Update Company",
-                    "id": "update_company"
+                    "id": "update_company",
+                    "label": "Update Company"
                 },
                 {
-                    "label": "Search Companies",
-                    "id": "search_companies"
+                    "id": "search_companies",
+                    "label": "Search Companies"
                 },
                 {
-                    "label": "Get Deals",
-                    "id": "get_deals"
+                    "id": "get_deals",
+                    "label": "Get Deals"
                 }
-            ],
-            "defaultValue": "get_companies"
+            ]
         },
         {
             "id": "credential",
@@ -722,32 +721,27 @@ Search for contacts in HubSpot using filters, sorting, and queries
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Get Companies (<code>hubspot_list_companies</code>)</div>
+
+Retrieve all companies from HubSpot account with pagination support
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Maximum number of results per page \(max 100, default 100\) |
+| `after` | string | No | Pagination cursor for next page of results |
+| `properties` | string | No | Comma-separated list of properties to return |
+| `associations` | string | No | Comma-separated list of object types to retrieve associated IDs for |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `users` | json | Array of user objects |
-| `contacts` | json | Array of contact objects |
-| `contact` | json | Single contact object |
-| `companies` | json | Array of company objects |
-| `company` | json | Single company object |
-| `deals` | json | Array of deal objects |
-| `total` | number | Total number of matching results \(for search\) |
-| `paging` | json | Pagination info with next/prev cursors |
-| `metadata` | json | Operation metadata |
+| `companies` | array | Array of HubSpot company objects |
+| `paging` | object | Pagination information |
+| `metadata` | object | Operation metadata |
 | `success` | boolean | Operation success status |
-| `payload` | json | Full webhook payload array from HubSpot containing event details |
-| `provider` | string | Provider name \(hubspot\) |
-| `providerConfig` | string | HubSpot App ID |
-| `appId` | string | HubSpot App ID |
-| `clientId` | string | HubSpot Client ID |
-| `triggerId` | string | Trigger ID \(e.g., hubspot_company_created\) |
-| `clientSecret` | string | HubSpot Client Secret |
-| `developerApiKey` | string | HubSpot Developer API Key |
-| `curlSetWebhookUrl` | string | curl command to set webhook URL |
-| `curlCreateSubscription` | string | curl command to create subscription |
-| `webhookUrlDisplay` | string | Webhook URL display value |
-| `propertyName` | string | Optional property name filter \(for property change triggers\) |
 
 </div>
 
@@ -768,49 +762,49 @@ Search for contacts in HubSpot using filters, sorting, and queries
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_company",
             "options": [
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get Contacts",
-                    "id": "get_contacts"
+                    "id": "get_contacts",
+                    "label": "Get Contacts"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Get Companies",
-                    "id": "get_companies"
+                    "id": "get_companies",
+                    "label": "Get Companies"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Update Company",
-                    "id": "update_company"
+                    "id": "update_company",
+                    "label": "Update Company"
                 },
                 {
-                    "label": "Search Companies",
-                    "id": "search_companies"
+                    "id": "search_companies",
+                    "label": "Search Companies"
                 },
                 {
-                    "label": "Get Deals",
-                    "id": "get_deals"
+                    "id": "get_deals",
+                    "label": "Get Deals"
                 }
-            ],
-            "defaultValue": "create_company"
+            ]
         },
         {
             "id": "credential",
@@ -854,6 +848,7 @@ Create a new company in HubSpot
 | --------- | ---- | ----------- |
 | `company` | object | Created HubSpot company object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -874,49 +869,49 @@ Create a new company in HubSpot
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_company",
             "options": [
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get Contacts",
-                    "id": "get_contacts"
+                    "id": "get_contacts",
+                    "label": "Get Contacts"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Get Companies",
-                    "id": "get_companies"
+                    "id": "get_companies",
+                    "label": "Get Companies"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Update Company",
-                    "id": "update_company"
+                    "id": "update_company",
+                    "label": "Update Company"
                 },
                 {
-                    "label": "Search Companies",
-                    "id": "search_companies"
+                    "id": "search_companies",
+                    "label": "Search Companies"
                 },
                 {
-                    "label": "Get Deals",
-                    "id": "get_deals"
+                    "id": "get_deals",
+                    "label": "Get Deals"
                 }
-            ],
-            "defaultValue": "update_company"
+            ]
         },
         {
             "id": "credential",
@@ -968,6 +963,7 @@ Update an existing company in HubSpot by ID or domain
 | --------- | ---- | ----------- |
 | `company` | object | Updated HubSpot company object |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -988,49 +984,49 @@ Update an existing company in HubSpot by ID or domain
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "search_companies",
             "options": [
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get Contacts",
-                    "id": "get_contacts"
+                    "id": "get_contacts",
+                    "label": "Get Contacts"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Get Companies",
-                    "id": "get_companies"
+                    "id": "get_companies",
+                    "label": "Get Companies"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Update Company",
-                    "id": "update_company"
+                    "id": "update_company",
+                    "label": "Update Company"
                 },
                 {
-                    "label": "Search Companies",
-                    "id": "search_companies"
+                    "id": "search_companies",
+                    "label": "Search Companies"
                 },
                 {
-                    "label": "Get Deals",
-                    "id": "get_deals"
+                    "id": "get_deals",
+                    "label": "Get Deals"
                 }
-            ],
-            "defaultValue": "search_companies"
+            ]
         },
         {
             "id": "credential",
@@ -1104,6 +1100,7 @@ Search for companies in HubSpot using filters, sorting, and queries
 | `total` | number | Total number of matching companies |
 | `paging` | object | Pagination information |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1124,49 +1121,49 @@ Search for companies in HubSpot using filters, sorting, and queries
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_deals",
             "options": [
                 {
-                    "label": "Get Users",
-                    "id": "get_users"
+                    "id": "get_users",
+                    "label": "Get Users"
                 },
                 {
-                    "label": "Get Contacts",
-                    "id": "get_contacts"
+                    "id": "get_contacts",
+                    "label": "Get Contacts"
                 },
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Get Companies",
-                    "id": "get_companies"
+                    "id": "get_companies",
+                    "label": "Get Companies"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Update Company",
-                    "id": "update_company"
+                    "id": "update_company",
+                    "label": "Update Company"
                 },
                 {
-                    "label": "Search Companies",
-                    "id": "search_companies"
+                    "id": "search_companies",
+                    "label": "Search Companies"
                 },
                 {
-                    "label": "Get Deals",
-                    "id": "get_deals"
+                    "id": "get_deals",
+                    "label": "Get Deals"
                 }
-            ],
-            "defaultValue": "get_deals"
+            ]
         },
         {
             "id": "credential",
@@ -1225,6 +1222,7 @@ Retrieve all deals from HubSpot account with pagination support
 | `deals` | array | Array of HubSpot deal objects |
 | `paging` | object | Pagination information |
 | `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 

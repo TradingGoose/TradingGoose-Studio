@@ -29,17 +29,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "share_post",
             "options": [
                 {
-                    "label": "Share Post",
-                    "id": "share_post"
+                    "id": "share_post",
+                    "label": "Share Post"
                 },
                 {
-                    "label": "Get Profile",
-                    "id": "get_profile"
+                    "id": "get_profile",
+                    "label": "Get Profile"
                 }
-            ],
-            "defaultValue": "share_post"
+            ]
         },
         {
             "id": "credential",
@@ -61,14 +61,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Visibility",
             "required": true,
+            "defaultValue": "PUBLIC",
             "options": [
                 {
-                    "label": "Public",
-                    "id": "PUBLIC"
+                    "id": "PUBLIC",
+                    "label": "Public"
                 },
                 {
-                    "label": "Connections Only",
-                    "id": "CONNECTIONS"
+                    "id": "CONNECTIONS",
+                    "label": "Connections Only"
                 }
             ]
         }
@@ -77,7 +78,18 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Share Post (<code>linkedin_share_post</code>)</div>
+
+Share a post to your personal LinkedIn feed
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | Yes | The text content of your LinkedIn post |
+| `visibility` | string | No | Who can see this post: "PUBLIC" or "CONNECTIONS" \(default: "PUBLIC"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output (block-level contract)</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -105,17 +117,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_profile",
             "options": [
                 {
-                    "label": "Share Post",
-                    "id": "share_post"
+                    "id": "share_post",
+                    "label": "Share Post"
                 },
                 {
-                    "label": "Get Profile",
-                    "id": "get_profile"
+                    "id": "get_profile",
+                    "label": "Get Profile"
                 }
-            ],
-            "defaultValue": "get_profile"
+            ]
         },
         {
             "id": "credential",
@@ -130,7 +142,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-sm font-medium text-fd-muted-foreground mb-2">Output</div>
+<div className="text-base font-semibold mb-2">Get Profile (<code>linkedin_get_profile</code>)</div>
+
+Retrieve your LinkedIn profile information
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Input</div>
+
+This operation has no direct parameters.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output (block-level contract)</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |

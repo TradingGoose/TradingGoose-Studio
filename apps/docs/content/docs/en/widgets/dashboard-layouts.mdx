@@ -1,0 +1,38 @@
+---
+title: Dashboard Layouts
+description: Save and switch between personal dashboard arrangements.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+Dashboard layouts let you keep multiple widget arrangements in the same workspace. Each layout stores its own panel structure, selected widgets, widget configuration, and pair-color context.
+
+Layouts belong to the current user within a workspace. Other workspace members manage their own layout tabs and do not change your personal arrangement.
+
+## Manage Layouts
+
+The layout tabs appear in the center of the dashboard header:
+
+1. Select a tab to make that layout active.
+2. Select the **plus** button to create a layout with the default panel structure.
+3. Drag tabs to change their order.
+4. Use the pencil action on the active tab to rename it.
+5. Use the delete action on an inactive tab to remove it.
+
+<Callout type="info">
+  The active layout cannot be deleted. Switch to another layout first; this also ensures that at least one layout always remains available.
+</Callout>
+
+Changes to panel sizes, splits, widgets, and widget settings apply only to the active layout.
+
+## Related
+
+<Cards>
+  <Card title="Widgets" href="/widgets">
+    Choose the components to arrange in a dashboard layout.
+  </Card>
+  <Card title="Copilot" href="/copilot">
+    Use the global panel with the active dashboard layout as page context.
+  </Card>
+</Cards>

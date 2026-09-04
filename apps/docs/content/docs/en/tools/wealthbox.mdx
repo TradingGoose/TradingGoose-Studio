@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="wealthbox"
-  color=""
+  color="#116ED5"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Wealthbox"
     type="wealthbox"
-    color=""
+    color="#116ED5"
     hideHeader
     subBlocks={[
         {
@@ -30,33 +30,33 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read_note",
             "options": [
                 {
-                    "label": "Read Note",
-                    "id": "read_note"
+                    "id": "read_note",
+                    "label": "Read Note"
                 },
                 {
-                    "label": "Write Note",
-                    "id": "write_note"
+                    "id": "write_note",
+                    "label": "Write Note"
                 },
                 {
-                    "label": "Read Contact",
-                    "id": "read_contact"
+                    "id": "read_contact",
+                    "label": "Read Contact"
                 },
                 {
-                    "label": "Write Contact",
-                    "id": "write_contact"
+                    "id": "write_contact",
+                    "label": "Write Contact"
                 },
                 {
-                    "label": "Read Task",
-                    "id": "read_task"
+                    "id": "read_task",
+                    "label": "Read Task"
                 },
                 {
-                    "label": "Write Task",
-                    "id": "write_task"
+                    "id": "write_task",
+                    "label": "Write Task"
                 }
-            ],
-            "defaultValue": "read_note"
+            ]
         },
         {
             "id": "credential",
@@ -94,10 +94,7 @@ Read content from a Wealthbox note
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
-| `content` | string | Formatted note information |
-| `note` | object | Raw note data from Wealthbox |
-| `operation` | string | The operation performed |
-| `noteId` | string | ID of the note |
+| `output` | object | Note data and metadata |
 
 </div>
 
@@ -111,7 +108,7 @@ Read content from a Wealthbox note
   <BlockConfigPreview
     name="Wealthbox"
     type="wealthbox"
-    color=""
+    color="#116ED5"
     hideHeader
     subBlocks={[
         {
@@ -119,33 +116,33 @@ Read content from a Wealthbox note
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "write_note",
             "options": [
                 {
-                    "label": "Read Note",
-                    "id": "read_note"
+                    "id": "read_note",
+                    "label": "Read Note"
                 },
                 {
-                    "label": "Write Note",
-                    "id": "write_note"
+                    "id": "write_note",
+                    "label": "Write Note"
                 },
                 {
-                    "label": "Read Contact",
-                    "id": "read_contact"
+                    "id": "read_contact",
+                    "label": "Read Contact"
                 },
                 {
-                    "label": "Write Contact",
-                    "id": "write_contact"
+                    "id": "write_contact",
+                    "label": "Write Contact"
                 },
                 {
-                    "label": "Read Task",
-                    "id": "read_task"
+                    "id": "read_task",
+                    "label": "Read Task"
                 },
                 {
-                    "label": "Write Task",
-                    "id": "write_task"
+                    "id": "write_task",
+                    "label": "Write Task"
                 }
-            ],
-            "defaultValue": "write_note"
+            ]
         },
         {
             "id": "credential",
@@ -199,10 +196,8 @@ Create or update a Wealthbox note
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success indicator |
-| `note` | object | Raw note data from Wealthbox |
-| `operation` | string | The operation performed |
-| `itemId` | string | ID of the created/updated note |
+| `success` | boolean | Operation success status |
+| `output` | object | Created or updated note data and metadata |
 
 </div>
 
@@ -216,7 +211,7 @@ Create or update a Wealthbox note
   <BlockConfigPreview
     name="Wealthbox"
     type="wealthbox"
-    color=""
+    color="#116ED5"
     hideHeader
     subBlocks={[
         {
@@ -224,33 +219,33 @@ Create or update a Wealthbox note
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read_contact",
             "options": [
                 {
-                    "label": "Read Note",
-                    "id": "read_note"
+                    "id": "read_note",
+                    "label": "Read Note"
                 },
                 {
-                    "label": "Write Note",
-                    "id": "write_note"
+                    "id": "write_note",
+                    "label": "Write Note"
                 },
                 {
-                    "label": "Read Contact",
-                    "id": "read_contact"
+                    "id": "read_contact",
+                    "label": "Read Contact"
                 },
                 {
-                    "label": "Write Contact",
-                    "id": "write_contact"
+                    "id": "write_contact",
+                    "label": "Write Contact"
                 },
                 {
-                    "label": "Read Task",
-                    "id": "read_task"
+                    "id": "read_task",
+                    "label": "Read Task"
                 },
                 {
-                    "label": "Write Task",
-                    "id": "write_task"
+                    "id": "write_task",
+                    "label": "Write Task"
                 }
-            ],
-            "defaultValue": "read_contact"
+            ]
         },
         {
             "id": "credential",
@@ -296,10 +291,7 @@ Read content from a Wealthbox contact
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
-| `content` | string | Formatted contact information |
-| `contact` | object | Raw contact data from Wealthbox |
-| `operation` | string | The operation performed |
-| `contactId` | string | ID of the contact |
+| `output` | object | Contact data and metadata |
 
 </div>
 
@@ -313,7 +305,7 @@ Read content from a Wealthbox contact
   <BlockConfigPreview
     name="Wealthbox"
     type="wealthbox"
-    color=""
+    color="#116ED5"
     hideHeader
     subBlocks={[
         {
@@ -321,33 +313,33 @@ Read content from a Wealthbox contact
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "write_contact",
             "options": [
                 {
-                    "label": "Read Note",
-                    "id": "read_note"
+                    "id": "read_note",
+                    "label": "Read Note"
                 },
                 {
-                    "label": "Write Note",
-                    "id": "write_note"
+                    "id": "write_note",
+                    "label": "Write Note"
                 },
                 {
-                    "label": "Read Contact",
-                    "id": "read_contact"
+                    "id": "read_contact",
+                    "label": "Read Contact"
                 },
                 {
-                    "label": "Write Contact",
-                    "id": "write_contact"
+                    "id": "write_contact",
+                    "label": "Write Contact"
                 },
                 {
-                    "label": "Read Task",
-                    "id": "read_task"
+                    "id": "read_task",
+                    "label": "Read Task"
                 },
                 {
-                    "label": "Write Task",
-                    "id": "write_task"
+                    "id": "write_task",
+                    "label": "Write Task"
                 }
-            ],
-            "defaultValue": "write_contact"
+            ]
         },
         {
             "id": "credential",
@@ -410,10 +402,8 @@ Create a new Wealthbox contact
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success indicator |
-| `contact` | object | Raw contact data from Wealthbox |
-| `operation` | string | The operation performed |
-| `itemId` | string | ID of the created/updated contact |
+| `success` | boolean | Operation success status |
+| `output` | object | Created or updated contact data and metadata |
 
 </div>
 
@@ -427,7 +417,7 @@ Create a new Wealthbox contact
   <BlockConfigPreview
     name="Wealthbox"
     type="wealthbox"
-    color=""
+    color="#116ED5"
     hideHeader
     subBlocks={[
         {
@@ -435,33 +425,33 @@ Create a new Wealthbox contact
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read_task",
             "options": [
                 {
-                    "label": "Read Note",
-                    "id": "read_note"
+                    "id": "read_note",
+                    "label": "Read Note"
                 },
                 {
-                    "label": "Write Note",
-                    "id": "write_note"
+                    "id": "write_note",
+                    "label": "Write Note"
                 },
                 {
-                    "label": "Read Contact",
-                    "id": "read_contact"
+                    "id": "read_contact",
+                    "label": "Read Contact"
                 },
                 {
-                    "label": "Write Contact",
-                    "id": "write_contact"
+                    "id": "write_contact",
+                    "label": "Write Contact"
                 },
                 {
-                    "label": "Read Task",
-                    "id": "read_task"
+                    "id": "read_task",
+                    "label": "Read Task"
                 },
                 {
-                    "label": "Write Task",
-                    "id": "write_task"
+                    "id": "write_task",
+                    "label": "Write Task"
                 }
-            ],
-            "defaultValue": "read_task"
+            ]
         },
         {
             "id": "credential",
@@ -506,10 +496,7 @@ Read content from a Wealthbox task
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
-| `content` | string | Formatted task information |
-| `task` | object | Raw task data from Wealthbox |
-| `operation` | string | The operation performed |
-| `taskId` | string | ID of the task |
+| `output` | object | Task data and metadata |
 
 </div>
 
@@ -523,7 +510,7 @@ Read content from a Wealthbox task
   <BlockConfigPreview
     name="Wealthbox"
     type="wealthbox"
-    color=""
+    color="#116ED5"
     hideHeader
     subBlocks={[
         {
@@ -531,33 +518,33 @@ Read content from a Wealthbox task
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "write_task",
             "options": [
                 {
-                    "label": "Read Note",
-                    "id": "read_note"
+                    "id": "read_note",
+                    "label": "Read Note"
                 },
                 {
-                    "label": "Write Note",
-                    "id": "write_note"
+                    "id": "write_note",
+                    "label": "Write Note"
                 },
                 {
-                    "label": "Read Contact",
-                    "id": "read_contact"
+                    "id": "read_contact",
+                    "label": "Read Contact"
                 },
                 {
-                    "label": "Write Contact",
-                    "id": "write_contact"
+                    "id": "write_contact",
+                    "label": "Write Contact"
                 },
                 {
-                    "label": "Read Task",
-                    "id": "read_task"
+                    "id": "read_task",
+                    "label": "Read Task"
                 },
                 {
-                    "label": "Write Task",
-                    "id": "write_task"
+                    "id": "write_task",
+                    "label": "Write Task"
                 }
-            ],
-            "defaultValue": "write_task"
+            ]
         },
         {
             "id": "credential",
@@ -629,10 +616,8 @@ Create or update a Wealthbox task
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `success` | boolean | Operation success indicator |
-| `task` | object | Raw task data from Wealthbox |
-| `operation` | string | The operation performed |
-| `itemId` | string | ID of the created/updated task |
+| `success` | boolean | Operation success status |
+| `output` | object | Created or updated task data and metadata |
 
 </div>
 

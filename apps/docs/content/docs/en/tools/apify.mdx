@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="apify"
-  color="#E0E0E0"
+  color=""
 />
 
 
@@ -22,24 +22,24 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Apify"
     type="apify"
-    color="#E0E0E0"
+    color=""
     hideHeader
     subBlocks={[
         {
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "apify_run_actor_sync",
             "options": [
                 {
-                    "label": "Run Actor",
-                    "id": "apify_run_actor_sync"
+                    "id": "apify_run_actor_sync",
+                    "label": "Run Actor"
                 },
                 {
-                    "label": "Run Actor (Async)",
-                    "id": "apify_run_actor_async"
+                    "id": "apify_run_actor_async",
+                    "label": "Run Actor (Async)"
                 }
-            ],
-            "defaultValue": "apify_run_actor_sync"
+            ]
         },
         {
             "id": "apiKey",
@@ -60,20 +60,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "input",
             "type": "code",
             "title": "Actor Input",
-            "placeholder": "{\\n  \"startUrl\": \"https://example.com\",\\n  \"maxPages\": 10\\n}",
-            "language": "json"
+            "placeholder": "{\n  \"startUrl\": \"https://example.com\",\n  \"maxPages\": 10\n}",
+            "language": "json",
+            "required": false
         },
         {
             "id": "timeout",
             "type": "short-input",
             "title": "Timeout",
-            "placeholder": "Actor timeout in seconds"
+            "placeholder": "Actor timeout in seconds",
+            "required": false
         },
         {
             "id": "build",
             "type": "short-input",
             "title": "Build",
-            "placeholder": "Actor build (e.g., \"latest\", \"beta\", or build tag)"
+            "placeholder": "Actor build (e.g., \"latest\", \"beta\", or build tag)",
+            "required": false
         }
     ]}
   />
@@ -101,6 +104,7 @@ Run an APIFY actor synchronously and get results (max 5 minutes)
 | `success` | boolean | Whether the actor run succeeded |
 | `runId` | string | APIFY run ID |
 | `status` | string | Run status \(SUCCEEDED, FAILED, etc.\) |
+| `items` | array | Dataset items \(if completed\) |
 
 </div>
 
@@ -114,24 +118,24 @@ Run an APIFY actor synchronously and get results (max 5 minutes)
   <BlockConfigPreview
     name="Apify"
     type="apify"
-    color="#E0E0E0"
+    color=""
     hideHeader
     subBlocks={[
         {
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "apify_run_actor_async",
             "options": [
                 {
-                    "label": "Run Actor",
-                    "id": "apify_run_actor_sync"
+                    "id": "apify_run_actor_sync",
+                    "label": "Run Actor"
                 },
                 {
-                    "label": "Run Actor (Async)",
-                    "id": "apify_run_actor_async"
+                    "id": "apify_run_actor_async",
+                    "label": "Run Actor (Async)"
                 }
-            ],
-            "defaultValue": "apify_run_actor_async"
+            ]
         },
         {
             "id": "apiKey",
@@ -152,32 +156,37 @@ Run an APIFY actor synchronously and get results (max 5 minutes)
             "id": "input",
             "type": "code",
             "title": "Actor Input",
-            "placeholder": "{\\n  \"startUrl\": \"https://example.com\",\\n  \"maxPages\": 10\\n}",
-            "language": "json"
+            "placeholder": "{\n  \"startUrl\": \"https://example.com\",\n  \"maxPages\": 10\n}",
+            "language": "json",
+            "required": false
         },
         {
             "id": "timeout",
             "type": "short-input",
             "title": "Timeout",
-            "placeholder": "Actor timeout in seconds"
+            "placeholder": "Actor timeout in seconds",
+            "required": false
         },
         {
             "id": "build",
             "type": "short-input",
             "title": "Build",
-            "placeholder": "Actor build (e.g., \"latest\", \"beta\", or build tag)"
+            "placeholder": "Actor build (e.g., \"latest\", \"beta\", or build tag)",
+            "required": false
         },
         {
             "id": "waitForFinish",
             "type": "short-input",
             "title": "Wait For Finish",
-            "placeholder": "Initial wait time in seconds (0-60)"
+            "placeholder": "Initial wait time in seconds (0-60)",
+            "required": false
         },
         {
             "id": "itemLimit",
             "type": "short-input",
             "title": "Item Limit",
-            "placeholder": "Max dataset items to fetch (1-250000)"
+            "placeholder": "Max dataset items to fetch (1-250000)",
+            "required": false
         }
     ]}
   />
@@ -208,6 +217,7 @@ Run an APIFY actor asynchronously with polling for long-running tasks
 | `runId` | string | APIFY run ID |
 | `status` | string | Run status \(SUCCEEDED, FAILED, etc.\) |
 | `datasetId` | string | Dataset ID containing results |
+| `items` | array | Dataset items \(if completed\) |
 
 </div>
 

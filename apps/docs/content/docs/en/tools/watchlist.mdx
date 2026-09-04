@@ -31,17 +31,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Operation",
             "layout": "full",
             "required": true,
+            "defaultValue": "readLists",
             "options": [
                 {
-                    "label": "Read Lists",
-                    "id": "readLists"
+                    "id": "readLists",
+                    "label": "Read Lists"
                 },
                 {
-                    "label": "Read List Items",
-                    "id": "readListItems"
+                    "id": "readListItems",
+                    "label": "Read List Items"
                 }
-            ],
-            "defaultValue": "readLists"
+            ]
         }
     ]}
   />
@@ -83,23 +83,24 @@ This operation has no direct parameters.
             "title": "Operation",
             "layout": "full",
             "required": true,
+            "defaultValue": "readListItems",
             "options": [
                 {
-                    "label": "Read Lists",
-                    "id": "readLists"
+                    "id": "readLists",
+                    "label": "Read Lists"
                 },
                 {
-                    "label": "Read List Items",
-                    "id": "readListItems"
+                    "id": "readListItems",
+                    "label": "Read List Items"
                 }
-            ],
-            "defaultValue": "readListItems"
+            ]
         },
         {
             "id": "watchlistId",
             "type": "dropdown",
             "title": "Watchlist",
-            "layout": "full"
+            "layout": "full",
+            "required": true
         }
     ]}
   />

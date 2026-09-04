@@ -18,7 +18,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 Trigger workflow when phone calls are received via Twilio Voice
 
 <Callout type="info">
-  This is a **webhook-based** trigger. Configure the webhook URL in your external service to send events to TradingGoose.
+  This is a **webhook-based** trigger. Configure the external service to send events to the workflow webhook URL.
 </Callout>
 
 <Cards>
@@ -27,6 +27,26 @@ Trigger workflow when phone calls are received via Twilio Voice
   </Card>
 </Cards>
 
+
+## Setup Instructions
+
+1. Enter a TwiML Response above - this tells Twilio what to do when a call comes in (e.g., play a message, record, gather input). Note: Use square brackets [Tag] instead of angle brackets for TwiML tags
+
+2. Example TwiML for recording with transcription: [Response][Say]Please leave a message.[/Say][Record transcribe="true" maxLength="120"/][/Response]
+
+3. Go to your Twilio Console Phone Numbers page at https://console.twilio.com/us1/develop/phone-numbers/manage/incoming
+
+4. Select the phone number you want to use for incoming calls.
+
+5. Scroll down to the "Voice Configuration" section.
+
+6. In the "A CALL COMES IN" field, select "Webhook" and paste the Webhook URL (from above).
+
+7. Ensure the HTTP method is set to POST.
+
+8. Click "Save configuration".
+
+9. How it works: When a call comes in, Twilio receives your TwiML response immediately and executes those instructions. Your workflow runs in the background with access to caller information, call status, and any recorded/transcribed data.
 
 ## Configuration
 
@@ -50,21 +70,22 @@ Trigger workflow when phone calls are received via Twilio Voice
             "title": "Auth Token",
             "placeholder": "Your Twilio Auth Token",
             "description": "Your Twilio Auth Token for webhook signature verification",
-            "required": true,
-            "password": true
+            "password": true,
+            "required": true
         },
         {
             "id": "twimlResponse",
             "type": "long-input",
             "title": "TwiML Response",
             "placeholder": "[Response][Say]Please hold.[/Say][/Response]",
-            "description": "TwiML instructions to return immediately to Twilio. Use square brackets instead of angle brackets (e.g., [Response] instead of &lt;Response&gt;). This controls what happens when the call comes in (e.g., play a message, record, gather input). Your workflow will execute in the background."
+            "description": "TwiML instructions to return immediately to Twilio. Use square brackets instead of angle brackets (e.g., [Response] instead of <Response>). This controls what happens when the call comes in (e.g., play a message, record, gather input). Your workflow will execute in the background.",
+            "required": false
         }
     ]}
   />
 </ShowcaseCard>
 
-#### Output Schema
+## Output Schema
 
 <SchemaTree
   title="Event Payload"
@@ -82,7 +103,7 @@ Trigger workflow when phone calls are received via Twilio Voice
       {
           "name": "from",
           "type": "string",
-          "description": "Caller"
+          "description": "Caller's phone number (E.164 format)"
       },
       {
           "name": "to",
@@ -117,12 +138,12 @@ Trigger workflow when phone calls are received via Twilio Voice
       {
           "name": "digits",
           "type": "string",
-          "description": "DTMF digits entered by caller (from &lt;Gather&gt;)"
+          "description": "DTMF digits entered by caller (from <Gather>)"
       },
       {
           "name": "speechResult",
           "type": "string",
-          "description": "Speech recognition result (if using &lt;Gather&gt; with speech)"
+          "description": "Speech recognition result (if using <Gather> with speech)"
       },
       {
           "name": "recordingUrl",
@@ -137,12 +158,12 @@ Trigger workflow when phone calls are received via Twilio Voice
       {
           "name": "called",
           "type": "string",
-          "description": "Phone number that was called (same as "
+          "description": "Phone number that was called (same as \"to\")"
       },
       {
           "name": "caller",
           "type": "string",
-          "description": "Phone number of the caller (same as "
+          "description": "Phone number of the caller (same as \"from\")"
       },
       {
           "name": "toCity",
@@ -236,5 +257,3 @@ Trigger workflow when phone calls are received via Twilio Voice
       }
   ]}
 />
-
-

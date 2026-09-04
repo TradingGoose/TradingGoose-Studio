@@ -10,7 +10,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <BlockInfoCard
   type="confluence"
-  color=""
+  color="#2684FF"
 />
 
 
@@ -22,7 +22,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   <BlockConfigPreview
     name="Confluence"
     type="confluence"
-    color=""
+    color="#2684FF"
     hideHeader
     subBlocks={[
         {
@@ -30,17 +30,17 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read",
             "options": [
                 {
-                    "label": "Read Page",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "Update Page",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Page"
                 }
-            ],
-            "defaultValue": "read"
+            ]
         },
         {
             "id": "domain",
@@ -98,6 +98,7 @@ Retrieve content from Confluence pages using the Confluence API.
 | `ts` | string | Timestamp of retrieval |
 | `pageId` | string | Confluence page ID |
 | `content` | string | Page content with HTML tags stripped |
+| `title` | string | Page title |
 
 </div>
 
@@ -111,7 +112,7 @@ Retrieve content from Confluence pages using the Confluence API.
   <BlockConfigPreview
     name="Confluence"
     type="confluence"
-    color=""
+    color="#2684FF"
     hideHeader
     subBlocks={[
         {
@@ -119,17 +120,17 @@ Retrieve content from Confluence pages using the Confluence API.
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "update",
             "options": [
                 {
-                    "label": "Read Page",
-                    "id": "read"
+                    "id": "read",
+                    "label": "Read Page"
                 },
                 {
-                    "label": "Update Page",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Page"
                 }
-            ],
-            "defaultValue": "update"
+            ]
         },
         {
             "id": "domain",
@@ -204,6 +205,7 @@ Update a Confluence page using the Confluence API.
 | `ts` | string | Timestamp of update |
 | `pageId` | string | Confluence page ID |
 | `title` | string | Updated page title |
+| `success` | boolean | Update operation success status |
 
 </div>
 

@@ -36,25 +36,25 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "list",
             "options": [
                 {
-                    "label": "List Records",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Records"
                 },
                 {
-                    "label": "Get Record",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Record"
                 },
                 {
-                    "label": "Create Records",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Records"
                 },
                 {
-                    "label": "Update Record",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Record"
                 }
-            ],
-            "defaultValue": "list"
+            ]
         },
         {
             "id": "credential",
@@ -111,14 +111,14 @@ Read records from an Airtable table
 | `baseId` | string | Yes | ID of the Airtable base |
 | `tableId` | string | Yes | ID of the table |
 | `maxRecords` | number | No | Maximum number of records to return |
-| `filterFormula` | string | No | Formula to filter records \(e.g., "\(\{Field Name\} = \'Value\'\)"\) |
+| `filterFormula` | string | No | Formula to filter records \(e.g., "\(\{Field Name\} = 'Value'\)"\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | id output |
-| `createdTime` | string | createdTime output |
+| `records` | json | Array of retrieved Airtable records |
+| `metadata` | json | Operation metadata including pagination offset and total records count |
 
 </div>
 
@@ -140,25 +140,25 @@ Read records from an Airtable table
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "get",
             "options": [
                 {
-                    "label": "List Records",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Records"
                 },
                 {
-                    "label": "Get Record",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Record"
                 },
                 {
-                    "label": "Create Records",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Records"
                 },
                 {
-                    "label": "Update Record",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Record"
                 }
-            ],
-            "defaultValue": "get"
+            ]
         },
         {
             "id": "credential",
@@ -215,6 +215,7 @@ Retrieve a single record from an Airtable table by its ID
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `record` | json | Retrieved Airtable record with id, createdTime, and fields |
+| `metadata` | json | Operation metadata including record count |
 
 </div>
 
@@ -236,25 +237,25 @@ Retrieve a single record from an Airtable table by its ID
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "create",
             "options": [
                 {
-                    "label": "List Records",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Records"
                 },
                 {
-                    "label": "Get Record",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Record"
                 },
                 {
-                    "label": "Create Records",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Records"
                 },
                 {
-                    "label": "Update Record",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Record"
                 }
-            ],
-            "defaultValue": "create"
+            ]
         },
         {
             "id": "credential",
@@ -286,7 +287,7 @@ Retrieve a single record from an Airtable table by its ID
             "type": "code",
             "title": "Records (JSON Array)",
             "layout": "full",
-            "placeholder": "For Create: `[{ \"fields\": { ... } }]`\\n",
+            "placeholder": "For Create: `[{ \"fields\": { ... } }]`\n",
             "language": "json",
             "required": true
         }
@@ -306,14 +307,13 @@ Write new records to an Airtable table
 | `baseId` | string | Yes | ID of the Airtable base |
 | `tableId` | string | Yes | ID or name of the table |
 | `records` | json | Yes | Array of records to create, each with a `fields` object |
-| `fields` | string | No | No description |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Output</div>
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | id output |
-| `createdTime` | string | createdTime output |
+| `records` | json | Array of created Airtable records |
+| `metadata` | json | Operation metadata |
 
 </div>
 
@@ -335,25 +335,25 @@ Write new records to an Airtable table
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "update",
             "options": [
                 {
-                    "label": "List Records",
-                    "id": "list"
+                    "id": "list",
+                    "label": "List Records"
                 },
                 {
-                    "label": "Get Record",
-                    "id": "get"
+                    "id": "get",
+                    "label": "Get Record"
                 },
                 {
-                    "label": "Create Records",
-                    "id": "create"
+                    "id": "create",
+                    "label": "Create Records"
                 },
                 {
-                    "label": "Update Record",
-                    "id": "update"
+                    "id": "update",
+                    "label": "Update Record"
                 }
-            ],
-            "defaultValue": "update"
+            ]
         },
         {
             "id": "credential",
@@ -420,6 +420,7 @@ Update an existing record in an Airtable table by ID
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `record` | json | Updated Airtable record with id, createdTime, and fields |
+| `metadata` | json | Operation metadata including record count and updated field names |
 
 </div>
 

@@ -36,25 +36,25 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "send_gmail",
             "options": [
                 {
-                    "label": "Send Email",
-                    "id": "send_gmail"
+                    "id": "send_gmail",
+                    "label": "Send Email"
                 },
                 {
-                    "label": "Read Email",
-                    "id": "read_gmail"
+                    "id": "read_gmail",
+                    "label": "Read Email"
                 },
                 {
-                    "label": "Draft Email",
-                    "id": "draft_gmail"
+                    "id": "draft_gmail",
+                    "label": "Draft Email"
                 },
                 {
-                    "label": "Search Email",
-                    "id": "search_gmail"
+                    "id": "search_gmail",
+                    "label": "Search Email"
                 }
-            ],
-            "defaultValue": "send_gmail"
+            ]
         },
         {
             "id": "credential",
@@ -94,28 +94,32 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
             "type": "file-upload",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Upload files to attach"
+            "placeholder": "Upload files to attach",
+            "required": false
         },
         {
             "id": "attachments",
             "type": "short-input",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Reference files from previous blocks"
+            "placeholder": "Reference files from previous blocks",
+            "required": false
         },
         {
             "id": "cc",
             "type": "short-input",
             "title": "CC",
             "layout": "full",
-            "placeholder": "CC recipients (comma-separated)"
+            "placeholder": "CC recipients (comma-separated)",
+            "required": false
         },
         {
             "id": "bcc",
             "type": "short-input",
             "title": "BCC",
             "layout": "full",
-            "placeholder": "BCC recipients (comma-separated)"
+            "placeholder": "BCC recipients (comma-separated)",
+            "required": false
         }
     ]}
   />
@@ -145,9 +149,7 @@ Send emails using Gmail
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Success message |
-| `id` | string | Gmail message ID |
-| `threadId` | string | Gmail thread ID |
-| `items` | string | items output |
+| `metadata` | object | Email metadata |
 
 </div>
 
@@ -169,25 +171,25 @@ Send emails using Gmail
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "read_gmail",
             "options": [
                 {
-                    "label": "Send Email",
-                    "id": "send_gmail"
+                    "id": "send_gmail",
+                    "label": "Send Email"
                 },
                 {
-                    "label": "Read Email",
-                    "id": "read_gmail"
+                    "id": "read_gmail",
+                    "label": "Read Email"
                 },
                 {
-                    "label": "Draft Email",
-                    "id": "draft_gmail"
+                    "id": "draft_gmail",
+                    "label": "Draft Email"
                 },
                 {
-                    "label": "Search Email",
-                    "id": "search_gmail"
+                    "id": "search_gmail",
+                    "label": "Search Email"
                 }
-            ],
-            "defaultValue": "read_gmail"
+            ]
         },
         {
             "id": "credential",
@@ -230,7 +232,8 @@ Send emails using Gmail
             "type": "short-input",
             "title": "Message ID",
             "layout": "full",
-            "placeholder": "Enter message ID to read (optional)"
+            "placeholder": "Enter message ID to read (optional)",
+            "description": "Shown when folder is ''."
         },
         {
             "id": "maxResults",
@@ -264,6 +267,7 @@ Read emails from Gmail
 | --------- | ---- | ----------- |
 | `content` | string | Text content of the email |
 | `metadata` | json | Metadata of the email |
+| `attachments` | file[] | Attachments of the email |
 
 </div>
 
@@ -285,25 +289,25 @@ Read emails from Gmail
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "draft_gmail",
             "options": [
                 {
-                    "label": "Send Email",
-                    "id": "send_gmail"
+                    "id": "send_gmail",
+                    "label": "Send Email"
                 },
                 {
-                    "label": "Read Email",
-                    "id": "read_gmail"
+                    "id": "read_gmail",
+                    "label": "Read Email"
                 },
                 {
-                    "label": "Draft Email",
-                    "id": "draft_gmail"
+                    "id": "draft_gmail",
+                    "label": "Draft Email"
                 },
                 {
-                    "label": "Search Email",
-                    "id": "search_gmail"
+                    "id": "search_gmail",
+                    "label": "Search Email"
                 }
-            ],
-            "defaultValue": "draft_gmail"
+            ]
         },
         {
             "id": "credential",
@@ -343,28 +347,32 @@ Read emails from Gmail
             "type": "file-upload",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Upload files to attach"
+            "placeholder": "Upload files to attach",
+            "required": false
         },
         {
             "id": "attachments",
             "type": "short-input",
             "title": "Attachments",
             "layout": "full",
-            "placeholder": "Reference files from previous blocks"
+            "placeholder": "Reference files from previous blocks",
+            "required": false
         },
         {
             "id": "cc",
             "type": "short-input",
             "title": "CC",
             "layout": "full",
-            "placeholder": "CC recipients (comma-separated)"
+            "placeholder": "CC recipients (comma-separated)",
+            "required": false
         },
         {
             "id": "bcc",
             "type": "short-input",
             "title": "BCC",
             "layout": "full",
-            "placeholder": "BCC recipients (comma-separated)"
+            "placeholder": "BCC recipients (comma-separated)",
+            "required": false
         }
     ]}
   />
@@ -394,9 +402,7 @@ Draft emails using Gmail
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Success message |
-| `id` | string | Gmail message ID |
-| `threadId` | string | Gmail thread ID |
-| `items` | string | items output |
+| `metadata` | object | Draft metadata |
 
 </div>
 
@@ -418,25 +424,25 @@ Draft emails using Gmail
             "type": "dropdown",
             "title": "Operation",
             "layout": "full",
+            "defaultValue": "search_gmail",
             "options": [
                 {
-                    "label": "Send Email",
-                    "id": "send_gmail"
+                    "id": "send_gmail",
+                    "label": "Send Email"
                 },
                 {
-                    "label": "Read Email",
-                    "id": "read_gmail"
+                    "id": "read_gmail",
+                    "label": "Read Email"
                 },
                 {
-                    "label": "Draft Email",
-                    "id": "draft_gmail"
+                    "id": "draft_gmail",
+                    "label": "Draft Email"
                 },
                 {
-                    "label": "Search Email",
-                    "id": "search_gmail"
+                    "id": "search_gmail",
+                    "label": "Search Email"
                 }
-            ],
-            "defaultValue": "search_gmail"
+            ]
         },
         {
             "id": "credential",
@@ -483,11 +489,7 @@ Search emails in Gmail
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `content` | string | Search results summary |
-| `id` | string | Gmail message ID |
-| `threadId` | string | Gmail thread ID |
-| `subject` | string | Email subject |
-| `from` | string | Sender email address |
-| `date` | string | Email date |
+| `metadata` | object | Search metadata |
 
 </div>
 

@@ -29,57 +29,57 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_issues_list",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_issues_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -124,22 +124,27 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "status",
             "type": "dropdown",
             "title": "Status",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Unresolved",
-                    "id": "unresolved"
+                    "id": "",
+                    "label": "All"
                 },
                 {
-                    "label": "Resolved",
-                    "id": "resolved"
+                    "id": "unresolved",
+                    "label": "Unresolved"
                 },
                 {
-                    "label": "Ignored",
-                    "id": "ignored"
+                    "id": "resolved",
+                    "label": "Resolved"
                 },
                 {
-                    "label": "Muted",
-                    "id": "muted"
+                    "id": "ignored",
+                    "label": "Ignored"
+                },
+                {
+                    "id": "muted",
+                    "label": "Muted"
                 }
             ]
         },
@@ -147,26 +152,27 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "sort",
             "type": "dropdown",
             "title": "Sort By",
+            "defaultValue": "date",
             "options": [
                 {
-                    "label": "Date",
-                    "id": "date"
+                    "id": "date",
+                    "label": "Date"
                 },
                 {
-                    "label": "New",
-                    "id": "new"
+                    "id": "new",
+                    "label": "New"
                 },
                 {
-                    "label": "Frequency",
-                    "id": "freq"
+                    "id": "freq",
+                    "label": "Frequency"
                 },
                 {
-                    "label": "Priority",
-                    "id": "priority"
+                    "id": "priority",
+                    "label": "Priority"
                 },
                 {
-                    "label": "User Count",
-                    "id": "user"
+                    "id": "user",
+                    "label": "User Count"
                 }
             ]
         }
@@ -197,17 +203,9 @@ List issues from Sentry for a specific organization and optionally a specific pr
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Project ID |
-| `shortId` | string | Short issue identifier |
-| `title` | string | Issue title |
-| `culprit` | string | Function or location that caused the issue |
-| `permalink` | string | Direct link to the issue in Sentry |
-| `logger` | string | Logger name that reported the issue |
-| `level` | string | Severity level \(error, warning, info, etc.\) |
-| `status` | string | Current issue status |
-| `platform` | string | Platform where the issue occurred |
-| `name` | string | Project name |
-| `slug` | string | Project slug |
+| `issues` | array | List of Sentry issues |
+| `nextCursor` | string | Cursor for the next page of results \(if available\) |
+| `hasMore` | boolean | Whether there are more results available |
 
 </div>
 
@@ -228,57 +226,57 @@ List issues from Sentry for a specific organization and optionally a specific pr
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_issues_get",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_issues_get"
+            ]
         },
         {
             "id": "apiKey",
@@ -323,19 +321,7 @@ Retrieve detailed information about a specific Sentry issue by its ID. Returns c
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Project ID |
-| `shortId` | string | Short issue identifier |
-| `title` | string | Issue title |
-| `culprit` | string | Function or location that caused the issue |
-| `permalink` | string | Direct link to the issue in Sentry |
-| `logger` | string | Logger name that reported the issue |
-| `level` | string | Severity level \(error, warning, info, etc.\) |
-| `status` | string | Current issue status |
-| `statusDetails` | object | Additional details about the status |
-| `isPublic` | boolean | Whether the issue is publicly visible |
-| `platform` | string | Platform where the issue occurred |
-| `name` | string | Project name |
-| `slug` | string | Project slug |
+| `issue` | object | Detailed information about the Sentry issue |
 
 </div>
 
@@ -356,57 +342,57 @@ Retrieve detailed information about a specific Sentry issue by its ID. Returns c
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_issues_update",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_issues_update"
+            ]
         },
         {
             "id": "apiKey",
@@ -434,22 +420,27 @@ Retrieve detailed information about a specific Sentry issue by its ID. Returns c
             "id": "status",
             "type": "dropdown",
             "title": "New Status",
+            "defaultValue": "",
             "options": [
                 {
-                    "label": "Resolved",
-                    "id": "resolved"
+                    "id": "",
+                    "label": "No Change"
                 },
                 {
-                    "label": "Unresolved",
-                    "id": "unresolved"
+                    "id": "resolved",
+                    "label": "Resolved"
                 },
                 {
-                    "label": "Ignored",
-                    "id": "ignored"
+                    "id": "unresolved",
+                    "label": "Unresolved"
                 },
                 {
-                    "label": "Resolved in Next Release",
-                    "id": "resolvedInNextRelease"
+                    "id": "ignored",
+                    "label": "Ignored"
+                },
+                {
+                    "id": "resolvedInNextRelease",
+                    "label": "Resolved in Next Release"
                 }
             ]
         },
@@ -495,11 +486,7 @@ Update a Sentry issue by changing its status, assignment, bookmark state, or oth
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | User ID |
-| `shortId` | string | Short issue identifier |
-| `title` | string | Issue title |
-| `status` | string | Updated issue status |
-| `name` | string | User name |
+| `issue` | object | The updated Sentry issue |
 
 </div>
 
@@ -520,57 +507,57 @@ Update a Sentry issue by changing its status, assignment, bookmark state, or oth
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_projects_list",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_projects_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -615,14 +602,9 @@ List all projects in a Sentry organization. Returns project details including na
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Organization ID |
-| `slug` | string | Organization slug |
-| `name` | string | Project name |
-| `platform` | string | Platform/language \(e.g., javascript, python\) |
-| `dateCreated` | string | When the project was created \(ISO timestamp\) |
-| `isBookmarked` | boolean | Whether the project is bookmarked |
-| `isMember` | boolean | Whether the user is a member of the project |
-| `features` | array | Enabled features for the project |
+| `projects` | array | List of Sentry projects |
+| `nextCursor` | string | Cursor for the next page of results \(if available\) |
+| `hasMore` | boolean | Whether there are more results available |
 
 </div>
 
@@ -643,57 +625,57 @@ List all projects in a Sentry organization. Returns project details including na
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_projects_get",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_projects_get"
+            ]
         },
         {
             "id": "apiKey",
@@ -738,13 +720,7 @@ Retrieve detailed information about a specific Sentry project by its slug. Retur
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique project ID |
-| `slug` | string | URL-friendly project identifier |
-| `name` | string | Project name |
-| `platform` | string | Platform/language \(e.g., javascript, python\) |
-| `dateCreated` | string | When the project was created \(ISO timestamp\) |
-| `isBookmarked` | boolean | Whether the project is bookmarked |
-| `isMember` | boolean | Whether the user is a member of the project |
+| `project` | object | Detailed information about the Sentry project |
 
 </div>
 
@@ -765,57 +741,57 @@ Retrieve detailed information about a specific Sentry project by its slug. Retur
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_projects_create",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_projects_create"
+            ]
         },
         {
             "id": "apiKey",
@@ -888,11 +864,7 @@ Create a new Sentry project in an organization. Requires a team to associate the
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Organization ID |
-| `slug` | string | Organization slug |
-| `name` | string | Project name |
-| `platform` | string | Platform/language |
-| `dateCreated` | string | When the project was created \(ISO timestamp\) |
+| `project` | object | The newly created Sentry project |
 
 </div>
 
@@ -913,57 +885,57 @@ Create a new Sentry project in an organization. Requires a team to associate the
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_projects_update",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_projects_update"
+            ]
         },
         {
             "id": "apiKey",
@@ -1037,11 +1009,7 @@ Update a Sentry project by changing its name, slug, platform, or other settings.
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Organization ID |
-| `slug` | string | Organization slug |
-| `name` | string | Project name |
-| `platform` | string | Platform/language |
-| `isBookmarked` | boolean | Whether the project is bookmarked |
+| `project` | object | The updated Sentry project |
 
 </div>
 
@@ -1062,57 +1030,57 @@ Update a Sentry project by changing its name, slug, platform, or other settings.
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_events_list",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_events_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -1186,17 +1154,9 @@ List events from a Sentry project. Can be filtered by issue ID, query, or time p
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | User ID |
-| `eventID` | string | Event identifier |
-| `projectID` | string | Project ID |
-| `groupID` | string | Issue group ID |
-| `message` | string | Event message |
-| `title` | string | Event title |
-| `culprit` | string | Function or location that caused the event |
-| `dateCreated` | string | When the event was created \(ISO timestamp\) |
-| `dateReceived` | string | When Sentry received the event \(ISO timestamp\) |
-| `email` | string | User email |
-| `username` | string | Username |
+| `events` | array | List of Sentry events |
+| `nextCursor` | string | Cursor for the next page of results \(if available\) |
+| `hasMore` | boolean | Whether there are more results available |
 
 </div>
 
@@ -1217,57 +1177,57 @@ List events from a Sentry project. Can be filtered by issue ID, query, or time p
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_events_get",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_events_get"
+            ]
         },
         {
             "id": "apiKey",
@@ -1320,19 +1280,7 @@ Retrieve detailed information about a specific Sentry event by its ID. Returns c
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | User ID |
-| `eventID` | string | Event identifier |
-| `projectID` | string | Project ID |
-| `groupID` | string | Issue group ID this event belongs to |
-| `message` | string | Event message |
-| `title` | string | Event title |
-| `location` | string | Location information |
-| `culprit` | string | Function or location that caused the event |
-| `dateCreated` | string | When the event was created \(ISO timestamp\) |
-| `dateReceived` | string | When Sentry received the event \(ISO timestamp\) |
-| `email` | string | User email |
-| `username` | string | Username |
-| `ipAddress` | string | IP address |
+| `event` | object | Detailed information about the Sentry event |
 
 </div>
 
@@ -1353,57 +1301,57 @@ Retrieve detailed information about a specific Sentry event by its ID. Returns c
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_releases_list",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_releases_list"
+            ]
         },
         {
             "id": "apiKey",
@@ -1462,15 +1410,9 @@ List releases for a Sentry organization or project. Returns release details incl
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | User ID |
-| `version` | string | Release version identifier |
-| `shortVersion` | string | Shortened version identifier |
-| `ref` | string | Git reference \(commit SHA, tag, or branch\) |
-| `url` | string | URL to the release \(e.g., GitHub release page\) |
-| `dateReleased` | string | When the release was deployed \(ISO timestamp\) |
-| `dateCreated` | string | When the release was created \(ISO timestamp\) |
-| `newGroups` | number | Number of new issues introduced in this release |
-| `name` | string | User name |
+| `releases` | array | List of Sentry releases |
+| `nextCursor` | string | Cursor for the next page of results \(if available\) |
+| `hasMore` | boolean | Whether there are more results available |
 
 </div>
 
@@ -1491,57 +1433,57 @@ List releases for a Sentry organization or project. Returns release details incl
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_releases_create",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_releases_create"
+            ]
         },
         {
             "id": "apiKey",
@@ -1622,15 +1564,7 @@ Create a new release in Sentry. A release is a version of your code deployed to 
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Project ID |
-| `version` | string | Release version identifier |
-| `shortVersion` | string | Shortened version identifier |
-| `ref` | string | Git reference \(commit SHA, tag, or branch\) |
-| `url` | string | URL to the release |
-| `dateReleased` | string | When the release was deployed \(ISO timestamp\) |
-| `dateCreated` | string | When the release was created \(ISO timestamp\) |
-| `commitCount` | number | Number of commits in this release |
-| `name` | string | Project name |
+| `release` | object | The newly created Sentry release |
 
 </div>
 
@@ -1651,57 +1585,57 @@ Create a new release in Sentry. A release is a version of your code deployed to 
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "sentry_releases_deploy",
             "options": [
                 {
-                    "label": "List Issues",
-                    "id": "sentry_issues_list"
+                    "id": "sentry_issues_list",
+                    "label": "List Issues"
                 },
                 {
-                    "label": "Get Issue",
-                    "id": "sentry_issues_get"
+                    "id": "sentry_issues_get",
+                    "label": "Get Issue"
                 },
                 {
-                    "label": "Update Issue",
-                    "id": "sentry_issues_update"
+                    "id": "sentry_issues_update",
+                    "label": "Update Issue"
                 },
                 {
-                    "label": "List Projects",
-                    "id": "sentry_projects_list"
+                    "id": "sentry_projects_list",
+                    "label": "List Projects"
                 },
                 {
-                    "label": "Get Project",
-                    "id": "sentry_projects_get"
+                    "id": "sentry_projects_get",
+                    "label": "Get Project"
                 },
                 {
-                    "label": "Create Project",
-                    "id": "sentry_projects_create"
+                    "id": "sentry_projects_create",
+                    "label": "Create Project"
                 },
                 {
-                    "label": "Update Project",
-                    "id": "sentry_projects_update"
+                    "id": "sentry_projects_update",
+                    "label": "Update Project"
                 },
                 {
-                    "label": "List Events",
-                    "id": "sentry_events_list"
+                    "id": "sentry_events_list",
+                    "label": "List Events"
                 },
                 {
-                    "label": "Get Event",
-                    "id": "sentry_events_get"
+                    "id": "sentry_events_get",
+                    "label": "Get Event"
                 },
                 {
-                    "label": "List Releases",
-                    "id": "sentry_releases_list"
+                    "id": "sentry_releases_list",
+                    "label": "List Releases"
                 },
                 {
-                    "label": "Create Release",
-                    "id": "sentry_releases_create"
+                    "id": "sentry_releases_create",
+                    "label": "Create Release"
                 },
                 {
-                    "label": "Create Deploy",
-                    "id": "sentry_releases_deploy"
+                    "id": "sentry_releases_deploy",
+                    "label": "Create Deploy"
                 }
-            ],
-            "defaultValue": "sentry_releases_deploy"
+            ]
         },
         {
             "id": "apiKey",
@@ -1782,11 +1716,7 @@ Create a deploy record for a Sentry release in a specific environment. Deploys t
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique deploy ID |
-| `environment` | string | Environment name where the release was deployed |
-| `name` | string | Name of the deploy |
-| `url` | string | URL pointing to the deploy |
-| `dateStarted` | string | When the deploy started \(ISO timestamp\) |
+| `deploy` | object | The newly created deploy record |
 
 </div>
 

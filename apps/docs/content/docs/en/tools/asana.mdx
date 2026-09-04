@@ -29,33 +29,33 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_task",
             "options": [
                 {
-                    "label": "Get Task",
-                    "id": "get_task"
+                    "id": "get_task",
+                    "label": "Get Task"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "create_task"
+                    "id": "create_task",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Update Task",
-                    "id": "update_task"
+                    "id": "update_task",
+                    "label": "Update Task"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "search_tasks"
+                    "id": "search_tasks",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "get_task"
+            ]
         },
         {
             "id": "credential",
@@ -69,7 +69,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "taskGid",
             "type": "short-input",
             "title": "Task GID",
-            "placeholder": "Leave empty to get all tasks with filters below"
+            "placeholder": "Leave empty to get all tasks with filters below",
+            "required": false
         },
         {
             "id": "getTasks_workspace",
@@ -113,12 +114,18 @@ Retrieve a single task by GID or get multiple tasks with filters
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
 | `ts` | string | Timestamp of the response |
-| `gid` | string | Assignee GID |
+| `gid` | string | Task globally unique identifier |
 | `resource_type` | string | Resource type \(task\) |
 | `resource_subtype` | string | Resource subtype |
 | `name` | string | Task name |
 | `notes` | string | Task notes or description |
 | `completed` | boolean | Whether the task is completed |
+| `assignee` | object | Assignee details |
+| `created_by` | object | Creator details |
+| `due_on` | string | Due date \(YYYY-MM-DD\) |
+| `created_at` | string | Task creation timestamp |
+| `modified_at` | string | Task last modified timestamp |
+| `tasks` | array | Array of tasks \(when fetching multiple\) |
 
 </div>
 
@@ -139,33 +146,33 @@ Retrieve a single task by GID or get multiple tasks with filters
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_task",
             "options": [
                 {
-                    "label": "Get Task",
-                    "id": "get_task"
+                    "id": "get_task",
+                    "label": "Get Task"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "create_task"
+                    "id": "create_task",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Update Task",
-                    "id": "update_task"
+                    "id": "update_task",
+                    "label": "Update Task"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "search_tasks"
+                    "id": "search_tasks",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "create_task"
+            ]
         },
         {
             "id": "credential",
@@ -237,6 +244,7 @@ Create a new task in Asana
 | `notes` | string | Task notes or description |
 | `completed` | boolean | Whether the task is completed |
 | `created_at` | string | Task creation timestamp |
+| `permalink_url` | string | URL to the task in Asana |
 
 </div>
 
@@ -257,33 +265,33 @@ Create a new task in Asana
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_task",
             "options": [
                 {
-                    "label": "Get Task",
-                    "id": "get_task"
+                    "id": "get_task",
+                    "label": "Get Task"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "create_task"
+                    "id": "create_task",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Update Task",
-                    "id": "update_task"
+                    "id": "update_task",
+                    "label": "Update Task"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "search_tasks"
+                    "id": "search_tasks",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "update_task"
+            ]
         },
         {
             "id": "credential",
@@ -355,6 +363,7 @@ Update an existing task in Asana
 | `name` | string | Task name |
 | `notes` | string | Task notes or description |
 | `completed` | boolean | Whether the task is completed |
+| `modified_at` | string | Task last modified timestamp |
 
 </div>
 
@@ -375,33 +384,33 @@ Update an existing task in Asana
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_projects",
             "options": [
                 {
-                    "label": "Get Task",
-                    "id": "get_task"
+                    "id": "get_task",
+                    "label": "Get Task"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "create_task"
+                    "id": "create_task",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Update Task",
-                    "id": "update_task"
+                    "id": "update_task",
+                    "label": "Update Task"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "search_tasks"
+                    "id": "search_tasks",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "get_projects"
+            ]
         },
         {
             "id": "credential",
@@ -439,8 +448,7 @@ Retrieve all projects from an Asana workspace
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
 | `ts` | string | Timestamp of the response |
-| `gid` | string | Project GID |
-| `name` | string | Project name |
+| `projects` | array | Array of projects |
 
 </div>
 
@@ -461,33 +469,33 @@ Retrieve all projects from an Asana workspace
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "search_tasks",
             "options": [
                 {
-                    "label": "Get Task",
-                    "id": "get_task"
+                    "id": "get_task",
+                    "label": "Get Task"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "create_task"
+                    "id": "create_task",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Update Task",
-                    "id": "update_task"
+                    "id": "update_task",
+                    "label": "Update Task"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "search_tasks"
+                    "id": "search_tasks",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "search_tasks"
+            ]
         },
         {
             "id": "credential",
@@ -541,12 +549,8 @@ Search for tasks in an Asana workspace
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
 | `ts` | string | Timestamp of the response |
-| `gid` | string | Assignee GID |
-| `resource_type` | string | Resource type |
-| `resource_subtype` | string | Resource subtype |
-| `name` | string | Task name |
-| `notes` | string | Task notes |
-| `completed` | boolean | Completion status |
+| `tasks` | array | Array of matching tasks |
+| `next_page` | object | Pagination info |
 
 </div>
 
@@ -567,33 +571,33 @@ Search for tasks in an Asana workspace
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "add_comment",
             "options": [
                 {
-                    "label": "Get Task",
-                    "id": "get_task"
+                    "id": "get_task",
+                    "label": "Get Task"
                 },
                 {
-                    "label": "Create Task",
-                    "id": "create_task"
+                    "id": "create_task",
+                    "label": "Create Task"
                 },
                 {
-                    "label": "Update Task",
-                    "id": "update_task"
+                    "id": "update_task",
+                    "label": "Update Task"
                 },
                 {
-                    "label": "Get Projects",
-                    "id": "get_projects"
+                    "id": "get_projects",
+                    "label": "Get Projects"
                 },
                 {
-                    "label": "Search Tasks",
-                    "id": "search_tasks"
+                    "id": "search_tasks",
+                    "label": "Search Tasks"
                 },
                 {
-                    "label": "Add Comment",
-                    "id": "add_comment"
+                    "id": "add_comment",
+                    "label": "Add Comment"
                 }
-            ],
-            "defaultValue": "add_comment"
+            ]
         },
         {
             "id": "credential",
@@ -639,9 +643,10 @@ Add a comment (story) to an Asana task
 | --------- | ---- | ----------- |
 | `success` | boolean | Operation success status |
 | `ts` | string | Timestamp of the response |
-| `gid` | string | Author GID |
+| `gid` | string | Comment globally unique identifier |
 | `text` | string | Comment text content |
 | `created_at` | string | Comment creation timestamp |
+| `created_by` | object | Comment author details |
 
 </div>
 

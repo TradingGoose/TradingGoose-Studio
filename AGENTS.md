@@ -1,12 +1,12 @@
 # AGENTS
 
 ## Ground rules
-- Do not use the package "server-only" in the project.
+- Do not use the pacakge "server-only" in the project.
 - Do not edit any `*/migration/*` files; they are auto-generated.
 - Do not add legacy support; updates should be clean and avoid extra project complexity.
 - We do not need any form of legacy support as the project is under fresh dev, do not add any form of legacy backfill path
 - This project does not support any legacy methods.
-- Project uses the `Bun` package manager with Turborepo; find project-defined scripts in the repository-root `package.json` for testing.
+- Project uses `Bun` pacakge manager with turborepo, find project defined scripts in `/pacakge.json` for testing.
 - Prefer removing lines of code over adding more lines of code to reduce project complexity.
 
 ## Planning

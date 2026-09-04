@@ -29,73 +29,73 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_contact",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "create_contact"
+            ]
         },
         {
             "id": "accessToken",
@@ -111,12 +111,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Role",
             "options": [
                 {
-                    "label": "Lead",
-                    "id": "lead"
+                    "id": "lead",
+                    "label": "Lead"
                 },
                 {
-                    "label": "User",
-                    "id": "user"
+                    "id": "user",
+                    "label": "User"
                 }
             ]
         },
@@ -174,12 +174,12 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "title": "Unsubscribed from Emails",
             "options": [
                 {
-                    "label": "True",
-                    "id": "true"
+                    "id": "true",
+                    "label": "True"
                 },
                 {
-                    "label": "False",
-                    "id": "false"
+                    "id": "false",
+                    "label": "False"
                 }
             ]
         },
@@ -225,24 +225,9 @@ Create a new contact in Intercom with email, external_id, or role
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the contact |
-| `type` | string | List type |
-| `role` | string | Role of the contact \(user or lead\) |
-| `email` | string | Email address of the contact |
-| `phone` | string | Phone number of the contact |
-| `name` | string | Name of the contact |
-| `avatar` | string | Avatar URL of the contact |
-| `owner_id` | string | ID of the admin assigned to this contact |
-| `external_id` | string | External identifier for the contact |
-| `created_at` | number | Unix timestamp when contact was created |
-| `updated_at` | number | Unix timestamp when contact was last updated |
-| `signed_up_at` | number | Unix timestamp when user signed up |
-| `last_seen_at` | number | Unix timestamp when user was last seen |
-| `workspace_id` | string | Workspace ID the contact belongs to |
-| `custom_attributes` | object | Custom attributes set on the contact |
-| `url` | string | URL to fetch tags |
-| `data` | array | Array of tag objects |
-| `has_more` | boolean | Whether there are more tags |
+| `contact` | object | Created contact object |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -263,73 +248,73 @@ Create a new contact in Intercom with email, external_id, or role
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_contact",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "get_contact"
+            ]
         },
         {
             "id": "accessToken",
@@ -365,24 +350,9 @@ Get a single contact by ID from Intercom
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the contact |
-| `type` | string | Object type \(contact\) |
-| `role` | string | Role of the contact \(user or lead\) |
-| `email` | string | Email address of the contact |
-| `phone` | string | Phone number of the contact |
-| `name` | string | Name of the contact |
-| `avatar` | string | Avatar URL of the contact |
-| `owner_id` | string | ID of the admin assigned to this contact |
-| `external_id` | string | External identifier for the contact |
-| `created_at` | number | Unix timestamp when contact was created |
-| `updated_at` | number | Unix timestamp when contact was last updated |
-| `workspace_id` | string | Workspace ID the contact belongs to |
-| `custom_attributes` | object | Custom attributes set on the contact |
-| `tags` | object | Tags associated with the contact |
-| `notes` | object | Notes associated with the contact |
-| `companies` | object | Companies associated with the contact |
-| `location` | object | Location information for the contact |
-| `social_profiles` | object | Social profiles of the contact |
+| `contact` | object | Contact object |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -403,73 +373,73 @@ Get a single contact by ID from Intercom
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "update_contact",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "update_contact"
+            ]
         },
         {
             "id": "accessToken",
@@ -485,12 +455,12 @@ Get a single contact by ID from Intercom
             "title": "Role",
             "options": [
                 {
-                    "label": "Lead",
-                    "id": "lead"
+                    "id": "lead",
+                    "label": "Lead"
                 },
                 {
-                    "label": "User",
-                    "id": "user"
+                    "id": "user",
+                    "label": "User"
                 }
             ]
         },
@@ -555,12 +525,12 @@ Get a single contact by ID from Intercom
             "title": "Unsubscribed from Emails",
             "options": [
                 {
-                    "label": "True",
-                    "id": "true"
+                    "id": "true",
+                    "label": "True"
                 },
                 {
-                    "label": "False",
-                    "id": "false"
+                    "id": "false",
+                    "label": "False"
                 }
             ]
         },
@@ -607,24 +577,9 @@ Update an existing contact in Intercom
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the contact |
-| `type` | string | Object type \(contact\) |
-| `role` | string | Role of the contact \(user or lead\) |
-| `email` | string | Email address of the contact |
-| `phone` | string | Phone number of the contact |
-| `name` | string | Name of the contact |
-| `avatar` | string | Avatar URL of the contact |
-| `owner_id` | string | ID of the admin assigned to this contact |
-| `external_id` | string | External identifier for the contact |
-| `created_at` | number | Unix timestamp when contact was created |
-| `updated_at` | number | Unix timestamp when contact was last updated |
-| `workspace_id` | string | Workspace ID the contact belongs to |
-| `custom_attributes` | object | Custom attributes set on the contact |
-| `tags` | object | Tags associated with the contact |
-| `notes` | object | Notes associated with the contact |
-| `companies` | object | Companies associated with the contact |
-| `location` | object | Location information for the contact |
-| `social_profiles` | object | Social profiles of the contact |
+| `contact` | object | Updated contact object |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -645,73 +600,73 @@ Update an existing contact in Intercom
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "list_contacts",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "list_contacts"
+            ]
         },
         {
             "id": "accessToken",
@@ -725,8 +680,7 @@ Update an existing contact in Intercom
             "id": "per_page",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (max: 150)",
-            "max": 150
+            "placeholder": "Results per page (max: 150)"
         },
         {
             "id": "starting_after",
@@ -754,18 +708,10 @@ List all contacts from Intercom with pagination support
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the contact |
-| `type` | string | Object type \(contact\) |
-| `role` | string | Role of the contact \(user or lead\) |
-| `email` | string | Email address of the contact |
-| `phone` | string | Phone number of the contact |
-| `name` | string | Name of the contact |
-| `external_id` | string | External identifier for the contact |
-| `created_at` | number | Unix timestamp when contact was created |
-| `updated_at` | number | Unix timestamp when contact was last updated |
-| `workspace_id` | string | Workspace ID the contact belongs to |
-| `custom_attributes` | object | Custom attributes set on the contact |
-| `tags` | object | Tags associated with the contact |
+| `contacts` | array | Array of contact objects |
+| `pages` | object | Pagination information |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -786,73 +732,73 @@ List all contacts from Intercom with pagination support
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "search_contacts",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "search_contacts"
+            ]
         },
         {
             "id": "accessToken",
@@ -881,12 +827,12 @@ List all contacts from Intercom with pagination support
             "title": "Sort Order",
             "options": [
                 {
-                    "label": "Descending",
-                    "id": "descending"
+                    "id": "descending",
+                    "label": "Descending"
                 },
                 {
-                    "label": "Ascending",
-                    "id": "ascending"
+                    "id": "ascending",
+                    "label": "Ascending"
                 }
             ]
         },
@@ -894,8 +840,7 @@ List all contacts from Intercom with pagination support
             "id": "per_page",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (max: 150)",
-            "max": 150
+            "placeholder": "Results per page (max: 150)"
         },
         {
             "id": "starting_after",
@@ -926,26 +871,10 @@ Search for contacts in Intercom using a query
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the contact |
-| `type` | string | Object type \(contact\) |
-| `role` | string | Role of the contact \(user or lead\) |
-| `email` | string | Email address of the contact |
-| `phone` | string | Phone number of the contact |
-| `name` | string | Name of the contact |
-| `avatar` | string | Avatar URL of the contact |
-| `owner_id` | string | ID of the admin assigned to this contact |
-| `external_id` | string | External identifier for the contact |
-| `created_at` | number | Unix timestamp when contact was created |
-| `updated_at` | number | Unix timestamp when contact was last updated |
-| `signed_up_at` | number | Unix timestamp when user signed up |
-| `last_seen_at` | number | Unix timestamp when user was last seen |
-| `workspace_id` | string | Workspace ID the contact belongs to |
-| `custom_attributes` | object | Custom attributes set on the contact |
-| `tags` | object | Tags associated with the contact |
-| `notes` | object | Notes associated with the contact |
-| `companies` | object | Companies associated with the contact |
-| `location` | object | Location information for the contact |
-| `social_profiles` | object | Social profiles of the contact |
+| `contacts` | array | Array of matching contact objects |
+| `pages` | object | Pagination information |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -966,73 +895,73 @@ Search for contacts in Intercom using a query
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "delete_contact",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "delete_contact"
+            ]
         },
         {
             "id": "accessToken",
@@ -1070,6 +999,8 @@ Delete a contact from Intercom by ID
 | --------- | ---- | ----------- |
 | `id` | string | ID of deleted contact |
 | `deleted` | boolean | Whether the contact was deleted |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1090,73 +1021,73 @@ Delete a contact from Intercom by ID
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_company",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "create_company"
+            ]
         },
         {
             "id": "accessToken",
@@ -1242,22 +1173,9 @@ Create or update a company in Intercom
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the company |
-| `type` | string | Tag list type |
-| `app_id` | string | Intercom app ID |
-| `company_id` | string | Your unique identifier for the company |
-| `name` | string | Name of the company |
-| `website` | string | Company website URL |
-| `plan` | object | Company plan information |
-| `size` | number | Number of employees |
-| `industry` | string | Industry the company operates in |
-| `monthly_spend` | number | Monthly revenue from this company |
-| `session_count` | number | Number of sessions |
-| `user_count` | number | Number of users in the company |
-| `created_at` | number | Unix timestamp when company was created |
-| `updated_at` | number | Unix timestamp when company was last updated |
-| `remote_created_at` | number | Unix timestamp when company was created by you |
-| `custom_attributes` | object | Custom attributes set on the company |
+| `company` | object | Created or updated company object |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1278,73 +1196,73 @@ Create or update a company in Intercom
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_company",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "get_company"
+            ]
         },
         {
             "id": "accessToken",
@@ -1380,22 +1298,9 @@ Retrieve a single company by ID from Intercom
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the company |
-| `type` | string | Object type \(company\) |
-| `app_id` | string | Intercom app ID |
-| `company_id` | string | Your unique identifier for the company |
-| `name` | string | Name of the company |
-| `website` | string | Company website URL |
-| `plan` | object | Company plan information |
-| `size` | number | Number of employees |
-| `industry` | string | Industry the company operates in |
-| `monthly_spend` | number | Monthly revenue from this company |
-| `session_count` | number | Number of sessions |
-| `user_count` | number | Number of users in the company |
-| `created_at` | number | Unix timestamp when company was created |
-| `updated_at` | number | Unix timestamp when company was last updated |
-| `custom_attributes` | object | Custom attributes set on the company |
-| `tags` | object | Tags associated with the company |
+| `company` | object | Company object |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1416,73 +1321,73 @@ Retrieve a single company by ID from Intercom
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "list_companies",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "list_companies"
+            ]
         },
         {
             "id": "accessToken",
@@ -1496,8 +1401,7 @@ Retrieve a single company by ID from Intercom
             "id": "per_page",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (max: 150)",
-            "max": 150
+            "placeholder": "Results per page (max: 150)"
         },
         {
             "id": "starting_after",
@@ -1532,20 +1436,10 @@ List all companies from Intercom with pagination support. Note: This endpoint ha
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the company |
-| `type` | string | Object type \(company\) |
-| `app_id` | string | Intercom app ID |
-| `company_id` | string | Your unique identifier for the company |
-| `name` | string | Name of the company |
-| `website` | string | Company website URL |
-| `plan` | object | Company plan information |
-| `monthly_spend` | number | Monthly revenue from this company |
-| `session_count` | number | Number of sessions |
-| `user_count` | number | Number of users in the company |
-| `created_at` | number | Unix timestamp when company was created |
-| `updated_at` | number | Unix timestamp when company was last updated |
-| `custom_attributes` | object | Custom attributes set on the company |
-| `tags` | object | Tags associated with the company |
+| `companies` | array | Array of company objects |
+| `pages` | object | Pagination information |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1566,73 +1460,73 @@ List all companies from Intercom with pagination support. Note: This endpoint ha
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_conversation",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "get_conversation"
+            ]
         },
         {
             "id": "accessToken",
@@ -1655,12 +1549,12 @@ List all companies from Intercom with pagination support. Note: This endpoint ha
             "title": "Display As",
             "options": [
                 {
-                    "label": "HTML",
-                    "id": "html"
+                    "id": "html",
+                    "label": "HTML"
                 },
                 {
-                    "label": "Plain Text",
-                    "id": "plaintext"
+                    "id": "plaintext",
+                    "label": "Plain Text"
                 }
             ]
         },
@@ -1670,12 +1564,12 @@ List all companies from Intercom with pagination support. Note: This endpoint ha
             "title": "Include Translations",
             "options": [
                 {
-                    "label": "False",
-                    "id": "false"
+                    "id": "false",
+                    "label": "False"
                 },
                 {
-                    "label": "True",
-                    "id": "true"
+                    "id": "true",
+                    "label": "True"
                 }
             ]
         }
@@ -1700,24 +1594,9 @@ Retrieve a single conversation by ID from Intercom
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the conversation |
-| `type` | string | Object type \(conversation\) |
-| `title` | string | Title of the conversation |
-| `created_at` | number | Unix timestamp when conversation was created |
-| `updated_at` | number | Unix timestamp when conversation was last updated |
-| `waiting_since` | number | Unix timestamp when waiting for reply |
-| `snoozed_until` | number | Unix timestamp when snooze ends |
-| `open` | boolean | Whether the conversation is open |
-| `state` | string | State of the conversation |
-| `read` | boolean | Whether the conversation has been read |
-| `priority` | string | Priority of the conversation |
-| `admin_assignee_id` | number | ID of assigned admin |
-| `team_assignee_id` | string | ID of assigned team |
-| `tags` | object | Tags on the conversation |
-| `source` | object | Source of the conversation |
-| `contacts` | object | Contacts in the conversation |
-| `teammates` | object | Teammates in the conversation |
-| `conversation_parts` | object | Parts of the conversation |
+| `conversation` | object | Conversation object |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1738,73 +1617,73 @@ Retrieve a single conversation by ID from Intercom
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "list_conversations",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "list_conversations"
+            ]
         },
         {
             "id": "accessToken",
@@ -1826,12 +1705,12 @@ Retrieve a single conversation by ID from Intercom
             "title": "Order",
             "options": [
                 {
-                    "label": "Descending",
-                    "id": "desc"
+                    "id": "desc",
+                    "label": "Descending"
                 },
                 {
-                    "label": "Ascending",
-                    "id": "asc"
+                    "id": "asc",
+                    "label": "Ascending"
                 }
             ]
         },
@@ -1839,8 +1718,7 @@ Retrieve a single conversation by ID from Intercom
             "id": "per_page",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (max: 150)",
-            "max": 150
+            "placeholder": "Results per page (max: 150)"
         },
         {
             "id": "starting_after",
@@ -1870,20 +1748,10 @@ List all conversations from Intercom with pagination support
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the conversation |
-| `type` | string | Object type \(conversation\) |
-| `title` | string | Title of the conversation |
-| `created_at` | number | Unix timestamp when conversation was created |
-| `updated_at` | number | Unix timestamp when conversation was last updated |
-| `waiting_since` | number | Unix timestamp when waiting for reply |
-| `open` | boolean | Whether the conversation is open |
-| `state` | string | State of the conversation |
-| `read` | boolean | Whether the conversation has been read |
-| `priority` | string | Priority of the conversation |
-| `admin_assignee_id` | number | ID of assigned admin |
-| `team_assignee_id` | string | ID of assigned team |
-| `tags` | object | Tags on the conversation |
-| `source` | object | Source of the conversation |
+| `conversations` | array | Array of conversation objects |
+| `pages` | object | Pagination information |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -1904,73 +1772,73 @@ List all conversations from Intercom with pagination support
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "reply_conversation",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "reply_conversation"
+            ]
         },
         {
             "id": "accessToken",
@@ -1994,12 +1862,12 @@ List all conversations from Intercom with pagination support
             "required": true,
             "options": [
                 {
-                    "label": "Comment",
-                    "id": "comment"
+                    "id": "comment",
+                    "label": "Comment"
                 },
                 {
-                    "label": "Note",
-                    "id": "note"
+                    "id": "note",
+                    "label": "Note"
                 }
             ]
         },
@@ -2053,21 +1921,9 @@ Reply to a conversation as an admin in Intercom
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the conversation |
-| `type` | string | Object type \(conversation\) |
-| `title` | string | Title of the conversation |
-| `created_at` | number | Unix timestamp when conversation was created |
-| `updated_at` | number | Unix timestamp when conversation was last updated |
-| `waiting_since` | number | Unix timestamp when waiting for reply |
-| `open` | boolean | Whether the conversation is open |
-| `state` | string | State of the conversation |
-| `read` | boolean | Whether the conversation has been read |
-| `priority` | string | Priority of the conversation |
-| `admin_assignee_id` | number | ID of assigned admin |
-| `team_assignee_id` | string | ID of assigned team |
-| `tags` | object | Tags on the conversation |
-| `source` | object | Source of the conversation |
-| `contacts` | object | Contacts in the conversation |
+| `conversation` | object | Updated conversation object |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -2088,73 +1944,73 @@ Reply to a conversation as an admin in Intercom
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "search_conversations",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "search_conversations"
+            ]
         },
         {
             "id": "accessToken",
@@ -2183,12 +2039,12 @@ Reply to a conversation as an admin in Intercom
             "title": "Sort Order",
             "options": [
                 {
-                    "label": "Descending",
-                    "id": "descending"
+                    "id": "descending",
+                    "label": "Descending"
                 },
                 {
-                    "label": "Ascending",
-                    "id": "ascending"
+                    "id": "ascending",
+                    "label": "Ascending"
                 }
             ]
         },
@@ -2196,8 +2052,7 @@ Reply to a conversation as an admin in Intercom
             "id": "per_page",
             "type": "short-input",
             "title": "Per Page",
-            "placeholder": "Results per page (max: 150)",
-            "max": 150
+            "placeholder": "Results per page (max: 150)"
         },
         {
             "id": "starting_after",
@@ -2228,20 +2083,10 @@ Search for conversations in Intercom using a query
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the conversation |
-| `type` | string | Object type \(conversation\) |
-| `title` | string | Title of the conversation |
-| `created_at` | number | Unix timestamp when conversation was created |
-| `updated_at` | number | Unix timestamp when conversation was last updated |
-| `waiting_since` | number | Unix timestamp when waiting for reply |
-| `open` | boolean | Whether the conversation is open |
-| `state` | string | State of the conversation |
-| `read` | boolean | Whether the conversation has been read |
-| `priority` | string | Priority of the conversation |
-| `admin_assignee_id` | number | ID of assigned admin |
-| `team_assignee_id` | string | ID of assigned team |
-| `tags` | object | Tags on the conversation |
-| `source` | object | Source of the conversation |
+| `conversations` | array | Array of matching conversation objects |
+| `pages` | object | Pagination information |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -2262,73 +2107,73 @@ Search for conversations in Intercom using a query
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_ticket",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "create_ticket"
+            ]
         },
         {
             "id": "accessToken",
@@ -2383,12 +2228,12 @@ Search for conversations in Intercom using a query
             "title": "Disable Notifications",
             "options": [
                 {
-                    "label": "False",
-                    "id": "false"
+                    "id": "false",
+                    "label": "False"
                 },
                 {
-                    "label": "True",
-                    "id": "true"
+                    "id": "true",
+                    "label": "True"
                 }
             ]
         }
@@ -2417,20 +2262,9 @@ Create a new ticket in Intercom
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the ticket |
-| `type` | string | Object type \(ticket\) |
-| `ticket_id` | string | Ticket ID |
-| `ticket_type` | object | Type of the ticket |
-| `ticket_attributes` | object | Attributes of the ticket |
-| `ticket_state` | string | State of the ticket |
-| `ticket_state_internal_label` | string | Internal label for ticket state |
-| `ticket_state_external_label` | string | External label for ticket state |
-| `created_at` | number | Unix timestamp when ticket was created |
-| `updated_at` | number | Unix timestamp when ticket was last updated |
-| `contacts` | object | Contacts associated with the ticket |
-| `admin_assignee_id` | string | ID of assigned admin |
-| `team_assignee_id` | string | ID of assigned team |
-| `is_shared` | boolean | Whether the ticket is shared |
+| `ticket` | object | Created ticket object |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -2451,73 +2285,73 @@ Create a new ticket in Intercom
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "get_ticket",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "get_ticket"
+            ]
         },
         {
             "id": "accessToken",
@@ -2553,20 +2387,9 @@ Retrieve a single ticket by ID from Intercom
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the ticket |
-| `type` | string | Object type \(ticket\) |
-| `ticket_id` | string | Ticket ID |
-| `ticket_type` | object | Type of the ticket |
-| `ticket_attributes` | object | Attributes of the ticket |
-| `ticket_state` | string | State of the ticket |
-| `ticket_state_internal_label` | string | Internal label for ticket state |
-| `ticket_state_external_label` | string | External label for ticket state |
-| `created_at` | number | Unix timestamp when ticket was created |
-| `updated_at` | number | Unix timestamp when ticket was last updated |
-| `contacts` | object | Contacts associated with the ticket |
-| `admin_assignee_id` | string | ID of assigned admin |
-| `team_assignee_id` | string | ID of assigned team |
-| `is_shared` | boolean | Whether the ticket is shared |
+| `ticket` | object | Ticket object |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
@@ -2587,73 +2410,73 @@ Retrieve a single ticket by ID from Intercom
             "id": "operation",
             "type": "dropdown",
             "title": "Operation",
+            "defaultValue": "create_message",
             "options": [
                 {
-                    "label": "Create Contact",
-                    "id": "create_contact"
+                    "id": "create_contact",
+                    "label": "Create Contact"
                 },
                 {
-                    "label": "Get Contact",
-                    "id": "get_contact"
+                    "id": "get_contact",
+                    "label": "Get Contact"
                 },
                 {
-                    "label": "Update Contact",
-                    "id": "update_contact"
+                    "id": "update_contact",
+                    "label": "Update Contact"
                 },
                 {
-                    "label": "List Contacts",
-                    "id": "list_contacts"
+                    "id": "list_contacts",
+                    "label": "List Contacts"
                 },
                 {
-                    "label": "Search Contacts",
-                    "id": "search_contacts"
+                    "id": "search_contacts",
+                    "label": "Search Contacts"
                 },
                 {
-                    "label": "Delete Contact",
-                    "id": "delete_contact"
+                    "id": "delete_contact",
+                    "label": "Delete Contact"
                 },
                 {
-                    "label": "Create Company",
-                    "id": "create_company"
+                    "id": "create_company",
+                    "label": "Create Company"
                 },
                 {
-                    "label": "Get Company",
-                    "id": "get_company"
+                    "id": "get_company",
+                    "label": "Get Company"
                 },
                 {
-                    "label": "List Companies",
-                    "id": "list_companies"
+                    "id": "list_companies",
+                    "label": "List Companies"
                 },
                 {
-                    "label": "Get Conversation",
-                    "id": "get_conversation"
+                    "id": "get_conversation",
+                    "label": "Get Conversation"
                 },
                 {
-                    "label": "List Conversations",
-                    "id": "list_conversations"
+                    "id": "list_conversations",
+                    "label": "List Conversations"
                 },
                 {
-                    "label": "Reply to Conversation",
-                    "id": "reply_conversation"
+                    "id": "reply_conversation",
+                    "label": "Reply to Conversation"
                 },
                 {
-                    "label": "Search Conversations",
-                    "id": "search_conversations"
+                    "id": "search_conversations",
+                    "label": "Search Conversations"
                 },
                 {
-                    "label": "Create Ticket",
-                    "id": "create_ticket"
+                    "id": "create_ticket",
+                    "label": "Create Ticket"
                 },
                 {
-                    "label": "Get Ticket",
-                    "id": "get_ticket"
+                    "id": "get_ticket",
+                    "label": "Get Ticket"
                 },
                 {
-                    "label": "Create Message",
-                    "id": "create_message"
+                    "id": "create_message",
+                    "label": "Create Message"
                 }
-            ],
-            "defaultValue": "create_message"
+            ]
         },
         {
             "id": "accessToken",
@@ -2677,12 +2500,12 @@ Retrieve a single ticket by ID from Intercom
             "required": true,
             "options": [
                 {
-                    "label": "In-App",
-                    "id": "inapp"
+                    "id": "inapp",
+                    "label": "In-App"
                 },
                 {
-                    "label": "Email",
-                    "id": "email"
+                    "id": "email",
+                    "label": "Email"
                 }
             ]
         },
@@ -2693,12 +2516,12 @@ Retrieve a single ticket by ID from Intercom
             "required": true,
             "options": [
                 {
-                    "label": "Plain",
-                    "id": "plain"
+                    "id": "plain",
+                    "label": "Plain"
                 },
                 {
-                    "label": "Personal",
-                    "id": "personal"
+                    "id": "personal",
+                    "label": "Personal"
                 }
             ]
         },
@@ -2715,8 +2538,8 @@ Retrieve a single ticket by ID from Intercom
             "required": true,
             "options": [
                 {
-                    "label": "Admin",
-                    "id": "admin"
+                    "id": "admin",
+                    "label": "Admin"
                 }
             ]
         },
@@ -2734,8 +2557,8 @@ Retrieve a single ticket by ID from Intercom
             "required": true,
             "options": [
                 {
-                    "label": "Contact",
-                    "id": "contact"
+                    "id": "contact",
+                    "label": "Contact"
                 }
             ]
         },
@@ -2779,12 +2602,9 @@ Create and send a new admin-initiated message in Intercom
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
-| `id` | string | Unique identifier for the message |
-| `type` | string | Object type \(message\) |
-| `created_at` | number | Unix timestamp when message was created |
-| `body` | string | Body of the message |
-| `message_type` | string | Type of the message \(in_app or email\) |
-| `conversation_id` | string | ID of the conversation created |
+| `message` | object | Created message object |
+| `metadata` | object | Operation metadata |
+| `success` | boolean | Operation success status |
 
 </div>
 
