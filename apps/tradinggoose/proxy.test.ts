@@ -376,21 +376,24 @@ describe('proxy auth routing', () => {
     expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
   })
 
-  it('keeps target-specific MCP setup script routes canonical for curl clients', async () => {
-    const { proxy } = await import('./proxy')
-    const response = await proxy(
-      new NextRequest('http://localhost:3000/mcp/setup/codex', {
-        headers: {
-          'user-agent': 'curl/8.0',
-        },
-      })
-    )
+  it.each(['codex', 'antigravity', 'gemini'])(
+    'keeps the %s MCP setup script route canonical for curl clients',
+    async (target) => {
+      const { proxy } = await import('./proxy')
+      const response = await proxy(
+        new NextRequest(`http://localhost:3000/mcp/setup/${target}`, {
+          headers: {
+            'user-agent': 'curl/8.0',
+          },
+        })
+      )
 
-    expect(response.status).toBe(200)
-    expect(response.headers.get('location')).toBeNull()
-    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
-    expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
-  })
+      expect(response.status).toBe(200)
+      expect(response.headers.get('location')).toBeNull()
+      expect(response.headers.get('x-middleware-rewrite')).toBeNull()
+      expect(response.cookies.get('NEXT_LOCALE')).toBeUndefined()
+    }
+  )
 
   it('localizes the MCP browser authorization page instead of treating it as a script route', async () => {
     const { proxy } = await import('./proxy')
