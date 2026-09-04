@@ -3,11 +3,11 @@ title: TypeScript SDK
 description: TypeScript and JavaScript client for TradingGoose workflows
 ---
 
-## Install
+## Development status
 
-```bash
-npm install tradinggoose-ts-sdk
-```
+The TypeScript SDK is a repository-local preview for Node.js. `tradinggoose-ts-sdk` is not currently published to npm, so `npm install tradinggoose-ts-sdk` is unavailable. Repository contributors can build the package from [`packages/ts-sdk`](https://github.com/TradingGoose/TradingGoose-Studio/tree/staging/packages/ts-sdk).
+
+For production integrations, use the supported [Execution API](/execution/api). The examples below describe the preview package when it is linked from repository source.
 
 ## Execute a workflow
 
@@ -16,18 +16,20 @@ import { TradingGooseClient } from 'tradinggoose-ts-sdk'
 
 const client = new TradingGooseClient({
   apiKey: process.env.TRADINGGOOSE_API_KEY!,
-  baseUrl: 'https://tradinggoose.ai',
+  baseUrl: 'https://www.tradinggoose.ai',
 })
 
 const result = await client.executeWorkflow('workflow-id', {
   input: { message: 'Analyze this' },
   timeout: 30000,
-  stream: true,
-  selectedOutputs: ['agent1.content'],
 })
 ```
 
-`ExecutionOptions` contains `input`, `timeout` (milliseconds, default `30000`), `stream`, and `selectedOutputs`. The streaming fields are request controls; the current SDK returns a `WorkflowExecutionResult`, not an SSE iterator.
+`ExecutionOptions` contains an object-valued `input` and `timeout` (milliseconds, default `30000`).
+
+## Streaming limitation
+
+Streaming makes the Execution API return `text/event-stream`. The preview SDK does not expose streaming or selected-output options because it does not implement an SSE reader. Use the [Execution API](/execution/api) directly to consume SSE and select streamed block outputs.
 
 ## Status and validation
 
@@ -37,13 +39,17 @@ const result = await client.executeWorkflow('workflow-id', {
 
 ## Retry and limits
 
-`executeWithRetry(workflowId, options, retryOptions)` retries only `RATE_LIMIT_EXCEEDED`. `RetryOptions` defaults to `maxRetries: 3`, `initialDelay: 1000` ms, `maxDelay: 30000` ms, and `backoffMultiplier: 2`. The client honors `Retry-After` and applies ±25% jitter.
+`executeWithRetry(workflowId, options, retryOptions)` retries only `RATE_LIMIT_EXCEEDED`. `RetryOptions` defaults to `maxRetries: 3`, `initialDelay: 1000` ms, `maxDelay: 30000` ms, and `backoffMultiplier: 2`. The current workflow endpoint does not emit `Retry-After`, so the client uses exponential backoff with ±25% jitter. A compatible deployment that supplies the header overrides that delay.
 
-- `getRateLimitInfo(): RateLimitInfo | null` exposes `limit`, `remaining`, `reset`, and optional `retryAfter` in milliseconds.
-- `getUsageLimits(): Promise<UsageLimits>` exposes sync and async `isLimited`, `limit`, `remaining`, and `resetAt`, plus `authType` and usage `currentPeriodCost`, `limit`, and `plan`.
+- `getRateLimitInfo(): RateLimitInfo | null` normally returns `null` because the current workflow and usage endpoints do not emit rate-limit headers. A compatible deployment or proxy may supply `limit`, `remaining`, an ISO `reset` timestamp, and optional `retryAfter` in milliseconds.
+- `getUsageLimits(): Promise<UsageLimits>` exposes sync and async `isLimited`, `limit`, `remaining`, and `resetAt`, plus `authType`; usage `currentPeriodCost`, `limit`, and the billing-tier summary object; and storage `usedBytes`, `limitBytes`, and `percentUsed`.
 
 ## Errors and results
 
-`TradingGooseError` preserves API `code` and HTTP `status`. The client uses `TIMEOUT`, `EXECUTION_ERROR`, `STATUS_ERROR`, `RATE_LIMIT_EXCEEDED`, and `USAGE_ERROR` for its own failure paths. Successful execution returns `WorkflowExecutionResult` with `success` and optional output, error, logs, metadata, trace spans, and duration.
+`TradingGooseError` preserves API `code` and HTTP `status`. The client uses `TIMEOUT`, `EXECUTION_ERROR`, `STATUS_ERROR`, `RATE_LIMIT_EXCEEDED`, and `USAGE_ERROR` for its own failure paths.
+
+For a non-streaming workflow without a Response block, `executeWorkflow()` returns `WorkflowExecutionResult` with `success`, `output`, optional `error`, and optional timing metadata (`duration`, `startTime`, and `endTime`).
+
+A workflow with a Response block instead returns that block's configured JSON body, HTTP status, and headers. The TypeScript client decodes and returns a successful JSON body, but it does not expose the response headers and treats a non-2xx custom status as `TradingGooseError`. Supply the expected body type as the method's type parameter—for example, `executeWorkflow<MyResponse>('workflow-id')`—or use the [Execution API](/execution/api) directly when the status or headers matter.
 
 See the [TypeScript SDK package README](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/ts-sdk/README.md) for complete examples and file-upload behavior.

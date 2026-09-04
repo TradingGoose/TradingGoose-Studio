@@ -1,11 +1,13 @@
 """
 TradingGoose SDK for Python
 
-Official Python SDK for TradingGoose, allowing you to execute workflows programmatically.
+Repository-local preview client for executing TradingGoose workflows programmatically.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import time
 import random
 import os
@@ -14,26 +16,47 @@ import requests
 
 
 __version__ = "0.1.0"
+_WORKFLOW_EXECUTION_RESULT_KEYS = frozenset({"success", "output", "error", "metadata"})
 __all__ = [
     "TradingGooseClient",
     "TradingGooseError",
     "WorkflowExecutionResult",
+    "WorkflowExecutionResponse",
     "WorkflowStatus",
     "RateLimitInfo",
     "UsageLimits",
 ]
 
 
+def _parse_retry_after(value: Optional[str]) -> Optional[int]:
+    if value is None:
+        return None
+
+    try:
+        seconds = int(value)
+        return seconds * 1000 if seconds >= 0 else None
+    except ValueError:
+        pass
+
+    try:
+        retry_at = parsedate_to_datetime(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if retry_at.tzinfo is None:
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    return max(0, int((retry_at - datetime.now(timezone.utc)).total_seconds() * 1000))
+
+
 @dataclass
 class WorkflowExecutionResult:
     """Result of a workflow execution."""
     success: bool
-    output: Optional[Any] = None
+    output: Any
     error: Optional[str] = None
-    logs: Optional[list] = None
     metadata: Optional[Dict[str, Any]] = None
-    trace_spans: Optional[list] = None
-    total_duration: Optional[float] = None
+
+
+WorkflowExecutionResponse = Union[WorkflowExecutionResult, Dict[str, Any]]
 
 
 @dataclass
@@ -49,17 +72,8 @@ class RateLimitInfo:
     """Rate limit information from API response headers."""
     limit: int
     remaining: int
-    reset: int
+    reset: str
     retry_after: Optional[int] = None
-
-
-@dataclass
-class RateLimitStatus:
-    """Rate limit status for sync/async requests."""
-    is_limited: bool
-    limit: int
-    remaining: int
-    reset_at: str
 
 
 @dataclass
@@ -68,6 +82,7 @@ class UsageLimits:
     success: bool
     rate_limit: Dict[str, Any]
     usage: Dict[str, Any]
+    storage: Dict[str, Any]
 
 
 class TradingGooseError(Exception):
@@ -85,10 +100,10 @@ class TradingGooseClient:
     
     Args:
         api_key: Your TradingGoose API key
-        base_url: Base URL for the TradingGoose API (defaults to https://tradinggoose.ai)
+        base_url: Base URL for the TradingGoose API (defaults to https://www.tradinggoose.ai)
     """
     
-    def __init__(self, api_key: str, base_url: str = "https://tradinggoose.ai"):
+    def __init__(self, api_key: str, base_url: str = "https://www.tradinggoose.ai"):
         self.api_key = api_key
         self.base_url = base_url.rstrip('/')
         self._session = requests.Session()
@@ -149,10 +164,8 @@ class TradingGooseClient:
         self,
         workflow_id: str,
         input_data: Optional[Dict[str, Any]] = None,
-        timeout: float = 30.0,
-        stream: Optional[bool] = None,
-        selected_outputs: Optional[list] = None,
-    ) -> WorkflowExecutionResult:
+        timeout: float = 30.0
+    ) -> WorkflowExecutionResponse:
         """
         Execute a workflow with optional input data.
 
@@ -162,11 +175,10 @@ class TradingGooseClient:
             workflow_id: The ID of the workflow to execute
             input_data: Input data to pass to the workflow (can include file-like objects)
             timeout: Timeout in seconds (default: 30.0)
-            stream: Enable streaming responses (default: None)
-            selected_outputs: Block outputs to stream (e.g., ["agent1.content"])
 
         Returns:
-            WorkflowExecutionResult object
+            WorkflowExecutionResult for a standard workflow, or the custom JSON object from a
+            successful Response block
 
         Raises:
             TradingGooseError: If the workflow execution fails
@@ -176,22 +188,15 @@ class TradingGooseClient:
         headers = self._session.headers.copy()
 
         try:
-            # Build JSON body - spread input at root level, then add API control parameters
-            body = input_data.copy() if input_data is not None else {}
-
             # Convert any file objects in the input to base64 format
-            body = self._convert_files_to_base64(body)
-
-            if stream is not None:
-                body['stream'] = stream
-            if selected_outputs is not None:
-                body['selectedOutputs'] = selected_outputs
+            converted_input = self._convert_files_to_base64(input_data or {})
 
             response = self._session.post(
                 url,
-                json=body,
+                json={'input': converted_input},
                 headers=headers,
-                timeout=timeout
+                timeout=timeout,
+                allow_redirects=False,
             )
 
             # Update rate limit info
@@ -199,14 +204,18 @@ class TradingGooseClient:
 
             # Handle rate limiting
             if response.status_code == 429:
-                retry_after = self._rate_limit_info.retry_after if self._rate_limit_info else 1000
+                retry_after = (
+                    self._rate_limit_info.retry_after
+                    if self._rate_limit_info and self._rate_limit_info.retry_after is not None
+                    else 1000
+                )
                 raise TradingGooseError(
                     f'Rate limit exceeded. Retry after {retry_after}ms',
                     'RATE_LIMIT_EXCEEDED',
                     429
                 )
 
-            if not response.ok:
+            if not 200 <= response.status_code < 300:
                 try:
                     error_data = response.json()
                     error_message = error_data.get('error', f'HTTP {response.status_code}: {response.reason}')
@@ -219,15 +228,20 @@ class TradingGooseClient:
 
             result_data = response.json()
 
-            return WorkflowExecutionResult(
-                success=result_data['success'],
-                output=result_data.get('output'),
-                error=result_data.get('error'),
-                logs=result_data.get('logs'),
-                metadata=result_data.get('metadata'),
-                trace_spans=result_data.get('traceSpans'),
-                total_duration=result_data.get('totalDuration')
-            )
+            if (
+                isinstance(result_data, dict)
+                and isinstance(result_data.get('success'), bool)
+                and 'output' in result_data
+                and set(result_data).issubset(_WORKFLOW_EXECUTION_RESULT_KEYS)
+            ):
+                return WorkflowExecutionResult(
+                    success=result_data['success'],
+                    output=result_data['output'],
+                    error=result_data.get('error'),
+                    metadata=result_data.get('metadata')
+                )
+
+            return result_data
 
         except requests.Timeout:
             raise TradingGooseError(f'Workflow execution timed out after {timeout} seconds', 'TIMEOUT')
@@ -250,9 +264,9 @@ class TradingGooseClient:
         url = f"{self.base_url}/api/workflows/{workflow_id}/status"
         
         try:
-            response = self._session.get(url)
-            
-            if not response.ok:
+            response = self._session.get(url, allow_redirects=False)
+
+            if not 200 <= response.status_code < 300:
                 try:
                     error_data = response.json()
                     error_message = error_data.get('error', f'HTTP {response.status_code}: {response.reason}')
@@ -318,13 +332,11 @@ class TradingGooseClient:
         workflow_id: str,
         input_data: Optional[Dict[str, Any]] = None,
         timeout: float = 30.0,
-        stream: Optional[bool] = None,
-        selected_outputs: Optional[list] = None,
         max_retries: int = 3,
         initial_delay: float = 1.0,
         max_delay: float = 30.0,
         backoff_multiplier: float = 2.0
-    ) -> WorkflowExecutionResult:
+    ) -> WorkflowExecutionResponse:
         """
         Execute workflow with automatic retry on rate limit.
 
@@ -332,15 +344,14 @@ class TradingGooseClient:
             workflow_id: The ID of the workflow to execute
             input_data: Input data to pass to the workflow (can include file-like objects)
             timeout: Timeout in seconds
-            stream: Enable streaming responses
-            selected_outputs: Block outputs to stream
             max_retries: Maximum number of retries (default: 3)
             initial_delay: Initial delay in seconds (default: 1.0)
             max_delay: Maximum delay in seconds (default: 30.0)
             backoff_multiplier: Backoff multiplier (default: 2.0)
 
         Returns:
-            WorkflowExecutionResult object
+            WorkflowExecutionResult for a standard workflow, or the custom JSON object from a
+            successful Response block
 
         Raises:
             TradingGooseError: If max retries exceeded or other error occurs
@@ -353,9 +364,7 @@ class TradingGooseClient:
                 return self.execute_workflow(
                     workflow_id,
                     input_data,
-                    timeout,
-                    stream,
-                    selected_outputs,
+                    timeout
                 )
             except TradingGooseError as e:
                 if e.code != 'RATE_LIMIT_EXCEEDED':
@@ -367,17 +376,20 @@ class TradingGooseClient:
                 if attempt == max_retries:
                     break
 
-                # Use retry-after if provided, otherwise use exponential backoff
-                wait_time = (
+                # A server-provided Retry-After is a minimum and must not be shortened by jitter.
+                retry_after = (
                     self._rate_limit_info.retry_after / 1000
-                    if self._rate_limit_info and self._rate_limit_info.retry_after
-                    else min(delay, max_delay)
+                    if self._rate_limit_info and self._rate_limit_info.retry_after is not None
+                    else None
+                )
+                wait_time = retry_after if retry_after is not None else min(delay, max_delay)
+                sleep_time = (
+                    wait_time
+                    if retry_after is not None
+                    else wait_time * (0.75 + random.random() * 0.5)
                 )
 
-                # Add jitter (±25%)
-                jitter = wait_time * (0.75 + random.random() * 0.5)
-
-                time.sleep(jitter)
+                time.sleep(sleep_time)
 
                 # Exponential backoff for next attempt
                 delay *= backoff_multiplier
@@ -403,15 +415,17 @@ class TradingGooseClient:
         limit = response.headers.get('x-ratelimit-limit')
         remaining = response.headers.get('x-ratelimit-remaining')
         reset = response.headers.get('x-ratelimit-reset')
-        retry_after = response.headers.get('retry-after')
+        retry_after = _parse_retry_after(response.headers.get('retry-after'))
 
-        if limit or remaining or reset:
+        if limit or remaining or reset or retry_after is not None:
             self._rate_limit_info = RateLimitInfo(
                 limit=int(limit) if limit else 0,
                 remaining=int(remaining) if remaining else 0,
-                reset=int(reset) if reset else 0,
-                retry_after=int(retry_after) * 1000 if retry_after else None
+                reset=reset or '',
+                retry_after=retry_after
             )
+        else:
+            self._rate_limit_info = None
 
     def get_usage_limits(self) -> UsageLimits:
         """
@@ -426,11 +440,11 @@ class TradingGooseClient:
         url = f"{self.base_url}/api/users/me/usage-limits"
 
         try:
-            response = self._session.get(url)
+            response = self._session.get(url, allow_redirects=False)
 
             self._update_rate_limit_info(response)
 
-            if not response.ok:
+            if not 200 <= response.status_code < 300:
                 try:
                     error_data = response.json()
                     error_message = error_data.get('error', f'HTTP {response.status_code}: {response.reason}')
@@ -446,7 +460,8 @@ class TradingGooseClient:
             return UsageLimits(
                 success=data.get('success', True),
                 rate_limit=data.get('rateLimit', {}),
-                usage=data.get('usage', {})
+                usage=data.get('usage', {}),
+                storage=data.get('storage', {})
             )
 
         except requests.RequestException as e:
@@ -459,7 +474,3 @@ class TradingGooseClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.close()
-
-
-# For backward compatibility
-Client = TradingGooseClient 

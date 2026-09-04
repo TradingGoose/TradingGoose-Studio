@@ -5,17 +5,19 @@ description: Programmatic access to TradingGoose workflows from TypeScript and P
 
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-TradingGoose provides published TypeScript/JavaScript and Python SDKs for executing deployed workflows, checking deployment status, controlling selected outputs, handling rate limits, and querying usage limits.
+The TradingGoose Studio repository contains preview TypeScript/JavaScript and Python clients for executing deployed workflows, checking deployment status, handling rate limits, and querying usage limits.
+
+> The SDK packages are under development and are not currently published to npm or PyPI. The installation commands for those registries are therefore unavailable. For production integrations, use the supported [Execution API](/execution/api).
 
 <Cards>
   <Card title="Python SDK" href="/sdks/python">
-    Install `tradinggoose-sdk` for a synchronous Python client.
+    Review the repository-local synchronous Python client.
   </Card>
   <Card title="TypeScript SDK" href="/sdks/typescript">
-    Install `tradinggoose-ts-sdk` for Node.js and browser applications.
+    Review the repository-local Node.js client.
   </Card>
 </Cards>
 
-Both clients authenticate with an API key through `X-API-Key` and default to `https://tradinggoose.ai`. They expose workflow execution and status, retry-on-rate-limit behavior, rate-limit metadata, and usage limits. Language-specific names, types, and timeout units are documented on their respective pages.
+When used from repository source, both clients authenticate with an API key through `X-API-Key` and default to `https://www.tradinggoose.ai`. They expose non-streaming workflow execution and status, retry-on-rate-limit behavior, and usage limits. Language-specific names, types, limitations, and timeout units are documented on their respective pages.
 
-For direct HTTP integration, see the [Execution API](/execution/api).
+Streaming execution is available from the HTTP API as server-sent events, but the preview SDK clients do not consume that stream. Use the [Execution API](/execution/api) directly for streaming or when you need a Response block's custom HTTP status and headers.

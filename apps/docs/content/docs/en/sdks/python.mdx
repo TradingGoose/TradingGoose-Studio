@@ -3,11 +3,11 @@ title: Python SDK
 description: Python client for TradingGoose workflows
 ---
 
-## Install
+## Development status
 
-```bash
-pip install tradinggoose-sdk
-```
+The Python SDK is a repository-local preview. `tradinggoose-sdk` is not currently published to PyPI, so `pip install tradinggoose-sdk` is unavailable. Repository contributors can install the package from [`packages/python-sdk`](https://github.com/TradingGoose/TradingGoose-Studio/tree/staging/packages/python-sdk) with `pip install -e .` from that directory.
+
+For production integrations, use the supported [Execution API](/execution/api). The examples below describe the preview package when installed from repository source.
 
 ## Execute a workflow
 
@@ -17,19 +17,21 @@ from tradinggoose import TradingGooseClient
 
 client = TradingGooseClient(
     api_key=os.environ["TRADINGGOOSE_API_KEY"],
-    base_url="https://tradinggoose.ai",
+    base_url="https://www.tradinggoose.ai",
 )
 
 result = client.execute_workflow(
     "workflow-id",
     input_data={"message": "Analyze this"},
     timeout=30.0,
-    stream=True,
-    selected_outputs=["agent1.content"],
 )
 ```
 
-`timeout` is measured in seconds and defaults to `30.0`. `stream` and `selected_outputs` are request controls; the current SDK returns `WorkflowExecutionResult`, not a streaming iterator.
+`timeout` is measured in seconds and defaults to `30.0`.
+
+## Streaming limitation
+
+Streaming makes the Execution API return `text/event-stream`. The preview SDK does not expose streaming or selected-output parameters because it does not implement an SSE reader. Use the [Execution API](/execution/api) directly to consume SSE and select streamed block outputs.
 
 ## Status and validation
 
@@ -40,13 +42,17 @@ result = client.execute_workflow(
 
 ## Retry and limits
 
-`execute_with_retry` retries only `RATE_LIMIT_EXCEEDED`. Its defaults are `max_retries=3`, `initial_delay=1.0` seconds, `max_delay=30.0` seconds, and `backoff_multiplier=2.0`. It honors `Retry-After` and applies ±25% jitter. Python exposes these as keyword arguments rather than a separate retry-options type.
+`execute_with_retry` retries only `RATE_LIMIT_EXCEEDED`. Its defaults are `max_retries=3`, `initial_delay=1.0` seconds, `max_delay=30.0` seconds, and `backoff_multiplier=2.0`. The current workflow endpoint does not emit `Retry-After`, so the client uses exponential backoff with ±25% jitter. A compatible deployment that supplies the header overrides that delay. Python exposes these settings as keyword arguments rather than a separate retry-options type.
 
-- `get_rate_limit_info()` returns `RateLimitInfo` or `None`, with `limit`, `remaining`, `reset`, and optional `retry_after` stored in milliseconds.
-- `get_usage_limits()` returns `UsageLimits(success, rate_limit, usage)`; the rate-limit and usage payloads are dictionaries matching the API response.
+- `get_rate_limit_info()` normally returns `None` because the current workflow and usage endpoints do not emit rate-limit headers. A compatible deployment or proxy may supply `limit`, `remaining`, an ISO `reset` timestamp, and optional `retry_after` stored in milliseconds.
+- `get_usage_limits()` returns `UsageLimits(success, rate_limit, usage, storage)`; the rate-limit, usage, and storage payloads are dictionaries matching the API response.
 
 ## Errors and results
 
-`TradingGooseError` preserves API `code` and HTTP `status`. The client uses `TIMEOUT`, `EXECUTION_ERROR`, `STATUS_ERROR`, `RATE_LIMIT_EXCEEDED`, and `USAGE_ERROR` for its own failure paths. `WorkflowExecutionResult` contains `success` and optional output, error, logs, metadata, trace spans, and duration.
+`TradingGooseError` preserves API `code` and HTTP `status`. The client uses `TIMEOUT`, `EXECUTION_ERROR`, `STATUS_ERROR`, `RATE_LIMIT_EXCEEDED`, and `USAGE_ERROR` for its own failure paths.
+
+`execute_workflow()` and `execute_with_retry()` return `WorkflowExecutionResponse`, defined as `WorkflowExecutionResult | Dict[str, Any]`. For a workflow without a Response block, `WorkflowExecutionResult` contains `success`, `output`, optional `error`, and optional timing metadata (`duration`, `startTime`, and `endTime`).
+
+A workflow with a Response block instead returns that block's configured JSON body, HTTP status, and headers. For a successful 2xx response, the Python client returns bodies that do not match the standard execution envelope as dictionaries. It does not expose the response headers and treats a non-2xx custom status as `TradingGooseError`; use the [Execution API](/execution/api) directly when the status or headers matter.
 
 See the [Python SDK package README](https://github.com/TradingGoose/TradingGoose-Studio/blob/staging/packages/python-sdk/README.md) for complete examples and file-upload behavior.

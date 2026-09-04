@@ -3,8 +3,16 @@ Tests for the TradingGoose Python SDK
 """
 
 import pytest
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from unittest.mock import Mock, patch
-from tradinggoose import TradingGooseClient, TradingGooseError, WorkflowExecutionResult, WorkflowStatus
+from tradinggoose import (
+    TradingGooseClient,
+    TradingGooseError,
+    WorkflowExecutionResult,
+    WorkflowStatus,
+    _parse_retry_after,
+)
 
 
 def test_tradinggoose_client_initialization():
@@ -18,7 +26,7 @@ def test_tradinggoose_client_default_base_url():
     """Test TradingGooseClient with default base URL."""
     client = TradingGooseClient(api_key="test-api-key")
     assert client.api_key == "test-api-key"
-    assert client.base_url == "https://tradinggoose.ai"
+    assert client.base_url == "https://www.tradinggoose.ai"
 
 
 def test_set_api_key():
@@ -51,7 +59,10 @@ def test_validate_workflow_returns_false_on_error(mock_get):
     result = client.validate_workflow("test-workflow-id")
     
     assert result is False
-    mock_get.assert_called_once_with("https://tradinggoose.ai/api/workflows/test-workflow-id/status")
+    mock_get.assert_called_once_with(
+        "https://www.tradinggoose.ai/api/workflows/test-workflow-id/status",
+        allow_redirects=False,
+    )
 
 
 def test_tradinggoose_error():
@@ -103,8 +114,7 @@ def test_sync_execution_returns_result(mock_post):
     mock_response.status_code = 200
     mock_response.json.return_value = {
         "success": True,
-        "output": {"result": "completed"},
-        "logs": []
+        "output": {"result": "completed"}
     }
     mock_response.headers.get.return_value = None
     mock_post.return_value = mock_response
@@ -118,6 +128,87 @@ def test_sync_execution_returns_result(mock_post):
     assert result.success is True
     assert result.output == {"result": "completed"}
     assert not hasattr(result, 'task_id')
+    _, kwargs = mock_post.call_args
+    assert kwargs["json"] == {"input": {"message": "Hello"}}
+    assert kwargs["allow_redirects"] is False
+
+
+@patch('tradinggoose.requests.Session.post')
+def test_workflow_fields_stay_inside_input_envelope(mock_post):
+    """Workflow fields cannot collide with API control fields."""
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"success": True, "output": {}}
+    mock_response.headers.get.return_value = None
+    mock_post.return_value = mock_response
+    input_data = {
+        "input": "workflow input field",
+        "stream": "workflow stream field",
+        "selectedOutputs": ["workflow output field"],
+    }
+
+    TradingGooseClient(api_key="test-api-key").execute_workflow(
+        "workflow-id", input_data=input_data
+    )
+
+    assert mock_post.call_args.kwargs["json"] == {"input": input_data}
+
+
+@patch('tradinggoose.requests.Session.post')
+def test_execute_does_not_follow_response_block_redirects(mock_post):
+    """Response-block redirects must not forward the API key."""
+    mock_response = Mock()
+    mock_response.status_code = 302
+    mock_response.reason = "Found"
+    mock_response.json.side_effect = ValueError
+    mock_response.headers.get.return_value = None
+    mock_post.return_value = mock_response
+
+    with pytest.raises(TradingGooseError) as exc_info:
+        TradingGooseClient(api_key="secret-key").execute_workflow("workflow-id")
+
+    assert exc_info.value.status == 302
+    assert mock_post.call_count == 1
+    assert mock_post.call_args.kwargs["allow_redirects"] is False
+
+
+@patch('tradinggoose.requests.Session.post')
+def test_response_block_body_is_returned(mock_post):
+    """Test that a successful custom Response-block body is returned unchanged."""
+    mock_response = Mock()
+    mock_response.ok = True
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"message": "accepted"}
+    mock_response.headers.get.return_value = None
+    mock_post.return_value = mock_response
+
+    client = TradingGooseClient(api_key="test-api-key")
+
+    result = client.execute_workflow("workflow-id")
+
+    assert result == {"message": "accepted"}
+
+
+@patch('tradinggoose.requests.Session.post')
+def test_response_block_body_with_execution_keys_is_preserved(mock_post):
+    """Test that extra custom fields prevent response-envelope normalization."""
+    custom_body = {
+        "success": True,
+        "output": {"id": 7},
+        "custom": "preserve-me",
+    }
+    mock_response = Mock()
+    mock_response.ok = True
+    mock_response.status_code = 200
+    mock_response.json.return_value = custom_body
+    mock_response.headers.get.return_value = None
+    mock_post.return_value = mock_response
+
+    client = TradingGooseClient(api_key="test-api-key")
+
+    result = client.execute_workflow("workflow-id")
+
+    assert result == custom_body
 
 
 # Tests for retry with rate limiting
@@ -154,12 +245,11 @@ def test_execute_with_retry_retries_on_rate_limit(mock_sleep, mock_post):
         "error": "Rate limit exceeded",
         "code": "RATE_LIMIT_EXCEEDED"
     }
-    import time
     rate_limit_response.headers.get.side_effect = lambda h: {
         'retry-after': '1',
         'x-ratelimit-limit': '100',
         'x-ratelimit-remaining': '0',
-        'x-ratelimit-reset': str(int(time.time()) + 60)
+        'x-ratelimit-reset': '2026-09-03T18:31:00.000Z'
     }.get(h)
 
     success_response = Mock()
@@ -174,16 +264,17 @@ def test_execute_with_retry_retries_on_rate_limit(mock_sleep, mock_post):
     mock_post.side_effect = [rate_limit_response, success_response]
 
     client = TradingGooseClient(api_key="test-api-key")
-    result = client.execute_with_retry(
-        "workflow-id",
-        input_data={"message": "test"},
-        max_retries=3,
-        initial_delay=0.01
-    )
+    with patch('tradinggoose.random.random', return_value=0.0):
+        result = client.execute_with_retry(
+            "workflow-id",
+            input_data={"message": "test"},
+            max_retries=3,
+            initial_delay=0.01
+        )
 
     assert result.success is True
     assert mock_post.call_count == 2
-    assert mock_sleep.call_count == 1
+    mock_sleep.assert_called_once_with(1.0)
 
 
 @patch('tradinggoose.requests.Session.post')
@@ -212,6 +303,7 @@ def test_execute_with_retry_max_retries_exceeded(mock_sleep, mock_post):
 
     assert "Rate limit exceeded" in str(exc_info.value)
     assert mock_post.call_count == 3  # Initial + 2 retries
+    assert client.get_rate_limit_info().retry_after == 1000
 
 
 @patch('tradinggoose.requests.Session.post')
@@ -245,6 +337,16 @@ def test_get_rate_limit_info_returns_none_initially():
     assert info is None
 
 
+def test_parse_retry_after_handles_zero_http_date_and_invalid_values():
+    """Retry-After supports delay-seconds and HTTP-date without parser failures."""
+    assert _parse_retry_after("0") == 0
+    future = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=2), usegmt=True)
+    parsed_date = _parse_retry_after(future)
+    assert parsed_date is not None
+    assert 0 <= parsed_date <= 2000
+    assert _parse_retry_after("invalid") is None
+
+
 @patch('tradinggoose.requests.Session.post')
 def test_get_rate_limit_info_after_api_call(mock_post):
     """Test rate limit info is populated after API call."""
@@ -255,7 +357,7 @@ def test_get_rate_limit_info_after_api_call(mock_post):
     mock_response.headers.get.side_effect = lambda h: {
         'x-ratelimit-limit': '100',
         'x-ratelimit-remaining': '95',
-        'x-ratelimit-reset': '1704067200'
+        'x-ratelimit-reset': '2026-09-03T18:31:00.000Z'
     }.get(h)
     mock_post.return_value = mock_response
 
@@ -266,7 +368,7 @@ def test_get_rate_limit_info_after_api_call(mock_post):
     assert info is not None
     assert info.limit == 100
     assert info.remaining == 95
-    assert info.reset == 1704067200
+    assert info.reset == '2026-09-03T18:31:00.000Z'
 
 
 # Tests for usage limits
@@ -275,6 +377,7 @@ def test_get_usage_limits_success(mock_get):
     """Test getting usage limits."""
     mock_response = Mock()
     mock_response.ok = True
+    mock_response.status_code = 200
     mock_response.json.return_value = {
         "success": True,
         "rateLimit": {
@@ -295,7 +398,12 @@ def test_get_usage_limits_success(mock_get):
         "usage": {
             "currentPeriodCost": 1.23,
             "limit": 100.0,
-            "plan": "pro"
+            "tier": {"id": "tier-pro", "displayName": "Pro"}
+        },
+        "storage": {
+            "usedBytes": 1000,
+            "limitBytes": 10000,
+            "percentUsed": 10
         }
     }
     mock_response.headers.get.return_value = None
@@ -308,8 +416,13 @@ def test_get_usage_limits_success(mock_get):
     assert result.rate_limit["sync"]["limit"] == 100
     assert result.rate_limit["async"]["limit"] == 50
     assert result.usage["currentPeriodCost"] == 1.23
-    assert result.usage["plan"] == "pro"
-    mock_get.assert_called_once_with("https://test.tradinggoose.ai/api/users/me/usage-limits")
+    assert result.usage["tier"] == {"id": "tier-pro", "displayName": "Pro"}
+    assert result.storage["usedBytes"] == 1000
+    assert result.storage["limitBytes"] == 10000
+    assert result.storage["percentUsed"] == 10
+    mock_get.assert_called_once_with(
+        "https://test.tradinggoose.ai/api/users/me/usage-limits", allow_redirects=False
+    )
 
 
 @patch('tradinggoose.requests.Session.get')
@@ -331,30 +444,3 @@ def test_get_usage_limits_unauthorized(mock_get):
     with pytest.raises(TradingGooseError) as exc_info:
         client.get_usage_limits()
     assert "Invalid API key" in str(exc_info.value)
-
-
-# Tests for streaming with selectedOutputs
-@patch('tradinggoose.requests.Session.post')
-def test_execute_workflow_with_stream_and_selected_outputs(mock_post):
-    """Test execution with stream and selectedOutputs parameters."""
-    mock_response = Mock()
-    mock_response.ok = True
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"success": True, "output": {}}
-    mock_response.headers.get.return_value = None
-    mock_post.return_value = mock_response
-
-    client = TradingGooseClient(api_key="test-api-key")
-    client.execute_workflow(
-        "workflow-id",
-        input_data={"message": "test"},
-        stream=True,
-        selected_outputs=["agent1.content", "agent2.content"]
-    )
-
-    call_args = mock_post.call_args
-    request_body = call_args[1]["json"]
-
-    assert request_body["message"] == "test"
-    assert request_body["stream"] is True
-    assert request_body["selectedOutputs"] == ["agent1.content", "agent2.content"] 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TradingGooseClient, TradingGooseError } from './index'
 
 vi.mock('node-fetch', () => ({
@@ -10,7 +10,7 @@ type FetchMock = {
   mockResolvedValueOnce: (value: unknown) => void
   mockRejectedValue: (error: unknown) => void
   mock: {
-    calls: Array<[unknown, unknown?]>
+    calls: Array<[unknown, any?]>
   }
 }
 
@@ -28,6 +28,12 @@ describe('TradingGooseClient', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
   describe('constructor', () => {
     it('should create a client with correct configuration', () => {
       expect(client).toBeInstanceOf(TradingGooseClient)
@@ -38,6 +44,7 @@ describe('TradingGooseClient', () => {
         apiKey: 'test-api-key',
       })
       expect(defaultClient).toBeInstanceOf(TradingGooseClient)
+      expect((defaultClient as any).baseUrl).toBe('https://www.tradinggoose.ai')
     })
   })
 
@@ -111,6 +118,21 @@ describe('TradingGooseClient', () => {
   })
 
   describe('executeWorkflow', () => {
+    it('should execute in Node runtimes without a global File constructor', async () => {
+      vi.stubGlobal('File', undefined)
+      const fetchMock = await getFetchMock()
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ success: true, output: {} }),
+        headers: { get: vi.fn().mockReturnValue(null) },
+      })
+
+      await expect(
+        client.executeWorkflow('workflow-id', { input: { message: 'Hello' } })
+      ).resolves.toEqual({ success: true, output: {} })
+    })
+
     it('should return WorkflowExecutionResult', async () => {
       const fetchMock = await getFetchMock()
       const mockResponse = {
@@ -119,7 +141,6 @@ describe('TradingGooseClient', () => {
         json: vi.fn().mockResolvedValue({
           success: true,
           output: { result: 'completed' },
-          logs: [],
         }),
         headers: {
           get: vi.fn().mockReturnValue(null),
@@ -134,6 +155,75 @@ describe('TradingGooseClient', () => {
       expect(result).toHaveProperty('success', true)
       expect(result).toHaveProperty('output')
       expect(result).not.toHaveProperty('taskId')
+      expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({
+        input: { message: 'Hello' },
+      })
+      expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: 'manual' })
+    })
+
+    it('should keep workflow fields isolated inside the input envelope', async () => {
+      const fetchMock = await getFetchMock()
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ success: true, output: {} }),
+        headers: { get: vi.fn().mockReturnValue(null) },
+      })
+      const input = {
+        input: 'workflow input field',
+        stream: 'workflow stream field',
+        selectedOutputs: ['workflow output field'],
+      }
+
+      await client.executeWorkflow('workflow-id', { input })
+
+      expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({ input })
+    })
+
+    it('should clear the timeout after a completed request', async () => {
+      vi.useFakeTimers()
+      const fetchMock = await getFetchMock()
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ success: true, output: {} }),
+        headers: { get: vi.fn().mockReturnValue(null) },
+      })
+
+      await client.executeWorkflow('workflow-id', { timeout: 10_000 })
+
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('should report an aborted request as a timeout', async () => {
+      const fetchMock = await getFetchMock()
+      const abortError = new Error('aborted')
+      abortError.name = 'AbortError'
+      fetchMock.mockRejectedValue(abortError)
+
+      await expect(client.executeWorkflow('workflow-id')).rejects.toMatchObject({
+        code: 'TIMEOUT',
+      })
+    })
+
+    it('should return a typed custom body for a workflow with a Response block', async () => {
+      const fetchMock = await getFetchMock()
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ message: 'accepted', requestId: 'request-1' }),
+        headers: {
+          get: vi.fn().mockReturnValue(null),
+        },
+      }
+      fetchMock.mockResolvedValue(mockResponse as any)
+
+      const result = await client.executeWorkflow<{ message: string; requestId: string }>(
+        'workflow-id'
+      )
+
+      expect(result.message).toBe('accepted')
+      expect(result.requestId).toBe('request-1')
     })
   })
 
@@ -163,6 +253,8 @@ describe('TradingGooseClient', () => {
 
     it('should retry on rate limit error', async () => {
       const fetchMock = await getFetchMock()
+      vi.spyOn(Math, 'random').mockReturnValue(0)
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
 
       // First call returns 429, second call succeeds
       const rateLimitResponse = {
@@ -178,7 +270,7 @@ describe('TradingGooseClient', () => {
             if (header === 'retry-after') return '1'
             if (header === 'x-ratelimit-limit') return '100'
             if (header === 'x-ratelimit-remaining') return '0'
-            if (header === 'x-ratelimit-reset') return String(Math.floor(Date.now() / 1000) + 60)
+            if (header === 'x-ratelimit-reset') return '2026-09-03T18:31:00.000Z'
             return null
           }),
         },
@@ -208,6 +300,7 @@ describe('TradingGooseClient', () => {
 
       expect(result).toHaveProperty('success', true)
       expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 1000)
     })
 
     it('should throw after max retries exceeded', async () => {
@@ -239,6 +332,7 @@ describe('TradingGooseClient', () => {
       ).rejects.toThrow('Rate limit exceeded')
 
       expect(fetchMock).toHaveBeenCalledTimes(3) // Initial + 2 retries
+      expect(client.getRateLimitInfo()?.retryAfter).toBe(1000)
     })
 
     it('should not retry on non-rate-limit errors', async () => {
@@ -282,7 +376,7 @@ describe('TradingGooseClient', () => {
           get: vi.fn((header: string) => {
             if (header === 'x-ratelimit-limit') return '100'
             if (header === 'x-ratelimit-remaining') return '95'
-            if (header === 'x-ratelimit-reset') return '1704067200'
+            if (header === 'x-ratelimit-reset') return '2026-09-03T18:31:00.000Z'
             return null
           }),
         },
@@ -296,7 +390,33 @@ describe('TradingGooseClient', () => {
       expect(info).not.toBeNull()
       expect(info?.limit).toBe(100)
       expect(info?.remaining).toBe(95)
-      expect(info?.reset).toBe(1704067200)
+      expect(info?.reset).toBe('2026-09-03T18:31:00.000Z')
+    })
+
+    it('should accept zero and HTTP-date Retry-After values without retaining stale data', async () => {
+      const fetchMock = await getFetchMock()
+      const response = (retryAfter: string | null) => ({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        json: vi.fn().mockResolvedValue({ error: 'Rate limited' }),
+        headers: {
+          get: vi.fn((header: string) => (header === 'retry-after' ? retryAfter : null)),
+        },
+      })
+
+      fetchMock.mockResolvedValue(response('0'))
+      await expect(client.executeWorkflow('workflow-id')).rejects.toThrow('Retry after 0ms')
+      expect(client.getRateLimitInfo()?.retryAfter).toBe(0)
+
+      const now = Date.now()
+      fetchMock.mockResolvedValue(response(new Date(now + 2_000).toUTCString()))
+      await expect(client.executeWorkflow('workflow-id')).rejects.toThrow('Retry after')
+      expect(client.getRateLimitInfo()?.retryAfter).toBeGreaterThan(0)
+
+      fetchMock.mockResolvedValue(response('invalid'))
+      await expect(client.executeWorkflow('workflow-id')).rejects.toThrow('Retry after 1000ms')
+      expect(client.getRateLimitInfo()).toBeNull()
     })
   })
 
@@ -325,7 +445,12 @@ describe('TradingGooseClient', () => {
           usage: {
             currentPeriodCost: 1.23,
             limit: 100.0,
-            plan: 'pro',
+            tier: { id: 'tier-pro', displayName: 'Pro' },
+          },
+          storage: {
+            usedBytes: 1_000,
+            limitBytes: 10_000,
+            percentUsed: 10,
           },
         }),
         headers: {
@@ -341,7 +466,10 @@ describe('TradingGooseClient', () => {
       expect(result.rateLimit.sync.limit).toBe(100)
       expect(result.rateLimit.async.limit).toBe(50)
       expect(result.usage.currentPeriodCost).toBe(1.23)
-      expect(result.usage.plan).toBe('pro')
+      expect(result.usage.tier).toEqual({ id: 'tier-pro', displayName: 'Pro' })
+      expect(result.storage.usedBytes).toBe(1_000)
+      expect(result.storage.limitBytes).toBe(10_000)
+      expect(result.storage.percentUsed).toBe(10)
 
       // Verify correct endpoint was called
       const calls = fetchMock.mock.calls
@@ -367,39 +495,6 @@ describe('TradingGooseClient', () => {
 
       await expect(client.getUsageLimits()).rejects.toThrow(TradingGooseError)
       await expect(client.getUsageLimits()).rejects.toThrow('Invalid API key')
-    })
-  })
-
-  describe('executeWorkflow - streaming with selectedOutputs', () => {
-    it('should include stream and selectedOutputs in request body', async () => {
-      const fetchMock = await getFetchMock()
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue({
-          success: true,
-          output: {},
-        }),
-        headers: {
-          get: vi.fn().mockReturnValue(null),
-        },
-      }
-
-      fetchMock.mockResolvedValue(mockResponse as any)
-
-      await client.executeWorkflow('workflow-id', {
-        input: { message: 'test' },
-        stream: true,
-        selectedOutputs: ['agent1.content', 'agent2.content'],
-      })
-
-      const calls = fetchMock.mock.calls
-      const requestBody = JSON.parse(calls[0][1]?.body as string)
-
-      expect(requestBody).toHaveProperty('message', 'test')
-      expect(requestBody).toHaveProperty('stream', true)
-      expect(requestBody).toHaveProperty('selectedOutputs')
-      expect(requestBody.selectedOutputs).toEqual(['agent1.content', 'agent2.content'])
     })
   })
 })
