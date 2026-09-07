@@ -9,6 +9,8 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 Copilot is an AI-powered assistant that works across the entire TradingGoose workspace — not just workflows. It can manage workflows, MCP servers, skills, custom tools, knowledge bases, deployments, variables, and more. In the desktop workspace, open or close its persistent panel with the **Copilot** control in the global sidebar. The panel is not available in the mobile workspace layout.
 
+This page covers the built-in Studio assistant. To work on TradingGoose from your own coding agent, see [Copilot MCP](/copilot/copilot-mcp) for capabilities, installation, and authentication.
+
 ## Capabilities
 
 Copilot has access to a comprehensive set of tools spanning the entire platform:
@@ -77,8 +79,10 @@ Copilot supports exactly six OpenRouter models. Studio sends each canonical Open
   </Step>
 </Steps>
 
+The `COPILOT_API_KEY` above connects the built-in assistant to managed inference. [Copilot MCP](/copilot/copilot-mcp#installation) uses a personal TradingGoose API key obtained through its own browser approval flow.
+
 <Callout type="warn">
-  API keys grant full Copilot access. Store them securely and rotate them if compromised. You can delete a key at any time from the same settings page; deletion revokes access immediately.
+  Copilot service API keys grant access to managed inference. Store them securely and rotate them if compromised. You can delete a service key from **Settings > Service API Keys**; deletion revokes access immediately.
 </Callout>
 
 ## Chat Management

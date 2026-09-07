@@ -1,6 +1,6 @@
 ---
 title: MCP (Model Context Protocol)
-description: Connect TradingGoose to external tools, services, and coding agents with the Model Context Protocol.
+description: Connect Studio Agent blocks to external tools and services with the Model Context Protocol.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
@@ -9,52 +9,12 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 
 The [Model Context Protocol](https://modelcontextprotocol.com/) (MCP) is an open standard that lets AI agents connect to tools and data sources. TradingGoose supports MCP in both directions:
 
-- **MCP server** -- Use TradingGoose's server-side Copilot tools from a trusted coding agent.
+- **[Copilot MCP](/copilot/copilot-mcp)** -- Use TradingGoose's server-side Copilot tools from a trusted coding agent.
 - **MCP client** -- Connect Agent blocks in Studio to tools exposed by an external MCP server.
 
 ## Use TradingGoose from a coding agent
 
-TradingGoose exposes its server-side Copilot tools through a Streamable HTTP MCP endpoint at `<studio-url>/api/copilot/mcp`. The endpoint accepts `POST` requests and requires a personal TradingGoose API key as a Bearer token.
-
-### Automatic setup
-
-The setup command signs you in through a browser approval link, saves the resulting personal credential locally, and writes the MCP configuration for the clients you select. Node.js 18 or newer is required.
-
-On macOS or Linux:
-
-```bash
-curl -fsSL https://tradinggoose.ai/mcp/setup | sh
-```
-
-On Windows PowerShell:
-
-```powershell
-irm https://tradinggoose.ai/mcp/setup | iex
-```
-
-The interactive installer supports Claude Code, Cursor, OpenCode, Codex, Antigravity, and Gemini CLI. To configure one target without the picker, append its target name; for example:
-
-```bash
-curl -fsSL https://tradinggoose.ai/mcp/setup/codex | sh
-```
-
-Use `/mcp/setup/all` to configure every supported client. For a self-hosted deployment, replace `https://tradinggoose.ai` with the deployment's public origin.
-
-### Manual client configuration
-
-If your client is not supported by the automatic installer, run the login command:
-
-```bash
-curl -fsSL https://tradinggoose.ai/mcp/login | sh
-```
-
-The command authenticates when needed, then prints the MCP endpoint and `Authorization: Bearer <token>` header for your client configuration. The endpoint accepts personal keys only; workspace IDs and entity IDs belong in individual tool calls, not in the MCP connection configuration.
-
-After connecting, use `tools/list` as the source of truth for tool names and input schemas. The server instructions identify the workspaces available to the authenticated user. Workspace-scoped operations require a `workspaceId`, and credential or environment operations require an explicit personal or workspace scope.
-
-<Callout type="warn">
-  External MCP tools run with full access for the authenticated user, and mutation tools apply changes directly without a Studio approval prompt. Configure only trusted clients, protect the personal token, and revoke it if it is exposed.
-</Callout>
+See [Copilot MCP](/copilot/copilot-mcp) for supported capabilities and [installation](/copilot/copilot-mcp#installation) for Claude Code, Cursor, OpenCode, Codex, Antigravity, and Gemini CLI. That guide also covers browser approval, manual client configuration, permissions, and key revocation.
 
 ## Connect Studio to an MCP server
 

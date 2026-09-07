@@ -1,0 +1,154 @@
+---
+title: Copilot MCP
+description: Connect your coding agent to TradingGoose Copilot tools. Install, authenticate, and work with your Studio workspace through MCP.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Copilot MCP lets your coding agent use TradingGoose's server-side Copilot tools to read and edit your workspace. Your agent supplies the conversation and model; TradingGoose supplies tools for workflows, dashboards, watchlists, indicators, knowledge bases, and other workspace entities.
+
+The installer supports **Claude Code, Cursor, OpenCode, Codex, Antigravity, and Gemini CLI**. Other clients can connect through Streamable HTTP using the [manual configuration](#manual-configuration) below.
+
+<Callout type="warn">
+  MCP mutations apply directly with your account's permissions. The built-in Copilot's Limited mode and Studio approval prompts do not apply to external MCP calls. Configure a trusted client and use its own approval controls when you want to review actions before execution.
+</Callout>
+
+## Installation
+
+Install your preferred coding agent and make sure **Node.js 18 or newer** is available in your terminal. The setup command configures the TradingGoose connection; it does not install the coding agent itself.
+
+### macOS and Linux
+
+```bash
+curl -fsSL https://www.tradinggoose.ai/mcp/setup | sh
+```
+
+### Windows PowerShell
+
+```powershell
+irm https://www.tradinggoose.ai/mcp/setup | iex
+```
+
+### Approve access and select clients
+
+1. Open the approval link printed in the terminal, sign in to TradingGoose, and approve MCP access.
+2. Return to the terminal and select the coding agents to configure.
+3. Check the result for each selected agent. The installer reports the configuration file it updated, or the error if that client could not be configured.
+4. Restart the client or reload its MCP connections, then check that **TradingGoose** appears in its MCP server list.
+
+The installer creates a personal API key and saves it in `~/.tradinggoose/credentials.json`. Later setup and login commands validate and reuse that key. If it has been revoked, the installer asks you to approve a new login. Browser approval expires after ten minutes.
+
+### Install for a specific client
+
+Append a target to `/mcp/setup` to skip the client picker. For example, to configure Codex:
+
+```bash
+curl -fsSL https://www.tradinggoose.ai/mcp/setup/codex | sh
+```
+
+```powershell
+irm https://www.tradinggoose.ai/mcp/setup/codex | iex
+```
+
+The installer writes a user-level server entry named `TradingGoose`. These are the supported targets and default configuration locations; `~` means your home directory.
+
+| Client | Target path | Default configuration file |
+|--------|-------------|----------------------------|
+| Claude Code | `/mcp/setup/claude` | `~/.claude.json` |
+| Cursor | `/mcp/setup/cursor` | `~/.cursor/mcp.json` |
+| OpenCode | `/mcp/setup/opencode` | `~/.config/opencode/opencode.json` |
+| Codex | `/mcp/setup/codex` | `~/.codex/config.toml` |
+| Antigravity | `/mcp/setup/antigravity` | `~/.gemini/config/mcp_config.json` |
+| Gemini CLI | `/mcp/setup/gemini` | `~/.gemini/settings.json` |
+
+Use `/mcp/setup/all` to configure all six clients. A specific target or `all` also works without an interactive client picker; browser approval is still needed when no valid saved credential exists.
+
+For Claude Code, the installer also checks `CLAUDE_CONFIG_DIR` when set. For OpenCode, it updates an existing supported JSON or JSONC configuration if present. It preserves unrelated settings and replaces an existing `TradingGoose` entry when reconfiguring that client.
+
+### Self-hosted Studio
+
+Replace `https://www.tradinggoose.ai` in the commands with your Studio deployment's public origin. Sign in and approve access on that deployment. Its `NEXT_PUBLIC_APP_URL` must match the externally reachable origin because the installer uses it for the approval link and MCP endpoint.
+
+MCP authentication uses a **personal TradingGoose API key**. A workspace API key or the `COPILOT_API_KEY` used for the built-in assistant's managed inference cannot authenticate this endpoint.
+
+## Manual configuration
+
+For a client without an installer target, use the login command to obtain the endpoint and authorization header:
+
+```bash
+curl -fsSL https://www.tradinggoose.ai/mcp/login | sh
+```
+
+```powershell
+irm https://www.tradinggoose.ai/mcp/login | iex
+```
+
+Login authenticates when necessary and prints the connection details. It does not write a coding agent's MCP configuration.
+
+| Setting | Value |
+|---------|-------|
+| Server name | `TradingGoose` |
+| Transport | Streamable HTTP |
+| Endpoint | `https://www.tradinggoose.ai/api/copilot/mcp` |
+| Authorization header | `Authorization: Bearer <personal-api-key>` |
+
+Use your client's configuration format for a remote MCP server and HTTP headers. For self-hosted Studio, use the endpoint printed by that deployment's login command.
+
+The connection identifies your account. Workspace and entity IDs belong in individual tool calls, so the same connection can work across the workspaces you can access. The endpoint handles MCP requests over `POST`; opening it directly in a browser returns `405 Method Not Allowed`.
+
+<Callout type="warn">
+  The login command prints the personal token, and setup stores it in the credential cache and selected client configurations. Keep those values private. This is a personal API key, not a credential restricted to one workspace or MCP alone.
+</Callout>
+
+## Using Copilot MCP
+
+After connecting, ask your agent to inspect the available TradingGoose tools and identify the target workspace. The server's initialization instructions list accessible workspace names, IDs, and permissions. The client discovers tool names and input schemas through `tools/list`.
+
+Useful first requests include:
+
+- "List the workflows in my TradingGoose research workspace and explain what each one does."
+- "Read my watchlist and summarize its sections and symbols."
+- "Inspect the latest logs for this workflow and explain why it failed."
+- "Read my dashboard layout and add a Watchlist widget."
+
+For edits, have the agent read the current entity first, preserve its identifiers, and follow the target edit tool's input schema. Some read responses are inspection documents and cannot be submitted unchanged as edits. List and create operations require a `workspaceId`; other tools specify their own target fields. Credential and environment operations require either `scope: "personal"` or `scope: "workspace"` with a `workspaceId`.
+
+### Available capabilities
+
+| Area | What the MCP tools support |
+|------|----------------------------|
+| Workflows | List, read, create, and rename workflows; edit workflow graphs, individual blocks, and variables; inspect logs, block outputs, upstream references, and deployment status |
+| Dashboards | List, read, create, rename, and edit your layouts; add or replace widget panels, edit widget settings, and discover available widget types |
+| Workspace entities | List, read, create, rename, and edit watchlists, custom indicators, skills, custom tools, and MCP server definitions |
+| Knowledge bases | List, read, create, rename, edit, and query knowledge bases |
+| Monitors | List, read, and edit existing monitors |
+| Environment | Inspect available variable names and set personal or workspace environment variables |
+| Reference and connections | Search documentation and listings, inspect block and indicator catalogs, list and read connected Google Drive files, and inspect available credential metadata and environment variable names |
+
+Tool availability and arguments come from the connected server. Connected-service operations also depend on the deployment's configuration and your existing credentials.
+
+The MCP tool set is a subset of the [built-in Copilot](/copilot). It can check deployment status, but it does not expose the built-in `run_workflow` or `deploy_workflow` actions, generic integration execution, or the Studio chat and planning interface. Use Studio to run or deploy workflows.
+
+To make tools from an external server available inside Studio's Agent blocks, follow the separate [MCP integration guide](/utilities/mcp).
+
+## Permissions and credentials
+
+Normal workspace read and write permissions still apply. A workspace must also allow personal API keys for MCP tools to access it. Dashboard layout tools operate on your own layouts. See [Roles and Permissions](/permissions) for workspace access levels.
+
+To revoke access, open **More → API Keys** in the workspace navigation, select **Personal**, and delete the key created by MCP setup. Its name starts with `TradingGoose Personal API Key (MCP setup)`. Revoking it disconnects every client using that key. Removing only the local credential file does not revoke the key.
+
+To disconnect a single client, remove its `TradingGoose` MCP server entry. To reconnect after revocation, rerun setup for the desired client and approve a new key.
+
+## Troubleshooting
+
+| Symptom | What to check |
+|---------|---------------|
+| Node is missing or too old | Install Node.js 18 or newer and ensure `node` is available in the terminal running setup. |
+| Setup requires an interactive terminal | Use a target URL such as `/mcp/setup/cursor`, or run the interactive command from a terminal. |
+| Browser approval expires | Rerun setup or login and approve the new link within ten minutes. |
+| Saved credentials cannot be verified | Check Studio connectivity and retry. A rate limit or service error stops setup without replacing the saved key or client configurations. |
+| A client is not configured | Read that client's result in the installer output. Check the reported file and its permissions, then rerun its target command. |
+| MCP responds with HTTP 401 | Use a valid personal key issued by the same Studio deployment. Rerun setup after revoking an old key. |
+| A tool reports `access_denied` or `personal_api_keys_disabled` | Check your workspace permissions and ask a workspace administrator about its personal API key policy. |
+| The connection succeeds but a tool fails | Inspect the tool's error response, confirm its target IDs and required scope, and check the connected service's credentials. A successful HTTP response can still contain an MCP tool error. |
+| MCP responds with HTTP 429 | Wait for the server's `Retry-After` interval before retrying. |
