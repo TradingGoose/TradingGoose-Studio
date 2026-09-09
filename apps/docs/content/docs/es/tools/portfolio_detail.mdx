@@ -1,0 +1,72 @@
+---
+title: Detalle de cartera
+description: Obtén el detalle completo de la cartera de una cuenta de bróker seleccionada.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="portfolio_detail"
+  color="#115e59"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Detalle de cartera"
+    type="portfolio_detail"
+    color="#115e59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "trading-provider-selector",
+            "title": "Bróker",
+            "layout": "full",
+            "placeholder": "Seleccionar bróker",
+            "required": true
+        },
+        {
+            "id": "portfolioIdentity",
+            "type": "trading-account-selector",
+            "title": "Cuenta de bróker",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de bróker",
+            "description": "Cuenta de bróker usada para obtener el detalle de la cartera.",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `trading_get_portfolio_detail`
+
+Obtén el resumen de la cuenta, el efectivo, las posiciones y las órdenes de Alpaca o Tradier.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `portfolioIdentity` | json | Sí | portfolioIdentity canónico seleccionado por el campo de cuenta de bróker. |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `summary` | string | Mensaje de estado de la recuperación del detalle de la cartera. |
+| `provider` | string | Bróker/proveedor usado para la solicitud. |
+| `portfolioDetail` | json | Detalle de cartera canónico con efectivo, posiciones y resumen. |
+
+## Instrucciones de uso
+
+Bloque de detalle de cartera que devuelve el resumen de la cuenta, el efectivo, las posiciones y las órdenes de Alpaca o Tradier.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `portfolio_detail`

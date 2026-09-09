@@ -1,0 +1,121 @@
+---
+title: Google Forms 触发器
+description: 通过 Apps Script 转发器，在 Google Forms 提交时触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="google_forms"
+  color=""
+/>
+
+通过 Apps Script 转发器，在 Google Forms 提交时触发工作流
+
+<Callout type="info">
+  这是基于 **webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="用作工具" href="/tools/google_forms">
+    查看 Google Forms 的工作流动作、操作和工具输入。
+  </Card>
+</Cards>
+
+## 设置说明
+
+<div class="mb-3"><strong>1.</strong> 打开你的 Google 表单 → 更多 (⋮) → 脚本编辑器。</div><div class="mb-3"><strong>2.</strong> 将下方的 Apps Script 代码片段粘贴到 <code>Code.gs</code> → 保存。</div><div class="mb-3"><strong>3.</strong> 触发器（时钟图标）→ 添加触发器 → 函数：<code>onFormSubmit</code> → 事件来源：<code>From form</code> → 事件类型：<code>On form submit</code> → 保存。</div><div class="mb-3"><strong>4.</strong> 出现提示时完成授权。提交一条测试回复，然后在 TradingGoose → 日志 中验证运行。</div>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Forms Webhook"
+    type="google_forms_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "token",
+            "type": "short-input",
+            "title": "共享密钥",
+            "placeholder": "输入 Apps Script 转发器使用的密钥",
+            "description": "我们使用此密钥验证请求。请通过 Authorization: Bearer <token> 或自定义请求头发送。",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretHeaderName",
+            "type": "short-input",
+            "title": "自定义密钥请求头",
+            "placeholder": "X-GForms-Secret",
+            "description": "如果已设置，webhook 将校验此请求头是否等于共享密钥，而不再使用 Authorization。",
+            "required": false
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "表单 ID",
+            "placeholder": "1FAIpQLSd...（Google 表单 ID）",
+            "description": "可选，便于在工作流中识别和匹配。webhook 正常工作不依赖此项。",
+            "required": false
+        },
+        {
+            "id": "includeRawPayload",
+            "type": "switch",
+            "title": "包含原始 Payload",
+            "description": "在工作流输入中包含来自 Apps Script 的原始 payload。",
+            "defaultValue": true
+        },
+        {
+            "id": "setupScript",
+            "type": "code",
+            "title": "Apps Script 代码",
+            "description": "复制此代码并粘贴到 Google Forms 的 Apps Script 编辑器中",
+            "language": "javascript"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "responseId",
+          "type": "string",
+          "description": "唯一响应标识符（如有）"
+      },
+      {
+          "name": "createTime",
+          "type": "string",
+          "description": "响应创建时间戳"
+      },
+      {
+          "name": "lastSubmittedTime",
+          "type": "string",
+          "description": "最后提交时间戳"
+      },
+      {
+          "name": "formId",
+          "type": "string",
+          "description": "Google 表单 ID"
+      },
+      {
+          "name": "answers",
+          "type": "object",
+          "description": "问题到答案的规范化映射"
+      },
+      {
+          "name": "raw",
+          "type": "object",
+          "description": "原始载荷（启用时）"
+      }
+  ]}
+/>

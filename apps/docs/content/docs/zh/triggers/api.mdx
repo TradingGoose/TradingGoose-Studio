@@ -1,0 +1,105 @@
+---
+title: API 触发器
+description: 通过已认证的 HTTP 请求启动工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="api_trigger"
+  color="#2F55FF"
+  icon={true}
+/>
+
+API 触发器会将你的工作流开放为安全的 HTTP 端点。向该端点发送 JSON 数据后，工作流会立即处理。API 调用始终针对你的最新部署执行。
+
+<Callout type="info">
+  这是基于 **webhook** 的触发器。外部服务或脚本发送 HTTP 请求以启动工作流。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="API 触发器"
+    type="api_trigger"
+    color="#2F55FF"
+    hideHeader
+    subBlocks={[
+      { "id": "inputFormat", "title": "输入格式", "type": "short-input", "layout": "full", "description": "定义 API 端点接受的 JSON 输入结构" }
+    ]}
+  />
+</ShowcaseCard>
+
+为每个参数添加一个 **输入格式** 字段。支持的类型：
+
+- **string** — 文本值
+- **number** — 数值
+- **boolean** — 真/假值
+- **json** — JSON 对象
+- **files** — 文件上传（通过 `<api.fieldName[0].url>`、`<api.fieldName[0].name>` 等访问）
+
+### 输出引用
+
+| 引用 | 类型 | 说明 |
+|-----------|------|-------------|
+| `<api.field>` | 可变 | 在输入格式中定义的字段 |
+| `<api.input>` | json | 完整的结构化请求体 |
+
+## 请求示例
+
+```bash
+curl -X POST \
+  https://www.tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: YOUR_KEY' \
+  -d '{"userId":"demo-user","maxTokens":1024}'
+```
+
+## 流式响应
+
+启用实时流式传输，以便在工作流输出生成时即时接收。
+
+### 请求参数
+
+- `stream` — 设为 `true` 以启用服务器发送事件 (SSE) 流式传输
+- `selectedOutputs` — 要流式传输的模块输出数组（例如 `["agent1.content"]`）
+
+### 示例
+
+```bash
+curl -X POST \
+  https://www.tradinggoose.ai/api/workflows/WORKFLOW_ID/execute \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: YOUR_KEY' \
+  -d '{"message": "Count to five", "stream": true, "selectedOutputs": ["agent1.content"]}'
+```
+
+### 响应格式
+
+```
+data: {"blockId":"...","chunk":"One"}
+data: {"blockId":"...","chunk":", two"}
+data: {"event":"done","success":true,"output":{},"metadata":{"duration":610}}
+data: [DONE]
+```
+
+### 文件上传格式
+
+```json
+{
+  "documents": [{
+    "type": "file",
+    "data": "data:application/pdf;base64,JVBERi0xLjQK...",
+    "name": "document.pdf",
+    "mime": "application/pdf"
+  }]
+}
+```
+
+<Callout type="warning">
+工作流只能包含一个 API 触发器。更改后请发布新部署，以使端点保持最新。
+</Callout>

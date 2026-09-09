@@ -1,13 +1,22 @@
 import type { ReactNode } from 'react'
 import { Analytics } from '@vercel/analytics/next'
+import { defineI18nUI } from 'fumadocs-ui/i18n'
 import { RootProvider } from 'fumadocs-ui/provider/next'
 import { Geist_Mono, Inter } from 'next/font/google'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { DocsLayout } from '@/components/layout/docs'
 import '../global.css'
-import { isDocsLocale } from '@/lib/i18n'
+import { i18n, isDocsLocale } from '@/lib/i18n'
 import { source } from '@/lib/source'
+
+const { provider } = defineI18nUI(i18n, {
+  translations: {
+    en: { displayName: 'English' },
+    es: { displayName: 'Español' },
+    zh: { displayName: '中文' },
+  },
+})
 
 const inter = Inter({
   subsets: ['latin'],
@@ -77,16 +86,16 @@ export default async function Layout({ children, params }: LayoutProps) {
         />
       </head>
       <body className='flex min-h-screen flex-col font-sans'>
-        <RootProvider>
+        <RootProvider i18n={provider(locale)}>
           <DocsLayout
             tree={tree}
-            i18n={false}
+            i18n
             themeSwitch={{
               enabled: true,
             }}
             nav={{
               title: 'Documentation',
-              url: '/',
+              url: locale === i18n.defaultLanguage ? '/' : `/${locale}`,
               logo: (
                 <div className='flex h-8 w-8 items-center justify-center rounded-md bg-fd-primary'>
                   <Image

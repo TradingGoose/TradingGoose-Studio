@@ -1,0 +1,71 @@
+---
+title: Activador genérico
+description: Recibe webhooks de cualquier servicio o API
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="generic"
+  color=""
+/>
+
+Recibe webhooks de cualquier servicio o API
+
+<Callout type="info">
+  Este es un activador **basado en webhooks**. Configura el servicio externo para enviar eventos a la URL del webhook del flujo de trabajo.
+</Callout>
+
+## Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Copia la URL del webhook y úsala en tu servicio externo o API.</div><div class="mb-3"><strong>2.</strong> Configura tu servicio para enviar webhooks a esta URL.</div><div class="mb-3"><strong>3.</strong> El webhook recibirá cualquier método HTTP (GET, POST, PUT, DELETE, etc.).</div><div class="mb-3"><strong>4.</strong> Todos los datos de la solicitud (encabezados, cuerpo, parámetros de consulta) estarán disponibles en tu flujo de trabajo.</div><div class="mb-3"><strong>5.</strong> Si la autenticación está habilitada, incluye el token en las solicitudes usando el encabezado personalizado o "Authorization: Bearer TOKEN".</div><div class="mb-3"><strong>6.</strong> Los campos comunes como "event", "id" y "data" se extraerán automáticamente del payload cuando estén disponibles.</div>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webhook genérico"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "requireAuth",
+            "type": "switch",
+            "title": "Requerir autenticación",
+            "description": "Requerir autenticación para todas las solicitudes de webhook",
+            "defaultValue": false
+        },
+        {
+            "id": "token",
+            "type": "short-input",
+            "title": "Token de autenticación",
+            "placeholder": "Introduce un token de autenticación",
+            "description": "Token usado para autenticar las solicitudes de webhook mediante token Bearer o un encabezado personalizado",
+            "password": true,
+            "required": false
+        },
+        {
+            "id": "secretHeaderName",
+            "type": "short-input",
+            "title": "Nombre del encabezado secreto (opcional)",
+            "placeholder": "X-Secret-Key",
+            "description": "Nombre del encabezado HTTP personalizado para el token de autenticación. Si está en blanco, se usa \"Authorization: Bearer TOKEN\"",
+            "required": false
+        },
+        {
+            "id": "inputFormat",
+            "type": "input-format",
+            "title": "Formato de entrada",
+            "description": "Define el esquema JSON de entrada esperado para este webhook (opcional). Usa el tipo \"files\" para cargas de archivos."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+Este disparador no declara campos de salida adicionales.

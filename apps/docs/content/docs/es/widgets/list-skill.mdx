@@ -1,0 +1,46 @@
+---
+title: Lista de habilidades
+description: Explora, crea e importa habilidades del espacio de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Información general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `list_skill` |
+| **Categoría** | Lista |
+
+El widget Lista de habilidades es el explorador del espacio de trabajo para habilidades reutilizables. Úsalo para buscar habilidades existentes, crear otras nuevas, importar JSON de exportación de TradingGoose y abrir la habilidad seleccionada en el Editor de habilidades.
+
+## Características
+
+- **Explorar y buscar** habilidades en el espacio de trabajo actual.
+- **Crear** habilidades nuevas desde el menú Crear.
+- **Importar** habilidades desde el menú Crear con la acción **Importar habilidades**.
+- **Abrir en el editor** al seleccionar una habilidad de la lista.
+- **Vinculación por color de par** mantiene la lista sincronizada con el Editor de habilidades cuando ambos widgets comparten el mismo color.
+
+## Uso
+
+1. Añade el widget a un panel del espacio de trabajo.
+2. Usa el menú Crear para añadir una habilidad nueva o importar un archivo JSON de exportación de TradingGoose.
+3. Selecciona una habilidad de la lista para abrirla en el widget Editor de habilidades emparejado.
+4. Asigna un color de par si quieres que los cambios de selección se mantengan sincronizados entre la lista y el editor.
+
+<Callout type="info">
+  Las acciones de crear e importar requieren permiso de edición en el espacio de trabajo. Explorar las habilidades existentes solo requiere acceso al espacio de trabajo.
+</Callout>
+
+## Relacionado
+
+<Cards>
+  <Card title="Editor de habilidades" href="/widgets/editor-skill">
+    Escribe y exporta habilidades reutilizables del espacio de trabajo.
+  </Card>
+  <Card title="Guía de habilidades" href="/utilities/skills">
+    Aprende cómo se estructuran, cargan y usan las habilidades en tiempo de ejecución.
+  </Card>
+</Cards>

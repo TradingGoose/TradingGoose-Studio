@@ -1,0 +1,6396 @@
+---
+title: Mailchimp
+description: 在 Mailchimp 中管理受众、营销活动和营销自动化
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mailchimp"
+  color="#FFE01B"
+/>
+
+## 配置
+
+### 获取受众列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_audiences",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取营销活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取营销活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建营销活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新营销活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除营销活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送营销活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排营销活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排营销活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制营销活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取营销活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置营销活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "将订阅者添加到自动化"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取营销活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取营销活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "数量",
+            "placeholder": "结果数量（默认：10，最大：1000）"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "要跳过的结果数量"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取受众列表 (<code>mailchimp_get_audiences</code>)</div>
+
+从 Mailchimp 获取受众（列表）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `count` | string | 否 | 结果数量（默认：10，最大：1000） |
+| `offset` | string | 否 | 要跳过的结果数量 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 受众数据及元数据 |
+
+</div>
+
+---
+
+### 获取受众
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_audience",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "向自动化添加订阅者"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取受众（<code>mailchimp_get_audience</code>）</div>
+
+从 Mailchimp 获取指定受众（列表）的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 列表的唯一 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 受众数据与元数据 |
+
+</div>
+
+---
+
+### 创建受众
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_audience",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "将订阅者加入自动化"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "audienceName",
+            "type": "short-input",
+            "title": "受众名称",
+            "placeholder": "受众名称",
+            "required": true
+        },
+        {
+            "id": "contact",
+            "type": "long-input",
+            "title": "联系信息",
+            "placeholder": "包含 company、address1、city、state、zip、country 的 JSON 对象",
+            "required": true
+        },
+        {
+            "id": "permissionReminder",
+            "type": "short-input",
+            "title": "权限提醒",
+            "placeholder": "权限提醒文本",
+            "required": true
+        },
+        {
+            "id": "campaignDefaults",
+            "type": "long-input",
+            "title": "活动默认值",
+            "placeholder": "包含 from_name、from_email、subject、language 的 JSON 对象",
+            "required": true
+        },
+        {
+            "id": "emailTypeOption",
+            "type": "dropdown",
+            "title": "邮件类型选项",
+            "defaultValue": "true",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "真"
+                },
+                {
+                    "id": "false",
+                    "label": "假"
+                }
+            ],
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建受众 (<code>mailchimp_create_audience</code>)</div>
+
+在 Mailchimp 中创建新受众（列表）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `audienceName` | string | 是 | 列表名称 |
+| `contact` | string | 是 | 联系信息的 JSON 对象 |
+| `permissionReminder` | string | 是 | 许可提醒文本 |
+| `campaignDefaults` | string | 是 | 默认活动设置的 JSON 对象 |
+| `emailTypeOption` | string | 是 | 是否支持多种邮件格式 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 已创建的受众数据 |
+
+</div>
+
+---
+
+### 更新受众
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update_audience",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "将订阅者加入自动化"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批处理操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批处理操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批处理操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批处理操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        },
+        {
+            "id": "audienceName",
+            "type": "short-input",
+            "title": "受众名称",
+            "placeholder": "受众名称"
+        },
+        {
+            "id": "contact",
+            "type": "long-input",
+            "title": "联系信息",
+            "placeholder": "包含 company、address1、city、state、zip、country 的 JSON 对象"
+        },
+        {
+            "id": "permissionReminder",
+            "type": "short-input",
+            "title": "许可提醒",
+            "placeholder": "许可提醒文本"
+        },
+        {
+            "id": "campaignDefaults",
+            "type": "long-input",
+            "title": "活动默认设置",
+            "placeholder": "包含 from_name、from_email、subject、language 的 JSON 对象"
+        },
+        {
+            "id": "emailTypeOption",
+            "type": "dropdown",
+            "title": "邮件类型选项",
+            "defaultValue": "true",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "是"
+                },
+                {
+                    "id": "false",
+                    "label": "否"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新受众 (<code>mailchimp_update_audience</code>)</div>
+
+更新 Mailchimp 中的现有受众（列表）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 列表的唯一 ID |
+| `audienceName` | string | 否 | 列表名称 |
+| `permissionReminder` | string | 否 | 权限提醒文本 |
+| `campaignDefaults` | string | 否 | 默认活动设置的 JSON 对象 |
+| `emailTypeOption` | string | 否 | 支持多种邮件格式 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 已更新的受众数据 |
+
+</div>
+
+---
+
+### 删除受众
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete_audience",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "将订阅者添加到自动化"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取分段列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取分段"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建分段"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新分段"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除分段"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取分段成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加分段成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除分段成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除受众 (<code>mailchimp_delete_audience</code>)</div>
+
+从 Mailchimp 删除受众（列表）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 要删除的列表的唯一 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 删除确认 |
+
+</div>
+
+---
+
+### 获取成员列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_members",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "定时发送活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消定时发送"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "将订阅者加入自动化"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Mailchimp API 密钥（含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "id": "subscribed",
+                    "label": "已订阅"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "已退订"
+                },
+                {
+                    "id": "cleaned",
+                    "label": "已清理"
+                },
+                {
+                    "id": "pending",
+                    "label": "待确认"
+                },
+                {
+                    "id": "transactional",
+                    "label": "事务性"
+                }
+            ]
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "数量",
+            "placeholder": "结果数量（默认：10，最大：1000）"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "要跳过的结果数量"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取成员 (<code>mailchimp_get_members</code>)</div>
+
+从 Mailchimp 受众获取成员列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 列表的唯一 ID |
+| `status` | string | 否 | 按状态筛选 \(subscribed、unsubscribed、cleaned、pending\) |
+| `count` | string | 否 | 结果数量 \(默认：10，最大：1000\) |
+| `offset` | string | 否 | 要跳过的结果数量 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 成员数据与元数据 |
+
+</div>
+
+---
+
+### 获取单个成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取单个受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取单个成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取单个活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取单个自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "将订阅者添加到自动化"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取单个模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取单个活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取单个细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取单个合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取单个兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取单个兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取单个落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取单个批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "订阅者邮箱",
+            "placeholder": "邮箱地址或 MD5 哈希",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取成员（<code>mailchimp_get_member</code>）</div>
+
+从 Mailchimp 受众中检索指定成员的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 列表的唯一 ID |
+| `subscriberEmail` | string | 是 | 成员邮箱地址或 MD5 哈希 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作是否成功 |
+| `output` | object | 成员数据及元数据 |
+
+</div>
+
+---
+
+### 添加成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "add_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "向自动化添加订阅者"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Mailchimp API 密钥（含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        },
+        {
+            "id": "emailAddress",
+            "type": "short-input",
+            "title": "邮箱地址",
+            "placeholder": "成员邮箱地址",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "id": "subscribed",
+                    "label": "已订阅"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "已退订"
+                },
+                {
+                    "id": "cleaned",
+                    "label": "已清理"
+                },
+                {
+                    "id": "pending",
+                    "label": "待确认"
+                },
+                {
+                    "id": "transactional",
+                    "label": "事务性"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "mergeFields",
+            "type": "long-input",
+            "title": "合并字段",
+            "placeholder": "包含合并字段值的 JSON 对象（例如 {\"FNAME\": \"John\", \"LNAME\": \"Doe\"})"
+        },
+        {
+            "id": "interests",
+            "type": "long-input",
+            "title": "兴趣",
+            "placeholder": "包含兴趣 ID 和布尔值的 JSON 对象"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加成员 (<code>mailchimp_add_member</code>)</div>
+
+向 Mailchimp 受众添加新成员
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 列表的唯一 ID |
+| `emailAddress` | string | 是 | 成员电子邮件地址 |
+| `status` | string | 是 | 订阅者状态 |
+| `mergeFields` | string | 否 | 合并字段的 JSON 对象 |
+| `interests` | string | 否 | 兴趣的 JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 已添加的成员数据 |
+
+</div>
+
+---
+
+### 添加或更新成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "add_or_update_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取营销活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取营销活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建营销活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新营销活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除营销活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送营销活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排营销活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排营销活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制营销活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取营销活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置营销活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "将订阅者添加到自动化"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取营销活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取营销活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "订阅者邮箱",
+            "placeholder": "电子邮件地址或 MD5 哈希",
+            "required": true
+        },
+        {
+            "id": "emailAddress",
+            "type": "short-input",
+            "title": "电子邮件地址",
+            "placeholder": "成员电子邮件地址",
+            "required": true
+        },
+        {
+            "id": "statusIfNew",
+            "type": "dropdown",
+            "title": "新成员状态",
+            "options": [
+                {
+                    "id": "subscribed",
+                    "label": "已订阅"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "已退订"
+                },
+                {
+                    "id": "cleaned",
+                    "label": "已清理"
+                },
+                {
+                    "id": "pending",
+                    "label": "待确认"
+                },
+                {
+                    "id": "transactional",
+                    "label": "事务性"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "mergeFields",
+            "type": "long-input",
+            "title": "合并字段",
+            "placeholder": "包含合并字段值的 JSON 对象（例如 {\"FNAME\": \"John\", \"LNAME\": \"Doe\"})"
+        },
+        {
+            "id": "interests",
+            "type": "long-input",
+            "title": "兴趣",
+            "placeholder": "包含兴趣 ID 和布尔值的 JSON 对象"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加或更新成员 (<code>mailchimp_add_or_update_member</code>)</div>
+
+在 Mailchimp 受众中添加新成员或更新现有成员（upsert）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 列表的唯一 ID |
+| `subscriberEmail` | string | 是 | 成员邮箱地址或 MD5 哈希 |
+| `emailAddress` | string | 是 | 成员邮箱地址 |
+| `statusIfNew` | string | 是 | 新成员的订阅状态 |
+| `mergeFields` | string | 否 | 合并字段的 JSON 对象 |
+| `interests` | string | 否 | 兴趣的 JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 成员数据 |
+
+</div>
+
+---
+
+### 更新成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "定时发送活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消定时发送"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "向自动化添加订阅者"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Mailchimp API 密钥（含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "订阅者邮箱",
+            "placeholder": "邮箱地址或 MD5 哈希",
+            "required": true
+        },
+        {
+            "id": "emailAddress",
+            "type": "short-input",
+            "title": "邮箱地址",
+            "placeholder": "成员邮箱地址"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "id": "subscribed",
+                    "label": "已订阅"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "已退订"
+                },
+                {
+                    "id": "cleaned",
+                    "label": "已清理"
+                },
+                {
+                    "id": "pending",
+                    "label": "待确认"
+                },
+                {
+                    "id": "transactional",
+                    "label": "事务性"
+                }
+            ]
+        },
+        {
+            "id": "mergeFields",
+            "type": "long-input",
+            "title": "合并字段",
+            "placeholder": "合并字段值的 JSON 对象（例如 {\"FNAME\": \"John\", \"LNAME\": \"Doe\"})"
+        },
+        {
+            "id": "interests",
+            "type": "long-input",
+            "title": "兴趣",
+            "placeholder": "包含兴趣 ID 和布尔值的 JSON 对象"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新成员 (<code>mailchimp_update_member</code>)</div>
+
+更新 Mailchimp 受众中的现有成员
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 列表的唯一 ID |
+| `subscriberEmail` | string | 是 | 成员邮箱地址或 MD5 哈希 |
+| `emailAddress` | string | 否 | 成员邮箱地址 |
+| `status` | string | 否 | 订阅者状态 |
+| `mergeFields` | string | 否 | 合并字段的 JSON 对象 |
+| `interests` | string | 否 | 兴趣的 JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 更新后的成员数据 |
+
+</div>
+
+---
+
+### 删除成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "向自动化添加订阅者"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "订阅者邮箱",
+            "placeholder": "邮箱地址或 MD5 哈希",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除成员 (<code>mailchimp_delete_member</code>)</div>
+
+从 Mailchimp 受众中删除成员
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 列表的唯一 ID |
+| `subscriberEmail` | string | 是 | 成员电子邮件地址或 MD5 哈希 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 删除确认 |
+
+</div>
+
+---
+
+### 归档成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "archive_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "将订阅者添加到自动化"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "订阅者邮箱",
+            "placeholder": "电子邮件地址或 MD5 哈希",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">归档成员 (<code>mailchimp_archive_member</code>)</div>
+
+从 Mailchimp 受众中永久归档（删除）成员
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 列表的唯一 ID |
+| `subscriberEmail` | string | 是 | 成员邮箱地址或 MD5 哈希 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作是否成功 |
+| `output` | object | 归档确认 |
+
+</div>
+
+---
+
+### 取消归档成员
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "unarchive_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "排期活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消排期活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "将订阅者加入自动化"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "受众 ID",
+            "placeholder": "受众/列表 ID",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "订阅者邮箱",
+            "placeholder": "邮箱地址或 MD5 哈希",
+            "required": true
+        },
+        {
+            "id": "emailAddress",
+            "type": "short-input",
+            "title": "邮箱地址",
+            "placeholder": "成员邮箱地址",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "options": [
+                {
+                    "id": "subscribed",
+                    "label": "已订阅"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "已取消订阅"
+                },
+                {
+                    "id": "cleaned",
+                    "label": "已清理"
+                },
+                {
+                    "id": "pending",
+                    "label": "待确认"
+                },
+                {
+                    "id": "transactional",
+                    "label": "事务性"
+                }
+            ],
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">取消归档成员 (<code>mailchimp_unarchive_member</code>)</div>
+
+将已归档成员恢复到 Mailchimp 受众
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | 是 | 列表的唯一 ID |
+| `subscriberEmail` | string | 是 | 成员邮箱地址或 MD5 哈希 |
+| `emailAddress` | string | 是 | 成员邮箱地址 |
+| `status` | string | 是 | 订阅者状态 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 已取消归档的成员数据 |
+
+</div>
+
+---
+
+### 获取活动
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_campaigns",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "向自动化添加订阅者"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "campaignType",
+            "type": "dropdown",
+            "title": "活动类型",
+            "options": [
+                {
+                    "id": "regular",
+                    "label": "常规"
+                },
+                {
+                    "id": "plaintext",
+                    "label": "纯文本"
+                },
+                {
+                    "id": "absplit",
+                    "label": "A/B 拆分"
+                },
+                {
+                    "id": "rss",
+                    "label": "RSS"
+                },
+                {
+                    "id": "variate",
+                    "label": "多变量"
+                }
+            ]
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "数量",
+            "placeholder": "结果数量（默认：10，最大：1000）"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "要跳过的结果数量"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取营销活动列表（<code>mailchimp_get_campaigns</code>）</div>
+
+从 Mailchimp 获取营销活动列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `campaignType` | string | 否 | 按营销活动类型筛选（regular、plaintext、absplit、rss、variate） |
+| `status` | string | 否 | 按状态筛选（save、paused、schedule、sending、sent） |
+| `count` | string | 否 | 结果数量（默认：10，最大：1000） |
+| `offset` | string | 否 | 要跳过的结果数量 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 营销活动数据与元数据 |
+
+</div>
+
+---
+
+### 获取营销活动
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_campaign",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取营销活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取营销活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建营销活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新营销活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除营销活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送营销活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排营销活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排营销活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制营销活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取营销活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置营销活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "向自动化添加订阅者"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取营销活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取营销活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "campaignId",
+            "type": "short-input",
+            "title": "营销活动 ID",
+            "placeholder": "营销活动 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取营销活动 (<code>mailchimp_get_campaign</code>)</div>
+
+从 Mailchimp 获取指定营销活动的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `campaignId` | string | 是 | 营销活动的唯一 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 营销活动数据及元数据 |
+
+</div>
+
+---
+
+### 创建营销活动
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_campaign",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取营销活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取营销活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建营销活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新营销活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除营销活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送营销活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "安排营销活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消安排营销活动"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制营销活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取营销活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置营销活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "向自动化添加订阅者"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取营销活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取营销活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Mailchimp API 密钥（含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "campaignType",
+            "type": "dropdown",
+            "title": "营销活动类型",
+            "options": [
+                {
+                    "id": "regular",
+                    "label": "常规"
+                },
+                {
+                    "id": "plaintext",
+                    "label": "纯文本"
+                },
+                {
+                    "id": "absplit",
+                    "label": "A/B 拆分"
+                },
+                {
+                    "id": "rss",
+                    "label": "RSS"
+                },
+                {
+                    "id": "variate",
+                    "label": "多变量"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "campaignSettings",
+            "type": "long-input",
+            "title": "营销活动设置",
+            "placeholder": "包含 subject_line、from_name、reply_to 等的 JSON 对象（创建时必填）",
+            "required": true
+        },
+        {
+            "id": "recipients",
+            "type": "long-input",
+            "title": "收件人",
+            "placeholder": "包含 list_id 和可选 segment_opts 的 JSON 对象"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建活动 (<code>mailchimp_create_campaign</code>)</div>
+
+在 Mailchimp 中创建新活动
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `campaignType` | string | 是 | 活动类型 |
+| `campaignSettings` | string | 是 | 活动设置的 JSON 对象 |
+| `recipients` | string | 否 | 收件人的 JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 已创建的活动数据 |
+
+</div>
+
+---
+
+### 更新活动
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update_campaign",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "获取受众列表"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "获取受众"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "创建受众"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "更新受众"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "删除受众"
+                },
+                {
+                    "id": "get_members",
+                    "label": "获取成员列表"
+                },
+                {
+                    "id": "get_member",
+                    "label": "获取成员"
+                },
+                {
+                    "id": "add_member",
+                    "label": "添加成员"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "添加或更新成员"
+                },
+                {
+                    "id": "update_member",
+                    "label": "更新成员"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "删除成员"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "归档成员"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "取消归档成员"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "获取活动列表"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "获取活动"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "创建活动"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "更新活动"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "删除活动"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "发送活动"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "定时发送活动"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "取消定时发送"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "复制活动"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "获取活动内容"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "设置活动内容"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "获取自动化列表"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "获取自动化"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "启动自动化"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "暂停自动化"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "将订阅者加入自动化"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "获取模板列表"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "update_template",
+                    "label": "更新模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "获取活动报告列表"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "获取活动报告"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "获取细分列表"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "获取细分"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "创建细分"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "更新细分"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "删除细分"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "获取细分成员"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "添加细分成员"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "移除细分成员"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "获取成员标签"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "添加成员标签"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "移除成员标签"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "获取合并字段列表"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "获取合并字段"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "创建合并字段"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "更新合并字段"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "删除合并字段"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "获取兴趣类别列表"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "获取兴趣类别"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "创建兴趣类别"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "更新兴趣类别"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "删除兴趣类别"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "获取兴趣列表"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "获取兴趣"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "创建兴趣"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "更新兴趣"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "删除兴趣"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "获取落地页列表"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "获取落地页"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "创建落地页"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "更新落地页"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "删除落地页"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "发布落地页"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "取消发布落地页"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "获取批量操作列表"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "获取批量操作"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "创建批量操作"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "删除批量操作"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入 Mailchimp API 密钥（包含服务器前缀）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "campaignId",
+            "type": "short-input",
+            "title": "活动 ID",
+            "placeholder": "活动 ID",
+            "required": true
+        },
+        {
+            "id": "campaignSettings",
+            "type": "long-input",
+            "title": "活动设置",
+            "placeholder": "包含 subject_line、from_name、reply_to 等的 JSON 对象（创建时必填）"
+        },
+        {
+            "id": "recipients",
+            "type": "long-input",
+            "title": "收件人",
+            "placeholder": "包含 list_id 和可选 segment_opts 的 JSON 对象"
+        }
+    ]}
+  />
+</ShowcaseCard>

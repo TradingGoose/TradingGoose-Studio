@@ -1,0 +1,416 @@
+---
+title: Webflow 触发器
+description: 当 Webflow CMS 集合中创建新项目时触发工作流（需要 Webflow 凭据）
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="webflow"
+  color=""
+/>
+
+当 Webflow CMS 集合中创建新项目时触发工作流（需要 Webflow 凭据）
+
+<Callout type="info">
+  这是基于 **webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="用作工具" href="/tools/webflow">
+    查看 Webflow 的工作流动作、操作和工具输入。
+  </Card>
+</Cards>
+
+## 事件
+
+### 集合项已创建
+
+当 Webflow CMS 集合中创建新项目时触发工作流（需要 Webflow 凭据）
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 点击上方的“选择 Webflow 凭据”按钮，连接你的 Webflow 账号。</div><div class="mb-3"><strong>2.</strong> 输入 Webflow 站点 ID（可在站点 URL 或站点设置中找到）。</div><div class="mb-3"><strong>3.</strong> 可选择输入集合 ID，仅监控特定集合。</div><div class="mb-3"><strong>4.</strong> 如果未提供集合 ID，站点上任意集合中创建项目时都会触发。</div><div class="mb-3"><strong>5.</strong> 只要在指定集合中创建了新项目，webhook 就会触发。</div><div class="mb-3"><strong>6.</strong> 确保你的 Webflow 账号对指定站点具有相应权限。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="集合项已创建"
+    type="webflow_collection_item_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "凭据",
+            "description": "此触发器需要 Webflow 凭据才能访问你的账号。",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "站点",
+            "placeholder": "选择站点",
+            "description": "要监控的 Webflow 站点",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "集合",
+            "placeholder": "选择集合（可选）",
+            "description": "可选：仅监控特定集合",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "事件发生所在站点的 ID"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "创建该条目所在集合的 ID"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "已创建条目的 ID"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "CMS 语言区域 ID"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "上次发布时间戳"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "上次更新时间戳"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "条目创建时间戳"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "条目是否已归档"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "条目是否为草稿"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "条目的字段数据"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### 集合条目已更改
+
+当 Webflow CMS 集合中的条目更新时触发工作流（需要 Webflow 凭据）
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 使用上方的“选择 Webflow 凭据”按钮连接你的 Webflow 账户。</div><div class="mb-3"><strong>2.</strong> 输入你的 Webflow 站点 ID（可在站点 URL 或站点设置中找到）。</div><div class="mb-3"><strong>3.</strong> 可选择输入集合 ID，仅监控特定集合。</div><div class="mb-3"><strong>4.</strong> 如果未提供集合 ID，该触发器会在站点上任意集合中的条目发生变更时触发。</div><div class="mb-3"><strong>5.</strong> 每当指定集合中的现有条目更新时，webhook 就会触发。</div><div class="mb-3"><strong>6.</strong> 请确保你的 Webflow 账户对指定站点具有相应权限。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="集合条目已更改"
+    type="webflow_collection_item_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "凭据",
+            "description": "此触发器需要 Webflow 凭据才能访问你的账户。",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "站点",
+            "placeholder": "选择站点",
+            "description": "要监控的 Webflow 站点",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "集合",
+            "placeholder": "选择集合（可选）",
+            "description": "可选，仅监控特定集合",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "事件发生所在站点的 ID"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "条目发生变更的集合 ID"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "已变更条目的 ID"
+              },
+              {
+                  "name": "cmsLocaleId",
+                  "type": "string",
+                  "description": "CMS 语言区域 ID"
+              },
+              {
+                  "name": "lastPublished",
+                  "type": "string",
+                  "description": "上次发布时间戳"
+              },
+              {
+                  "name": "lastUpdated",
+                  "type": "string",
+                  "description": "上次更新时间戳"
+              },
+              {
+                  "name": "createdOn",
+                  "type": "string",
+                  "description": "条目的创建时间戳"
+              },
+              {
+                  "name": "isArchived",
+                  "type": "boolean",
+                  "description": "条目是否已归档"
+              },
+              {
+                  "name": "isDraft",
+                  "type": "boolean",
+                  "description": "条目是否为草稿"
+              },
+              {
+                  "name": "fieldData",
+                  "type": "object",
+                  "description": "条目的更新字段数据"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### 集合条目已删除
+
+当 Webflow CMS 集合中的条目被删除时触发工作流（需要 Webflow 凭据）
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 使用上方的“选择 Webflow 凭据”按钮连接你的 Webflow 账户。</div><div class="mb-3"><strong>2.</strong> 输入你的 Webflow 站点 ID（可在站点 URL 或站点设置中找到）。</div><div class="mb-3"><strong>3.</strong> 可选择输入集合 ID，以仅监控特定集合。</div><div class="mb-3"><strong>4.</strong> 如果未提供集合 ID，则该站点上任意集合中的条目被删除时都会触发。</div><div class="mb-3"><strong>5.</strong> 每当指定集合中有条目被删除时，webhook 都会触发。</div><div class="mb-3"><strong>6.</strong> 注意：条目一旦删除，仅能获取最少信息（ID、集合、站点）。</div><div class="mb-3"><strong>7.</strong> 确保你的 Webflow 账户对指定站点拥有相应权限。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="集合项已删除"
+    type="webflow_collection_item_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "凭据",
+            "description": "此触发器需要 Webflow 凭据才能访问你的账户。",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "站点",
+            "placeholder": "选择站点",
+            "description": "要监控的 Webflow 站点",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "dropdown",
+            "title": "集合",
+            "placeholder": "选择集合（可选）",
+            "description": "可选，仅监控特定集合",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "事件发生所在站点的 ID"
+      },
+      {
+          "name": "collectionId",
+          "type": "string",
+          "description": "已删除项目所属集合的 ID"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "已删除项目的 ID"
+              },
+              {
+                  "name": "deletedOn",
+                  "type": "string",
+                  "description": "项目被删除的时间戳"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### 表单提交
+
+在 Webflow 站点提交表单时触发工作流（需要 Webflow 凭据）
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 使用上方的「选择 Webflow 凭据」按钮连接你的 Webflow 账户。</div><div class="mb-3"><strong>2.</strong> 输入你的 Webflow 站点 ID（可在站点 URL 或站点设置中找到）。</div><div class="mb-3"><strong>3.</strong> 可选择输入表单 ID，以仅监控特定表单。</div><div class="mb-3"><strong>4.</strong> 如果未提供表单 ID，该站点上任意表单提交都会触发。</div><div class="mb-3"><strong>5.</strong> 指定站点上提交表单时，webhook 即会触发。</div><div class="mb-3"><strong>6.</strong> 负载中将包含表单数据及所有已提交的字段值。</div><div class="mb-3"><strong>7.</strong> 请确保你的 Webflow 账户对指定站点拥有相应权限。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="表单提交"
+    type="webflow_form_submission"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "凭据",
+            "description": "此触发器需要 Webflow 凭据才能访问你的账户。",
+            "provider": "webflow",
+            "required": true
+        },
+        {
+            "id": "siteId",
+            "type": "dropdown",
+            "title": "站点",
+            "placeholder": "选择站点",
+            "description": "要监控的 Webflow 站点",
+            "required": true
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "表单 ID",
+            "placeholder": "form-123abc（可选）",
+            "description": "要监控的特定表单 ID（可选，留空则监控所有表单）",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "siteId",
+          "type": "string",
+          "description": "提交该表单的站点 ID"
+      },
+      {
+          "name": "formId",
+          "type": "string",
+          "description": "表单 ID"
+      },
+      {
+          "name": "name",
+          "type": "string",
+          "description": "表单名称"
+      },
+      {
+          "name": "id",
+          "type": "string",
+          "description": "表单提交的唯一 ID"
+      },
+      {
+          "name": "submittedAt",
+          "type": "string",
+          "description": "表单提交时的时间戳"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "表单提交的字段数据（键为字段名）"
+      },
+      {
+          "name": "schema",
+          "type": "object",
+          "description": "表单架构信息"
+      },
+      {
+          "name": "formElementId",
+          "type": "string",
+          "description": "表单元素 ID"
+      }
+  ]}
+/>
+
+---

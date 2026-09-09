@@ -1,0 +1,798 @@
+---
+title: Telegram
+description: 与 Telegram 交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="telegram"
+  color="#24A1DE"
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/telegram">
+    查看 Telegram 的触发事件、设置和事件载荷。
+  </Card>
+</Cards>
+
+## 配置
+
+### 发送消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "telegram_message",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "发送照片"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "发送视频"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "发送音频"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "发送动画"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "发送文档"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "删除消息"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "机器人令牌",
+            "layout": "full",
+            "placeholder": "输入你的 Telegram 机器人令牌",
+            "description": "获取机器人令牌：\n1. 如果尚未创建机器人，向 @BotFather 发送 “/newbot”\n2. 为机器人选择名称\n3. 复制其提供的令牌并粘贴到此处",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "聊天 ID",
+            "layout": "full",
+            "placeholder": "输入 Telegram 聊天 ID",
+            "description": "获取聊天 ID：\n1. 将机器人添加为目标 Telegram 频道的成员\n2. 向该频道发送任意消息（例如“我喜欢 TradingGoose”）\n3. 访问 https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. 在最底部的 JSON 响应中查找 chat 字段，即可找到聊天 ID",
+            "required": true
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "消息",
+            "layout": "full",
+            "placeholder": "输入要发送的消息",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送消息 (<code>telegram_message</code>)</div>
+
+通过 Telegram Bot API 向 Telegram 频道或用户发送消息。可进行直接沟通与通知，并跟踪消息、确认聊天。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | 是 | 你的 Telegram Bot API Token |
+| `chatId` | string | 是 | 目标 Telegram 聊天 ID |
+| `text` | string | 是 | 要发送的消息文本 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 成功或错误消息 |
+| `data` | object | Telegram 消息数据 |
+
+</div>
+
+---
+
+### 发送照片
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "telegram_send_photo",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "发送照片"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "发送视频"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "发送音频"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "发送动画"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "发送文档"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "删除消息"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "输入你的 Telegram Bot Token",
+            "description": "获取 Bot Token：\n1. 如果尚未创建机器人，向 @BotFather 发送 “/newbot”\n2. 为你的机器人选择名称\n3. 复制其提供的令牌并粘贴到此处",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "聊天 ID",
+            "layout": "full",
+            "placeholder": "输入 Telegram 聊天 ID",
+            "description": "获取聊天 ID：\n1. 将机器人添加为目标 Telegram 频道的成员\n2. 向该频道发送任意消息（例如 “我喜欢 TradingGoose”）\n3. 访问 https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. 在 JSON 响应最底部查找 chat 字段，即可找到聊天 ID",
+            "required": true
+        },
+        {
+            "id": "photo",
+            "type": "short-input",
+            "title": "照片",
+            "layout": "full",
+            "placeholder": "输入照片 URL 或 file_id",
+            "description": "要发送的照片。传入 file_id 或 HTTP URL",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "说明",
+            "layout": "full",
+            "placeholder": "输入可选说明",
+            "description": "媒体说明（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送照片（<code>telegram_send_photo</code>）</div>
+
+通过 Telegram Bot API 向 Telegram 频道或用户发送照片。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | 是 | 你的 Telegram Bot API Token |
+| `chatId` | string | 是 | 目标 Telegram 聊天 ID |
+| `photo` | string | 是 | 要发送的照片。传入 file_id 或 HTTP URL |
+| `caption` | string | 否 | 照片说明（可选） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 成功或错误消息 |
+| `data` | object | 包含可选照片的 Telegram 消息数据 |
+
+</div>
+
+---
+
+### 发送视频
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "telegram_send_video",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "发送照片"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "发送视频"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "发送音频"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "发送动画"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "发送文档"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "删除消息"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "输入你的 Telegram Bot Token",
+            "description": "获取 Bot Token：\n1. 如果你还没有机器人，向 @BotFather 发送 “/newbot”\n2. 为你的机器人选择名称\n3. 复制其提供的 Token 并粘贴到此处",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "聊天 ID",
+            "layout": "full",
+            "placeholder": "输入 Telegram 聊天 ID",
+            "description": "获取聊天 ID：\n1. 将你的机器人添加为所需 Telegram 频道的成员\n2. 向该频道发送任意消息（例如 “我爱 TradingGoose”）\n3. 访问 https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. 在 JSON 响应最底部查找 chat 字段，即可找到聊天 ID",
+            "required": true
+        },
+        {
+            "id": "video",
+            "type": "short-input",
+            "title": "视频",
+            "layout": "full",
+            "placeholder": "输入视频 URL 或 file_id",
+            "description": "要发送的视频。传入 file_id 或 HTTP URL",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "说明",
+            "layout": "full",
+            "placeholder": "输入可选说明",
+            "description": "媒体说明（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送视频 (<code>telegram_send_video</code>)</div>
+
+通过 Telegram Bot API 向 Telegram 频道或用户发送视频。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | 是 | 你的 Telegram Bot API Token |
+| `chatId` | string | 是 | 目标 Telegram 聊天 ID |
+| `video` | string | 是 | 要发送的视频。传入 file_id 或 HTTP URL |
+| `caption` | string | 否 | 视频说明（可选） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 成功或错误消息 |
+| `data` | object | 包含可选媒体的 Telegram 消息数据 |
+
+</div>
+
+---
+
+### 发送音频
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "telegram_send_audio",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "发送照片"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "发送视频"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "发送音频"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "发送动画"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "发送文档"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "删除消息"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "机器人令牌",
+            "layout": "full",
+            "placeholder": "输入你的 Telegram 机器人令牌",
+            "description": "获取机器人令牌：\n1. 如果尚未创建，向 @BotFather 发送 “/newbot”\n2. 为机器人选择名称\n3. 复制其提供的令牌并粘贴到此处",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "聊天 ID",
+            "layout": "full",
+            "placeholder": "输入 Telegram 聊天 ID",
+            "description": "获取聊天 ID：\n1. 将机器人添加为目标 Telegram 频道的成员\n2. 向该频道发送任意消息（例如 “我喜欢 TradingGoose”）\n3. 访问 https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. 在 JSON 响应最底部查找 chat 字段，即可找到聊天 ID",
+            "required": true
+        },
+        {
+            "id": "audio",
+            "type": "short-input",
+            "title": "音频",
+            "layout": "full",
+            "placeholder": "输入音频 URL 或 file_id",
+            "description": "要发送的音频文件。传入 file_id 或 HTTP URL",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "说明",
+            "layout": "full",
+            "placeholder": "输入可选说明",
+            "description": "媒体说明（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送音频 (<code>telegram_send_audio</code>)</div>
+
+通过 Telegram Bot API 向 Telegram 频道或用户发送音频文件。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | 是 | 你的 Telegram Bot API Token |
+| `chatId` | string | 是 | 目标 Telegram 聊天 ID |
+| `audio` | string | 是 | 要发送的音频文件。传入 file_id 或 HTTP URL |
+| `caption` | string | 否 | 音频说明（可选） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 成功或错误消息 |
+| `data` | object | 包含语音/音频信息的 Telegram 消息数据 |
+
+</div>
+
+---
+
+### 发送动画
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "telegram_send_animation",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "发送照片"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "发送视频"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "发送音频"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "发送动画"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "发送文档"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "删除消息"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "输入你的 Telegram Bot Token",
+            "description": "获取 Bot Token：\n1. 如果还没有机器人，向 @BotFather 发送 “/newbot”\n2. 为你的机器人选择一个名称\n3. 复制其提供的 token 并粘贴到此处",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "Chat ID",
+            "layout": "full",
+            "placeholder": "输入 Telegram Chat ID",
+            "description": "获取 Chat ID：\n1. 将你的机器人添加为目标 Telegram 频道的成员\n2. 向该频道发送任意消息（例如 “我喜欢 TradingGoose”）\n3. 访问 https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. 在 JSON 响应最底部查找 chat 字段，即可找到聊天 ID",
+            "required": true
+        },
+        {
+            "id": "animation",
+            "type": "short-input",
+            "title": "动画",
+            "layout": "full",
+            "placeholder": "输入动画 URL 或 file_id",
+            "description": "要发送的动画（GIF）。传入 file_id 或 HTTP URL",
+            "required": true
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "说明",
+            "layout": "full",
+            "placeholder": "输入可选说明",
+            "description": "媒体说明（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送动画 (<code>telegram_send_animation</code>)</div>
+
+通过 Telegram Bot API 向 Telegram 频道或用户发送动画（GIF）。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | 是 | 你的 Telegram Bot API Token |
+| `chatId` | string | 是 | 目标 Telegram 聊天 ID |
+| `animation` | string | 是 | 要发送的动画。传入 file_id 或 HTTP URL |
+| `caption` | string | 否 | 动画说明（可选） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 成功或错误消息 |
+| `data` | object | Telegram 消息数据，可包含媒体 |
+
+</div>
+
+---
+
+### 发送文档
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "telegram_send_document",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "发送照片"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "发送视频"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "发送音频"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "发送动画"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "发送文档"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "删除消息"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "Bot Token",
+            "layout": "full",
+            "placeholder": "输入你的 Telegram Bot Token",
+            "description": "获取 Bot Token：\n1. 如果尚未创建机器人，向 @BotFather 发送 “/newbot”\n2. 为机器人选择名称\n3. 复制其提供的 token 并粘贴到此处",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "聊天 ID",
+            "layout": "full",
+            "placeholder": "输入 Telegram 聊天 ID",
+            "description": "获取聊天 ID：\n1. 将机器人添加为所需 Telegram 频道的成员\n2. 向该频道发送任意消息（例如 “我喜欢 TradingGoose”）\n3. 访问 https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. 在 JSON 响应最底部查找 chat 字段，即可找到聊天 ID",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "文档",
+            "layout": "full",
+            "placeholder": "上传文档文件",
+            "description": "要发送的文档文件（PDF、ZIP、DOC 等）。最大 50MB",
+            "required": false
+        },
+        {
+            "id": "files",
+            "type": "short-input",
+            "title": "文档",
+            "layout": "full",
+            "placeholder": "引用上一模块的文档",
+            "description": "引用上一模块中的文档文件",
+            "required": false
+        },
+        {
+            "id": "caption",
+            "type": "long-input",
+            "title": "说明",
+            "layout": "full",
+            "placeholder": "输入可选说明",
+            "description": "媒体说明（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送文档（<code>telegram_send_document</code>）</div>
+
+通过 Telegram Bot API 向 Telegram 频道或用户发送文档（PDF、ZIP、DOC 等）。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | 是 | 你的 Telegram Bot API Token |
+| `chatId` | string | 是 | 目标 Telegram 聊天 ID |
+| `files` | file[] | 否 | 要发送的文档文件\（PDF、ZIP、DOC 等\）。最大 50MB |
+| `caption` | string | 否 | 文档说明\（可选\） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 成功或错误消息 |
+| `data` | object | 包含文档的 Telegram 消息数据 |
+
+</div>
+
+---
+
+### 删除消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram"
+    type="telegram"
+    color="#24A1DE"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "telegram_delete_message",
+            "options": [
+                {
+                    "id": "telegram_message",
+                    "label": "发送消息"
+                },
+                {
+                    "id": "telegram_send_photo",
+                    "label": "发送图片"
+                },
+                {
+                    "id": "telegram_send_video",
+                    "label": "发送视频"
+                },
+                {
+                    "id": "telegram_send_audio",
+                    "label": "发送音频"
+                },
+                {
+                    "id": "telegram_send_animation",
+                    "label": "发送动画"
+                },
+                {
+                    "id": "telegram_send_document",
+                    "label": "发送文档"
+                },
+                {
+                    "id": "telegram_delete_message",
+                    "label": "删除消息"
+                }
+            ]
+        },
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "机器人 Token",
+            "layout": "full",
+            "placeholder": "输入你的 Telegram Bot Token",
+            "description": "获取机器人 Token：\n1. 如果你还没有机器人，向 @BotFather 发送 \"/newbot\"\n2. 为你的机器人选择一个名称\n3. 复制它提供的 Token 并粘贴到此处",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "chatId",
+            "type": "short-input",
+            "title": "聊天 ID",
+            "layout": "full",
+            "placeholder": "输入 Telegram 聊天 ID",
+            "description": "获取聊天 ID：\n1. 将你的机器人添加为所需 Telegram 频道的成员\n2. 向该频道发送任意消息（例如 \"我喜欢 TradingGoose\"）\n3. 访问 https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates\n4. 在 JSON 响应最底部查找 chat 字段，即可找到聊天 ID",
+            "required": true
+        },
+        {
+            "id": "messageId",
+            "type": "short-input",
+            "title": "消息 ID",
+            "layout": "full",
+            "placeholder": "输入要删除的消息 ID",
+            "description": "要删除的消息的唯一标识符",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除消息（<code>telegram_delete_message</code>）</div>
+
+通过 Telegram Bot API 删除 Telegram 频道或聊天中的消息。需要提供要删除消息的消息 ID。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `botToken` | string | 是 | 你的 Telegram Bot API Token |
+| `chatId` | string | 是 | 目标 Telegram 聊天 ID |
+| `messageId` | string | 是 | 要删除的消息 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 成功或错误消息 |
+| `data` | object | 删除操作结果 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Telegram 集成到工作流中。可发送和删除消息。可用于触发模式，在聊天收到消息时触发工作流。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`telegram`

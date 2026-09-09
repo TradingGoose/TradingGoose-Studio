@@ -1,0 +1,111 @@
+---
+title: Disparador de indicador
+description: Disparar un flujo de trabajo desde eventos del monitor de indicadores
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="indicator"
+  color=""
+/>
+
+Disparar un flujo de trabajo desde eventos del monitor de indicadores
+
+<Callout type="info">
+  Este es un disparador basado en **sondeo**. TradingGoose comprueba la fuente en busca de cambios coincidentes a intervalos regulares.
+</Callout>
+
+## Instrucciones de configuración
+
+Los monitores de indicadores se gestionan desde /workspace/[workspaceId]/monitor. Configure allí el proveedor, el listado, el intervalo, el indicador y el destino del flujo de trabajo.
+
+## Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "input",
+          "type": "string",
+          "description": "Entrada de texto principal del flujo de trabajo."
+      },
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Clave de evento pasada a trigger(...)."
+      },
+      {
+          "name": "time",
+          "type": "number",
+          "description": "Hora de la barra en segundos unix."
+      },
+      {
+          "name": "signal",
+          "type": "string",
+          "description": "Señal: long, short, flat."
+      },
+      {
+          "name": "listingBase",
+          "type": "string",
+          "description": "Valor base del listado de la serie de mercado."
+      },
+      {
+          "name": "listingQuote",
+          "type": "string",
+          "description": "Valor quote del listado de la serie de mercado."
+      },
+      {
+          "name": "marketSeries",
+          "type": "json",
+          "description": "Datos de la serie histórica de mercado."
+      },
+      {
+          "name": "listing",
+          "type": "listingIdentity",
+          "description": "Información del listado."
+      },
+      {
+          "name": "indicator",
+          "type": "object",
+          "children": [
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Nombre del indicador."
+              },
+              {
+                  "name": "settings",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "options",
+                          "type": "object",
+                          "description": "Opciones resueltas del indicador."
+                      },
+                      {
+                          "name": "interval",
+                          "type": "string",
+                          "description": "Intervalo de ejecución."
+                      }
+                  ]
+              },
+              {
+                  "name": "output",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "series",
+                          "type": "array",
+                          "description": "Salida de serie normalizada."
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>

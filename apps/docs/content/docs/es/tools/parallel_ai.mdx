@@ -1,0 +1,114 @@
+---
+title: Parallel AI
+description: Buscar con Parallel AI
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="parallel_ai"
+  color=""
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Parallel AI"
+    type="parallel_ai"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "objective",
+            "type": "long-input",
+            "title": "Objetivo de búsqueda",
+            "layout": "full",
+            "placeholder": "¿Cuándo se fundó la Organización de las Naciones Unidas? Prefiere los sitios web de la ONU.",
+            "required": true
+        },
+        {
+            "id": "search_queries",
+            "type": "long-input",
+            "title": "Consultas de búsqueda",
+            "layout": "full",
+            "placeholder": "Introduce consultas de búsqueda separadas por comas (p. ej., \"Año de fundación ONU\", \"Año de fundación de las Naciones Unidas\")",
+            "required": false
+        },
+        {
+            "id": "processor",
+            "type": "dropdown",
+            "title": "Procesador",
+            "layout": "full",
+            "defaultValue": "base",
+            "options": [
+                {
+                    "id": "base",
+                    "label": "Base"
+                },
+                {
+                    "id": "pro",
+                    "label": "Pro"
+                }
+            ]
+        },
+        {
+            "id": "max_results",
+            "type": "short-input",
+            "title": "Máx. resultados",
+            "layout": "half",
+            "placeholder": "5"
+        },
+        {
+            "id": "max_chars_per_result",
+            "type": "short-input",
+            "title": "Máx. caracteres",
+            "layout": "half",
+            "placeholder": "1500"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave API de Parallel AI",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `parallel_search`
+
+Busca en la web con Parallel AI. Ofrece resultados de búsqueda completos con procesamiento inteligente y extracción de contenido.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `objective` | string | Sí | El objetivo de búsqueda o la pregunta a responder |
+| `search_queries` | string | No | Lista opcional de consultas de búsqueda separadas por comas para ejecutar |
+| `processor` | string | No | Método de procesamiento: base o pro \(predeterminado: base\) |
+| `max_results` | number | No | Número máximo de resultados a devolver \(predeterminado: 5\) |
+| `max_chars_per_result` | number | No | Máximo de caracteres por resultado \(predeterminado: 1500\) |
+| `apiKey` | string | Sí | Clave API de Parallel AI |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `results` | array | Resultados de búsqueda con extractos de páginas relevantes |
+
+## Instrucciones de uso
+
+Integra Parallel AI en el flujo de trabajo. Puede buscar en la web.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `parallel_ai`

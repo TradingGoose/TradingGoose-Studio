@@ -1,0 +1,279 @@
+---
+title: Reddit
+description: 访问 Reddit 数据与内容
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="reddit"
+  color="#FF5700"
+/>
+
+## 配置
+
+### 获取帖子
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Reddit"
+    type="reddit"
+    color="#FF5700"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "get_posts",
+            "options": [
+                {
+                    "id": "get_posts",
+                    "label": "获取帖子"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Reddit 账号",
+            "layout": "full",
+            "placeholder": "选择 Reddit 账号",
+            "provider": "reddit",
+            "required": true
+        },
+        {
+            "id": "subreddit",
+            "type": "short-input",
+            "title": "子版块",
+            "layout": "full",
+            "placeholder": "输入子版块名称（不含 r/）",
+            "required": true
+        },
+        {
+            "id": "sort",
+            "type": "dropdown",
+            "title": "排序方式",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "hot",
+                    "label": "热门"
+                },
+                {
+                    "id": "new",
+                    "label": "最新"
+                },
+                {
+                    "id": "top",
+                    "label": "热榜"
+                },
+                {
+                    "id": "rising",
+                    "label": "上升"
+                }
+            ]
+        },
+        {
+            "id": "time",
+            "type": "dropdown",
+            "title": "时间筛选（用于热榜排序）",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "day",
+                    "label": "天"
+                },
+                {
+                    "id": "week",
+                    "label": "周"
+                },
+                {
+                    "id": "month",
+                    "label": "月"
+                },
+                {
+                    "id": "year",
+                    "label": "年"
+                },
+                {
+                    "id": "all",
+                    "label": "全部时间"
+                }
+            ],
+            "description": "排序为“top”时显示。"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "最大帖子数",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取帖子 (<code>reddit_get_posts</code>)</div>
+
+按不同排序方式从子版块获取帖子
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `subreddit` | string | 是 | 要获取帖子的子版块名称（不含 r/ 前缀） |
+| `sort` | string | 否 | 帖子排序方式："hot"、"new"、"top" 或 "rising"（默认："hot"） |
+| `limit` | number | 否 | 返回的最大帖子数（默认：10，最大：100） |
+| `time` | string | 否 | 用于 "top" 排序的时间筛选："day"、"week"、"month"、"year" 或 "all"（默认："day"） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `subreddit` | string | 获取帖子所在的版块名称 |
+| `posts` | array | 帖子数组，包含标题、作者、URL、分数、评论数和元数据 |
+
+</div>
+
+---
+
+### 获取评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Reddit"
+    type="reddit"
+    color="#FF5700"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "get_comments",
+            "options": [
+                {
+                    "id": "get_posts",
+                    "label": "获取帖子"
+                },
+                {
+                    "id": "get_comments",
+                    "label": "获取评论"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Reddit 账号",
+            "layout": "full",
+            "placeholder": "选择 Reddit 账号",
+            "provider": "reddit",
+            "required": true
+        },
+        {
+            "id": "subreddit",
+            "type": "short-input",
+            "title": "版块",
+            "layout": "full",
+            "placeholder": "输入版块名称（不含 r/）",
+            "required": true
+        },
+        {
+            "id": "postId",
+            "type": "short-input",
+            "title": "帖子 ID",
+            "layout": "full",
+            "placeholder": "输入帖子 ID",
+            "required": true
+        },
+        {
+            "id": "commentSort",
+            "type": "dropdown",
+            "title": "评论排序",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "confidence",
+                    "label": "置信度"
+                },
+                {
+                    "id": "top",
+                    "label": "热门"
+                },
+                {
+                    "id": "new",
+                    "label": "最新"
+                },
+                {
+                    "id": "controversial",
+                    "label": "争议"
+                },
+                {
+                    "id": "old",
+                    "label": "最早"
+                },
+                {
+                    "id": "random",
+                    "label": "随机"
+                },
+                {
+                    "id": "qa",
+                    "label": "问答"
+                }
+            ]
+        },
+        {
+            "id": "commentLimit",
+            "type": "short-input",
+            "title": "评论数量",
+            "layout": "full",
+            "placeholder": "50"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取评论 (<code>reddit_get_comments</code>)</div>
+
+从指定 Reddit 帖子获取评论
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `postId` | string | 是 | 要获取评论的 Reddit 帖子 ID |
+| `subreddit` | string | 是 | 帖子所在的版块（不含 r/ 前缀） |
+| `sort` | string | 否 | 评论排序方式："confidence"、"top"、"new"、"controversial"、"old"、"random"、"qa"（默认："confidence"） |
+| `limit` | number | 否 | 返回的最大评论数（默认：50，最大：100） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `post` | object | 帖子信息，包括 ID、标题、作者、内容和元数据 |
+| `comments` | array | 嵌套评论，包含作者、正文、分数、时间戳和回复 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Reddit 集成到工作流。可获取某个 subreddit 的帖子和评论。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`reddit`

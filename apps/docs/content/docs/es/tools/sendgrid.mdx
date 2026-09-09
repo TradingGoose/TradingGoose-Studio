@@ -1,0 +1,2262 @@
+---
+title: SendGrid
+description: Envía correos y gestiona contactos, listas y plantillas con SendGrid
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sendgrid"
+  color="#1A82E2"
+/>
+
+## Configuración
+
+### Enviar correo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "send_mail",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "Correo del remitente",
+            "placeholder": "sender@yourdomain.com",
+            "required": true
+        },
+        {
+            "id": "fromName",
+            "type": "short-input",
+            "title": "Nombre del remitente",
+            "placeholder": "Nombre del remitente"
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "Correo del destinatario",
+            "placeholder": "recipient@example.com",
+            "required": true
+        },
+        {
+            "id": "toName",
+            "type": "short-input",
+            "title": "Nombre del destinatario",
+            "placeholder": "Nombre del destinatario"
+        },
+        {
+            "id": "mailSubject",
+            "type": "short-input",
+            "title": "Asunto",
+            "placeholder": "Asunto del correo (obligatorio si no usas plantilla)"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Contenido",
+            "placeholder": "Cuerpo del correo (obligatorio si no usas plantilla)"
+        },
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "Tipo de contenido",
+            "defaultValue": "text/plain",
+            "options": [
+                {
+                    "id": "text/plain",
+                    "label": "Texto plano"
+                },
+                {
+                    "id": "text/html",
+                    "label": "HTML"
+                }
+            ]
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "CC",
+            "placeholder": "cc@example.com"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "CCO",
+            "placeholder": "bcc@example.com"
+        },
+        {
+            "id": "replyTo",
+            "type": "short-input",
+            "title": "Responder a",
+            "placeholder": "replyto@example.com"
+        },
+        {
+            "id": "replyToName",
+            "type": "short-input",
+            "title": "Nombre para responder",
+            "placeholder": "Nombre para responder"
+        },
+        {
+            "id": "mailTemplateId",
+            "type": "short-input",
+            "title": "ID de plantilla",
+            "placeholder": "ID de plantilla de SendGrid"
+        },
+        {
+            "id": "dynamicTemplateData",
+            "type": "code",
+            "title": "Datos dinámicos de plantilla",
+            "placeholder": "{\"name\": \"John\", \"order_id\": \"12345\"}",
+            "language": "json"
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "Archivos adjuntos",
+            "placeholder": "Sube archivos para adjuntar",
+            "required": false
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "Archivos adjuntos",
+            "placeholder": "Referencia archivos de bloques anteriores",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Enviar correo (<code>sendgrid_send_mail</code>)</div>
+
+Envía un correo electrónico mediante la API de SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `from` | string | Sí | Dirección de correo del remitente \(debe estar verificada en SendGrid\) |
+| `fromName` | string | No | Nombre del remitente |
+| `to` | string | Sí | Dirección de correo del destinatario |
+| `toName` | string | No | Nombre del destinatario |
+| `subject` | string | No | Asunto del correo \(obligatorio a menos que se use una plantilla con asunto predefinido\) |
+| `content` | string | No | Cuerpo del correo \(obligatorio a menos que se use una plantilla con contenido predefinido\) |
+| `contentType` | string | No | Tipo de contenido \(text/plain o text/html\) |
+| `cc` | string | No | Dirección de correo CC |
+| `bcc` | string | No | Dirección de correo CCO |
+| `replyTo` | string | No | Dirección de correo de respuesta |
+| `replyToName` | string | No | Nombre de respuesta |
+| `attachments` | file[] | No | Archivos para adjuntar al correo |
+| `templateId` | string | No | ID de plantilla de SendGrid que se usará |
+| `dynamicTemplateData` | json | No | Objeto JSON con datos dinámicos de la plantilla |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Si el correo se envió correctamente |
+| `messageId` | string | ID de mensaje de SendGrid |
+| `to` | string | Dirección de correo del destinatario |
+| `subject` | string | Asunto del correo |
+
+</div>
+
+---
+
+### Añadir contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "add_contact",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "contact@example.com",
+            "required": true
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "Nombre",
+            "placeholder": "John"
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "Apellido",
+            "placeholder": "Doe"
+        },
+        {
+            "id": "customFields",
+            "type": "code",
+            "title": "Campos personalizados",
+            "placeholder": "{\"custom_field_1\": \"value1\"}",
+            "language": "json"
+        },
+        {
+            "id": "contactListIds",
+            "type": "short-input",
+            "title": "IDs de lista",
+            "placeholder": "IDs de lista separados por comas"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir contacto (<code>sendgrid_add_contact</code>)</div>
+
+Añade un contacto nuevo a SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `email` | string | Sí | Dirección de correo del contacto |
+| `firstName` | string | No | Nombre del contacto |
+| `lastName` | string | No | Apellido del contacto |
+| `customFields` | json | No | Objeto JSON de pares clave-valor de campos personalizados \(usa IDs de campo como e1_T, e2_N, e3_D, no nombres de campo\) |
+| `listIds` | string | No | IDs de lista separados por comas a los que añadir el contacto |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `jobId` | string | ID del trabajo para el seguimiento de la creación asíncrona del contacto |
+| `email` | string | Dirección de correo electrónico del contacto |
+| `firstName` | string | Nombre del contacto |
+| `lastName` | string | Apellido del contacto |
+| `message` | string | Mensaje de estado |
+
+</div>
+
+---
+
+### Obtener contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_contact",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "ID de contacto",
+            "placeholder": "ID de contacto",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener contacto (<code>sendgrid_get_contact</code>)</div>
+
+Obtener un contacto específico por ID desde SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `contactId` | string | Sí | ID de contacto |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | ID de contacto |
+| `email` | string | Dirección de correo del contacto |
+| `firstName` | string | Nombre del contacto |
+| `lastName` | string | Apellido del contacto |
+| `createdAt` | string | Marca de tiempo de creación |
+| `updatedAt` | string | Marca de tiempo de última actualización |
+| `listIds` | json | Array de ID de listas a las que pertenece el contacto |
+| `customFields` | json | Valores de campos personalizados |
+
+</div>
+
+---
+
+### Buscar contactos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "search_contacts",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "email LIKE '%example.com%'",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar contactos (<code>sendgrid_search_contacts</code>)</div>
+
+Buscar contactos en SendGrid mediante una consulta
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `query` | string | Sí | Consulta de búsqueda \(p. ej., "email LIKE '%example.com%' AND CONTAINS\(list_ids, 'list-id'\)"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contacts` | json | Array de contactos coincidentes |
+| `contactCount` | number | Número total de contactos encontrados |
+
+</div>
+
+---
+
+### Eliminar contactos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete_contacts",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactIds",
+            "type": "short-input",
+            "title": "IDs de contacto",
+            "placeholder": "IDs de contacto separados por comas",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar contactos (<code>sendgrid_delete_contacts</code>)</div>
+
+Elimina uno o más contactos de SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `contactIds` | string | Sí | IDs de contactos separados por comas para eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `jobId` | string | ID de trabajo de la solicitud de eliminación |
+
+</div>
+
+---
+
+### Crear lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_list",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listName",
+            "type": "short-input",
+            "title": "Nombre de la lista",
+            "placeholder": "Nombre de la lista",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear lista (<code>sendgrid_create_list</code>)</div>
+
+Crear una nueva lista de contactos en SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `name` | string | Sí | Nombre de la lista |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | ID de lista |
+| `name` | string | Nombre de la lista |
+| `contactCount` | number | Número de contactos en la lista |
+
+</div>
+
+---
+
+### Obtener lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_list",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de lista",
+            "placeholder": "ID de lista",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener lista (<code>sendgrid_get_list</code>)</div>
+
+Obtener una lista específica por ID de SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `listId` | string | Sí | ID de lista |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | ID de lista |
+| `name` | string | Nombre de la lista |
+| `contactCount` | number | Número de contactos en la lista |
+
+</div>
+
+---
+
+### Listar todas las listas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "list_all_lists",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listPageSize",
+            "type": "short-input",
+            "title": "Tamaño de página",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar todas las listas (<code>sendgrid_list_all_lists</code>)</div>
+
+Obtener todas las listas de contactos de SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de SendGrid |
+| `pageSize` | number | No | Número de listas a devolver por página \(valor predeterminado: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `lists` | json | Array de listas |
+
+</div>
+
+---
+
+### Eliminar lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete_list",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API de SendGrid",
+            "placeholder": "Introduce tu clave API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de lista",
+            "placeholder": "ID de lista",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar lista (<code>sendgrid_delete_list</code>)</div>
+
+Eliminar una lista de contactos de SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `listId` | string | Sí | ID de la lista que se va a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de éxito |
+
+</div>
+
+---
+
+### Añadir contactos a la lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "add_contacts_to_list",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "Contactos (matriz JSON)",
+            "placeholder": "[{\"email\": \"user@example.com\", \"first_name\": \"John\"}]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de lista",
+            "placeholder": "ID de lista",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir contactos a la lista (<code>sendgrid_add_contacts_to_list</code>)</div>
+
+Añadir o actualizar contactos y asignarlos a una lista en SendGrid (usa PUT /v3/marketing/contacts)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `listId` | string | Sí | ID de lista a la que añadir los contactos |
+| `contacts` | json | Sí | Array JSON de objetos de contacto. Cada contacto debe tener al menos: email \(o phone_number_id/external_id/anonymous_id\). Ejemplo: \[\{"email": "user@example.com", "first_name": "John"\}\] |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `jobId` | string | ID de trabajo para el seguimiento de la operación asíncrona |
+| `message` | string | Mensaje de estado |
+
+</div>
+
+---
+
+### Quitar contactos de la lista
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "remove_contacts_from_list",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactIds",
+            "type": "short-input",
+            "title": "IDs de contacto",
+            "placeholder": "IDs de contacto separados por comas",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de lista",
+            "placeholder": "ID de lista",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar contactos de la lista (<code>sendgrid_remove_contacts_from_list</code>)</div>
+
+Eliminar contactos de una lista específica en SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `listId` | string | Sí | ID de lista |
+| `contactIds` | string | Sí | IDs de contactos separados por comas para eliminar de la lista |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `jobId` | string | ID de trabajo de la solicitud |
+
+</div>
+
+---
+
+### Crear plantilla
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_template",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Eliminar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateName",
+            "type": "short-input",
+            "title": "Nombre de la plantilla",
+            "placeholder": "Nombre de la plantilla",
+            "required": true
+        },
+        {
+            "id": "generation",
+            "type": "dropdown",
+            "title": "Generación de plantilla",
+            "defaultValue": "dynamic",
+            "options": [
+                {
+                    "id": "dynamic",
+                    "label": "Dinámica"
+                },
+                {
+                    "id": "legacy",
+                    "label": "Heredada"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear plantilla (<code>sendgrid_create_template</code>)</div>
+
+Crear una nueva plantilla de correo electrónico en SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `name` | string | Sí | Nombre de la plantilla |
+| `generation` | string | No | Tipo de generación de plantilla \(legacy o dynamic, valor predeterminado: dynamic\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | ID de plantilla |
+| `name` | string | Nombre de la plantilla |
+| `generation` | string | Generación de plantilla |
+| `updatedAt` | string | Marca de tiempo de la última actualización |
+| `versions` | json | Array de versiones de plantilla |
+
+</div>
+
+---
+
+### Obtener plantilla
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_template",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "ID de plantilla",
+            "placeholder": "ID de plantilla",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener plantilla (<code>sendgrid_get_template</code>)</div>
+
+Obtener una plantilla específica por ID de SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de SendGrid |
+| `templateId` | string | Sí | ID de plantilla |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | ID de plantilla |
+| `name` | string | Nombre de la plantilla |
+| `generation` | string | Generación de la plantilla |
+| `updatedAt` | string | Marca de tiempo de la última actualización |
+| `versions` | json | Array de versiones de la plantilla |
+
+</div>
+
+---
+
+### Listar plantillas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "list_templates",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API de SendGrid",
+            "placeholder": "Introduce tu clave API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateGenerations",
+            "type": "short-input",
+            "title": "Filtrar por generación",
+            "placeholder": "legacy, dynamic o ambas"
+        },
+        {
+            "id": "templatePageSize",
+            "type": "short-input",
+            "title": "Tamaño de página",
+            "placeholder": "20"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar plantillas (<code>sendgrid_list_templates</code>)</div>
+
+Obtener todas las plantillas de correo electrónico de SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `generations` | string | No | Filtrar por generación \(legacy, dynamic o both\) |
+| `pageSize` | number | No | Número de plantillas que se devuelven por página \(predeterminado: 20\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `templates` | json | Array de plantillas |
+
+</div>
+
+---
+
+### Eliminar plantilla
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete_template",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de SendGrid",
+            "placeholder": "Introduce tu clave de API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "ID de plantilla",
+            "placeholder": "ID de plantilla",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar plantilla (<code>sendgrid_delete_template</code>)</div>
+
+Eliminar una plantilla de correo electrónico de SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de SendGrid |
+| `templateId` | string | Sí | ID de plantilla que se eliminará |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida (contrato a nivel de bloque)</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `message` | string | Mensaje de estado o de éxito |
+| `messageId` | string | ID del mensaje de correo \(send_mail\) |
+| `to` | string | Dirección de correo del destinatario \(send_mail\) |
+| `subject` | string | Asunto del correo \(send_mail, create_template_version\) |
+| `id` | string | ID del recurso |
+| `jobId` | string | ID del trabajo para operaciones asíncronas |
+| `email` | string | Dirección de correo del contacto |
+| `firstName` | string | Nombre del contacto |
+| `lastName` | string | Apellido del contacto |
+| `createdAt` | string | Marca de tiempo de creación |
+| `updatedAt` | string | Marca de tiempo de la última actualización |
+| `listIds` | json | Matriz de ID de listas a las que pertenece el contacto |
+| `customFields` | json | Valores de campos personalizados |
+| `contacts` | json | Matriz de contactos |
+| `contactCount` | number | Número de contactos |
+| `lists` | json | Matriz de listas |
+| `name` | string | Nombre del recurso |
+| `templates` | json | Matriz de plantillas |
+| `generation` | string | Generación de la plantilla |
+| `versions` | json | Matriz de versiones de plantilla |
+| `templateId` | string | ID de plantilla |
+| `active` | boolean | Si la versión de la plantilla está activa |
+| `htmlContent` | string | Contenido HTML |
+| `plainContent` | string | Contenido de texto sin formato |
+
+</div>
+
+---
+
+### Crear versión de plantilla
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_template_version",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "Enviar correo"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "Añadir contacto"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "Obtener contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "Eliminar contactos"
+                },
+                {
+                    "id": "create_list",
+                    "label": "Crear lista"
+                },
+                {
+                    "id": "get_list",
+                    "label": "Obtener lista"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "Listar todas las listas"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "Eliminar lista"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "Añadir contactos a la lista"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "Quitar contactos de la lista"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "Listar plantillas"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "Crear versión de plantilla"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API de SendGrid",
+            "placeholder": "Introduce tu clave API de SendGrid",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "ID de plantilla",
+            "placeholder": "ID de plantilla",
+            "required": true
+        },
+        {
+            "id": "versionName",
+            "type": "short-input",
+            "title": "Nombre de la versión",
+            "placeholder": "Nombre de la versión",
+            "required": true
+        },
+        {
+            "id": "templateSubject",
+            "type": "short-input",
+            "title": "Asunto de la plantilla",
+            "placeholder": "Asunto del correo",
+            "required": true
+        },
+        {
+            "id": "htmlContent",
+            "type": "code",
+            "title": "Contenido HTML",
+            "placeholder": "<html><body>{{name}}</body></html>",
+            "language": "html"
+        },
+        {
+            "id": "plainContent",
+            "type": "long-input",
+            "title": "Contenido de texto plano",
+            "placeholder": "Contenido de texto plano"
+        },
+        {
+            "id": "active",
+            "type": "dropdown",
+            "title": "Activo",
+            "defaultValue": "true",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "Sí"
+                },
+                {
+                    "id": "false",
+                    "label": "No"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear versión de plantilla (<code>sendgrid_create_template_version</code>)</div>
+
+Crear una nueva versión de una plantilla de correo electrónico en SendGrid
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API de SendGrid |
+| `templateId` | string | Sí | ID de plantilla |
+| `name` | string | Sí | Nombre de la versión |
+| `subject` | string | Sí | Asunto del correo |
+| `htmlContent` | string | No | Contenido HTML de la plantilla |
+| `plainContent` | string | No | Contenido de texto plano de la plantilla |
+| `active` | boolean | No | Si esta versión está activa \(valor predeterminado: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | string | ID de versión |
+| `templateId` | string | ID de plantilla |
+| `name` | string | Nombre de la versión |
+| `subject` | string | Asunto del correo |
+| `active` | boolean | Si esta versión está activa |
+| `htmlContent` | string | Contenido HTML |
+| `plainContent` | string | Contenido de texto plano |
+| `updatedAt` | string | Marca de tiempo de la última actualización |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra SendGrid en tu workflow. Envía correos transaccionales, gestiona contactos y listas de marketing, y trabaja con plantillas de correo. Admite plantillas dinámicas, archivos adjuntos y una gestión integral de contactos.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `sendgrid`

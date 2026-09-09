@@ -1,0 +1,122 @@
+---
+title: Disparador de Google Forms
+description: Disparar un flujo de trabajo a partir de envíos de Google Forms
+  (mediante un reenviador de Apps Script)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="google_forms"
+  color=""
+/>
+
+Disparar un flujo de trabajo a partir de envíos de Google Forms (mediante un reenviador de Apps Script)
+
+<Callout type="info">
+  Este es un disparador **basado en webhook**. Configura el servicio externo para que envíe eventos a la URL de webhook del flujo de trabajo.
+</Callout>
+
+<Cards>
+  <Card title="Usar como herramienta" href="/tools/google_forms">
+    Consulta las acciones, operaciones y entradas de herramienta del flujo de trabajo para Google Forms.
+  </Card>
+</Cards>
+
+## Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Abre tu Google Form → Más (⋮) → Editor de secuencias de comandos.</div><div class="mb-3"><strong>2.</strong> Pega el fragmento de Apps Script de abajo en <code>Code.gs</code> → Guardar.</div><div class="mb-3"><strong>3.</strong> Activadores (icono de reloj) → Añadir activador → Función: <code>onFormSubmit</code> → Origen del evento: <code>From form</code> → Tipo de evento: <code>On form submit</code> → Guardar.</div><div class="mb-3"><strong>4.</strong> Autoriza cuando se te solicite. Envía una respuesta de prueba y comprueba la ejecución en TradingGoose → Registros.</div>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webhook de Google Forms"
+    type="google_forms_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "token",
+            "type": "short-input",
+            "title": "Secreto compartido",
+            "placeholder": "Introduce un secreto usado por tu reenviador de Apps Script",
+            "description": "Validamos las solicitudes con este secreto. Envíalo como Authorization: Bearer <token> o en un encabezado personalizado.",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "secretHeaderName",
+            "type": "short-input",
+            "title": "Encabezado de secreto personalizado",
+            "placeholder": "X-GForms-Secret",
+            "description": "Si se define, el webhook validará que este encabezado coincida con tu secreto compartido en lugar de Authorization.",
+            "required": false
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "ID del formulario",
+            "placeholder": "1FAIpQLSd... (ID de Google Form)",
+            "description": "Opcional, para mayor claridad y coincidencia en los flujos de trabajo. No es necesario para que el webhook funcione.",
+            "required": false
+        },
+        {
+            "id": "includeRawPayload",
+            "type": "switch",
+            "title": "Incluir payload original",
+            "description": "Incluye el payload original de Apps Script en la entrada del flujo de trabajo.",
+            "defaultValue": true
+        },
+        {
+            "id": "setupScript",
+            "type": "code",
+            "title": "Código de Apps Script",
+            "description": "Copia este código y pégalo en el editor de Apps Script de Google Forms",
+            "language": "javascript"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+<SchemaTree
+  title="Carga útil del evento"
+  fields={[
+      {
+          "name": "responseId",
+          "type": "string",
+          "description": "Identificador único de la respuesta (si está disponible)"
+      },
+      {
+          "name": "createTime",
+          "type": "string",
+          "description": "Marca de tiempo de creación de la respuesta"
+      },
+      {
+          "name": "lastSubmittedTime",
+          "type": "string",
+          "description": "Marca de tiempo del último envío"
+      },
+      {
+          "name": "formId",
+          "type": "string",
+          "description": "ID de Google Form"
+      },
+      {
+          "name": "answers",
+          "type": "object",
+          "description": "Mapa normalizado de pregunta -> respuesta"
+      },
+      {
+          "name": "raw",
+          "type": "object",
+          "description": "Carga útil original (cuando está habilitada)"
+      }
+  ]}
+/>

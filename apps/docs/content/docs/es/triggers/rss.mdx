@@ -1,0 +1,140 @@
+---
+title: Trigger RSS
+description: Se activa cuando se publican elementos nuevos en un feed RSS
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="rss"
+  color=""
+/>
+
+Se activa cuando se publican elementos nuevos en un feed RSS
+
+<Callout type="info">
+  Este es un trigger basado en **polling**. TradingGoose comprueba la fuente a intervalos regulares en busca de cambios coincidentes.
+</Callout>
+
+## Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Introduce la URL de cualquier feed RSS o Atom que quieras supervisar</div><div class="mb-3"><strong>2.</strong> El feed se comprobará cada minuto en busca de elementos nuevos</div><div class="mb-3"><strong>3.</strong> Cuando se publique un elemento nuevo, se activará tu workflow con los datos del elemento</div>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trigger de feed RSS"
+    type="rss_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "feedUrl",
+            "type": "short-input",
+            "title": "URL del feed",
+            "placeholder": "https://example.com/feed.xml",
+            "description": "La URL del feed RSS o Atom que se va a supervisar",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "item",
+          "type": "object",
+          "children": [
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Título del elemento"
+              },
+              {
+                  "name": "link",
+                  "type": "string",
+                  "description": "Enlace/URL del elemento"
+              },
+              {
+                  "name": "pubDate",
+                  "type": "string",
+                  "description": "Fecha de publicación"
+              },
+              {
+                  "name": "guid",
+                  "type": "string",
+                  "description": "Identificador único"
+              },
+              {
+                  "name": "summary",
+                  "type": "string",
+                  "description": "Descripción/resumen del elemento"
+              },
+              {
+                  "name": "content",
+                  "type": "string",
+                  "description": "Contenido completo (content:encoded)"
+              },
+              {
+                  "name": "contentSnippet",
+                  "type": "string",
+                  "description": "Fragmento de contenido sin HTML"
+              },
+              {
+                  "name": "author",
+                  "type": "string",
+                  "description": "Nombre del autor"
+              },
+              {
+                  "name": "categories",
+                  "type": "json",
+                  "description": "Array de categorías/etiquetas"
+              },
+              {
+                  "name": "enclosure",
+                  "type": "json",
+                  "description": "Información del adjunto multimedia (url, type, length)"
+              },
+              {
+                  "name": "isoDate",
+                  "type": "string",
+                  "description": "Fecha de publicación en formato ISO"
+              }
+          ]
+      },
+      {
+          "name": "feed",
+          "type": "object",
+          "children": [
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "Título del feed"
+              },
+              {
+                  "name": "link",
+                  "type": "string",
+                  "description": "Enlace del sitio web del feed"
+              },
+              {
+                  "name": "feedDescription",
+                  "type": "string",
+                  "description": "Descripción del feed"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Marca de tiempo del evento"
+      }
+  ]}
+/>

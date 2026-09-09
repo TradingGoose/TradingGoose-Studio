@@ -1,0 +1,2284 @@
+---
+title: Activador de HubSpot
+description: Activa un flujo de trabajo cuando se crea un contacto nuevo en HubSpot
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="hubspot"
+  color=""
+/>
+
+Activa un flujo de trabajo cuando se crea un contacto nuevo en HubSpot
+
+<Callout type="info">
+  Este es un activador **basado en webhook**. Configura el servicio externo para que envíe eventos a la URL del webhook del flujo de trabajo.
+</Callout>
+
+<Cards>
+  <Card title="Usar como herramienta" href="/tools/hubspot">
+    Consulta las acciones del flujo de trabajo, las operaciones y las entradas de la herramienta para HubSpot.
+  </Card>
+</Cards>
+
+## Eventos
+
+### Contacto creado en HubSpot
+
+Activa un flujo de trabajo cuando se crea un contacto nuevo en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crea una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si aún no tienes una.</div><div class="mb-3"><strong>Paso 2: Crea una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una aplicación nueva. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guarda las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección OAuth de HubSpot. Obtén el <strong>Client ID</strong> y el <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos anteriores.</div><div class="mb-3"><strong>Paso 4: Obtén el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca el <strong>App ID</strong> (aparece debajo del nombre de tu aplicación) y la <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configura los scopes necesarios</strong><br />Configura tu aplicación para incluir el scope de OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guarda la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Se generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configura el webhook en HubSpot mediante la API</strong><br />Después de guardar, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (reemplaza <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Prueba el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del flujo de trabajo en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se cree un contacto nuevo en tu cuenta de HubSpot, independientemente del origen (entrada manual, envío de formulario, API, importación, etc.).</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Contacto de HubSpot creado"
+    type="hubspot_contact_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de la app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "Comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "Comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Contacto de HubSpot eliminado
+
+Activa el flujo de trabajo cuando se elimina un contacto en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si aún no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una aplicación nueva. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección de OAuth de HubSpot. Obtén el <strong>Client ID</strong> y el <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca el <strong>App ID</strong> (aparece debajo del nombre de la aplicación) y la <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configurar los scopes requeridos</strong><br />Configura tu aplicación para incluir el scope de OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del flujo de trabajo en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se elimine un contacto de tu cuenta de HubSpot. Nota: Esto no incluye las eliminaciones por privacidad (cumplimiento del RGPD), que tienen un disparador independiente.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Contacto de HubSpot eliminado"
+    type="hubspot_contact_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de la app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para configurar la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Contacto de HubSpot eliminado por privacidad
+
+Activa el workflow cuando se elimina un contacto por cumplimiento de privacidad (GDPR, CCPA, etc.) en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una app pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear apps. Debes usar la CLI de HubSpot para crear y gestionar apps. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una app nueva. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la app OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección OAuth de HubSpot. Obtén tu <strong>Client ID</strong> y <strong>Client Secret</strong> de la configuración de tu app de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca tu <strong>App ID</strong> (se muestra debajo del nombre de tu app) y tu <strong>Developer API Key</strong> (en la configuración de la app). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configurar los scopes requeridos</strong><br />Configura tu app para incluir el scope OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante API</strong><br />Después de guardar lo anterior, copia la <strong>Webhook URL</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del workflow en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cuando se elimine un contacto específicamente por motivos de cumplimiento de privacidad (p. ej., solicitudes GDPR de "derecho al olvido"). Esto es distinto de las eliminaciones habituales de contactos y se usa para hacer seguimiento de las acciones de cumplimiento de privacidad de datos.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Contacto de HubSpot eliminado por privacidad"
+    type="hubspot_contact_privacy_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de app",
+            "placeholder": "Introduce el ID de app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Identifica tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para las llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para configurar la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Propiedad de contacto de HubSpot cambiada
+
+Activa el workflow cuando se actualiza cualquier propiedad de un contacto en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crea una cuenta de desarrollador de HubSpot</strong><br />Regístrate en una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crea una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una nueva aplicación. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guarda las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección OAuth de HubSpot. Obtén el <strong>Client ID</strong> y el <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtén el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca el <strong>App ID</strong> (aparece debajo del nombre de tu aplicación) y la <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configura los scopes requeridos</strong><br />Configura tu aplicación para incluir el scope OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guarda la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configura el webhook en HubSpot mediante la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Prueba el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del workflow en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se actualice cualquier propiedad de un contacto. Opcionalmente, puedes filtrar por un nombre de propiedad específico para recibir solo los eventos de esa propiedad. El webhook incluye el nombre de la propiedad y el valor nuevo en el payload.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Propiedad de contacto de HubSpot modificada"
+    type="hubspot_contact_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Nombre de la propiedad (opcional)",
+            "placeholder": "p. ej., email, firstname, lifecyclestage",
+            "description": "Opcional: filtra para activar solo cuando cambie una propiedad específica. Déjalo vacío para activar con cualquier cambio de propiedad.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Empresa creada en HubSpot
+
+Activa el flujo de trabajo cuando se crea una empresa nueva en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si aún no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una aplicación nueva. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección OAuth de HubSpot. Obtén tu <strong>Client ID</strong> y tu <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca tu <strong>App ID</strong> (aparece debajo del nombre de tu aplicación) y tu <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás los dos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configurar los ámbitos requeridos</strong><br />Configura tu aplicación para incluir el ámbito OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del flujo de trabajo en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se cree una empresa nueva en tu cuenta de HubSpot, independientemente del origen (entrada manual, envío de formulario, API, importación, etc.).</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Empresa de HubSpot creada"
+    type="hubspot_company_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu aplicación de HubSpot",
+            "description": "Se encuentra en la configuración de tu aplicación de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu aplicación de HubSpot",
+            "description": "Se encuentra en la configuración de tu aplicación de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la aplicación",
+            "placeholder": "Introduce el ID de la aplicación de HubSpot",
+            "description": "Se encuentra en la configuración de tu aplicación de HubSpot. Se usa para identificar tu aplicación.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu aplicación de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la aplicación de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "Comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "Comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor mostrado de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional del nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Empresa de HubSpot eliminada
+
+Activa el flujo de trabajo cuando se elimina una empresa en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública mediante CLI</strong><br /><strong>Nota:</strong> HubSpot ha dejado de ofrecer la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una nueva aplicación. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Agrega <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección OAuth de HubSpot. Obtén tu <strong>Client ID</strong> y <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca tu <strong>App ID</strong> (se muestra debajo del nombre de tu aplicación) y tu <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás los dos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Establecer los ámbitos requeridos</strong><br />Configura tu aplicación para incluir el ámbito OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del flujo de trabajo en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se elimine una empresa de tu cuenta de HubSpot.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Empresa de HubSpot eliminada"
+    type="hubspot_company_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de la app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "Comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "Comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Propiedad de empresa de HubSpot modificada
+
+Activa el flujo de trabajo cuando se actualiza cualquier propiedad de una empresa en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crea una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crea una aplicación pública mediante CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una nueva aplicación. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guarda las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección de OAuth de HubSpot. Obtén tu <strong>Client ID</strong> y <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtén el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca tu <strong>App ID</strong> (se muestra debajo del nombre de tu aplicación) y tu <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configura los scopes requeridos</strong><br />Configura tu aplicación para incluir el scope OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guarda la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configura el webhook en HubSpot mediante API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (reemplaza <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> con tus valores reales).</div><div class="mb-3"><strong>Paso 8: Prueba tu webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del flujo de trabajo en TradingGoose para verificar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se actualice cualquier propiedad de una empresa. Opcionalmente, puedes filtrar por un nombre de propiedad específico para recibir solo eventos de esa propiedad. El webhook proporciona el nombre de la propiedad y el nuevo valor en el payload.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Propiedad de empresa de HubSpot modificada"
+    type="hubspot_company_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu aplicación de HubSpot",
+            "description": "Se encuentra en la configuración de tu aplicación de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu aplicación de HubSpot",
+            "description": "Se encuentra en la configuración de tu aplicación de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de aplicación",
+            "placeholder": "Introduce el ID de aplicación de HubSpot",
+            "description": "Se encuentra en la configuración de tu aplicación de HubSpot. Se usa para identificar tu aplicación.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu aplicación de HubSpot.",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Nombre de propiedad (opcional)",
+            "placeholder": "p. ej., name, domain, industry",
+            "description": "Opcional: filtra para activar solo cuando cambie una propiedad concreta. Déjalo vacío para activar con cualquier cambio de propiedad.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de aplicación de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID de trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Creación de conversación de HubSpot
+
+Activa el flujo de trabajo cuando se crea una nueva conversación en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública mediante CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una nueva aplicación. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección de OAuth de HubSpot. Obtén tu <strong>Client ID</strong> y <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos anteriores.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca tu <strong>App ID</strong> (aparece debajo del nombre de tu aplicación) y tu <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configurar los scopes requeridos</strong><br />Configura tu aplicación para incluir el scope de OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (reemplaza <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> con tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar tu webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del flujo de trabajo en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se cree una nueva conversación en tu cuenta de HubSpot, por ejemplo, cuando comienza un nuevo hilo de correo o se inicia una conversación de chat.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Creación de conversación de HubSpot"
+    type="hubspot_conversation_creation"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de app",
+            "placeholder": "Introduce el ID de app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para configurar la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Eliminación de conversaciones de HubSpot
+
+Activar el flujo de trabajo cuando se elimine una conversación en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública mediante CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una nueva aplicación. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección de OAuth de HubSpot. Obtén tu <strong>Client ID</strong> y <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca tu <strong>App ID</strong> (se muestra debajo del nombre de la aplicación) y tu <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Definir los ámbitos requeridos</strong><br />Configura tu aplicación para incluir el ámbito OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl que aparecen abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del flujo de trabajo en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se elimine una conversación de tu cuenta de HubSpot.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Eliminación de conversación de HubSpot"
+    type="hubspot_conversation_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de la app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Nuevo mensaje de conversación de HubSpot
+
+Activa el workflow cuando se añade un mensaje nuevo a una conversación de HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si aún no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una aplicación nueva. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección OAuth de HubSpot. Obtén el <strong>Client ID</strong> y el <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca el <strong>App ID</strong> (aparece debajo del nombre de la aplicación) y la <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configurar los scopes requeridos</strong><br />Configura la aplicación para incluir el scope OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante la API</strong><br />Después de guardar, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del workflow en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se añada un mensaje nuevo a cualquier conversación de tu cuenta de HubSpot. Esto incluye correos electrónicos, mensajes de chat y otros tipos de conversación.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Nuevo mensaje de conversación de HubSpot"
+    type="hubspot_conversation_new_message"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Eliminación de conversación por privacidad de HubSpot
+
+Activa el workflow cuando se elimina una conversación por cumplimiento de privacidad (RGPD, CCPA, etc.) en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una nueva aplicación. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección de OAuth de HubSpot. Obtén tu <strong>Client ID</strong> y tu <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, localiza tu <strong>App ID</strong> (se muestra debajo del nombre de tu aplicación) y tu <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configurar los ámbitos requeridos</strong><br />Configura tu aplicación para incluir el ámbito OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl siguientes (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del workflow en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cuando se elimine una conversación específicamente por motivos de cumplimiento de privacidad (p. ej., solicitudes de RGPD de "derecho al olvido"). Esto es distinto de las eliminaciones habituales de conversaciones.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Eliminación de privacidad de conversación de HubSpot"
+    type="hubspot_conversation_privacy_deletion"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de la app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Propiedad de conversación de HubSpot modificada
+
+Activa el workflow cuando se actualiza cualquier propiedad de una conversación en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si aún no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una app pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear apps. Debes usar la CLI de HubSpot para crear y administrar apps. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una app nueva. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la app OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección OAuth de HubSpot. Obtén tu <strong>Client ID</strong> y <strong>Client Secret</strong> en la configuración de tu app de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca el <strong>App ID</strong> (aparece debajo del nombre de la app) y la <strong>Developer API Key</strong> (en la configuración de la app). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configurar los scopes requeridos</strong><br />Configura tu app para incluir el scope OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot a través de la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del workflow en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activa cada vez que se actualiza cualquier propiedad de una conversación. Opcionalmente, puedes filtrar por un nombre de propiedad específico para recibir solo eventos de esa propiedad. El webhook incluye el nombre de la propiedad y el valor nuevo en el payload.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cambio de propiedad de conversación de HubSpot"
+    type="hubspot_conversation_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de la app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Nombre de propiedad (opcional)",
+            "placeholder": "p. ej., status, assignedTo",
+            "description": "Opcional: filtra para activar solo cuando cambie una propiedad específica. Déjalo vacío para activar con cualquier cambio de propiedad.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del activador (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "Comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "Comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor mostrado de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para activadores de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Negocio de HubSpot creado
+
+Activa el flujo de trabajo cuando se crea un nuevo negocio en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crea una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crea una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha dejado de ofrecer la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una nueva aplicación. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guarda las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección OAuth de HubSpot. Obtén el <strong>Client ID</strong> y el <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtén el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca el <strong>App ID</strong> (aparece debajo del nombre de tu aplicación) y tu <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configura los scopes requeridos</strong><br />Configura tu aplicación para incluir el scope de OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guarda la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configura el webhook en HubSpot mediante la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Prueba tu webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del flujo de trabajo en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se cree un nuevo negocio en tu cuenta de HubSpot, independientemente del origen (entrada manual, API, importación, etc.).</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Negocio creado de HubSpot"
+    type="hubspot_deal_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Está en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Está en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de app",
+            "placeholder": "Introduce el ID de app de HubSpot",
+            "description": "Está en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para las llamadas a la API de HubSpot. Está en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID de trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor mostrado de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Negocio de HubSpot eliminado
+
+Activa el flujo de trabajo cuando se elimina un negocio en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una aplicación nueva. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección de OAuth de HubSpot. Obtén tu <strong>Client ID</strong> y <strong>Client Secret</strong> en la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca tu <strong>App ID</strong> (se muestra debajo del nombre de la aplicación) y tu <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configurar los ámbitos requeridos</strong><br />Configura tu aplicación para incluir el ámbito OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar tu webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Consulta los registros de ejecución del flujo de trabajo en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se elimine un negocio de tu cuenta de HubSpot.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Negocio de HubSpot eliminado"
+    type="hubspot_deal_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de app",
+            "placeholder": "Introduce el ID de app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para las llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID de trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor mostrado de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Propiedad de negocio de HubSpot modificada
+
+Activa el workflow cuando se actualiza cualquier propiedad de un negocio en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crea una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crea una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una aplicación nueva. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guarda las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección de OAuth de HubSpot. Obtén tu <strong>Client ID</strong> y tu <strong>Client Secret</strong> en la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtén el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, busca tu <strong>App ID</strong> (aparece debajo del nombre de la aplicación) y tu <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configura los scopes requeridos</strong><br />Configura tu aplicación para incluir el scope de OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guarda la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configura el webhook en HubSpot mediante la API</strong><br />Tras guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Prueba el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del workflow en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se actualice cualquier propiedad de un negocio. Opcionalmente, puedes filtrar por un nombre de propiedad específico para recibir solo eventos de esa propiedad. El webhook incluye el nombre de la propiedad y el valor nuevo en el payload.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cambio de propiedad de negocio de HubSpot"
+    type="hubspot_deal_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de app",
+            "placeholder": "Introduce el ID de app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para las llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Nombre de propiedad (opcional)",
+            "placeholder": "p. ej., dealstage, amount, closedate",
+            "description": "Opcional: filtra para activar solo cuando cambie una propiedad específica. Déjalo vacío para activar con cualquier cambio de propiedad.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID de trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor mostrado de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Ticket de HubSpot creado
+
+Activa el workflow cuando se crea un ticket nuevo en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una aplicación nueva. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección OAuth de HubSpot. Obtén el <strong>Client ID</strong> y el <strong>Client Secret</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el App ID y la Developer API Key</strong><br />En tu cuenta de desarrollador de HubSpot, localiza el <strong>App ID</strong> (se muestra debajo del nombre de la aplicación) y la <strong>Developer API Key</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configurar los scopes requeridos</strong><br />Configura tu aplicación para incluir el scope OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del workflow en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se cree un ticket nuevo en tu cuenta de HubSpot, independientemente del origen (entrada manual, envío de formulario, API, importación, etc.).</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ticket de HubSpot creado"
+    type="hubspot_ticket_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce tu clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para establecer la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Ticket de HubSpot eliminado
+
+Activa un flujo de trabajo cuando se elimina un ticket en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha dejado de ofrecer la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una nueva aplicación. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección de OAuth de HubSpot. Obtén tu <strong>ID de cliente</strong> y tu <strong>secreto de cliente</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el ID de la aplicación y la clave de API de desarrollador</strong><br />En tu cuenta de desarrollador de HubSpot, busca tu <strong>ID de la aplicación</strong> (aparece debajo del nombre de tu aplicación) y tu <strong>clave de API de desarrollador</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Definir los ámbitos requeridos</strong><br />Configura tu aplicación para incluir el ámbito OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (reemplaza <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del flujo de trabajo en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se elimine un ticket de tu cuenta de HubSpot.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ticket de HubSpot eliminado"
+    type="hubspot_ticket_deleted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Autenticación",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Autenticación",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce tu clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "comando curl para configurar la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor de visualización de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Propiedad de ticket de HubSpot modificada
+
+Activa el flujo de trabajo cuando se actualiza cualquier propiedad de un ticket en HubSpot
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>Paso 1: Crear una cuenta de desarrollador de HubSpot</strong><br />Regístrate para obtener una cuenta de desarrollador gratuita en <a href="https://developers.hubspot.com" target="_blank">developers.hubspot.com</a> si aún no tienes una.</div><div class="mb-3"><strong>Paso 2: Crear una aplicación pública con la CLI</strong><br /><strong>Nota:</strong> HubSpot ha descontinuado la interfaz web para crear aplicaciones. Debes usar la CLI de HubSpot para crear y gestionar aplicaciones. Instala la CLI con <code>npm install -g @hubspot/cli</code> y ejecuta <code>hs project create</code> para crear una nueva aplicación. Consulta la <a href="https://developers.hubspot.com/docs/platform/create-an-app" target="_blank">documentación de HubSpot</a> para más detalles.</div><div class="mb-3"><strong>Paso 3: Guardar las credenciales de la aplicación OAuth</strong><br />Añade <code>https://www.tradinggoose.ai/api/auth/oauth2/callback/hubspot</code> a las URL de redirección de OAuth de HubSpot. Obtén el <strong>ID de cliente</strong> y el <strong>secreto de cliente</strong> de la configuración de tu aplicación de HubSpot e introdúcelos en los campos de arriba.</div><div class="mb-3"><strong>Paso 4: Obtener el ID de la aplicación y la clave de API de desarrollador</strong><br />En tu cuenta de desarrollador de HubSpot, busca el <strong>ID de la aplicación</strong> (aparece debajo del nombre de la aplicación) y tu <strong>clave de API de desarrollador</strong> (en la configuración de la aplicación). Necesitarás ambos para los siguientes pasos.</div><div class="mb-3"><strong>Paso 5: Configurar los ámbitos requeridos</strong><br />Configura tu aplicación para incluir el ámbito OAuth requerido: <code>crm.objects.contacts.read</code></div><div class="mb-3"><strong>Paso 6: Guardar la configuración en TradingGoose</strong><br />Haz clic en el botón <strong>"Guardar configuración"</strong> de arriba. Esto generará tu URL de webhook única.</div><div class="mb-3"><strong>Paso 7: Configurar el webhook en HubSpot mediante la API</strong><br />Después de guardar lo anterior, copia la <strong>URL del webhook</strong> y ejecuta los dos comandos curl de abajo (sustituye <code>&#123;YOUR_APP_ID&#125;</code>, <code>&#123;YOUR_DEVELOPER_API_KEY&#125;</code> y <code>&#123;YOUR_WEBHOOK_URL_FROM_ABOVE&#125;</code> por tus valores reales).</div><div class="mb-3"><strong>Paso 8: Probar el webhook</strong><br />Crea o modifica un contacto en HubSpot para activar el webhook. Revisa los registros de ejecución del flujo de trabajo en TradingGoose para comprobar que funciona.</div><div class="mb-3"><strong>Información adicional:</strong> El webhook se activará cada vez que se actualice cualquier propiedad de un ticket. Puedes filtrar de forma opcional por un nombre de propiedad específico para recibir solo los eventos de esa propiedad. El webhook incluye el nombre de la propiedad y el valor nuevo en el payload.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Cambio de propiedad de ticket de HubSpot"
+    type="hubspot_ticket_property_changed"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "clientId",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "Introduce el ID de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "required": true
+        },
+        {
+            "id": "clientSecret",
+            "type": "short-input",
+            "title": "Secreto de cliente",
+            "placeholder": "Introduce el secreto de cliente de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot, en la pestaña Auth",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "appId",
+            "type": "short-input",
+            "title": "ID de la app",
+            "placeholder": "Introduce el ID de tu app de HubSpot",
+            "description": "Se encuentra en la configuración de tu app de HubSpot. Se usa para identificar tu app.",
+            "required": true
+        },
+        {
+            "id": "developerApiKey",
+            "type": "short-input",
+            "title": "Clave de API de desarrollador",
+            "placeholder": "Introduce la clave de API de desarrollador de HubSpot",
+            "description": "Se usa para realizar llamadas a la API de HubSpot. Se encuentra en la configuración de tu app de HubSpot.",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "propertyName",
+            "type": "short-input",
+            "title": "Nombre de la propiedad (opcional)",
+            "placeholder": "p. ej., hs_pipeline_stage, hs_ticket_priority",
+            "description": "Opcional: filtra para activar solo cuando cambia una propiedad concreta. Déjalo vacío para activar con cualquier cambio de propiedad.",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "payload",
+          "type": "json",
+          "description": "Array completo del payload del webhook de HubSpot con los detalles del evento"
+      },
+      {
+          "name": "provider",
+          "type": "string",
+          "description": "Nombre del proveedor (hubspot)"
+      },
+      {
+          "name": "providerConfig",
+          "type": "object",
+          "children": [
+              {
+                  "name": "appId",
+                  "type": "string",
+                  "description": "ID de la app de HubSpot"
+              },
+              {
+                  "name": "clientId",
+                  "type": "string",
+                  "description": "ID de cliente de HubSpot"
+              },
+              {
+                  "name": "triggerId",
+                  "type": "string",
+                  "description": "ID del trigger (p. ej., hubspot_company_created)"
+              },
+              {
+                  "name": "clientSecret",
+                  "type": "string",
+                  "description": "Secreto de cliente de HubSpot"
+              },
+              {
+                  "name": "developerApiKey",
+                  "type": "string",
+                  "description": "Clave de API de desarrollador de HubSpot"
+              },
+              {
+                  "name": "curlSetWebhookUrl",
+                  "type": "string",
+                  "description": "Comando curl para configurar la URL del webhook"
+              },
+              {
+                  "name": "curlCreateSubscription",
+                  "type": "string",
+                  "description": "Comando curl para crear la suscripción"
+              },
+              {
+                  "name": "webhookUrlDisplay",
+                  "type": "string",
+                  "description": "Valor mostrado de la URL del webhook"
+              },
+              {
+                  "name": "propertyName",
+                  "type": "string",
+                  "description": "Filtro opcional de nombre de propiedad (para triggers de cambio de propiedad)"
+              }
+          ]
+      }
+  ]}
+/>
+
+---

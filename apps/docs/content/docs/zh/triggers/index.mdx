@@ -1,0 +1,52 @@
+---
+title: 概览
+description: 启动 TradingGoose 工作流的核心方式
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 核心触发器
+
+每个工作流选择一个触发器，以定义其启动方式：
+
+<Cards>
+  <Card title="API" href="/triggers/api">
+    将 JSON 请求体映射为工作流输入的 HTTP 端点
+  </Card>
+  <Card title="聊天" href="/triggers/chat">
+    已部署的聊天界面，支持流式响应
+  </Card>
+  <Card title="输入表单" href="/triggers/input-form">
+    用于编辑器运行和子工作流的类型化手动输入
+  </Card>
+  <Card title="手动" href="/triggers/manual">
+    按需运行，无需附加数据
+  </Card>
+  <Card title="定时" href="/triggers/schedule">
+    基于 Cron 或间隔的执行
+  </Card>
+  <Card title="Webhook" href="/triggers/webhook">
+    接收外部 webhook 载荷
+  </Card>
+</Cards>
+
+## 快速对比
+
+| 触发器 | 启动条件 |
+|---------|-----------------|
+| **API** | 已认证的 HTTP POST |
+| **聊天** | 聊天部署消息 |
+| **输入表单** | 在编辑器或父工作流中手动提交 |
+| **手动** | 编辑器中的运行按钮 |
+| **定时** | 在定时弹窗中管理的计时器 |
+| **Webhook** | 收到入站 HTTP 请求 |
+
+## 使用触发器
+
+1. 将触发器模块放入起始槽位。
+2. 配置所需的结构或认证。
+3. 将该模块连接到工作流的其余部分。
+
+> 部署驱动所有触发器。更新工作流并重新部署后，所有触发入口都会采用新快照。详见 [执行 → 部署快照](/execution)。
+
+旧版 Starter 模块仍可用于现有流程，但不会出现在新建中。

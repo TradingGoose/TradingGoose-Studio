@@ -1,0 +1,216 @@
+---
+title: Telegram 触发器
+description: 根据 Telegram 机器人消息和事件触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="telegram"
+  color=""
+/>
+
+根据 Telegram 机器人消息和事件触发工作流
+
+<Callout type="info">
+  这是**基于 webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="用作工具" href="/tools/telegram">
+    查看 Telegram 的工作流操作、运算和工具输入。
+  </Card>
+</Cards>
+
+## 设置说明
+
+<div class="mb-3"><strong>1.</strong> 在 Telegram 中向 <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" class="text-muted-foreground underline transition-colors hover:text-muted-foreground/80">@BotFather</a> 发送 "/newbot"，创建机器人并复制其令牌。</div><div class="mb-3"><strong>2.</strong> 在上方输入你的机器人令牌。</div><div class="mb-3"><strong>3.</strong> 保存设置后，发送到你机器人的任何消息都会触发工作流。</div>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Telegram Webhook"
+    type="telegram_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "botToken",
+            "type": "short-input",
+            "title": "机器人令牌",
+            "placeholder": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+            "description": "来自 BotFather 的 Telegram 机器人令牌",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "message",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "Telegram 消息 ID"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "消息文本内容（如有）"
+              },
+              {
+                  "name": "date",
+                  "type": "number",
+                  "description": "消息发送日期（Unix 时间戳）"
+              },
+              {
+                  "name": "messageType",
+                  "type": "string",
+                  "description": "检测到的内容类型：text、photo、document、audio、video、voice、sticker、location、contact、poll"
+              },
+              {
+                  "name": "raw",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "message_id",
+                          "type": "number",
+                          "description": "原始 Telegram message_id"
+                      },
+                      {
+                          "name": "date",
+                          "type": "number",
+                          "description": "原始 Telegram 消息日期（Unix 时间戳）"
+                      },
+                      {
+                          "name": "text",
+                          "type": "string",
+                          "description": "原始 Telegram 文本（如有）"
+                      },
+                      {
+                          "name": "caption",
+                          "type": "string",
+                          "description": "原始 Telegram 图注（如有）"
+                      },
+                      {
+                          "name": "chat",
+                          "type": "object",
+                          "children": [
+                              {
+                                  "name": "id",
+                                  "type": "number",
+                                  "description": "聊天标识符"
+                              },
+                              {
+                                  "name": "username",
+                                  "type": "string",
+                                  "description": "聊天用户名（如有）"
+                              },
+                              {
+                                  "name": "first_name",
+                                  "type": "string",
+                                  "description": "名（私聊）"
+                              },
+                              {
+                                  "name": "last_name",
+                                  "type": "string",
+                                  "description": "姓（私聊）"
+                              }
+                          ]
+                      },
+                      {
+                          "name": "from",
+                          "type": "object",
+                          "children": [
+                              {
+                                  "name": "id",
+                                  "type": "number",
+                                  "description": "发送者用户 ID"
+                              },
+                              {
+                                  "name": "is_bot",
+                                  "type": "boolean",
+                                  "description": "发送者是否为机器人"
+                              },
+                              {
+                                  "name": "first_name",
+                                  "type": "string",
+                                  "description": "发送者名"
+                              },
+                              {
+                                  "name": "last_name",
+                                  "type": "string",
+                                  "description": "发送者姓"
+                              },
+                              {
+                                  "name": "language_code",
+                                  "type": "string",
+                                  "description": "发送者语言代码（如有）"
+                              }
+                          ]
+                      }
+                  ]
+              }
+          ]
+      },
+      {
+          "name": "sender",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "number",
+                  "description": "发送者用户 ID"
+              },
+              {
+                  "name": "username",
+                  "type": "string",
+                  "description": "发送者用户名（如有）"
+              },
+              {
+                  "name": "firstName",
+                  "type": "string",
+                  "description": "发送者名"
+              },
+              {
+                  "name": "lastName",
+                  "type": "string",
+                  "description": "发送者姓"
+              },
+              {
+                  "name": "languageCode",
+                  "type": "string",
+                  "description": "发送者语言代码（如有）"
+              },
+              {
+                  "name": "isBot",
+                  "type": "boolean",
+                  "description": "发送者是否为机器人"
+              }
+          ]
+      },
+      {
+          "name": "updateId",
+          "type": "number",
+          "description": "本次 webhook 投递的更新 ID"
+      },
+      {
+          "name": "updateType",
+          "type": "string",
+          "description": "更新类型：message、edited_message、channel_post、edited_channel_post、unknown"
+      }
+  ]}
+/>

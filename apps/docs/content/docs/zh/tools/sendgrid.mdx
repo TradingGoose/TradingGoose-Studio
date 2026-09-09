@@ -1,0 +1,2262 @@
+---
+title: SendGrid
+description: 使用 SendGrid 发送邮件并管理联系人、列表和模板
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sendgrid"
+  color="#1A82E2"
+/>
+
+## 配置
+
+### 发送邮件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "send_mail",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "发件邮箱",
+            "placeholder": "sender@yourdomain.com",
+            "required": true
+        },
+        {
+            "id": "fromName",
+            "type": "short-input",
+            "title": "发件人名称",
+            "placeholder": "发件人名称"
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "收件邮箱",
+            "placeholder": "recipient@example.com",
+            "required": true
+        },
+        {
+            "id": "toName",
+            "type": "short-input",
+            "title": "收件人名称",
+            "placeholder": "收件人名称"
+        },
+        {
+            "id": "mailSubject",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "邮件主题（未使用模板时必填）"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "内容",
+            "placeholder": "邮件正文（未使用模板时必填）"
+        },
+        {
+            "id": "contentType",
+            "type": "dropdown",
+            "title": "内容类型",
+            "defaultValue": "text/plain",
+            "options": [
+                {
+                    "id": "text/plain",
+                    "label": "纯文本"
+                },
+                {
+                    "id": "text/html",
+                    "label": "HTML"
+                }
+            ]
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "抄送",
+            "placeholder": "cc@example.com"
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "密送",
+            "placeholder": "bcc@example.com"
+        },
+        {
+            "id": "replyTo",
+            "type": "short-input",
+            "title": "回复地址",
+            "placeholder": "replyto@example.com"
+        },
+        {
+            "id": "replyToName",
+            "type": "short-input",
+            "title": "回复人名称",
+            "placeholder": "回复人名称"
+        },
+        {
+            "id": "mailTemplateId",
+            "type": "short-input",
+            "title": "模板 ID",
+            "placeholder": "SendGrid 模板 ID"
+        },
+        {
+            "id": "dynamicTemplateData",
+            "type": "code",
+            "title": "动态模板数据",
+            "placeholder": "{\"name\": \"John\", \"order_id\": \"12345\"}",
+            "language": "json"
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "附件",
+            "placeholder": "上传要附加的文件",
+            "required": false
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "附件",
+            "placeholder": "引用先前区块的文件",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送邮件（<code>sendgrid_send_mail</code>）</div>
+
+使用 SendGrid API 发送邮件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `from` | string | 是 | 发件人邮箱地址（必须已在 SendGrid 中验证） |
+| `fromName` | string | 否 | 发件人名称 |
+| `to` | string | 是 | 收件人邮箱地址 |
+| `toName` | string | 否 | 收件人名称 |
+| `subject` | string | 否 | 邮件主题（除非使用已预定义主题的模板，否则必填） |
+| `content` | string | 否 | 邮件正文（除非使用已预定义内容的模板，否则必填） |
+| `contentType` | string | 否 | 内容类型（text/plain 或 text/html） |
+| `cc` | string | 否 | 抄送邮箱地址 |
+| `bcc` | string | 否 | 密送邮箱地址 |
+| `replyTo` | string | 否 | 回复邮箱地址 |
+| `replyToName` | string | 否 | 回复人名称 |
+| `attachments` | file[] | 否 | 要附加到邮件的文件 |
+| `templateId` | string | 否 | 要使用的 SendGrid 模板 ID |
+| `dynamicTemplateData` | json | 否 | 动态模板数据的 JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 邮件是否发送成功 |
+| `messageId` | string | SendGrid 消息 ID |
+| `to` | string | 收件人邮箱地址 |
+| `subject` | string | 邮件主题 |
+
+</div>
+
+---
+
+### 添加联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "add_contact",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "邮箱",
+            "placeholder": "contact@example.com",
+            "required": true
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "名",
+            "placeholder": "三"
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "姓",
+            "placeholder": "张"
+        },
+        {
+            "id": "customFields",
+            "type": "code",
+            "title": "自定义字段",
+            "placeholder": "{\"custom_field_1\": \"value1\"}",
+            "language": "json"
+        },
+        {
+            "id": "contactListIds",
+            "type": "short-input",
+            "title": "列表 ID",
+            "placeholder": "以逗号分隔的列表 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加联系人 (<code>sendgrid_add_contact</code>)</div>
+
+向 SendGrid 添加新联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `email` | string | 是 | 联系人邮箱地址 |
+| `firstName` | string | 否 | 联系人名 |
+| `lastName` | string | 否 | 联系人姓 |
+| `customFields` | json | 否 | 自定义字段键值对的 JSON 对象 \(使用字段 ID，如 e1_T、e2_N、e3_D，不要使用字段名称\) |
+| `listIds` | string | 否 | 要将联系人添加到的列表 ID，以逗号分隔 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `jobId` | string | 用于跟踪异步联系人创建的作业 ID |
+| `email` | string | 联系人邮箱地址 |
+| `firstName` | string | 联系人名字 |
+| `lastName` | string | 联系人姓氏 |
+| `message` | string | 状态消息 |
+
+</div>
+
+---
+
+### 获取联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_contact",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表中移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入您的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "联系人 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取联系人 (<code>sendgrid_get_contact</code>)</div>
+
+通过 ID 从 SendGrid 获取指定联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `contactId` | string | 是 | 联系人 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | string | 联系人 ID |
+| `email` | string | 联系人邮箱地址 |
+| `firstName` | string | 联系人名字 |
+| `lastName` | string | 联系人姓氏 |
+| `createdAt` | string | 创建时间戳 |
+| `updatedAt` | string | 最后更新时间戳 |
+| `listIds` | json | 该联系人所属列表 ID 的数组 |
+| `customFields` | json | 自定义字段值 |
+
+</div>
+
+---
+
+### 搜索联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "search_contacts",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出全部列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "email LIKE '%example.com%'",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索联系人（<code>sendgrid_search_contacts</code>）</div>
+
+使用查询在 SendGrid 中搜索联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `query` | string | 是 | 搜索查询 \(例如："email LIKE '%example.com%' AND CONTAINS\(list_ids, 'list-id'\)"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contacts` | json | 匹配的联系人数组 |
+| `contactCount` | number | 找到的联系人总数 |
+
+</div>
+
+---
+
+### 删除联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete_contacts",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表中移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactIds",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "逗号分隔的联系人 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除联系人 (<code>sendgrid_delete_contacts</code>)</div>
+
+从 SendGrid 删除一个或多个联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `contactIds` | string | 是 | 要删除的联系人 ID，以逗号分隔 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `jobId` | string | 删除请求的作业 ID |
+
+</div>
+
+---
+
+### 创建列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_list",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listName",
+            "type": "short-input",
+            "title": "列表名称",
+            "placeholder": "列表名称",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建列表（<code>sendgrid_create_list</code>）</div>
+
+在 SendGrid 中创建新的联系人列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `name` | string | 是 | 列表名称 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | string | 列表 ID |
+| `name` | string | 列表名称 |
+| `contactCount` | number | 列表中的联系人数量 |
+
+</div>
+
+---
+
+### 获取列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_list",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表中移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "placeholder": "列表 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取列表 (<code>sendgrid_get_list</code>)</div>
+
+根据 ID 从 SendGrid 获取指定列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `listId` | string | 是 | 列表 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | string | 列表 ID |
+| `name` | string | 列表名称 |
+| `contactCount` | number | 列表中的联系人数量 |
+
+</div>
+
+---
+
+### 列出所有列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_all_lists",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "向列表添加联系人"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listPageSize",
+            "type": "short-input",
+            "title": "每页条数",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出所有列表（<code>sendgrid_list_all_lists</code>）</div>
+
+从 SendGrid 获取所有联系人列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `pageSize` | number | 否 | 每页返回的列表数量 \(默认：100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `lists` | json | 列表数组 |
+
+</div>
+
+---
+
+### 删除列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete_list",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表中移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "placeholder": "列表 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除列表 (<code>sendgrid_delete_list</code>)</div>
+
+从 SendGrid 删除联系人列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `listId` | string | 是 | 要删除的列表 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 成功消息 |
+
+</div>
+
+---
+
+### 将联系人添加到列表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "add_contacts_to_list",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "code",
+            "title": "联系人（JSON 数组）",
+            "placeholder": "[{\"email\": \"user@example.com\", \"first_name\": \"John\"}]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "placeholder": "列表 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">将联系人添加到列表 (<code>sendgrid_add_contacts_to_list</code>)</div>
+
+在 SendGrid 中添加或更新联系人，并将其分配到列表（使用 PUT /v3/marketing/contacts）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `listId` | string | 是 | 要添加联系人的列表 ID |
+| `contacts` | json | 是 | 联系人对象的 JSON 数组。每个联系人至少须包含：email \(或 phone_number_id/external_id/anonymous_id\)。示例：\[\{"email": "user@example.com", "first_name": "John"\}\] |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `jobId` | string | 用于跟踪异步操作的作业 ID |
+| `message` | string | 状态消息 |
+
+</div>
+
+---
+
+### 从列表中移除联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "remove_contacts_from_list",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表中移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactIds",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "逗号分隔的联系人 ID",
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "列表 ID",
+            "placeholder": "列表 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">从列表移除联系人 (<code>sendgrid_remove_contacts_from_list</code>)</div>
+
+从 SendGrid 的指定列表中移除联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `listId` | string | 是 | 列表 ID |
+| `contactIds` | string | 是 | 要从列表中移除的联系人 ID，逗号分隔 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `jobId` | string | 该请求的作业 ID |
+
+</div>
+
+---
+
+### 创建模板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_template",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出全部列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "向列表添加联系人"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateName",
+            "type": "short-input",
+            "title": "模板名称",
+            "placeholder": "模板名称",
+            "required": true
+        },
+        {
+            "id": "generation",
+            "type": "dropdown",
+            "title": "模板生成类型",
+            "defaultValue": "dynamic",
+            "options": [
+                {
+                    "id": "dynamic",
+                    "label": "动态"
+                },
+                {
+                    "id": "legacy",
+                    "label": "旧版"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建模板 (<code>sendgrid_create_template</code>)</div>
+
+在 SendGrid 中创建新的电子邮件模板
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `name` | string | 是 | 模板名称 |
+| `generation` | string | 否 | 模板生成类型 \(legacy 或 dynamic，默认：dynamic\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | string | 模板 ID |
+| `name` | string | 模板名称 |
+| `generation` | string | 模板生成 |
+| `updatedAt` | string | 上次更新时间戳 |
+| `versions` | json | 模板版本数组 |
+
+</div>
+
+---
+
+### 获取模板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_template",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表中移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "模板 ID",
+            "placeholder": "模板 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取模板 (<code>sendgrid_get_template</code>)</div>
+
+根据 ID 从 SendGrid 获取指定模板
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `templateId` | string | 是 | 模板 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | string | 模板 ID |
+| `name` | string | 模板名称 |
+| `generation` | string | 模板生成类型 |
+| `updatedAt` | string | 最后更新时间戳 |
+| `versions` | json | 模板版本数组 |
+
+</div>
+
+---
+
+### 列出模板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_templates",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出全部列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateGenerations",
+            "type": "short-input",
+            "title": "按生成类型筛选",
+            "placeholder": "legacy、dynamic 或 both"
+        },
+        {
+            "id": "templatePageSize",
+            "type": "short-input",
+            "title": "每页数量",
+            "placeholder": "20"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出模板 (<code>sendgrid_list_templates</code>)</div>
+
+获取 SendGrid 中的全部邮件模板
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `generations` | string | 否 | 按 generation 筛选（legacy、dynamic 或 both） |
+| `pageSize` | number | 否 | 每页返回的模板数量（默认：20） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `templates` | json | 模板数组 |
+
+</div>
+
+---
+
+### 删除模板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete_template",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出全部列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "将联系人添加到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "模板 ID",
+            "placeholder": "模板 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除模板（<code>sendgrid_delete_template</code>）</div>
+
+从 SendGrid 删除邮件模板
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `templateId` | string | 是 | 要删除的模板 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出（区块级契约）</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作是否成功 |
+| `message` | string | 状态或成功消息 |
+| `messageId` | string | 邮件消息 ID \(send_mail\) |
+| `to` | string | 收件人邮箱地址 \(send_mail\) |
+| `subject` | string | 邮件主题 \(send_mail, create_template_version\) |
+| `id` | string | 资源 ID |
+| `jobId` | string | 异步操作的作业 ID |
+| `email` | string | 联系人邮箱地址 |
+| `firstName` | string | 联系人名字 |
+| `lastName` | string | 联系人姓氏 |
+| `createdAt` | string | 创建时间戳 |
+| `updatedAt` | string | 上次更新时间戳 |
+| `listIds` | json | 联系人所属列表 ID 数组 |
+| `customFields` | json | 自定义字段值 |
+| `contacts` | json | 联系人数组 |
+| `contactCount` | number | 联系人数量 |
+| `lists` | json | 列表数组 |
+| `name` | string | 资源名称 |
+| `templates` | json | 模板数组 |
+| `generation` | string | 模板世代 |
+| `versions` | json | 模板版本数组 |
+| `templateId` | string | 模板 ID |
+| `active` | boolean | 模板版本是否处于活动状态 |
+| `htmlContent` | string | HTML 内容 |
+| `plainContent` | string | 纯文本内容 |
+
+</div>
+
+---
+
+### 创建模板版本
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SendGrid"
+    type="sendgrid"
+    color="#1A82E2"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_template_version",
+            "options": [
+                {
+                    "id": "send_mail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "add_contact",
+                    "label": "添加联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contacts",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_list",
+                    "label": "创建列表"
+                },
+                {
+                    "id": "get_list",
+                    "label": "获取列表"
+                },
+                {
+                    "id": "list_all_lists",
+                    "label": "列出所有列表"
+                },
+                {
+                    "id": "delete_list",
+                    "label": "删除列表"
+                },
+                {
+                    "id": "add_contacts_to_list",
+                    "label": "添加联系人到列表"
+                },
+                {
+                    "id": "remove_contacts_from_list",
+                    "label": "从列表移除联系人"
+                },
+                {
+                    "id": "create_template",
+                    "label": "创建模板"
+                },
+                {
+                    "id": "get_template",
+                    "label": "获取模板"
+                },
+                {
+                    "id": "list_templates",
+                    "label": "列出模板"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "删除模板"
+                },
+                {
+                    "id": "create_template_version",
+                    "label": "创建模板版本"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "SendGrid API 密钥",
+            "placeholder": "输入你的 SendGrid API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "templateId",
+            "type": "short-input",
+            "title": "模板 ID",
+            "placeholder": "模板 ID",
+            "required": true
+        },
+        {
+            "id": "versionName",
+            "type": "short-input",
+            "title": "版本名称",
+            "placeholder": "版本名称",
+            "required": true
+        },
+        {
+            "id": "templateSubject",
+            "type": "short-input",
+            "title": "模板主题",
+            "placeholder": "邮件主题",
+            "required": true
+        },
+        {
+            "id": "htmlContent",
+            "type": "code",
+            "title": "HTML 内容",
+            "placeholder": "<html><body>{{name}}</body></html>",
+            "language": "html"
+        },
+        {
+            "id": "plainContent",
+            "type": "long-input",
+            "title": "纯文本内容",
+            "placeholder": "纯文本内容"
+        },
+        {
+            "id": "active",
+            "type": "dropdown",
+            "title": "激活",
+            "defaultValue": "true",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "是"
+                },
+                {
+                    "id": "false",
+                    "label": "否"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建模板版本（<code>sendgrid_create_template_version</code>）</div>
+
+在 SendGrid 中创建邮件模板的新版本
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | SendGrid API 密钥 |
+| `templateId` | string | 是 | 模板 ID |
+| `name` | string | 是 | 版本名称 |
+| `subject` | string | 是 | 邮件主题行 |
+| `htmlContent` | string | 否 | 模板的 HTML 内容 |
+| `plainContent` | string | 否 | 模板的纯文本内容 |
+| `active` | boolean | 否 | 此版本是否处于活动状态 \(默认：true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | string | 版本 ID |
+| `templateId` | string | 模板 ID |
+| `name` | string | 版本名称 |
+| `subject` | string | 邮件主题 |
+| `active` | boolean | 此版本是否处于活动状态 |
+| `htmlContent` | string | HTML 内容 |
+| `plainContent` | string | 纯文本内容 |
+| `updatedAt` | string | 上次更新时间戳 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 SendGrid 集成到你的工作流中。发送事务性邮件，管理营销联系人和列表，并处理邮件模板。支持动态模板、附件和全面的联系人管理。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`sendgrid`

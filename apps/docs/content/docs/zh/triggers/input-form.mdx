@@ -1,0 +1,56 @@
+---
+title: 输入表单触发器
+description: 带结构化输入模式的手动触发器
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="input_trigger"
+  color=""
+  icon={true}
+/>
+
+当工作流需要从编辑器以带类型的字段启动时，请使用输入表单触发器。运行面板会显示你定义的字段，因此工作流始终能收到干净数据。
+
+<Callout type="info">
+  这是带结构化输入的**手动**触发器。定义模式后即可从编辑器运行。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="输入表单触发器"
+    type="input_trigger"
+    hideHeader
+    subBlocks={[
+      { "id": "inputFormat", "title": "输入格式", "type": "short-input", "layout": "full", "description": "定义表单字段的名称、类型和默认值" }
+    ]}
+  />
+</ShowcaseCard>
+
+在输入格式构建器中添加字段。支持的类型：
+
+- **string** — 文本值
+- **number** — 数值
+- **boolean** — 真/假值
+- **json** — JSON 对象
+
+### 输出模式
+
+| 字段 | 类型 | 说明 |
+|-------|------|-------------|
+| `<blockName.field>` | 可变 | 输入格式中定义的每个字段 |
+| `<blockName.input>` | json | 完整的结构化输入负载 |
+
+## 子工作流
+
+输入表单触发器也用于驱动工作流块。嵌入子工作流时，映射步骤会显示子表单字段，便于你连接父工作流中的变量。
+
+<Callout>
+需要无字段的快速运行按钮？请改用手动触发器。
+</Callout>

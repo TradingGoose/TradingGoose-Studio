@@ -1,0 +1,70 @@
+---
+title: Editor MCP
+description: Inspeccionar, editar, probar y actualizar un servidor MCP seleccionado.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `editor_mcp` |
+| **Categoría** | Editor |
+
+El Editor MCP permite inspeccionar, configurar, probar y actualizar un servidor Model Context Protocol asociado a su espacio de trabajo. Muestra el estado de conexión del servidor, la configuración, las herramientas descubiertas y los errores actuales de prueba o guardado. Use el widget [Lista de servidores MCP](/widgets/list-mcp) para agregar o eliminar servidores; el editor es la interfaz principal para gestionar la configuración de un servidor individual.
+
+## Características
+
+- **Encabezado de información del servidor** muestra el nombre del servidor, una insignia de estado de conexión con código de color (Conectado / Error / Desconectado) y el tipo de transporte (p. ej. HTTP, SSE).
+- **Formulario del servidor** permite editar el nombre, la descripción, el transporte, la URL, los encabezados personalizados, el tiempo de espera, los reintentos, el estado habilitado y los valores almacenados de comando, argumentos y entorno. El comando, los argumentos, los valores de entorno y los reintentos se conservan, pero no los usa el runtime de transporte URL actual.
+- **Botón Probar conexión** envía una solicitud de prueba al servidor con los valores actuales del formulario y muestra el resultado en línea.
+- **Botón Actualizar herramientas** inicia una actualización en el servidor que vuelve a descubrir todas las herramientas expuestas por el servidor MCP y actualiza la lista local de herramientas.
+- **Botón Restablecer formulario** revierte los campos del formulario a la última configuración guardada del servidor.
+- **Botón Guardar** guarda la configuración actualizada del servidor y actualiza las herramientas cuando el servidor está habilitado y tiene una URL. La prueba es una acción independiente.
+- **Botón Borrar selección** anula la selección del servidor actual.
+- **Lista de herramientas** enumera todas las herramientas descubiertas en el servidor y muestra el nombre y la descripción de cada una.
+- **Panel de errores** muestra los errores de las operaciones de guardado o de actualización de herramientas.
+- **Selector de servidor** en la barra de encabezado cambia entre servidores MCP del espacio de trabajo. Cuando se empareja mediante un enlace de color, se sincroniza con el widget Lista MCP.
+
+## Uso
+
+1. Añade el widget a un espacio de trabajo desde el selector de widgets.
+2. Selecciona un servidor MCP en el menú desplegable del encabezado, o añade uno desde el widget [Lista de servidores MCP](/widgets/list-mcp).
+3. Revisa el estado de la conexión y el transporte en la parte superior.
+4. Edita la configuración del servidor según sea necesario.
+5. Haz clic en **Probar conexión** para comprobar que el servidor es accesible con la configuración actual.
+6. Haz clic en **Actualizar herramientas** para volver a descubrir las herramientas que expone el servidor.
+7. Haz clic en **Guardar** para persistir los cambios y actualizar las herramientas. Ejecuta **Probar conexión** por separado cuando necesites verificar la conectividad.
+
+### Acciones del encabezado
+
+La barra de herramientas del encabezado ofrece cinco botones de acción (de izquierda a derecha):
+
+| Botón | Icono | Acción |
+|--------|------|--------|
+| Actualizar herramientas | Rotate | Vuelve a descubrir las herramientas del servidor |
+| Probar conexión | Play | Envía una solicitud de prueba con los valores actuales del formulario |
+| Restablecer formulario | Undo | Revierte el formulario a los últimos valores guardados |
+| Guardar servidor | Save | Persiste la configuración y actualiza las herramientas de un servidor habilitado con una URL |
+| Borrar selección | X | Anula la selección del servidor |
+
+<Callout>
+Este widget admite el mecanismo **pairColor**. Asigna el mismo color a un Editor MCP y a un widget [Lista de servidores MCP](/widgets/list-mcp) para que, al seleccionar un servidor en la lista, se abra automáticamente en el editor.
+</Callout>
+
+## Configuración
+
+El servidor seleccionado se almacena en los parámetros del widget como `mcpServerId` y se sincroniza a través del almacén pair-color cuando está vinculado. Las ediciones del formulario actualizan de inmediato el borrador colaborativo de Yjs; haz clic en **Guardar** para persistir ese borrador como la configuración guardada del servidor.
+
+## Relacionados
+
+<Cards>
+  <Card title="Guía de MCP" href="/utilities/mCP">
+    Aprende qué son los servidores MCP, cómo conectarlos y cómo los agentes utilizan sus herramientas.
+  </Card>
+  <Card title="Editor de flujo de trabajo" href="/widgets/editor-workflow">
+    Interfaz de lienzo para crear y editar flujos de trabajo.
+  </Card>
+</Cards>

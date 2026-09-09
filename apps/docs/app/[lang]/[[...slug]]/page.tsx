@@ -219,7 +219,7 @@ export async function generateMetadata(props: {
   if (!page) notFound()
 
   const fullUrl = `${baseUrl}${page.url}`
-  const canonicalPath = page.url.replace(/^\/en(?:\/|$)/, '/')
+  const canonicalPath = `/${page.slugs.join('/')}`
   const alternateLanguages = Object.fromEntries(
     i18n.languages.map((lang) => [
       lang,

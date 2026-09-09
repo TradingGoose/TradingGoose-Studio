@@ -1,0 +1,2410 @@
+---
+title: SSH
+description: 通过 SSH 连接远程服务器
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="ssh"
+  color=""
+/>
+
+## 配置
+
+### 执行命令
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_execute_command",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "口令",
+            "placeholder": "加密私钥的口令（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "command",
+            "type": "code",
+            "title": "命令",
+            "placeholder": "ls -la /var/www",
+            "language": "plaintext",
+            "required": true
+        },
+        {
+            "id": "workingDirectory",
+            "type": "short-input",
+            "title": "工作目录",
+            "placeholder": "/var/www/html（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">执行命令（<code>ssh_execute_command</code>）</div>
+
+在远程 SSH 服务器上执行 Shell 命令
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口（默认：22） |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 用于认证的密码（若不使用私钥） |
+| `privateKey` | string | 否 | 用于认证的私钥（OpenSSH 格式） |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `command` | string | 是 | 要在远程服务器上执行的 Shell 命令 |
+| `workingDirectory` | string | 否 | 命令执行的工作目录 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `stdout` | string | 命令的标准输出 |
+| `stderr` | string | 标准错误输出 |
+| `exitCode` | number | 命令退出码 |
+| `success` | boolean | 命令是否成功（退出码为 0） |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 执行脚本
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_execute_script",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "script",
+            "type": "code",
+            "title": "脚本内容",
+            "placeholder": "#!/bin/bash\necho \"Hello World\"",
+            "language": "plaintext",
+            "required": true
+        },
+        {
+            "id": "interpreter",
+            "type": "short-input",
+            "title": "解释器",
+            "placeholder": "/bin/bash"
+        },
+        {
+            "id": "scriptWorkingDirectory",
+            "type": "short-input",
+            "title": "工作目录",
+            "placeholder": "/var/www/html（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">执行脚本（<code>ssh_execute_script</code>）</div>
+
+在远程 SSH 服务器上上传并执行多行脚本
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口（默认：22） |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 身份验证密码（未使用私钥时） |
+| `privateKey` | string | 否 | 身份验证私钥（OpenSSH 格式） |
+| `passphrase` | string | 否 | 加密私钥的口令 |
+| `script` | string | 是 | 要执行的脚本内容（bash、python 等） |
+| `interpreter` | string | 否 | 脚本解释器（默认：/bin/bash） |
+| `workingDirectory` | string | 否 | 脚本执行的工作目录 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `stdout` | string | 脚本的标准输出 |
+| `stderr` | string | 标准错误输出 |
+| `exitCode` | number | 脚本退出码 |
+| `success` | boolean | 脚本是否成功（退出码为 0） |
+| `scriptPath` | string | 脚本上传到的临时路径 |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 检查命令是否存在
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_check_command_exists",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com or 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu, root, or deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "commandName",
+            "type": "short-input",
+            "title": "命令名称",
+            "placeholder": "docker, git, python3",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">检查命令是否存在 (<code>ssh_check_command_exists</code>)</div>
+
+检查远程 SSH 服务器上是否存在某命令/程序
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口 \(默认：22\) |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 用于身份验证的密码 \(如果不使用私钥\) |
+| `privateKey` | string | 否 | 用于身份验证的私钥 \(OpenSSH 格式\) |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `commandName` | string | 是 | 要检查的命令名称 \(例如 docker、git、python3\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `commandExists` | boolean | 命令是否存在 |
+| `commandPath` | string | 命令的完整路径 \(如果找到\) |
+| `version` | string | 命令版本输出 \(如适用\) |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 上传文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_upload_file",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "fileContent",
+            "type": "code",
+            "title": "文件内容",
+            "placeholder": "要上传的内容...",
+            "language": "plaintext",
+            "required": true
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "文件名",
+            "placeholder": "config.json",
+            "required": true
+        },
+        {
+            "id": "remotePath",
+            "type": "short-input",
+            "title": "远程路径",
+            "placeholder": "/var/www/html/config.json",
+            "required": true
+        },
+        {
+            "id": "permissions",
+            "type": "short-input",
+            "title": "权限",
+            "placeholder": "0644"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">上传文件（<code>ssh_upload_file</code>）</div>
+
+将文件上传到远程 SSH 服务器
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口（默认：22） |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 认证密码（未使用私钥时） |
+| `privateKey` | string | 否 | 认证私钥（OpenSSH 格式） |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `fileContent` | string | 是 | 要上传的文件内容（二进制文件需使用 base64 编码） |
+| `fileName` | string | 是 | 要上传的文件名 |
+| `remotePath` | string | 是 | 远程服务器上的目标路径 |
+| `permissions` | string | 否 | 文件权限（例如 0644） |
+| `overwrite` | boolean | 否 | 是否覆盖已有文件（默认：true） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `uploaded` | boolean | 文件是否上传成功 |
+| `remotePath` | string | 远程服务器上的最终路径 |
+| `size` | number | 文件大小（字节） |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 下载文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_download_file",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密钥口令",
+            "placeholder": "加密密钥口令（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "downloadRemotePath",
+            "type": "short-input",
+            "title": "远程文件路径",
+            "placeholder": "/var/log/app.log",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">下载文件 (<code>ssh_download_file</code>)</div>
+
+从远程 SSH 服务器下载文件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口（默认：22） |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 认证密码（未使用私钥时） |
+| `privateKey` | string | 否 | 认证私钥（OpenSSH 格式） |
+| `passphrase` | string | 否 | 加密私钥的口令 |
+| `remotePath` | string | 是 | 远程服务器上的文件路径 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `downloaded` | boolean | 文件是否下载成功 |
+| `fileContent` | string | 文件内容（二进制文件为 base64 编码） |
+| `fileName` | string | 已下载文件的名称 |
+| `remotePath` | string | 远程服务器上的源路径 |
+| `size` | number | 文件大小（字节） |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 列出目录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_list_directory",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "口令",
+            "placeholder": "加密密钥的口令（可选）",
+            "password": true,
+            "description": "authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "listPath",
+            "type": "short-input",
+            "title": "目录路径",
+            "placeholder": "/var/www",
+            "required": true
+        },
+        {
+            "id": "detailed",
+            "type": "switch",
+            "title": "显示详情"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出目录 (<code>ssh_list_directory</code>)</div>
+
+列出远程目录中的文件和目录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口 \(默认：22\) |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 用于身份验证的密码 \(如未使用私钥\) |
+| `privateKey` | string | 否 | 用于身份验证的私钥 \(OpenSSH 格式\) |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `path` | string | 是 | 要列出的远程目录路径 |
+| `detailed` | boolean | 否 | 包含文件详情 \(大小、权限、修改日期\) |
+| `recursive` | boolean | 否 | 递归列出子目录 \(默认：false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `entries` | array | 文件和目录条目数组 |
+| `totalFiles` | number | 文件总数 |
+| `totalDirectories` | number | 目录总数 |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 检查文件/目录是否存在
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_check_file_exists",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "checkPath",
+            "type": "short-input",
+            "title": "要检查的路径",
+            "placeholder": "/etc/nginx/nginx.conf",
+            "required": true
+        },
+        {
+            "id": "checkType",
+            "type": "dropdown",
+            "title": "预期类型",
+            "defaultValue": "any",
+            "options": [
+                {
+                    "id": "any",
+                    "label": "任意"
+                },
+                {
+                    "id": "file",
+                    "label": "文件"
+                },
+                {
+                    "id": "directory",
+                    "label": "目录"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">检查文件/目录是否存在 (<code>ssh_check_file_exists</code>)</div>
+
+检查远程 SSH 服务器上是否存在文件或目录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口 \(默认：22\) |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 用于身份验证的密码 \(未使用私钥时\) |
+| `privateKey` | string | 否 | 用于身份验证的私钥 \(OpenSSH 格式\) |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `path` | string | 是 | 要检查的远程文件或目录路径 |
+| `type` | string | 否 | 期望类型：file、directory 或 any \(默认：any\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `exists` | boolean | 路径是否存在 |
+| `type` | string | 路径类型 \(file、directory、symlink、not_found\) |
+| `size` | number | 如果是文件，则为文件大小 |
+| `permissions` | string | 文件权限 \(例如 0755\) |
+| `modified` | string | 最后修改时间戳 |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 创建目录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_create_directory",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "createPath",
+            "type": "short-input",
+            "title": "目录路径",
+            "placeholder": "/var/www/new-site",
+            "required": true
+        },
+        {
+            "id": "recursive",
+            "type": "switch",
+            "title": "创建父目录",
+            "defaultValue": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建目录（<code>ssh_create_directory</code>）</div>
+
+在远程 SSH 服务器上创建目录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口 \(默认：22\) |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 用于身份验证的密码 \(未使用私钥时\) |
+| `privateKey` | string | 否 | 用于身份验证的私钥 \(OpenSSH 格式\) |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `path` | string | 是 | 要创建的目录路径 |
+| `recursive` | boolean | 否 | 父目录不存在时一并创建 \(默认：true\) |
+| `permissions` | string | 否 | 目录权限 \(默认：0755\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `created` | boolean | 目录是否创建成功 |
+| `remotePath` | string | 已创建的目录路径 |
+| `alreadyExists` | boolean | 目录是否已存在 |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 删除文件/目录
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_delete_file",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "deletePath",
+            "type": "short-input",
+            "title": "要删除的路径",
+            "placeholder": "/tmp/old-file.txt",
+            "required": true
+        },
+        {
+            "id": "deleteRecursive",
+            "type": "switch",
+            "title": "递归删除"
+        },
+        {
+            "id": "force",
+            "type": "switch",
+            "title": "强制删除"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除文件/目录（<code>ssh_delete_file</code>）</div>
+
+从远程 SSH 服务器删除文件或目录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口（默认：22） |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 用于认证的密码（未使用私钥时） |
+| `privateKey` | string | 否 | 用于认证的私钥（OpenSSH 格式） |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `path` | string | 是 | 要删除的路径 |
+| `recursive` | boolean | 否 | 递归删除目录（默认：false） |
+| `force` | boolean | 否 | 强制删除，无需确认（默认：false） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | 路径是否已成功删除 |
+| `remotePath` | string | 已删除的路径 |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 移动/重命名
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_move_rename",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "认证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "sourcePath",
+            "type": "short-input",
+            "title": "源路径",
+            "placeholder": "/var/www/old-name",
+            "required": true
+        },
+        {
+            "id": "destinationPath",
+            "type": "short-input",
+            "title": "目标路径",
+            "placeholder": "/var/www/new-name",
+            "required": true
+        },
+        {
+            "id": "overwrite",
+            "type": "switch",
+            "title": "若已存在则覆盖"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">移动/重命名（<code>ssh_move_rename</code>）</div>
+
+在远程 SSH 服务器上移动或重命名文件或目录
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口（默认：22） |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 身份验证密码（未使用私钥时） |
+| `privateKey` | string | 否 | 身份验证私钥（OpenSSH 格式） |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `sourcePath` | string | 是 | 文件或目录的当前路径 |
+| `destinationPath` | string | 是 | 文件或目录的新路径 |
+| `overwrite` | boolean | 否 | 若目标已存在则覆盖（默认：false） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `moved` | boolean | 操作是否成功 |
+| `sourcePath` | string | 原始路径 |
+| `destinationPath` | string | 新路径 |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 获取系统信息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_get_system_info",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取系统信息（<code>ssh_get_system_info</code>）</div>
+
+从远程 SSH 服务器获取系统信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口（默认：22） |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 用于身份验证的密码（未使用私钥时） |
+| `privateKey` | string | 否 | 用于身份验证的私钥（OpenSSH 格式） |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `hostname` | string | 服务器主机名 |
+| `os` | string | 操作系统（例如 Linux、Darwin） |
+| `architecture` | string | CPU 架构（例如 x64、arm64） |
+| `uptime` | number | 系统运行时间（秒） |
+| `memory` | json | 内存信息（总量、空闲、已用） |
+| `diskSpace` | json | 磁盘空间信息（总量、空闲、已用） |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 读取文件内容
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_read_file_content",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "readPath",
+            "type": "short-input",
+            "title": "文件路径",
+            "placeholder": "/var/log/app.log",
+            "required": true
+        },
+        {
+            "id": "encoding",
+            "type": "short-input",
+            "title": "编码",
+            "placeholder": "utf-8"
+        },
+        {
+            "id": "maxSize",
+            "type": "short-input",
+            "title": "最大大小（MB）",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取文件内容（<code>ssh_read_file_content</code>）</div>
+
+读取远程文件的内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口（默认：22） |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 身份验证密码（未使用私钥时） |
+| `privateKey` | string | 否 | 身份验证私钥（OpenSSH 格式） |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `path` | string | 是 | 要读取的远程文件路径 |
+| `encoding` | string | 否 | 文件编码（默认：utf-8） |
+| `maxSize` | number | 否 | 读取的最大文件大小，单位为 MB（默认：10） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 文件内容字符串 |
+| `size` | number | 文件大小（字节） |
+| `lines` | number | 文件行数 |
+| `remotePath` | string | 远程文件路径 |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+### 写入文件内容
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="SSH"
+    type="ssh"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ssh_write_file_content",
+            "options": [
+                {
+                    "id": "ssh_execute_command",
+                    "label": "执行命令"
+                },
+                {
+                    "id": "ssh_execute_script",
+                    "label": "执行脚本"
+                },
+                {
+                    "id": "ssh_check_command_exists",
+                    "label": "检查命令是否存在"
+                },
+                {
+                    "id": "ssh_upload_file",
+                    "label": "上传文件"
+                },
+                {
+                    "id": "ssh_download_file",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "ssh_list_directory",
+                    "label": "列出目录"
+                },
+                {
+                    "id": "ssh_check_file_exists",
+                    "label": "检查文件/目录是否存在"
+                },
+                {
+                    "id": "ssh_create_directory",
+                    "label": "创建目录"
+                },
+                {
+                    "id": "ssh_delete_file",
+                    "label": "删除文件/目录"
+                },
+                {
+                    "id": "ssh_move_rename",
+                    "label": "移动/重命名"
+                },
+                {
+                    "id": "ssh_get_system_info",
+                    "label": "获取系统信息"
+                },
+                {
+                    "id": "ssh_read_file_content",
+                    "label": "读取文件内容"
+                },
+                {
+                    "id": "ssh_write_file_content",
+                    "label": "写入文件内容"
+                }
+            ]
+        },
+        {
+            "id": "host",
+            "type": "short-input",
+            "title": "主机",
+            "placeholder": "example.com 或 192.168.1.100",
+            "required": true
+        },
+        {
+            "id": "port",
+            "type": "short-input",
+            "title": "端口",
+            "placeholder": "22",
+            "defaultValue": "22"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "placeholder": "ubuntu、root 或 deploy",
+            "required": true
+        },
+        {
+            "id": "authMethod",
+            "type": "dropdown",
+            "title": "身份验证方式",
+            "defaultValue": "password",
+            "options": [
+                {
+                    "id": "password",
+                    "label": "密码"
+                },
+                {
+                    "id": "privateKey",
+                    "label": "私钥"
+                }
+            ]
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "密码",
+            "placeholder": "你的 SSH 密码",
+            "password": true,
+            "description": "当 authMethod 为 'password' 时显示。"
+        },
+        {
+            "id": "privateKey",
+            "type": "code",
+            "title": "私钥",
+            "placeholder": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+            "language": "plaintext",
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "passphrase",
+            "type": "short-input",
+            "title": "密码短语",
+            "placeholder": "加密密钥的密码短语（可选）",
+            "password": true,
+            "description": "当 authMethod 为 'privateKey' 时显示。"
+        },
+        {
+            "id": "writePath",
+            "type": "short-input",
+            "title": "文件路径",
+            "placeholder": "/etc/config.json",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "code",
+            "title": "文件内容",
+            "placeholder": "要写入的内容...",
+            "language": "plaintext",
+            "required": true
+        },
+        {
+            "id": "writeMode",
+            "type": "dropdown",
+            "title": "写入模式",
+            "defaultValue": "overwrite",
+            "options": [
+                {
+                    "id": "overwrite",
+                    "label": "覆盖"
+                },
+                {
+                    "id": "append",
+                    "label": "追加"
+                },
+                {
+                    "id": "create",
+                    "label": "创建（已存在则失败）"
+                }
+            ]
+        },
+        {
+            "id": "writePermissions",
+            "type": "short-input",
+            "title": "权限",
+            "placeholder": "0644"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">写入文件内容（<code>ssh_write_file_content</code>）</div>
+
+向远程文件写入或追加内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `host` | string | 是 | SSH 服务器主机名或 IP 地址 |
+| `port` | number | 是 | SSH 服务器端口（默认：22） |
+| `username` | string | 是 | SSH 用户名 |
+| `password` | string | 否 | 身份验证密码（未使用私钥时） |
+| `privateKey` | string | 否 | 身份验证私钥（OpenSSH 格式） |
+| `passphrase` | string | 否 | 加密私钥的密码短语 |
+| `path` | string | 是 | 要写入的远程文件路径 |
+| `content` | string | 是 | 要写入文件的内容 |
+| `mode` | string | 否 | 写入模式：overwrite、append 或 create（默认：overwrite） |
+| `permissions` | string | 否 | 文件权限（例如 0644） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `written` | boolean | 文件是否写入成功 |
+| `remotePath` | string | 文件路径 |
+| `size` | number | 最终文件大小（字节） |
+| `message` | string | 操作状态消息 |
+
+</div>
+
+---
+
+## 使用说明
+
+通过 SSH 执行命令、传输文件并管理远程服务器。支持密码和私钥身份验证，用于安全访问服务器。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`ssh`

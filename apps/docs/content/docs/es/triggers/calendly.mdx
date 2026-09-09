@@ -1,0 +1,848 @@
+---
+title: Disparador de Calendly
+description: Dispara un flujo de trabajo desde cualquier evento webhook de Calendly
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="calendly"
+  color=""
+/>
+
+Dispara un flujo de trabajo desde cualquier evento webhook de Calendly
+
+<Callout type="info">
+  Este es un disparador **basado en webhook**. Configura el servicio externo para enviar eventos a la URL del webhook del flujo de trabajo.
+</Callout>
+
+<Cards>
+  <Card title="Usar como herramienta" href="/tools/calendly">
+    Consulta las acciones del flujo de trabajo, las operaciones y las entradas de la herramienta para Calendly.
+  </Card>
+</Cards>
+
+## Eventos
+
+### Webhook de Calendly
+
+Dispara un flujo de trabajo desde cualquier evento webhook de Calendly
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> <strong>Nota:</strong> Este disparador requiere una suscripción de pago de Calendly (plan Professional, Teams o Enterprise).</div><div class="mb-3"><strong>2.</strong> Obtén tu token de acceso personal en <strong>Settings > Integrations > API & Webhooks</strong> de tu cuenta de Calendly.</div><div class="mb-3"><strong>3.</strong> Usa la operación "Obtener usuario actual" en un bloque de Calendly para recuperar la URI de tu organización.</div><div class="mb-3"><strong>4.</strong> El webhook se creará automáticamente en Calendly cuando guardes este disparador.</div><div class="mb-3"><strong>5.</strong> Este webhook se suscribe a todos los eventos de Calendly (invitee created, invitee canceled y routing form submitted). Usa el campo <code>event</code> del payload para determinar el tipo de evento.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Webhook de Calendly"
+    type="calendly_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de acceso personal",
+            "placeholder": "Introduce tu token de acceso personal de Calendly",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "URI de la organización",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "URI de la organización para la suscripción del webhook. Obténla de la operación \"Obtener usuario actual\".",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Tipo de evento (invitee.created, invitee.canceled o routing_form_submission.created)"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Marca de tiempo de creación del evento webhook"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "URI del usuario de Calendly que creó este webhook"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "description": "Payload completo del evento (la estructura varía según el tipo de evento)"
+      }
+  ]}
+/>
+
+---
+
+### Invitado creado en Calendly
+
+Activa el flujo de trabajo cuando alguien programa un evento nuevo en Calendly
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> <strong>Nota:</strong> Este activador requiere una suscripción de pago de Calendly (plan Professional, Teams o Enterprise).</div><div class="mb-3"><strong>2.</strong> Obtén tu token de acceso personal en <strong>Configuración > Integraciones > API & Webhooks</strong> de tu cuenta de Calendly.</div><div class="mb-3"><strong>3.</strong> Usa la operación "Obtener usuario actual" en un bloque de Calendly para obtener el URI de tu organización.</div><div class="mb-3"><strong>4.</strong> El webhook se creará automáticamente en Calendly cuando guardes este activador.</div><div class="mb-3"><strong>5.</strong> Este webhook se activa cuando un invitado programa un evento nuevo. Reprogramar activa eventos de cancelación y de creación.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Invitado creado en Calendly"
+    type="calendly_invitee_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de acceso personal",
+            "placeholder": "Introduce tu token de acceso personal de Calendly",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "URI de la organización",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "URI de la organización para la suscripción del webhook. Obténlo de la operación \"Obtener usuario actual\".",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Tipo de evento (invitee.created o invitee.canceled)"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Marca de tiempo de creación del evento webhook"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "URI del usuario de Calendly que creó este webhook"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "uri",
+                  "type": "string",
+                  "description": "URI del invitado"
+              },
+              {
+                  "name": "email",
+                  "type": "string",
+                  "description": "Correo electrónico del invitado"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Nombre completo del invitado"
+              },
+              {
+                  "name": "first_name",
+                  "type": "string",
+                  "description": "Nombre del invitado"
+              },
+              {
+                  "name": "last_name",
+                  "type": "string",
+                  "description": "Apellido del invitado"
+              },
+              {
+                  "name": "status",
+                  "type": "string",
+                  "description": "Estado del invitado (active o canceled)"
+              },
+              {
+                  "name": "timezone",
+                  "type": "string",
+                  "description": "Zona horaria del invitado"
+              },
+              {
+                  "name": "event",
+                  "type": "string",
+                  "description": "URI del evento programado"
+              },
+              {
+                  "name": "questions_and_answers",
+                  "type": "array",
+                  "description": "Preguntas y respuestas del formulario de reserva",
+                  "children": [
+                      {
+                          "name": "question",
+                          "type": "string",
+                          "description": "Texto de la pregunta"
+                      },
+                      {
+                          "name": "answer",
+                          "type": "string",
+                          "description": "Texto de la respuesta"
+                      }
+                  ]
+              },
+              {
+                  "name": "tracking",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "utm_campaign",
+                          "type": "string",
+                          "description": "Parámetro de campaña UTM"
+                      },
+                      {
+                          "name": "utm_source",
+                          "type": "string",
+                          "description": "Parámetro de origen UTM"
+                      },
+                      {
+                          "name": "utm_medium",
+                          "type": "string",
+                          "description": "Parámetro de medio UTM"
+                      },
+                      {
+                          "name": "utm_content",
+                          "type": "string",
+                          "description": "Parámetro de contenido UTM"
+                      },
+                      {
+                          "name": "utm_term",
+                          "type": "string",
+                          "description": "Parámetro de término UTM"
+                      },
+                      {
+                          "name": "salesforce_uuid",
+                          "type": "string",
+                          "description": "UUID de Salesforce"
+                      }
+                  ]
+              },
+              {
+                  "name": "text_reminder_number",
+                  "type": "string",
+                  "description": "Número de teléfono para recordatorios de texto"
+              },
+              {
+                  "name": "rescheduled",
+                  "type": "boolean",
+                  "description": "Si este invitado reprogramó"
+              },
+              {
+                  "name": "old_invitee",
+                  "type": "string",
+                  "description": "URI del invitado anterior (si se reprogramó)"
+              },
+              {
+                  "name": "new_invitee",
+                  "type": "string",
+                  "description": "URI del invitado nuevo (si se reprogramó)"
+              },
+              {
+                  "name": "cancel_url",
+                  "type": "string",
+                  "description": "URL para cancelar el evento"
+              },
+              {
+                  "name": "reschedule_url",
+                  "type": "string",
+                  "description": "URL para reprogramar el evento"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Marca de tiempo de creación del invitado"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última actualización del invitado"
+              },
+              {
+                  "name": "canceled",
+                  "type": "boolean",
+                  "description": "Si el evento se canceló"
+              },
+              {
+                  "name": "cancellation",
+                  "type": "object",
+                  "description": "Detalles de la cancelación",
+                  "children": [
+                      {
+                          "name": "canceled_by",
+                          "type": "string",
+                          "description": "Quién canceló el evento"
+                      },
+                      {
+                          "name": "reason",
+                          "type": "string",
+                          "description": "Motivo de la cancelación"
+                      }
+                  ]
+              },
+              {
+                  "name": "payment",
+                  "type": "object",
+                  "description": "Detalles del pago",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "string",
+                          "description": "ID del pago"
+                      },
+                      {
+                          "name": "provider",
+                          "type": "string",
+                          "description": "Proveedor de pagos"
+                      },
+                      {
+                          "name": "amount",
+                          "type": "number",
+                          "description": "Importe del pago"
+                      },
+                      {
+                          "name": "currency",
+                          "type": "string",
+                          "description": "Moneda del pago"
+                      },
+                      {
+                          "name": "terms",
+                          "type": "string",
+                          "description": "Condiciones de pago"
+                      },
+                      {
+                          "name": "successful",
+                          "type": "boolean",
+                          "description": "Si el pago se realizó correctamente"
+                      }
+                  ]
+              },
+              {
+                  "name": "no_show",
+                  "type": "object",
+                  "description": "Detalles de inasistencia",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "Marca de tiempo de marcado de inasistencia"
+                      }
+                  ]
+              },
+              {
+                  "name": "reconfirmation",
+                  "type": "object",
+                  "description": "Detalles de la reconfirmación",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "Marca de tiempo de la reconfirmación"
+                      },
+                      {
+                          "name": "confirmed_at",
+                          "type": "string",
+                          "description": "Marca de tiempo de la confirmación"
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Invitado cancelado de Calendly
+
+Activa el flujo de trabajo cuando alguien cancela un evento programado en Calendly
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> <strong>Nota:</strong> Este activador requiere una suscripción de pago de Calendly (plan Professional, Teams o Enterprise).</div><div class="mb-3"><strong>2.</strong> Obtén tu token de acceso personal en <strong>Settings > Integrations > API & Webhooks</strong> de tu cuenta de Calendly.</div><div class="mb-3"><strong>3.</strong> Usa la operación "Get Current User" en un bloque de Calendly para obtener tu URI de organización.</div><div class="mb-3"><strong>4.</strong> El webhook se creará automáticamente en Calendly cuando guardes este activador.</div><div class="mb-3"><strong>5.</strong> Este webhook se activa cuando un invitado cancela un evento. El payload incluye los detalles de la cancelación y el motivo.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Invitado cancelado de Calendly"
+    type="calendly_invitee_canceled"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de acceso personal",
+            "placeholder": "Introduce tu token de acceso personal de Calendly",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "URI de la organización",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "URI de la organización para la suscripción del webhook. Obténla con la operación \"Get Current User\".",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Tipo de evento (invitee.created o invitee.canceled)"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Marca de tiempo de creación del evento de webhook"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "URI del usuario de Calendly que creó este webhook"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "uri",
+                  "type": "string",
+                  "description": "URI del invitado"
+              },
+              {
+                  "name": "email",
+                  "type": "string",
+                  "description": "Dirección de correo del invitado"
+              },
+              {
+                  "name": "name",
+                  "type": "string",
+                  "description": "Nombre completo del invitado"
+              },
+              {
+                  "name": "first_name",
+                  "type": "string",
+                  "description": "Nombre del invitado"
+              },
+              {
+                  "name": "last_name",
+                  "type": "string",
+                  "description": "Apellido del invitado"
+              },
+              {
+                  "name": "status",
+                  "type": "string",
+                  "description": "Estado del invitado (active o canceled)"
+              },
+              {
+                  "name": "timezone",
+                  "type": "string",
+                  "description": "Zona horaria del invitado"
+              },
+              {
+                  "name": "event",
+                  "type": "string",
+                  "description": "URI del evento programado"
+              },
+              {
+                  "name": "questions_and_answers",
+                  "type": "array",
+                  "description": "Preguntas y respuestas del formulario de reserva",
+                  "children": [
+                      {
+                          "name": "question",
+                          "type": "string",
+                          "description": "Texto de la pregunta"
+                      },
+                      {
+                          "name": "answer",
+                          "type": "string",
+                          "description": "Texto de la respuesta"
+                      }
+                  ]
+              },
+              {
+                  "name": "tracking",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "utm_campaign",
+                          "type": "string",
+                          "description": "Parámetro de campaña UTM"
+                      },
+                      {
+                          "name": "utm_source",
+                          "type": "string",
+                          "description": "Parámetro de origen UTM"
+                      },
+                      {
+                          "name": "utm_medium",
+                          "type": "string",
+                          "description": "Parámetro de medio UTM"
+                      },
+                      {
+                          "name": "utm_content",
+                          "type": "string",
+                          "description": "Parámetro de contenido UTM"
+                      },
+                      {
+                          "name": "utm_term",
+                          "type": "string",
+                          "description": "Parámetro de término UTM"
+                      },
+                      {
+                          "name": "salesforce_uuid",
+                          "type": "string",
+                          "description": "UUID de Salesforce"
+                      }
+                  ]
+              },
+              {
+                  "name": "text_reminder_number",
+                  "type": "string",
+                  "description": "Número de teléfono para recordatorios por SMS"
+              },
+              {
+                  "name": "rescheduled",
+                  "type": "boolean",
+                  "description": "Si este invitado reprogramó"
+              },
+              {
+                  "name": "old_invitee",
+                  "type": "string",
+                  "description": "URI del invitado anterior (si se reprogramó)"
+              },
+              {
+                  "name": "new_invitee",
+                  "type": "string",
+                  "description": "URI del nuevo invitado (si se reprogramó)"
+              },
+              {
+                  "name": "cancel_url",
+                  "type": "string",
+                  "description": "URL para cancelar el evento"
+              },
+              {
+                  "name": "reschedule_url",
+                  "type": "string",
+                  "description": "URL para reprogramar el evento"
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Marca de tiempo de creación del invitado"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última actualización del invitado"
+              },
+              {
+                  "name": "canceled",
+                  "type": "boolean",
+                  "description": "Si el evento fue cancelado"
+              },
+              {
+                  "name": "cancellation",
+                  "type": "object",
+                  "description": "Detalles de la cancelación",
+                  "children": [
+                      {
+                          "name": "canceled_by",
+                          "type": "string",
+                          "description": "Quién canceló el evento"
+                      },
+                      {
+                          "name": "reason",
+                          "type": "string",
+                          "description": "Motivo de la cancelación"
+                      }
+                  ]
+              },
+              {
+                  "name": "payment",
+                  "type": "object",
+                  "description": "Detalles del pago",
+                  "children": [
+                      {
+                          "name": "id",
+                          "type": "string",
+                          "description": "ID de pago"
+                      },
+                      {
+                          "name": "provider",
+                          "type": "string",
+                          "description": "Proveedor de pago"
+                      },
+                      {
+                          "name": "amount",
+                          "type": "number",
+                          "description": "Importe del pago"
+                      },
+                      {
+                          "name": "currency",
+                          "type": "string",
+                          "description": "Moneda del pago"
+                      },
+                      {
+                          "name": "terms",
+                          "type": "string",
+                          "description": "Condiciones de pago"
+                      },
+                      {
+                          "name": "successful",
+                          "type": "boolean",
+                          "description": "Si el pago se realizó correctamente"
+                      }
+                  ]
+              },
+              {
+                  "name": "no_show",
+                  "type": "object",
+                  "description": "Detalles de inasistencia",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "Marca de tiempo de registro de inasistencia"
+                      }
+                  ]
+              },
+              {
+                  "name": "reconfirmation",
+                  "type": "object",
+                  "description": "Detalles de reconfirmación",
+                  "children": [
+                      {
+                          "name": "created_at",
+                          "type": "string",
+                          "description": "Marca de tiempo de reconfirmación"
+                      },
+                      {
+                          "name": "confirmed_at",
+                          "type": "string",
+                          "description": "Marca de tiempo de confirmación"
+                      }
+                  ]
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Formulario de enrutamiento de Calendly enviado
+
+Activa el flujo de trabajo cuando alguien envía un formulario de enrutamiento de Calendly
+
+#### Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> <strong>Nota:</strong> Este activador requiere una suscripción de pago de Calendly (plan Professional, Teams o Enterprise).</div><div class="mb-3"><strong>2.</strong> Obtén tu token de acceso personal en <strong>Configuración > Integraciones > API y webhooks</strong> de tu cuenta de Calendly.</div><div class="mb-3"><strong>3.</strong> Usa la operación "Get Current User" en un bloque de Calendly para obtener tu URI de organización.</div><div class="mb-3"><strong>4.</strong> El webhook se creará automáticamente en Calendly cuando guardes este activador.</div><div class="mb-3"><strong>5.</strong> Este webhook se activa cuando alguien envía un formulario de enrutamiento, independientemente de si reserva un evento.</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Formulario de enrutamiento de Calendly enviado"
+    type="calendly_routing_form_submitted"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de acceso personal",
+            "placeholder": "Introduce tu token de acceso personal de Calendly",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organization",
+            "type": "short-input",
+            "title": "URI de la organización",
+            "placeholder": "https://api.calendly.com/organizations/XXXXXX",
+            "description": "URI de la organización para la suscripción del webhook. Obtén este valor de la operación \"Get Current User\".",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### Esquema de salida
+
+<SchemaTree
+  title="Payload del evento"
+  fields={[
+      {
+          "name": "event",
+          "type": "string",
+          "description": "Tipo de evento (routing_form_submission.created)"
+      },
+      {
+          "name": "created_at",
+          "type": "string",
+          "description": "Marca de tiempo de creación del evento webhook"
+      },
+      {
+          "name": "created_by",
+          "type": "string",
+          "description": "URI del usuario de Calendly que creó este webhook"
+      },
+      {
+          "name": "payload",
+          "type": "object",
+          "children": [
+              {
+                  "name": "uri",
+                  "type": "string",
+                  "description": "URI del envío del formulario de enrutamiento"
+              },
+              {
+                  "name": "routing_form",
+                  "type": "string",
+                  "description": "URI del formulario de enrutamiento"
+              },
+              {
+                  "name": "submitter",
+                  "type": "object",
+                  "description": "Datos del remitente",
+                  "children": [
+                      {
+                          "name": "uri",
+                          "type": "string",
+                          "description": "URI del remitente"
+                      },
+                      {
+                          "name": "email",
+                          "type": "string",
+                          "description": "Correo electrónico del remitente"
+                      },
+                      {
+                          "name": "name",
+                          "type": "string",
+                          "description": "Nombre completo del remitente"
+                      }
+                  ]
+              },
+              {
+                  "name": "submitter_type",
+                  "type": "string",
+                  "description": "Tipo de remitente"
+              },
+              {
+                  "name": "questions_and_answers",
+                  "type": "array",
+                  "description": "Preguntas y respuestas del formulario de reserva",
+                  "children": [
+                      {
+                          "name": "question",
+                          "type": "string",
+                          "description": "Texto de la pregunta"
+                      },
+                      {
+                          "name": "answer",
+                          "type": "string",
+                          "description": "Texto de la respuesta"
+                      }
+                  ]
+              },
+              {
+                  "name": "tracking",
+                  "type": "object",
+                  "children": [
+                      {
+                          "name": "utm_campaign",
+                          "type": "string",
+                          "description": "Parámetro UTM campaign"
+                      },
+                      {
+                          "name": "utm_source",
+                          "type": "string",
+                          "description": "Parámetro UTM source"
+                      },
+                      {
+                          "name": "utm_medium",
+                          "type": "string",
+                          "description": "Parámetro UTM medium"
+                      },
+                      {
+                          "name": "utm_content",
+                          "type": "string",
+                          "description": "Parámetro UTM content"
+                      },
+                      {
+                          "name": "utm_term",
+                          "type": "string",
+                          "description": "Parámetro UTM term"
+                      },
+                      {
+                          "name": "salesforce_uuid",
+                          "type": "string",
+                          "description": "UUID de Salesforce"
+                      }
+                  ]
+              },
+              {
+                  "name": "result",
+                  "type": "object",
+                  "description": "Detalles del resultado de enrutamiento",
+                  "children": [
+                      {
+                          "name": "type",
+                          "type": "string",
+                          "description": "Tipo de resultado (event_type, custom_message o external_url)"
+                      },
+                      {
+                          "name": "value",
+                          "type": "string",
+                          "description": "Valor del resultado (URI del tipo de evento, mensaje o URL)"
+                      }
+                  ]
+              },
+              {
+                  "name": "created_at",
+                  "type": "string",
+                  "description": "Marca de tiempo de creación del envío"
+              },
+              {
+                  "name": "updated_at",
+                  "type": "string",
+                  "description": "Marca de tiempo de la última actualización del envío"
+              }
+          ]
+      }
+  ]}
+/>
+
+---

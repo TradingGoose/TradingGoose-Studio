@@ -1,0 +1,84 @@
+---
+title: 自定义工具编辑器
+description: 编辑工作区自定义工具。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|----------|-------|
+| **键** | `editor_custom_tool` |
+| **分类** | 编辑器 |
+
+自定义工具编辑器用于定义和修改智能体在工作流中可调用的自定义工具。每个工具包含标题、描述其输入的 JSON schema，以及工具被调用时运行的 JavaScript 函数体。标题与 schema 分开保存。使用[自定义工具列表](/widgets/list-custom-tool)组件浏览、创建和导入工具；编辑器是编写其逻辑的主要工作区。
+
+## 功能
+
+- **双区布局**，通过标题栏中的 **配置** 和 **代码** 选项卡切换。
+- **配置区** 提供 Monaco JSON 编辑器，用于编写 OpenAI 函数调用 schema 格式。schema 必须包含 `type: "function"` 以及带有 `type: "object"` 和 `properties` 的 `function.parameters`。`function.description` 和 `function.parameters.required` 为可选。实时校验会在输入时标出错误。
+- **代码区** 提供 Monaco JavaScript 编辑器，用于编写工具的函数体。代码在 `async function(params, environmentVariables)` 上下文中运行。使用 `<paramName>` 语法引用输入参数，使用 `{{VAR_NAME}}` 语法引用环境变量。
+- 两个分区均提供 **AI 生成**：用自然语言描述需求，生成的 JSON schema 或 JavaScript 代码会直接流式写入编辑器。
+- **Schema 参数自动补全**：代码编辑器会在输入时根据 JSON schema 自动建议参数名。
+- **环境变量下拉列表** 在匹配 `{{` 模式时触发，用于插入工作区密钥。
+- **标签下拉列表** 在匹配标签模式时触发，用于引用工作流变量。
+- 标题栏中的 **导出** 按钮将当前自定义工具下载为 TradingGoose 导出 JSON。
+- **保存** 按钮会校验 schema，并同时保存 schema 与代码。若校验失败，编辑器会切换到配置区并显示错误。
+- 标题栏中的 **工具选择器** 用于在自定义工具之间切换。通过颜色链接配对后，会与自定义工具列表组件同步。
+
+## 用法
+
+1. 从小组件选择器将小组件添加到工作区。
+2. 从标题栏下拉菜单中选择已有自定义工具，或通过[自定义工具列表](/widgets/list-custom-tool)小组件创建/导入。
+3. 在 **配置** 选项卡中编写或生成 JSON Schema，用于定义工具的描述和参数。
+4. 切换到 **代码** 选项卡，编写 JavaScript 函数体。使用 `<paramName>` 语法引用输入——代码编辑器会根据 schema 自动补全参数名。
+5. 点击 **保存** 以持久化该工具。编辑器会先校验 schema，并在行内显示错误。
+
+### Schema 格式
+
+JSON Schema 必须遵循 Studio 的自定义工具函数格式：
+
+```json
+{
+  "type": "function",
+  "function": {
+    "description": "What the tool does.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "paramName": {
+          "type": "string",
+          "description": "What this parameter is for."
+        }
+      },
+      "required": ["paramName"]
+    }
+  }
+}
+```
+
+从编辑器导出的自定义工具使用 TradingGoose 共用的导出 JSON 格式。每条导出记录包含顶层 `title`、`schema` 和 `code` 字段。如果通过自定义工具列表小组件导入工具，重复标题会在编辑器打开前自动重命名。
+
+<Callout>
+该小组件支持 **pairColor** 机制。为自定义工具编辑器和[自定义工具列表](/widgets/list-custom-tool)小组件指定相同颜色后，在列表中选中工具会自动在编辑器中打开。
+</Callout>
+
+## 配置
+
+所选工具以 `customToolId` 存储在小组件参数中，关联后通过 pair-color store 同步。当前分区（配置或代码）通过自定义事件在标题选项卡与编辑器主体之间同步。
+
+## 相关
+
+<Cards>
+  <Card title="自定义工具指南" href="/utilities/custom-tools">
+    了解什么是自定义工具、智能体如何调用它们，以及最佳实践。
+  </Card>
+  <Card title="自定义工具列表" href="/widgets/list-custom-tool">
+    在工作区列表中浏览、创建和导入自定义工具。
+  </Card>
+  <Card title="工作流编辑器" href="/widgets/editor-workflow">
+    用于构建和编辑工作流的画布界面。
+  </Card>
+</Cards>

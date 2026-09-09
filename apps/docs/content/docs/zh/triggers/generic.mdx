@@ -1,0 +1,71 @@
+---
+title: 通用触发器
+description: 接收来自任意服务或 API 的 webhook
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="generic"
+  color=""
+/>
+
+接收来自任意服务或 API 的 webhook
+
+<Callout type="info">
+  这是一个**基于 webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+## 设置说明
+
+<div class="mb-3"><strong>1.</strong> 复制 webhook URL，并在外部服务或 API 中使用。</div><div class="mb-3"><strong>2.</strong> 将服务配置为向此 URL 发送 webhook。</div><div class="mb-3"><strong>3.</strong> 该 webhook 可接收任意 HTTP 方法（GET、POST、PUT、DELETE 等）。</div><div class="mb-3"><strong>4.</strong> 所有请求数据（请求头、请求体、查询参数）都将可在工作流中使用。</div><div class="mb-3"><strong>5.</strong> 如果启用了身份验证，请在请求中通过自定义请求头或 "Authorization: Bearer TOKEN" 携带令牌。</div><div class="mb-3"><strong>6.</strong> 当 payload 中包含 "event"、"id" 和 "data" 等常见字段时，系统会自动提取。</div>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="通用 Webhook"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "requireAuth",
+            "type": "switch",
+            "title": "需要身份验证",
+            "description": "所有 webhook 请求均需身份验证",
+            "defaultValue": false
+        },
+        {
+            "id": "token",
+            "type": "short-input",
+            "title": "身份验证令牌",
+            "placeholder": "输入身份验证令牌",
+            "description": "通过 Bearer token 或自定义请求头验证 webhook 请求所用的令牌",
+            "password": true,
+            "required": false
+        },
+        {
+            "id": "secretHeaderName",
+            "type": "short-input",
+            "title": "密钥请求头名称（可选）",
+            "placeholder": "X-Secret-Key",
+            "description": "身份验证令牌的自定义 HTTP 请求头名称。若留空，则使用 \"Authorization: Bearer TOKEN\"",
+            "required": false
+        },
+        {
+            "id": "inputFormat",
+            "type": "input-format",
+            "title": "输入格式",
+            "description": "定义此 webhook 的预期 JSON 输入结构（可选）。文件上传请使用类型 \"files\"。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输出架构
+
+此触发器未声明额外的输出字段。

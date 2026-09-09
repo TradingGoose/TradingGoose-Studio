@@ -1,0 +1,109 @@
+---
+title: Herramientas personalizadas
+description: Cree herramientas limitadas al espacio de trabajo con un esquema
+  JSON y un cuerpo de función JavaScript que los bloques Agent pueden invocar
+  durante la ejecución del flujo de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+Las herramientas personalizadas le permiten definir funciones invocables que los bloques Agent pueden invocar en tiempo de ejecución. Cada herramienta guardada tiene un **título**, un **esquema de función JSON** que describe sus entradas y un **cuerpo de función JavaScript** que se ejecuta cuando se llama a la herramienta. El título se guarda como metadatos de la entidad fuera del esquema de función.
+
+Studio asigna a la herramienta un ID de entidad estable al crearla. Los bloques Agent hacen referencia a esa entidad internamente como `custom_<entityId>`, por lo que cambiar el título no modifica la referencia guardada.
+
+## Esquema de la herramienta
+
+El editor valida el esquema de la función a medida que lo edita. Un esquema no contiene el título de la herramienta ni un campo `function.name`; estos se sustituyen por la identidad de entidad guardada descrita arriba.
+
+```json
+{
+  "type": "function",
+  "function": {
+    "description": "Add one quantity of a food item to the order.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "itemName": {
+          "type": "string",
+          "description": "The name of the food item to add to order"
+        }
+      },
+      "required": ["itemName"]
+    }
+  }
+}
+```
+
+- `type` debe ser `"function"`.
+- `function.description` indica al agente cuándo usar la herramienta.
+- `function.parameters` es un objeto JSON Schema estándar que describe las entradas.
+- `function.parameters.type` debe ser `"object"`, y `properties` debe ser un objeto. El array `required` es opcional.
+
+## Código de la herramienta
+
+La pestaña de código contiene solo el cuerpo de un `async function(params, environmentVariables)`. No incluya el envoltorio de la función ni los imports. En el editor hay dos convenciones de referencia:
+
+- **Parámetros** — encierre el nombre del parámetro entre corchetes angulares, por ejemplo `<itemName>`. El editor ofrece autocompletado a partir del esquema.
+- **Variables de entorno** — use la sintaxis de doble llave: `{{API_KEY}}`.
+
+La función debe `return` un valor cuando se espera que la tool produzca una salida. No se admiten importaciones externas; use `fetch` o las API integradas.
+
+## Crear y editar tools
+
+<Steps>
+  <Step>
+    Abra el widget [Custom Tool Editor](/widgets/editor-custom-tool) en el dashboard de su workspace.
+  </Step>
+  <Step>
+    Seleccione una tool existente en el menú desplegable o cree una nueva desde el widget [Custom Tool List](/widgets/list-custom-tool). Cambie el título desde la lista cuando sea necesario; los títulos son únicos dentro de un workspace.
+  </Step>
+  <Step>
+    Alterne entre las pestañas **Config** y **Code** para editar el esquema JSON y el cuerpo JavaScript, respectivamente. Ambas pestañas incluyen una varita de IA que puede generar contenido a partir de un prompt en lenguaje natural.
+  </Step>
+  <Step>
+    Haga clic en el botón **Save** del encabezado del widget. El editor valida el esquema antes de guardarlo.
+  </Step>
+</Steps>
+
+## Importar y exportar
+
+Las tools personalizadas usan el formato JSON de exportación compartido de TradingGoose. Cada registro exportado contiene un `title`, un `schema` y un `code` de nivel superior. Exporte una tool desde Custom Tool Editor e impórtela desde el widget [Custom Tool List](/widgets/list-custom-tool). Los títulos importados se normalizan y las colisiones de título se renombran para que la importación pueda completarse sin limpieza manual.
+
+## Cómo invocan los agents las tools personalizadas
+
+Cuando agrega una tool personalizada a la lista de tools de un Agent block, Studio almacena la referencia estable `custom_<entityId>`. En tiempo de ejecución, el título guardado se convierte en el nombre de la tool visible para el modelo, mientras que el título y `function.description` forman su descripción y `function.parameters` define su esquema de entrada. El agent decide si llama a la tool y cuándo hacerlo a partir de esa información y del contexto de la conversación; a continuación, Studio ejecuta el cuerpo JavaScript con los parámetros resueltos.
+
+<Callout type="info">
+  Los bloques Agent no pueden usar bloques principales (API, Webhook, Function, Workflow, Memory) como herramientas. En la lista de herramientas solo se permiten integraciones, herramientas MCP y herramientas personalizadas.
+</Callout>
+
+## Herramientas personalizadas vs MCP
+
+| Característica | Herramientas personalizadas | MCP |
+|---------|-------------|-----|
+| **Definición** | Esquema JSON y cuerpo de función JS | Servidor externo que implementa el Model Context Protocol |
+| **Ámbito** | Una función por herramienta | Un solo servidor puede exponer muchas herramientas |
+| **Ejecución de código** | JavaScript en línea en el editor | Se ejecuta en el servidor MCP remoto |
+| **Mejor para** | Lógica rápida y autocontenida o llamadas a API | Conectar con servidores de herramientas de terceros estandarizados |
+
+Para integraciones de herramientas externas con MCP, consulta la [página de utilidad MCP](/utilities/mcp).
+
+<Callout type="warn">
+  Las herramientas personalizadas tienen ámbito de espacio de trabajo. Los miembros necesitan permiso de edición del espacio de trabajo para crearlas, cambiarles el nombre, editarlas, importarlas o eliminarlas. Eliminar una herramienta personalizada elimina su código y su configuración.
+</Callout>
+
+## Relacionado
+
+<Cards>
+  <Card title="Editor de herramienta personalizada" href="/widgets/editor-custom-tool">
+    Widget para editar el esquema y el código de una herramienta personalizada.
+  </Card>
+  <Card title="Lista de herramientas personalizadas" href="/widgets/list-custom-tool">
+    Explora, crea e importa herramientas personalizadas en el espacio de trabajo.
+  </Card>
+  <Card title="MCP" href="/utilities/mcp">
+    Conecta con servidores de herramientas externos mediante el Model Context Protocol.
+  </Card>
+</Cards>

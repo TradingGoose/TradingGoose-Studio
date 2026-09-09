@@ -1,0 +1,77 @@
+---
+title: Activador de Fireflies
+description: Activa el flujo de trabajo cuando se completa la transcripción de
+  una reunión de Fireflies
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="fireflies"
+  color=""
+/>
+
+Activa el flujo de trabajo cuando se completa la transcripción de una reunión de Fireflies
+
+<Callout type="info">
+  Este es un activador **basado en webhook**. Configura el servicio externo para enviar eventos a la URL del webhook del flujo de trabajo.
+</Callout>
+
+<Cards>
+  <Card title="Usar como herramienta" href="/tools/fireflies">
+    Consulta las acciones, operaciones y entradas de herramienta del flujo de trabajo para Fireflies.
+  </Card>
+</Cards>
+
+## Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Ve a <a href="https://app.fireflies.ai/settings" target="_blank" rel="noopener noreferrer">app.fireflies.ai/settings</a></div><div class="mb-3"><strong>2.</strong> Ve a la pestaña <strong>Configuración para desarrolladores</strong></div><div class="mb-3"><strong>3.</strong> En la sección <strong>Webhook</strong>, pega la URL del webhook de arriba</div><div class="mb-3"><strong>4.</strong> Introduce un <strong>secreto</strong> (16-32 caracteres) y guárdalo también aquí</div><div class="mb-3"><strong>5.</strong> Haz clic en <strong>Guardar</strong> en Fireflies para activar el webhook</div><div class="mb-3"><strong>6.</strong> El flujo de trabajo se activará cuando se complete cualquier transcripción de reunión</div>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Transcripción de Fireflies completada"
+    type="fireflies_transcription_complete"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "webhookSecret",
+            "type": "short-input",
+            "title": "Secreto del webhook",
+            "placeholder": "Introduce tu secreto de 16-32 caracteres",
+            "description": "Clave secreta para la verificación de firma HMAC (configurada en el panel de Fireflies)",
+            "password": true,
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+<SchemaTree
+  title="Carga útil del evento"
+  fields={[
+      {
+          "name": "meetingId",
+          "type": "string",
+          "description": "El ID de la reunión transcrita"
+      },
+      {
+          "name": "eventType",
+          "type": "string",
+          "description": "El tipo de evento (transcripción completada)"
+      },
+      {
+          "name": "clientReferenceId",
+          "type": "string",
+          "description": "ID de referencia personalizado si se estableció durante la carga"
+      }
+  ]}
+/>

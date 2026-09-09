@@ -1,0 +1,99 @@
+---
+title: WhatsApp
+description: Enviar mensajes de WhatsApp
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="whatsapp"
+  color="#25D366"
+/>
+
+<Cards>
+  <Card title="Usar como activador" href="/triggers/whatsapp">
+    Consulta los eventos del activador, la configuración y los payloads de eventos de WhatsApp.
+  </Card>
+</Cards>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="WhatsApp"
+    type="whatsapp"
+    color="#25D366"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "phoneNumber",
+            "type": "short-input",
+            "title": "Número de teléfono del destinatario",
+            "layout": "full",
+            "placeholder": "Introduce el número de teléfono con código de país (p. ej., +1234567890)",
+            "required": true
+        },
+        {
+            "id": "message",
+            "type": "long-input",
+            "title": "Mensaje",
+            "layout": "full",
+            "placeholder": "Introduce tu mensaje",
+            "required": true
+        },
+        {
+            "id": "phoneNumberId",
+            "type": "short-input",
+            "title": "ID de número de teléfono de WhatsApp",
+            "layout": "full",
+            "placeholder": "Tu ID de número de teléfono de WhatsApp Business",
+            "required": true
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "Token de acceso",
+            "layout": "full",
+            "placeholder": "Tu token de acceso de la API de WhatsApp Business",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `whatsapp_send_message`
+
+Enviar mensajes de WhatsApp
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `phoneNumber` | string | Sí | Número de teléfono del destinatario con código de país |
+| `message` | string | Sí | Contenido del mensaje a enviar |
+| `phoneNumberId` | string | Sí | ID de número de teléfono de WhatsApp Business |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito del envío del mensaje de WhatsApp |
+| `messageId` | string | Identificador único del mensaje de WhatsApp |
+| `phoneNumber` | string | Número de teléfono del destinatario |
+| `status` | string | Estado de entrega del mensaje |
+| `timestamp` | string | Marca de tiempo de envío del mensaje |
+
+## Instrucciones de uso
+
+Integra WhatsApp en el flujo de trabajo. Puede enviar mensajes.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `whatsapp`

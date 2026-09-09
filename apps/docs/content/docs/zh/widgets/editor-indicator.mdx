@@ -1,0 +1,64 @@
+---
+title: 指标编辑器
+description: 在同一工作区中编辑 PineTS 指标。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概览
+
+| 属性 | 值 |
+|----------|-------|
+| **键** | `editor_indicator` |
+| **分类** | 编辑器 |
+
+指标编辑器用于编写和完善自定义 PineTS 指标。它提供完整的 Monaco 代码编辑器（支持 TypeScript）、PineTS 全局对象的内联速查表，以及服务端校验，便于你在保存前验证脚本。使用 [指标列表](/widgets/list-indicator) 组件浏览、创建和导入指标；编辑器是编写其逻辑的主要工作区。
+
+## 功能
+
+- **Monaco 代码编辑器**，支持 TypeScript 语法高亮、自动补全，并自动加载 PineTS 类型定义。
+- **速查工具栏**，按类别分组（data、technical-analysis、input、plot 等）。将指针悬停在任意符号上即可查看其签名、说明和用法示例。
+- **验证按钮**会在服务端用模拟数据运行指标，并报告生成的绘图和标记数量，以及关于不支持的样式或绘图类型的警告。
+- **导出按钮**位于标题栏，将当前已保存的指标下载为 TradingGoose 导出 JSON。若编辑器有未保存更改，请先保存。
+- **保存按钮**会持久化 PineTS 代码，并根据脚本中的 `input.*` 调用自动推断 `inputMeta`，以便图表渲染输入控件。
+- **Wand 提示栏**可用通俗英语描述指标逻辑，生成的 PineTS 代码会直接流式写入编辑器。
+- **环境变量下拉菜单**在输入 `{{` 模式时触发，便于在指标代码中引用工作区密钥。
+- **指标选择器**位于标题栏，用于在当前工作区的指标之间切换。通过颜色链接配对后，选择器会与指标列表组件同步。
+
+## 用法
+
+1. 从小组件选择器将小组件添加到工作区。
+2. 从标题栏下拉菜单中选择已有指标，或先在 [指标列表](/widgets/list-indicator) 小组件中创建。
+3. 在编辑器中编写 PineTS 代码。直接使用全局变量 -- `close`, `ta.sma`, `input.int`, `plot` -- 无需 `$` 前缀。
+4. 点击 **验证** 按钮（对勾图标）执行服务端试运行。修复出现的错误或警告。
+5. 点击 **保存** 按钮以持久化该指标。图表将在下次渲染时应用更新后的代码。
+
+### 键盘快捷键
+
+- **魔杖切换**：点击编辑器装订线中的魔杖图标，打开或关闭 AI 提示栏。
+
+<Callout>
+此小组件支持 **pairColor** 机制。为指标编辑器和 [指标列表](/widgets/list-indicator) 小组件指定相同颜色后，在列表中选择指标会自动在编辑器中打开。
+</Callout>
+
+## 配置
+
+该小组件除指标选择器外没有其他面向用户的配置。所选指标以 `pineIndicatorId` 存储在小组件参数中，关联后通过 pair-color 存储同步。
+
+## 相关
+
+<Cards>
+  <Card title="PineTS 脚本指南" href="/indicators">
+    PineTS 运行时、内置函数和输入类型的完整参考。
+  </Card>
+  <Card title="指标列表" href="/widgets/list-indicator">
+    从工作区列表浏览、创建和导入指标。
+  </Card>
+  <Card title="数据图表" href="/widgets/data-chart">
+    在价格数据上渲染指标叠加层。
+  </Card>
+  <Card title="指标触发器" href="/triggers/indicator">
+    根据指标条件触发工作流。
+  </Card>
+</Cards>

@@ -1,0 +1,47 @@
+---
+title: Lista de herramientas personalizadas
+description: Explora, crea e importa herramientas personalizadas del espacio de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `list_custom_tool` |
+| **Categoría** | Lista |
+
+El widget Lista de herramientas personalizadas es el explorador del espacio de trabajo para herramientas personalizadas reutilizables. Úsalo para buscar herramientas existentes, crear otras nuevas, importar JSON de exportación de TradingGoose y abrir la herramienta seleccionada en el Editor de herramientas personalizadas.
+
+## Características
+
+- **Explorar y buscar** herramientas personalizadas en el espacio de trabajo actual.
+- **Crear nuevas** herramientas personalizadas desde el menú Crear.
+- **Importar** herramientas personalizadas desde el menú Crear con la acción **Importar herramientas personalizadas**.
+- **Abrir en el editor** seleccionando una herramienta de la lista.
+- **La vinculación por color de emparejamiento** mantiene la lista sincronizada con el Editor de herramientas personalizadas cuando ambos widgets comparten el mismo color.
+- **La gestión automática de nombres** actualiza los títulos importados cuando coinciden con herramientas existentes.
+
+## Uso
+
+1. Añade el widget a un panel del espacio de trabajo.
+2. Usa el menú Crear para añadir una herramienta personalizada nueva o importar un archivo JSON de exportación de TradingGoose.
+3. Selecciona una herramienta de la lista para abrirla en el widget Editor de herramientas personalizadas emparejado.
+4. Asigna un color de emparejamiento si quieres que los cambios de selección se mantengan sincronizados entre la lista y el editor.
+
+<Callout type="info">
+  Las acciones de crear e importar requieren permiso de edición en el espacio de trabajo. Explorar las herramientas existentes solo requiere acceso al espacio de trabajo.
+</Callout>
+
+## Relacionado
+
+<Cards>
+  <Card title="Editor de herramientas personalizadas" href="/widgets/editor-custom-tool">
+    Define el esquema y el código de una herramienta personalizada.
+  </Card>
+  <Card title="Guía de herramientas personalizadas" href="/utilities/custom-tools">
+    Aprende cómo se estructuran, se guardan y se invocan las herramientas personalizadas en tiempo de ejecución.
+  </Card>
+</Cards>

@@ -1,0 +1,5049 @@
+---
+title: Zendesk
+description: Gestiona tickets de soporte, usuarios y organizaciones en Zendesk
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="zendesk"
+  color="#CAEC6C"
+/>
+
+## Configuración
+
+### Obtener tickets
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_tickets",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Combinar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo electrónico asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "short-input",
+            "title": "Estado",
+            "placeholder": "Estado (new, open, pending, hold, solved, closed)"
+        },
+        {
+            "id": "priority",
+            "type": "short-input",
+            "title": "Prioridad",
+            "placeholder": "Prioridad (low, normal, high, urgent)"
+        },
+        {
+            "id": "type",
+            "type": "short-input",
+            "title": "Tipo",
+            "placeholder": "Tipo (problem, incident, question, task)"
+        },
+        {
+            "id": "assigneeId",
+            "type": "short-input",
+            "title": "ID de asignado",
+            "placeholder": "ID de usuario al que asignar el ticket"
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización"
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Por página",
+            "placeholder": "Resultados por página (predeterminado: 100, máx.: 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Página",
+            "placeholder": "Número de página"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener tickets (<code>zendesk_get_tickets</code>)</div>
+
+Recuperar una lista de tickets de Zendesk con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo electrónico de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk \(p. ej., "mycompany" para mycompany.zendesk.com\) |
+| `status` | string | No | Filtrar por estado \(new, open, pending, hold, solved, closed\) |
+| `priority` | string | No | Filtrar por prioridad \(low, normal, high, urgent\) |
+| `type` | string | No | Filtrar por tipo \(problem, incident, question, task\) |
+| `assigneeId` | string | No | Filtrar por ID de usuario asignado |
+| `organizationId` | string | No | Filtrar por ID de organización |
+| `sortBy` | string | No | Campo de ordenación \(created_at, updated_at, priority, status\) |
+| `sortOrder` | string | No | Orden de clasificación \(asc o desc\) |
+| `perPage` | string | No | Resultados por página \(valor predeterminado: 100, máx.: 100\) |
+| `page` | string | No | Número de página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `tickets` | array | Array de objetos de ticket |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener ticket
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_ticket",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Combinar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo electrónico de Zendesk",
+            "description": "La dirección de correo electrónico asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "ticketId",
+            "type": "short-input",
+            "title": "ID de ticket",
+            "placeholder": "ID de ticket",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener ticket (<code>zendesk_get_ticket</code>)</div>
+
+Obtener un ticket por ID desde Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `ticketId` | string | Sí | ID del ticket a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ticket` | object | Objeto ticket |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Crear ticket
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_ticket",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "placeholder": "Asunto del ticket"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Descripción del ticket",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "short-input",
+            "title": "Estado",
+            "placeholder": "Estado (new, open, pending, hold, solved, closed)"
+        },
+        {
+            "id": "priority",
+            "type": "short-input",
+            "title": "Prioridad",
+            "placeholder": "Prioridad (low, normal, high, urgent)"
+        },
+        {
+            "id": "type",
+            "type": "short-input",
+            "title": "Tipo",
+            "placeholder": "Tipo (problem, incident, question, task)"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "Etiquetas separadas por comas"
+        },
+        {
+            "id": "assigneeId",
+            "type": "short-input",
+            "title": "ID del asignado",
+            "placeholder": "ID de usuario al que asignar el ticket"
+        },
+        {
+            "id": "groupId",
+            "type": "short-input",
+            "title": "ID de grupo",
+            "placeholder": "ID de grupo"
+        },
+        {
+            "id": "customFields",
+            "type": "long-input",
+            "title": "Campos personalizados",
+            "placeholder": "Objeto JSON con campos personalizados"
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear ticket (<code>zendesk_create_ticket</code>)</div>
+
+Crea un ticket nuevo en Zendesk con soporte para campos personalizados
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `subject` | string | No | Asunto del ticket \(opcional: se genera automáticamente si no se indica\) |
+| `description` | string | Sí | Descripción del ticket \(primer comentario\) |
+| `priority` | string | No | Prioridad \(low, normal, high, urgent\) |
+| `status` | string | No | Estado \(new, open, pending, hold, solved, closed\) |
+| `type` | string | No | Tipo \(problem, incident, question, task\) |
+| `tags` | string | No | Etiquetas separadas por comas |
+| `assigneeId` | string | No | ID de usuario asignado |
+| `groupId` | string | No | ID de grupo |
+| `requesterId` | string | No | ID de usuario solicitante |
+| `customFields` | string | No | Campos personalizados como objeto JSON \(p. ej., \{"field_id": "value"\}\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ticket` | object | Objeto del ticket creado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Crear tickets en lote
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_tickets_bulk",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo electrónico asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "tickets",
+            "type": "long-input",
+            "title": "Tickets",
+            "placeholder": "Array JSON de objetos de ticket",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear tickets en lote (<code>zendesk_create_tickets_bulk</code>)</div>
+
+Crear varios tickets en Zendesk a la vez (máx. 100)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `tickets` | string | Sí | Array JSON de objetos de ticket que se van a crear \(máx. 100\). Cada ticket debe tener las propiedades subject y comment. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `jobStatus` | object | Objeto de estado del trabajo |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Actualizar ticket
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_ticket",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "ticketId",
+            "type": "short-input",
+            "title": "ID de ticket",
+            "placeholder": "ID de ticket",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "placeholder": "Asunto del ticket"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Descripción del ticket"
+        },
+        {
+            "id": "status",
+            "type": "short-input",
+            "title": "Estado",
+            "placeholder": "Estado (new, open, pending, hold, solved, closed)"
+        },
+        {
+            "id": "priority",
+            "type": "short-input",
+            "title": "Prioridad",
+            "placeholder": "Prioridad (low, normal, high, urgent)"
+        },
+        {
+            "id": "type",
+            "type": "short-input",
+            "title": "Tipo",
+            "placeholder": "Tipo (problem, incident, question, task)"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "Etiquetas separadas por comas"
+        },
+        {
+            "id": "assigneeId",
+            "type": "short-input",
+            "title": "ID de asignado",
+            "placeholder": "ID de usuario al que asignar el ticket"
+        },
+        {
+            "id": "groupId",
+            "type": "short-input",
+            "title": "ID de grupo",
+            "placeholder": "ID de grupo"
+        },
+        {
+            "id": "customFields",
+            "type": "long-input",
+            "title": "Campos personalizados",
+            "placeholder": "Objeto JSON con campos personalizados"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar ticket (<code>zendesk_update_ticket</code>)</div>
+
+Actualiza un ticket existente en Zendesk con soporte para campos personalizados
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `ticketId` | string | Sí | ID del ticket a actualizar |
+| `subject` | string | No | Nuevo asunto del ticket |
+| `comment` | string | No | Añadir un comentario al ticket |
+| `priority` | string | No | Prioridad \(low, normal, high, urgent\) |
+| `status` | string | No | Estado \(new, open, pending, hold, solved, closed\) |
+| `type` | string | No | Tipo \(problem, incident, question, task\) |
+| `tags` | string | No | Etiquetas separadas por comas |
+| `assigneeId` | string | No | ID de usuario asignado |
+| `groupId` | string | No | ID de grupo |
+| `customFields` | string | No | Campos personalizados como objeto JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ticket` | object | Objeto del ticket actualizado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Actualizar tickets en masa
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_tickets_bulk",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en masa"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en masa"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en masa"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en masa"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en masa"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "tickets",
+            "type": "long-input",
+            "title": "Tickets",
+            "placeholder": "Array JSON de objetos de ticket",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar tickets en bloque (<code>zendesk_update_tickets_bulk</code>)</div>
+
+Actualizar varios tickets en Zendesk a la vez (máx. 100)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `ticketIds` | string | Sí | IDs de ticket separados por comas que se van a actualizar \(máx. 100\) |
+| `status` | string | No | Nuevo estado para todos los tickets |
+| `priority` | string | No | Nueva prioridad para todos los tickets |
+| `assigneeId` | string | No | Nuevo ID de asignado para todos los tickets |
+| `groupId` | string | No | Nuevo ID de grupo para todos los tickets |
+| `tags` | string | No | Etiquetas separadas por comas para añadir a todos los tickets |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `jobStatus` | object | Objeto de estado del trabajo |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Eliminar ticket
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete_ticket",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en bloque"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en bloque"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en bloque"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en bloque"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en bloque"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "ticketId",
+            "type": "short-input",
+            "title": "ID del ticket",
+            "placeholder": "ID del ticket",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar ticket (<code>zendesk_delete_ticket</code>)</div>
+
+Eliminar un ticket de Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `ticketId` | string | Sí | ID del ticket a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | Eliminación correcta |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Fusionar tickets
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "merge_tickets",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en bloque"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en bloque"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en bloque"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en bloque"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en bloque"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "targetTicketId",
+            "type": "short-input",
+            "title": "ID del ticket de destino",
+            "placeholder": "ID del ticket en el que fusionar",
+            "required": true
+        },
+        {
+            "id": "sourceTicketIds",
+            "type": "short-input",
+            "title": "IDs de tickets de origen",
+            "placeholder": "IDs de tickets a fusionar, separados por comas",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Fusionar tickets (<code>zendesk_merge_tickets</code>)</div>
+
+Fusionar varios tickets en un ticket de destino
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `targetTicketId` | string | Sí | ID del ticket de destino \(los tickets se fusionarán en este\) |
+| `sourceTicketIds` | string | Sí | IDs de tickets de origen separados por comas para fusionar |
+| `targetComment` | string | No | Comentario para añadir al ticket de destino después de fusionar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `jobStatus` | object | Objeto de estado del trabajo |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener usuarios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_users",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en bloque"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en bloque"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en bloque"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en bloque"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en bloque"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Por página",
+            "placeholder": "Resultados por página (por defecto: 100, máx.: 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Página",
+            "placeholder": "Número de página"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener usuarios (<code>zendesk_get_users</code>)</div>
+
+Recupera una lista de usuarios de Zendesk con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk \(p. ej., "mycompany" para mycompany.zendesk.com\) |
+| `role` | string | No | Filtrar por rol \(end-user, agent, admin\) |
+| `permissionSet` | string | No | Filtrar por ID del conjunto de permisos |
+| `perPage` | string | No | Resultados por página \(predeterminado: 100, máx.: 100\) |
+| `page` | string | No | Número de página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `users` | array | Array de objetos de usuario |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_user",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en masa"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en masa"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en masa"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en masa"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en masa"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "placeholder": "ID de usuario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener usuario (<code>zendesk_get_user</code>)</div>
+
+Obtener un usuario por ID de Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `userId` | string | Sí | ID de usuario a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `user` | object | Objeto de usuario |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener usuario actual
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_current_user",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener usuario actual (<code>zendesk_get_current_user</code>)</div>
+
+Obtener el usuario autenticado actualmente de Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo electrónico de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `user` | object | Objeto del usuario actual |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Buscar usuarios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "search_users",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo electrónico de Zendesk",
+            "description": "La dirección de correo electrónico asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta",
+            "placeholder": "Consulta de búsqueda"
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Por página",
+            "placeholder": "Resultados por página (predeterminado: 100, máx.: 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Página",
+            "placeholder": "Número de página"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar usuarios (<code>zendesk_search_users</code>)</div>
+
+Buscar usuarios en Zendesk mediante una cadena de consulta
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `query` | string | No | Cadena de consulta de búsqueda |
+| `externalId` | string | No | ID externo por el que buscar |
+| `perPage` | string | No | Resultados por página \(predeterminado: 100, máx.: 100\) |
+| `page` | string | No | Número de página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `users` | array | Matriz de objetos de usuario |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Crear usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_user",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Combinar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre",
+            "placeholder": "Nombre de usuario",
+            "required": true
+        },
+        {
+            "id": "userEmail",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Correo del usuario"
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear usuario (<code>zendesk_create_user</code>)</div>
+
+Crear un usuario nuevo en Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `name` | string | Sí | Nombre de usuario |
+| `userEmail` | string | No | Correo del usuario |
+| `role` | string | No | Rol del usuario \(end-user, agent, admin\) |
+| `phone` | string | No | Número de teléfono del usuario |
+| `organizationId` | string | No | ID de organización |
+| `verified` | string | No | Establece "true" para omitir la verificación de correo |
+| `tags` | string | No | Etiquetas separadas por comas |
+| `customFields` | string | No | Campos personalizados como objeto JSON \(p. ej., \{"field_id": "value"\}\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `user` | object | Objeto del usuario creado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Crear usuarios en bloque
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_users_bulk",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en bloque"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en bloque"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en bloque"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en bloque"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en bloque"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "users",
+            "type": "long-input",
+            "title": "Usuarios",
+            "placeholder": "Array JSON de objetos de usuario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear usuarios en lote (<code>zendesk_create_users_bulk</code>)</div>
+
+Crear varios usuarios en Zendesk mediante importación masiva
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `users` | string | Sí | Array JSON de objetos de usuario que se van a crear |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `jobStatus` | object | Objeto de estado del trabajo |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Actualizar usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_user",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "placeholder": "ID de usuario",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre",
+            "placeholder": "Nombre de usuario"
+        },
+        {
+            "id": "userEmail",
+            "type": "short-input",
+            "title": "Correo",
+            "placeholder": "Correo del usuario"
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar usuario (<code>zendesk_update_user</code>)</div>
+
+Actualizar un usuario existente en Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `userId` | string | Sí | ID de usuario que se va a actualizar |
+| `name` | string | No | Nuevo nombre de usuario |
+| `userEmail` | string | No | Nuevo correo del usuario |
+| `role` | string | No | Rol de usuario \(end-user, agent, admin\) |
+| `phone` | string | No | Número de teléfono del usuario |
+| `organizationId` | string | No | ID de organización |
+| `verified` | string | No | Establece en "true" para marcar el usuario como verificado |
+| `tags` | string | No | Etiquetas separadas por comas |
+| `customFields` | string | No | Campos personalizados como objeto JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `user` | object | Objeto de usuario actualizado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Actualizar usuarios en lote
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_users_bulk",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "users",
+            "type": "long-input",
+            "title": "Usuarios",
+            "placeholder": "Matriz JSON de objetos de usuario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar usuarios en bloque (<code>zendesk_update_users_bulk</code>)</div>
+
+Actualizar varios usuarios en Zendesk mediante una actualización en bloque
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `users` | string | Sí | Array JSON de objetos de usuario para actualizar \(debe incluir el campo id\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `jobStatus` | object | Objeto de estado del trabajo |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Eliminar usuario
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete_user",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en bloque"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en bloque"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en bloque"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en bloque"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en bloque"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "userId",
+            "type": "short-input",
+            "title": "ID de usuario",
+            "placeholder": "ID de usuario",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar usuario (<code>zendesk_delete_user</code>)</div>
+
+Eliminar un usuario de Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo electrónico de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `userId` | string | Sí | ID de usuario que se va a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | Éxito de la eliminación |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener organizaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_organizations",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en masa"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en masa"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en masa"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en masa"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en masa"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo electrónico de Zendesk",
+            "description": "La dirección de correo electrónico asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Por página",
+            "placeholder": "Resultados por página (predeterminado: 100, máx.: 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Página",
+            "placeholder": "Número de página"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener organizaciones (<code>zendesk_get_organizations</code>)</div>
+
+Recupera una lista de organizaciones de Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo electrónico de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk \(p. ej., "mycompany" para mycompany.zendesk.com\) |
+| `perPage` | string | No | Resultados por página \(predeterminado: 100, máx.: 100\) |
+| `page` | string | No | Número de página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `organizations` | array | Array de objetos de organización |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Obtener organización
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_organization",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en bloque"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en bloque"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en bloque"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en bloque"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en bloque"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo electrónico de Zendesk",
+            "description": "La dirección de correo electrónico asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener organización (<code>zendesk_get_organization</code>)</div>
+
+Obtener una organización por ID de Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `organizationId` | string | Sí | ID de la organización a obtener |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `organization` | object | Objeto de organización |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Autocompletar organizaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "autocomplete_organizations",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en bloque"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en bloque"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en bloque"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en bloque"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en bloque"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "organizationName",
+            "type": "short-input",
+            "title": "Nombre de la organización",
+            "placeholder": "Nombre de la organización",
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Por página",
+            "placeholder": "Resultados por página (predeterminado: 100, máx.: 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Página",
+            "placeholder": "Número de página"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Autocompletar organizaciones (<code>zendesk_autocomplete_organizations</code>)</div>
+
+Autocompletar organizaciones en Zendesk por prefijo de nombre (para coincidencia de nombres/autocompletado)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `name` | string | Sí | Nombre de la organización que se va a buscar |
+| `perPage` | string | No | Resultados por página \(valor predeterminado: 100, máx.: 100\) |
+| `page` | string | No | Número de página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `organizations` | array | Array de objetos de organización |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Crear organización
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_organization",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en masa"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en masa"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en masa"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en masa"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en masa"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "organizationName",
+            "type": "short-input",
+            "title": "Nombre de la organización",
+            "placeholder": "Nombre de la organización"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear organización (<code>zendesk_create_organization</code>)</div>
+
+Crear una nueva organización en Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `name` | string | Sí | Nombre de la organización |
+| `domainNames` | string | No | Nombres de dominio separados por comas |
+| `details` | string | No | Detalles de la organización |
+| `notes` | string | No | Notas de la organización |
+| `tags` | string | No | Etiquetas separadas por comas |
+| `customFields` | string | No | Campos personalizados como objeto JSON \(p. ej., \{"field_id": "value"\}\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `organization` | object | Objeto de la organización creada |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Crear organizaciones en masa
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_organizations_bulk",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en masa"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en masa"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en masa"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en masa"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en masa"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "organizations",
+            "type": "long-input",
+            "title": "Organizaciones",
+            "placeholder": "Array JSON de objetos de organización",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear organizaciones en lote (<code>zendesk_create_organizations_bulk</code>)</div>
+
+Crea varias organizaciones en Zendesk mediante importación masiva
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `organizations` | string | Sí | Array JSON de objetos de organización para crear |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `jobStatus` | object | Objeto de estado del trabajo |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Actualizar organización
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_organization",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Combinar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización"
+        },
+        {
+            "id": "organizationName",
+            "type": "short-input",
+            "title": "Nombre de la organización",
+            "placeholder": "Nombre de la organización"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar organización (<code>zendesk_update_organization</code>)</div>
+
+Actualizar una organización existente en Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `organizationId` | string | Sí | ID de la organización a actualizar |
+| `name` | string | No | Nuevo nombre de la organización |
+| `domainNames` | string | No | Nombres de dominio separados por comas |
+| `details` | string | No | Detalles de la organización |
+| `notes` | string | No | Notas de la organización |
+| `tags` | string | No | Etiquetas separadas por comas |
+| `customFields` | string | No | Campos personalizados como objeto JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `organization` | object | Objeto de organización actualizado |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Eliminar organización
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete_organization",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en lote"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en lote"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en lote"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en lote"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en lote"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar organización (<code>zendesk_delete_organization</code>)</div>
+
+Eliminar una organización de Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu correo electrónico de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `organizationId` | string | Sí | ID de la organización que se va a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | Éxito de la eliminación |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Buscar
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "search",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en masa"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en masa"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Fusionar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en masa"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en masa"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en masa"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu correo electrónico de Zendesk",
+            "description": "La dirección de correo electrónico asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta",
+            "placeholder": "Consulta de búsqueda",
+            "required": true
+        },
+        {
+            "id": "sortBy",
+            "type": "dropdown",
+            "title": "Ordenar por",
+            "options": [
+                {
+                    "id": "relevance",
+                    "label": "Relevancia"
+                },
+                {
+                    "id": "created_at",
+                    "label": "Fecha de creación"
+                },
+                {
+                    "id": "updated_at",
+                    "label": "Fecha de actualización"
+                },
+                {
+                    "id": "priority",
+                    "label": "Prioridad"
+                },
+                {
+                    "id": "status",
+                    "label": "Estado"
+                },
+                {
+                    "id": "ticket_type",
+                    "label": "Tipo de ticket"
+                }
+            ]
+        },
+        {
+            "id": "sortOrder",
+            "type": "dropdown",
+            "title": "Orden",
+            "options": [
+                {
+                    "id": "asc",
+                    "label": "Ascendente"
+                },
+                {
+                    "id": "desc",
+                    "label": "Descendente"
+                }
+            ]
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "Por página",
+            "placeholder": "Resultados por página (por defecto: 100, máx.: 100)"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "Página",
+            "placeholder": "Número de página"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Búsqueda (<code>zendesk_search</code>)</div>
+
+Búsqueda unificada en tickets, usuarios y organizaciones de Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `query` | string | Sí | Cadena de consulta de búsqueda |
+| `sortBy` | string | No | Campo de ordenación \(relevance, created_at, updated_at, priority, status, ticket_type\) |
+| `sortOrder` | string | No | Orden de clasificación \(asc o desc\) |
+| `perPage` | string | No | Resultados por página \(predeterminado: 100, máx.: 100\) |
+| `page` | string | No | Número de página |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `results` | array | Array de objetos de resultado |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+### Recuento de búsqueda
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Zendesk"
+    type="zendesk"
+    color="#CAEC6C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "search_count",
+            "options": [
+                {
+                    "id": "get_tickets",
+                    "label": "Obtener tickets"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "Obtener ticket"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "Crear ticket"
+                },
+                {
+                    "id": "create_tickets_bulk",
+                    "label": "Crear tickets en masa"
+                },
+                {
+                    "id": "update_ticket",
+                    "label": "Actualizar ticket"
+                },
+                {
+                    "id": "update_tickets_bulk",
+                    "label": "Actualizar tickets en masa"
+                },
+                {
+                    "id": "delete_ticket",
+                    "label": "Eliminar ticket"
+                },
+                {
+                    "id": "merge_tickets",
+                    "label": "Combinar tickets"
+                },
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_user",
+                    "label": "Obtener usuario"
+                },
+                {
+                    "id": "get_current_user",
+                    "label": "Obtener usuario actual"
+                },
+                {
+                    "id": "search_users",
+                    "label": "Buscar usuarios"
+                },
+                {
+                    "id": "create_user",
+                    "label": "Crear usuario"
+                },
+                {
+                    "id": "create_users_bulk",
+                    "label": "Crear usuarios en masa"
+                },
+                {
+                    "id": "update_user",
+                    "label": "Actualizar usuario"
+                },
+                {
+                    "id": "update_users_bulk",
+                    "label": "Actualizar usuarios en masa"
+                },
+                {
+                    "id": "delete_user",
+                    "label": "Eliminar usuario"
+                },
+                {
+                    "id": "get_organizations",
+                    "label": "Obtener organizaciones"
+                },
+                {
+                    "id": "get_organization",
+                    "label": "Obtener organización"
+                },
+                {
+                    "id": "autocomplete_organizations",
+                    "label": "Autocompletar organizaciones"
+                },
+                {
+                    "id": "create_organization",
+                    "label": "Crear organización"
+                },
+                {
+                    "id": "create_organizations_bulk",
+                    "label": "Crear organizaciones en masa"
+                },
+                {
+                    "id": "update_organization",
+                    "label": "Actualizar organización"
+                },
+                {
+                    "id": "delete_organization",
+                    "label": "Eliminar organización"
+                },
+                {
+                    "id": "search",
+                    "label": "Buscar"
+                },
+                {
+                    "id": "search_count",
+                    "label": "Recuento de búsqueda"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "Correo electrónico",
+            "placeholder": "Tu dirección de correo de Zendesk",
+            "description": "La dirección de correo asociada a tu cuenta de Zendesk",
+            "required": true
+        },
+        {
+            "id": "apiToken",
+            "type": "short-input",
+            "title": "Token de API",
+            "placeholder": "Introduce tu token de API de Zendesk",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "subdomain",
+            "type": "short-input",
+            "title": "Subdominio",
+            "placeholder": "Tu subdominio de Zendesk (p. ej., \"mycompany\")",
+            "description": "El subdominio de tu URL de Zendesk (mycompany.zendesk.com)",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta",
+            "placeholder": "Consulta de búsqueda",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Recuento de búsqueda (<code>zendesk_search_count</code>)</div>
+
+Cuenta el número de resultados de búsqueda que coinciden con una consulta en Zendesk
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `email` | string | Sí | Tu dirección de correo electrónico de Zendesk |
+| `subdomain` | string | Sí | Tu subdominio de Zendesk |
+| `query` | string | Sí | Cadena de consulta de búsqueda |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `count` | number | Número de resultados coincidentes |
+| `metadata` | object | Metadatos de la operación |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Zendesk en el flujo de trabajo. Puede obtener tickets, obtener ticket, crear ticket, crear tickets en bloque, actualizar ticket, actualizar tickets en bloque, eliminar ticket, fusionar tickets, obtener usuarios, obtener usuario, obtener usuario actual, buscar usuarios, crear usuario, crear usuarios en bloque, actualizar usuario, actualizar usuarios en bloque, eliminar usuario, obtener organizaciones, obtener organización, autocompletar organizaciones, crear organización, crear organizaciones en bloque, actualizar organización, eliminar organización, buscar, recuento de búsqueda.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `zendesk`

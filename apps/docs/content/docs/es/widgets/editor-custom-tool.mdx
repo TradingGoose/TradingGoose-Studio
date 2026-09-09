@@ -1,0 +1,84 @@
+---
+title: Editor de herramientas personalizadas
+description: Edita las herramientas personalizadas del espacio de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `editor_custom_tool` |
+| **Categoría** | Editor |
+
+El Editor de herramientas personalizadas te permite definir y modificar herramientas personalizadas que los agentes pueden llamar durante los flujos de trabajo. Cada herramienta tiene un título, un esquema JSON que describe sus entradas y un cuerpo de función JavaScript que se ejecuta cuando se invoca la herramienta. El título se guarda por separado del esquema. Usa el widget [Lista de herramientas personalizadas](/widgets/list-custom-tool) para explorar, crear e importar herramientas; el editor es el espacio de trabajo principal para escribir su lógica.
+
+## Características
+
+- **Diseño de dos secciones** que se alterna con las pestañas **Configuración** y **Código** de la barra de encabezado.
+- **Sección Configuración** ofrece un editor JSON de Monaco para el formato de esquema de function calling de OpenAI. El esquema debe incluir `type: "function"` e `function.parameters` con `type: "object"` e `properties`. `function.description` e `function.parameters.required` son opcionales. La validación en tiempo real resalta los errores a medida que escribes.
+- **Sección Código** ofrece un editor JavaScript de Monaco para el cuerpo de la función de la herramienta. El código se ejecuta dentro de un contexto `async function(params, environmentVariables)`. Referencia los parámetros de entrada con la sintaxis `<paramName>` y las variables de entorno con la sintaxis `{{VAR_NAME}}`.
+- **Varita de IA** en ambas secciones te permite describir lo que quieres en lenguaje natural y envía el esquema JSON o el código JavaScript generado directamente al editor.
+- **Autocompletado de parámetros del esquema** en el editor de código sugiere automáticamente los nombres de parámetros derivados del esquema JSON a medida que escribes.
+- **Menú desplegable de variables de entorno** se activa con el patrón `{{` y te permite insertar secretos del espacio de trabajo.
+- **Menú desplegable de etiquetas** se activa con el patrón de etiqueta y te permite referenciar variables del flujo de trabajo.
+- **Botón Exportar** en la barra de encabezado descarga la herramienta personalizada actual como JSON de exportación de TradingGoose.
+- **Botón Guardar** valida el esquema y guarda el esquema y el código. Si la validación falla, el editor cambia a la sección Configuración y muestra el error.
+- **Selector de herramientas** en la barra de encabezado cambia entre herramientas personalizadas. Cuando está emparejado mediante un enlace de color, se sincroniza con el widget Lista de herramientas personalizadas.
+
+## Uso
+
+1. Añade el widget a un espacio de trabajo desde el selector de widgets.
+2. Selecciona una herramienta personalizada existente en el menú desplegable del encabezado, o crea/importa una desde el widget [Lista de herramientas personalizadas](/widgets/list-custom-tool).
+3. En la pestaña **Config**, escribe o genera el esquema JSON que define la descripción y los parámetros de la herramienta.
+4. Cambia a la pestaña **Código** y escribe el cuerpo de la función JavaScript. Referencia las entradas con la sintaxis `<paramName>`: el editor de código autocompletará los nombres de los parámetros a partir del esquema.
+5. Haz clic en **Guardar** para persistir la herramienta. El editor valida primero el esquema y muestra los errores en línea.
+
+### Formato del esquema
+
+El esquema JSON debe seguir el formato de función de herramienta personalizada de Studio:
+
+```json
+{
+  "type": "function",
+  "function": {
+    "description": "What the tool does.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "paramName": {
+          "type": "string",
+          "description": "What this parameter is for."
+        }
+      },
+      "required": ["paramName"]
+    }
+  }
+}
+```
+
+Las herramientas personalizadas exportadas desde el editor usan el formato JSON de exportación compartido de TradingGoose. Cada registro exportado contiene los campos de nivel superior `title`, `schema` e `code`. Si importas herramientas a través del widget Lista de herramientas personalizadas, los títulos duplicados se renombran automáticamente antes de que el editor las abra.
+
+<Callout>
+Este widget admite el mecanismo **pairColor**. Asigna el mismo color a un Editor de herramientas personalizadas y a un widget [Lista de herramientas personalizadas](/widgets/list-custom-tool) para que, al seleccionar una herramienta en la lista, se abra automáticamente en el editor.
+</Callout>
+
+## Configuración
+
+La herramienta seleccionada se almacena en los parámetros del widget como `customToolId` y se sincroniza a través del almacén pair-color cuando está vinculada. La sección activa (Config o Código) se sincroniza entre las pestañas del encabezado y el cuerpo del editor mediante eventos personalizados.
+
+## Relacionado
+
+<Cards>
+  <Card title="Guía de herramientas personalizadas" href="/utilities/custom-tools">
+    Aprende qué son las herramientas personalizadas, cómo las invocan los agentes y las prácticas recomendadas.
+  </Card>
+  <Card title="Lista de herramientas personalizadas" href="/widgets/list-custom-tool">
+    Explora, crea e importa herramientas personalizadas desde la lista del espacio de trabajo.
+  </Card>
+  <Card title="Editor de workflows" href="/widgets/editor-workflow">
+    Interfaz de lienzo para crear y editar workflows.
+  </Card>
+</Cards>

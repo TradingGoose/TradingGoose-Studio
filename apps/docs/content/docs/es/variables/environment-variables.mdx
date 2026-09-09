@@ -1,0 +1,63 @@
+---
+title: Variables de entorno
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+Las variables de entorno permiten gestionar de forma segura valores de configuración y secretos en tus flujos de trabajo, incluidas las claves de API y otros datos sensibles a los que tus flujos de trabajo necesitan acceder. Mantienen los secretos fuera de las definiciones de los flujos de trabajo y los dejan disponibles durante la ejecución.
+
+## Tipos de variables
+
+Las variables de entorno en TradingGoose funcionan en dos niveles:
+
+- **Variables de entorno personales**: Privadas de tu cuenta; solo tú puedes verlas y usarlas
+- **Variables de entorno del espacio de trabajo**: Compartidas en todo el espacio de trabajo, disponibles para todos los miembros del equipo
+
+<Callout type="info">
+Las variables de entorno del espacio de trabajo tienen prioridad sobre las personales cuando hay un conflicto de nombres.
+</Callout>
+
+## Configurar variables de entorno
+
+Ve a **Ajustes** para configurar tus variables de entorno. Desde los ajustes del espacio de trabajo puedes crear y gestionar variables de entorno personales y a nivel de espacio de trabajo. Las variables personales son privadas de tu cuenta, mientras que las del espacio de trabajo se comparten con todos los miembros del equipo.
+
+### Dar alcance de espacio de trabajo a las variables
+
+Usa el interruptor de alcance de espacio de trabajo para que las variables estén disponibles para todo el equipo. Al activar el alcance de espacio de trabajo, la variable queda disponible para todos los miembros y se puede usar en cualquier flujo de trabajo de ese espacio de trabajo.
+
+### Vista de variables del espacio de trabajo
+
+Cuando tienes variables con alcance de espacio de trabajo, aparecen en la lista de variables de entorno junto a las personales, claramente etiquetadas con su alcance.
+
+## Usar variables en flujos de trabajo
+
+Para referenciar variables de entorno en tus flujos de trabajo, usa la notación `{{}}`. Al escribir `{{` en cualquier campo de entrada, aparecerá un menú desplegable con tus variables de entorno personales y de espacio de trabajo. Selecciona la variable que quieras usar.
+
+## Precedencia de variables
+
+Cuando tienes variables personales y de espacio de trabajo con el mismo nombre:
+
+1. **Las variables de espacio de trabajo tienen prioridad** sobre las variables personales
+2. Esto evita conflictos de nombres y garantiza un comportamiento coherente en los flujos de trabajo del equipo
+3. Si existe una variable de espacio de trabajo, se ignora la variable personal con el mismo nombre
+
+<Callout type="warning">
+Elige con cuidado los nombres de las variables para evitar anulaciones no deseadas. Considera anteponer tus iniciales a las variables personales o el nombre del proyecto a las variables de espacio de trabajo.
+</Callout>
+
+## Prácticas recomendadas de seguridad
+
+### Para datos confidenciales
+- Almacena las claves de API, los tokens y las contraseñas como variables de entorno en lugar de escribirlos en el código
+- Usa variables de espacio de trabajo para recursos compartidos que necesiten varios miembros del equipo
+- Mantén las credenciales personales en variables personales
+
+### Nombres de variables
+- Usa nombres descriptivos: `DATABASE_URL` en lugar de `DB`
+- Sigue convenciones de nomenclatura coherentes en todo el equipo
+- Considera usar prefijos para evitar conflictos: `PROD_API_KEY`, `DEV_API_KEY`
+
+### Control de acceso
+- Las variables de entorno de espacio de trabajo respetan los permisos del espacio de trabajo
+- Solo los usuarios con acceso de escritura o superior pueden crear o modificar variables de espacio de trabajo
+- Las variables personales siempre son privadas para cada usuario

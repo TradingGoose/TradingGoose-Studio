@@ -1,0 +1,475 @@
+---
+title: ServiceNow
+description: Crear, leer, actualizar y eliminar registros de ServiceNow
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="servicenow"
+  color="#62D84E"
+/>
+
+## Configuración
+
+### Crear registro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ServiceNow"
+    type="servicenow"
+    color="#62D84E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "servicenow_create_record",
+            "options": [
+                {
+                    "id": "servicenow_create_record",
+                    "label": "Crear registro"
+                },
+                {
+                    "id": "servicenow_read_record",
+                    "label": "Leer registros"
+                },
+                {
+                    "id": "servicenow_update_record",
+                    "label": "Actualizar registro"
+                },
+                {
+                    "id": "servicenow_delete_record",
+                    "label": "Eliminar registro"
+                }
+            ]
+        },
+        {
+            "id": "instanceUrl",
+            "type": "short-input",
+            "title": "URL de instancia",
+            "placeholder": "https://instance.service-now.com",
+            "description": "URL de tu instancia de ServiceNow (p. ej., https://yourcompany.service-now.com)",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "Introduce tu nombre de usuario de ServiceNow",
+            "description": "Usuario de ServiceNow con acceso a servicios web",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Introduce tu contraseña de ServiceNow",
+            "description": "Contraseña del usuario de ServiceNow",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de tabla",
+            "placeholder": "incident, task, sys_user, etc.",
+            "description": "Nombre de la tabla de ServiceNow",
+            "required": true
+        },
+        {
+            "id": "fields",
+            "type": "code",
+            "title": "Campos (JSON)",
+            "placeholder": "{\n  \"short_description\": \"Descripción del problema\",\n  \"priority\": \"1\"\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear registro (<code>servicenow_create_record</code>)</div>
+
+Crea un registro nuevo en una tabla de ServiceNow
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `instanceUrl` | string | Sí | URL de la instancia de ServiceNow \(p. ej., https://instance.service-now.com\) |
+| `username` | string | Sí | Nombre de usuario de ServiceNow |
+| `password` | string | Sí | Contraseña de ServiceNow |
+| `tableName` | string | Sí | Nombre de la tabla \(p. ej., incident, task, sys_user\) |
+| `fields` | json | Sí | Campos que establecer en el registro \(objeto JSON\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `record` | json | Registro de ServiceNow creado con sys_id y otros campos |
+| `metadata` | json | Metadatos de la operación |
+
+</div>
+
+---
+
+### Leer registros
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ServiceNow"
+    type="servicenow"
+    color="#62D84E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "servicenow_read_record",
+            "options": [
+                {
+                    "id": "servicenow_create_record",
+                    "label": "Crear registro"
+                },
+                {
+                    "id": "servicenow_read_record",
+                    "label": "Leer registros"
+                },
+                {
+                    "id": "servicenow_update_record",
+                    "label": "Actualizar registro"
+                },
+                {
+                    "id": "servicenow_delete_record",
+                    "label": "Eliminar registro"
+                }
+            ]
+        },
+        {
+            "id": "instanceUrl",
+            "type": "short-input",
+            "title": "URL de instancia",
+            "placeholder": "https://instance.service-now.com",
+            "description": "URL de su instancia de ServiceNow (p. ej., https://yourcompany.service-now.com)",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "Introduzca su nombre de usuario de ServiceNow",
+            "description": "Usuario de ServiceNow con acceso a servicios web",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Introduzca su contraseña de ServiceNow",
+            "description": "Contraseña del usuario de ServiceNow",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de tabla",
+            "placeholder": "incident, task, sys_user, etc.",
+            "description": "Nombre de tabla de ServiceNow",
+            "required": true
+        },
+        {
+            "id": "sysId",
+            "type": "short-input",
+            "title": "sys_id del registro",
+            "placeholder": "sys_id del registro específico (opcional)"
+        },
+        {
+            "id": "number",
+            "type": "short-input",
+            "title": "Número de registro",
+            "placeholder": "p. ej., INC0010001 (opcional)"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Cadena de consulta",
+            "placeholder": "active=true^priority=1",
+            "description": "Cadena de consulta codificada de ServiceNow"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "10"
+        },
+        {
+            "id": "fields",
+            "type": "short-input",
+            "title": "Campos a devolver",
+            "placeholder": "number,short_description,priority",
+            "description": "Lista de campos separados por comas"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer registros (<code>servicenow_read_record</code>)</div>
+
+Leer registros de una tabla de ServiceNow
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `instanceUrl` | string | Sí | URL de la instancia de ServiceNow \(p. ej., https://instance.service-now.com\) |
+| `username` | string | Sí | Nombre de usuario de ServiceNow |
+| `password` | string | Sí | Contraseña de ServiceNow |
+| `tableName` | string | Sí | Nombre de la tabla |
+| `sysId` | string | No | sys_id de un registro específico |
+| `number` | string | No | Número de registro \(p. ej., INC0010001\) |
+| `query` | string | No | Cadena de consulta codificada \(p. ej., "active=true^priority=1"\) |
+| `limit` | number | No | Número máximo de registros a devolver |
+| `fields` | string | No | Lista de campos a devolver, separados por comas |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `records` | array | Matriz de registros de ServiceNow |
+| `metadata` | json | Metadatos de la operación |
+
+</div>
+
+---
+
+### Actualizar registro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ServiceNow"
+    type="servicenow"
+    color="#62D84E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "servicenow_update_record",
+            "options": [
+                {
+                    "id": "servicenow_create_record",
+                    "label": "Crear registro"
+                },
+                {
+                    "id": "servicenow_read_record",
+                    "label": "Leer registros"
+                },
+                {
+                    "id": "servicenow_update_record",
+                    "label": "Actualizar registro"
+                },
+                {
+                    "id": "servicenow_delete_record",
+                    "label": "Eliminar registro"
+                }
+            ]
+        },
+        {
+            "id": "instanceUrl",
+            "type": "short-input",
+            "title": "URL de la instancia",
+            "placeholder": "https://instance.service-now.com",
+            "description": "URL de tu instancia de ServiceNow (p. ej., https://yourcompany.service-now.com)",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "Introduce tu nombre de usuario de ServiceNow",
+            "description": "Usuario de ServiceNow con acceso a servicios web",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Introduce tu contraseña de ServiceNow",
+            "description": "Contraseña del usuario de ServiceNow",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "incident, task, sys_user, etc.",
+            "description": "Nombre de la tabla de ServiceNow",
+            "required": true
+        },
+        {
+            "id": "sysId",
+            "type": "short-input",
+            "title": "sys_id del registro",
+            "placeholder": "sys_id del registro a actualizar",
+            "required": true
+        },
+        {
+            "id": "fields",
+            "type": "code",
+            "title": "Campos a actualizar (JSON)",
+            "placeholder": "{\n  \"state\": \"2\",\n  \"assigned_to\": \"user.sys_id\"\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar registro (<code>servicenow_update_record</code>)</div>
+
+Actualizar un registro existente en una tabla de ServiceNow
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `instanceUrl` | string | Sí | URL de la instancia de ServiceNow \(p. ej., https://instance.service-now.com\) |
+| `username` | string | Sí | Nombre de usuario de ServiceNow |
+| `password` | string | Sí | Contraseña de ServiceNow |
+| `tableName` | string | Sí | Nombre de la tabla |
+| `sysId` | string | Sí | sys_id del registro a actualizar |
+| `fields` | json | Sí | Campos a actualizar \(objeto JSON\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `record` | json | Registro de ServiceNow actualizado |
+| `metadata` | json | Metadatos de la operación |
+
+</div>
+
+---
+
+### Eliminar registro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="ServiceNow"
+    type="servicenow"
+    color="#62D84E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "servicenow_delete_record",
+            "options": [
+                {
+                    "id": "servicenow_create_record",
+                    "label": "Crear registro"
+                },
+                {
+                    "id": "servicenow_read_record",
+                    "label": "Leer registros"
+                },
+                {
+                    "id": "servicenow_update_record",
+                    "label": "Actualizar registro"
+                },
+                {
+                    "id": "servicenow_delete_record",
+                    "label": "Eliminar registro"
+                }
+            ]
+        },
+        {
+            "id": "instanceUrl",
+            "type": "short-input",
+            "title": "URL de la instancia",
+            "placeholder": "https://instance.service-now.com",
+            "description": "URL de tu instancia de ServiceNow (p. ej., https://yourcompany.service-now.com)",
+            "required": true
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "Nombre de usuario",
+            "placeholder": "Introduce tu nombre de usuario de ServiceNow",
+            "description": "Usuario de ServiceNow con acceso a servicios web",
+            "required": true
+        },
+        {
+            "id": "password",
+            "type": "short-input",
+            "title": "Contraseña",
+            "placeholder": "Introduce tu contraseña de ServiceNow",
+            "description": "Contraseña del usuario de ServiceNow",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tableName",
+            "type": "short-input",
+            "title": "Nombre de la tabla",
+            "placeholder": "incident, task, sys_user, etc.",
+            "description": "Nombre de la tabla de ServiceNow",
+            "required": true
+        },
+        {
+            "id": "sysId",
+            "type": "short-input",
+            "title": "sys_id del registro",
+            "placeholder": "sys_id del registro a eliminar",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar registro (<code>servicenow_delete_record</code>)</div>
+
+Eliminar un registro de una tabla de ServiceNow
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `instanceUrl` | string | Sí | URL de la instancia de ServiceNow \(p. ej., https://instance.service-now.com\) |
+| `username` | string | Sí | Nombre de usuario de ServiceNow |
+| `password` | string | Sí | Contraseña de ServiceNow |
+| `tableName` | string | Sí | Nombre de la tabla |
+| `sysId` | string | Sí | sys_id del registro que se va a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si la eliminación se realizó correctamente |
+| `metadata` | json | Metadatos de la operación |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integre ServiceNow en su flujo de trabajo. Cree, lea, actualice y elimine registros en cualquier tabla de ServiceNow, incluidos incidentes, tareas, solicitudes de cambio, usuarios y más.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `servicenow`

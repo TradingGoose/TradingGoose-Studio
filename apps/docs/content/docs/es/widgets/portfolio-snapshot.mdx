@@ -1,0 +1,49 @@
+---
+title: Instantánea de cartera
+description: Consulte el rendimiento de la cuenta, el efectivo, las posiciones y
+  la cobertura de cotizaciones.
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `portfolio_snapshot` |
+| **Categoría** | Trading |
+
+La instantánea de cartera es un resumen de solo lectura de una cuenta de bróker seleccionada en una ventana de rendimiento compatible.
+
+## Características
+
+- **Resumen de rendimiento** -- Muestra la rentabilidad, el patrimonio inicial, el patrimonio final, el patrimonio máximo, el patrimonio mínimo y la serie de patrimonio.
+- **Detalle de la cuenta** -- Muestra el efectivo y el número de posiciones de la cartera seleccionada.
+- **Enriquecimiento con cotizaciones** -- Añade el valor enriquecido con cotizaciones, la variación diaria, el porcentaje de variación diaria y la cobertura de posiciones cotizadas como posiciones cotizadas respecto a las posiciones elegibles en la solicitud de cotización.
+- **Disponibilidad parcial** -- El enriquecimiento con cotizaciones puede ser parcial o no estar disponible sin ocultar los datos de cartera del bróker.
+- **Actualizar** -- `runtime.refreshAt` solicita nuevos datos de bróker y de cotizaciones.
+
+## Uso
+
+Seleccione un bróker y una cuenta de bróker, y luego elija `selectedWindow` entre las ventanas de rendimiento compatibles con ese proveedor. Configure un proveedor de mercado para el enriquecimiento con cotizaciones actuales. Actualizar solicita una nueva instantánea; las cotizaciones no disponibles no impiden que se muestren el efectivo, las posiciones o los datos de rendimiento.
+
+## Configuración
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `provider` | Proveedor de trading usado para los datos de cartera. |
+| `serviceId` | Identificador del servicio de bróker. |
+| `portfolioIdentity` | Identidad canónica de la cuenta de bróker seleccionada. |
+| `marketProvider` | Proveedor usado para el enriquecimiento de cotizaciones. |
+| `marketProviderParams` | Parámetros de mercado específicos del proveedor. |
+| `marketAuth` | Credenciales opcionales del proveedor de mercado. |
+| `selectedWindow` | Ventana de rendimiento compatible con el proveedor. |
+| `runtime.refreshAt` | Marca de tiempo usada para solicitar la actualización. |
+
+## Relacionado
+
+<Cards>
+  <Card title="Mapa de calor" href="/widgets/heatmap">Compara visualmente las posiciones y los listados.</Card>
+  <Card title="Orden rápida" href="/widgets/quick-order">Prepara una orden para la cuenta seleccionada.</Card>
+  <Card title="Herramienta de detalle de cartera" href="/tools/portfolio_detail">Inspecciona el contrato de entrada y salida de la herramienta de workflow.</Card>
+</Cards>

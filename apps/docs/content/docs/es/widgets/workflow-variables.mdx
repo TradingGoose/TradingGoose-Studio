@@ -1,0 +1,61 @@
+---
+title: Variables del flujo de trabajo
+description: Inspecciona y edita las variables de un flujo de trabajo seleccionado.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `workflow_variables` |
+| **Categoría** | Utilidad |
+
+El widget Variables del flujo de trabajo te ofrece un panel dedicado para ver y editar las variables definidas en un flujo de trabajo. Se conecta al store del flujo de trabajo mediante un socket en tiempo real, de modo que los cambios son colaborativos: las ediciones hechas aquí se reflejan en el editor y viceversa.
+
+## Características
+
+- **Lista de variables en tiempo real** -- muestra todas las variables del flujo de trabajo activo, actualizadas en tiempo real a través del store colaborativo del flujo de trabajo
+- **Edición en línea** -- edita nombres, tipos y valores de las variables directamente en el panel; los cambios se propagan de inmediato a los demás clientes conectados
+- **Añadir variable** -- un botón **+** en el encabezado envía un `WORKFLOW_VARIABLES_ADD_EVENT` personalizado que crea una nueva variable de cadena vacía en el flujo de trabajo; el evento está limitado al panel y al canal correctos, de modo que solo afecta a la instancia del widget de destino
+- **Sincronización colaborativa** -- usa `useCollaborativeWorkflow` internamente, de modo que las adiciones y ediciones se transmiten a todos los usuarios que ven el mismo flujo de trabajo
+- **Selector de flujo de trabajo** -- un menú desplegable en el encabezado te permite cambiar entre flujos de trabajo; respeta la sincronización de color de par cuando está vinculado a un editor
+
+## Uso
+
+### Añadir el widget
+
+Abre el selector de widgets y selecciona **Variables del flujo de trabajo**. Carga la lista de variables del flujo de trabajo activo en el espacio de trabajo actual.
+
+### Diseño del encabezado
+
+- **Centro** -- menú desplegable del selector de flujo de trabajo
+- **Derecha** -- botón para añadir variable (**+**)
+
+### Interacciones clave
+
+1. Consulta la lista de variables para ver nombres, tipos y valores actuales
+2. Haz clic en una variable para editar su valor en línea
+3. Haz clic en el botón **+** de la cabecera para añadir una variable nueva (el tipo predeterminado es `string` con un valor vacío)
+4. Los cambios se guardan automáticamente y son visibles para los demás colaboradores en tiempo real
+
+### Sincronización del color de par
+
+Cuando se le asigna un color de par, el widget sigue el workflow seleccionado en el editor emparejado. Si cambias el workflow en el editor, se actualiza la lista de variables. Cuando el color de par es `gray`, puedes elegir de forma independiente qué workflow inspeccionar con el menú desplegable de la cabecera.
+
+<Callout>
+Consulta la [guía de la función Variables](/variables) para más información sobre cómo funcionan las variables de workflow, incluidas las reglas de ámbito, los tipos admitidos y cómo los bloques hacen referencia a las variables en tiempo de ejecución.
+</Callout>
+
+## Relacionado
+
+<Cards>
+  <Card title="Guía de variables" href="/variables">
+    Aprende cómo funcionan las variables de workflow, incluidos el ámbito y los tipos.
+  </Card>
+  <Card title="Editor de workflows" href="/widgets/editor-workflow">
+    Interfaz de lienzo para crear y editar workflows.
+  </Card>
+</Cards>

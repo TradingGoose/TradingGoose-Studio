@@ -1,0 +1,56 @@
+---
+title: Activador de formulario de entrada
+description: Activador manual con un esquema de entrada estructurado
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="input_trigger"
+  color=""
+  icon={true}
+/>
+
+Usa un activador de formulario de entrada cuando un flujo de trabajo deba iniciarse desde el editor con campos tipados. El panel de ejecución muestra exactamente los campos que defines, de modo que el flujo de trabajo reciba siempre datos limpios.
+
+<Callout type="info">
+  Este es un activador **manual** con entrada estructurada. Define el esquema y ejecuta desde el editor.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Activador de formulario de entrada"
+    type="input_trigger"
+    hideHeader
+    subBlocks={[
+      { "id": "inputFormat", "title": "Formato de entrada", "type": "short-input", "layout": "full", "description": "Define campos del formulario con nombre, tipo y valor predeterminado" }
+    ]}
+  />
+</ShowcaseCard>
+
+Añade campos en el constructor de formato de entrada. Tipos admitidos:
+
+- **string** — Valores de texto
+- **number** — Valores numéricos
+- **boolean** — Valores verdadero/falso
+- **json** — Objetos JSON
+
+### Esquema de salida
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `<blockName.field>` | varía | Cada campo definido en el formato de entrada |
+| `<blockName.input>` | json | Toda la carga de entrada estructurada |
+
+## Flujos de trabajo secundarios
+
+Los activadores de formulario de entrada también impulsan el bloque Workflow. Cuando incrustas un flujo de trabajo secundario, el paso de mapeo muestra los campos del formulario secundario para que puedas conectar variables del flujo principal.
+
+<Callout>
+¿Necesitas un botón de ejecución rápida sin campos? Usa un activador manual en su lugar.
+</Callout>

@@ -1,0 +1,114 @@
+---
+title: Parallel AI
+description: 使用 Parallel AI 搜索
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="parallel_ai"
+  color=""
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Parallel AI"
+    type="parallel_ai"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "objective",
+            "type": "long-input",
+            "title": "搜索目标",
+            "layout": "full",
+            "placeholder": "联合国是何时成立的？优先使用联合国官网。",
+            "required": true
+        },
+        {
+            "id": "search_queries",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入以逗号分隔的搜索查询（例如：“联合国成立年份”、“联合国创建年份”）",
+            "required": false
+        },
+        {
+            "id": "processor",
+            "type": "dropdown",
+            "title": "处理器",
+            "layout": "full",
+            "defaultValue": "base",
+            "options": [
+                {
+                    "id": "base",
+                    "label": "Base"
+                },
+                {
+                    "id": "pro",
+                    "label": "Pro"
+                }
+            ]
+        },
+        {
+            "id": "max_results",
+            "type": "short-input",
+            "title": "最大结果数",
+            "layout": "half",
+            "placeholder": "5"
+        },
+        {
+            "id": "max_chars_per_result",
+            "type": "short-input",
+            "title": "最大字符数",
+            "layout": "half",
+            "placeholder": "1500"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Parallel AI API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `parallel_search`
+
+使用 Parallel AI 搜索网页。提供经智能处理和内容提取的全面搜索结果。
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `objective` | string | 是 | 要回答的搜索目标或问题 |
+| `search_queries` | string | 否 | 可选，要执行的搜索查询列表，以逗号分隔 |
+| `processor` | string | 否 | 处理方式：base 或 pro \(默认：base\) |
+| `max_results` | number | 否 | 返回的最大结果数 \(默认：5\) |
+| `max_chars_per_result` | number | 否 | 每条结果的最大字符数 \(默认：1500\) |
+| `apiKey` | string | 是 | Parallel AI API 密钥 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `results` | array | 包含相关页面摘录的搜索结果 |
+
+## 使用说明
+
+将 Parallel AI 集成到工作流中。可搜索网页。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`parallel_ai`

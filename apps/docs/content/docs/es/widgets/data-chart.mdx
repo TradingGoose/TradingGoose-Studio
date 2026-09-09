@@ -1,0 +1,72 @@
+---
+title: Gráfico de datos
+description: Visualiza series de precios de mercado e indicadores técnicos.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `data_chart` |
+| **Categoría** | Trading |
+
+El widget Gráfico de datos representa series de precios de mercado a partir de datos OHLCV, con superposiciones de indicadores técnicos, herramientas de dibujo e intervalos de tiempo configurables. Utiliza [lightweight-charts](https://tradingview.github.io/lightweight-charts/) internamente y admite varios proveedores de datos y modos de sesión de mercado.
+
+## Características
+
+- **Seis estilos de vela** -- Sólido, Hueco, Hueco alcista, Hueco bajista, Trazo de barras OHLC y Línea de área.
+- **Intervalos de tiempo** -- Elige el subconjunto compatible con el proveedor, de 1m a 12mo, con preajustes de rango (1D, 5D, 1W, 1M, 3M, 6M, 1Y, 5Y, ALL) que seleccionan un intervalo compatible adecuado.
+- **Indicadores técnicos** -- Añade uno o más indicadores de estilo Pine desde la biblioteca de tu espacio de trabajo o los predeterminados integrados. Cada indicador se representa en su propio panel (o se superpone al panel de precios) y muestra valores de leyenda por trazado al pasar el cursor. Las entradas del indicador se editan en un modal de configuración. Consulta la [Guía de scripting de indicadores](/indicators) para crear indicadores personalizados.
+- **Herramientas de dibujo** -- Una barra lateral ofrece líneas (línea de tendencia, rayo, flecha, línea extendida, líneas horizontal/vertical/cruz), notas (llamada, texto), mano alzada (pincel, resaltador, trazado), formas (rectángulo, círculo, triángulo) y herramientas de análisis (canal paralelo, retroceso de Fibonacci, rango de precios y posición larga/corta). Las instantáneas de dibujo persisten con la configuración de vista del widget y se pueden mostrar u ocultar en bloque.
+- **Leyenda de precios** -- Muestra los valores de apertura, máximo, mínimo y cierre (o un único valor en modo área) en la posición del cursor, con código de color verde/rojo según la dirección.
+- **Controles de zona horaria y sesión** -- Cambia la línea de tiempo del gráfico entre hora local del exchange, UTC o cualquier zona horaria IANA. Alterna entre sesiones de mercado regulares y extendidas cuando el proveedor lo admite.
+- **Modos del eje de precios** -- Escala normal, porcentual y logarítmica.
+- **Actualizaciones de barras en vivo** -- Si está activado, el gráfico transmite datos de barras en tiempo real a través de la conexión socket y fusiona las barras entrantes en la serie visible.
+
+## Uso
+
+Añade el gráfico de datos a cualquier panel del espacio de trabajo. El encabezado se divide en tres grupos de controles:
+
+- **Izquierda (proveedor)** -- Selecciona el proveedor de datos de mercado y configura los parámetros o las credenciales de API específicos del proveedor.
+- **Centro (listado)** -- Busca y selecciona un símbolo. Cuando el widget comparte un color de par con una [lista de seguimiento](/widgets/watchlist), al hacer clic en un símbolo de la lista de seguimiento se carga automáticamente aquí.
+- **Derecha (gráfico)** -- Cambia el intervalo de tiempo, el estilo de vela y activa o desactiva los indicadores.
+
+El pie contiene botones de rangos predefinidos (de 1D a ALL) y un selector de zona horaria. Desplaza para hacer zoom, arrastra para desplazar y pasa el cursor para inspeccionar los valores de precio en la superposición de la leyenda.
+
+<Callout type="info">
+Empareja el gráfico de datos con un widget de lista de seguimiento usando el mismo color de par para que, al seleccionar un símbolo en la lista de seguimiento, el gráfico se actualice automáticamente.
+</Callout>
+
+## Configuración
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `listing` | Identidad del símbolo que se va a graficar (se establece automáticamente mediante el encabezado o la sincronización de color de par). |
+| `data.provider` | ID del proveedor de datos de mercado. |
+| `data.auth` | Clave / secreto de API opcional para el proveedor seleccionado. |
+| `data.live.enabled` | Habilita la transmisión de barras en tiempo real. |
+| `view.interval` | Intervalo de tiempo activo (p. ej. `1d`, `5m`). |
+| `view.candleType` | Uno de `candle_solid`, `candle_stroke`, `candle_up_stroke`, `candle_down_stroke`, `ohlc` o `area`. |
+| `view.priceAxisType` | `normal`, `percentage` o `log`. |
+| `view.marketSession` | `regular` o `extended`. |
+| `view.timezone` | Cadena de zona horaria IANA aplicada al eje temporal. |
+| `view.pineIndicators` | Array de referencias de indicadores (id + anulaciones de entrada opcionales). |
+| `view.drawTools` | Instantáneas persistidas de las herramientas de dibujo. |
+| `view.rangePresetId` | Preajuste de rango activo (`1d`, `5d`, `1w`, `1m`, `3m`, `6m`, `1y`, `5y`, `all`). |
+
+## Relacionado
+
+<Cards>
+  <Card title="Lista de seguimiento" href="/widgets/watchlist">
+    Explora y selecciona símbolos que se cargan en el gráfico mediante la vinculación de color de pares.
+  </Card>
+  <Card title="Guía de indicadores" href="/indicators">
+    Crea indicadores personalizados estilo Pine que se muestran como superposiciones en el gráfico.
+  </Card>
+  <Card title="Editor de indicadores" href="/widgets/editor-indicator">
+    Escribe y refina indicadores PineTS personalizados.
+  </Card>
+</Cards>

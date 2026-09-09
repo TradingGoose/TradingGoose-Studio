@@ -1,0 +1,44 @@
+---
+title: Lista de flujos de trabajo
+description: Explora, crea e importa flujos de trabajo en tu espacio de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `list_workflow` |
+| **Categoría** | Lista |
+
+El widget Lista de flujos de trabajo muestra una lista navegable de todos los flujos de trabajo de tu espacio de trabajo. Úsalo para crear nuevos flujos de trabajo o carpetas, importar JSON de flujos de trabajo y abrir cualquier flujo de trabajo en el editor.
+
+## Características
+
+- **Explorar**: Ver todos los flujos de trabajo de tu espacio de trabajo
+- **Crear**: Crear una carpeta o un flujo de trabajo nuevo directamente desde el menú Crear
+- **Organizar**: Arrastrar flujos de trabajo a carpetas y anidar una carpeta un nivel por debajo de una carpeta raíz
+- **Importar**: Importar un archivo JSON de exportación de TradingGoose desde el menú Crear. Si el archivo incluye habilidades, se importan primero y las referencias del flujo de trabajo se revinculan automáticamente.
+- **Abrir en el editor**: Hacer clic para abrir cualquier flujo de trabajo en el widget del editor
+
+## Uso
+
+Añade este widget junto al Editor de flujos de trabajo para gestionar tus flujos de trabajo. El menú Crear incluye la creación de carpetas, la creación de flujos de trabajo nuevos y la importación.
+
+<Callout type="info">
+  Las importaciones de flujos de trabajo usan el formato JSON de exportación compartido de TradingGoose. Las habilidades incluidas se importan primero y se revinculan automáticamente.
+</Callout>
+
+<Callout type="info">
+  Las carpetas admiten un nivel de subcarpeta: una carpeta raíz puede contener subcarpetas, pero una subcarpeta no puede contener otra carpeta. Una carpeta que ya contiene subcarpetas tampoco se puede mover debajo de otra carpeta.
+</Callout>
+
+## Relacionado
+
+<Cards>
+  <Card title="Editor de flujos de trabajo" href="/widgets/editor-workflow">
+    Interfaz de lienzo para crear y editar flujos de trabajo.
+  </Card>
+</Cards>

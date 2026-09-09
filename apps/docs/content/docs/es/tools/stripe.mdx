@@ -1,0 +1,1919 @@
+---
+title: Stripe
+description: Procesa pagos y gestiona datos de Stripe
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="stripe"
+  color="#635BFF"
+/>
+
+<Cards>
+  <Card title="Usar como Trigger" href="/triggers/stripe">
+    Consulta los eventos de trigger, la configuración y los payloads de eventos de Stripe.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Crear intención de pago
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "Crear intención de pago"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "Obtener intención de pago"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "Actualizar intención de pago"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "Confirmar intención de pago"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "Capturar intención de pago"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "Cancelar intención de pago"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "Listar intenciones de pago"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "Buscar intenciones de pago"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "Crear cliente"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "Obtener cliente"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "Actualizar cliente"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "Eliminar cliente"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "Listar clientes"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "Buscar clientes"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "Crear suscripción"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "Obtener suscripción"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "Actualizar suscripción"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "Cancelar suscripción"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "Reanudar suscripción"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "Listar suscripciones"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "Buscar suscripciones"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "Crear factura"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "Obtener factura"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "Actualizar factura"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "Eliminar factura"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "Finalizar factura"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "Pagar factura"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "Anular factura"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "Enviar factura"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "Listar facturas"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "Buscar facturas"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "Crear cargo"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "Obtener cargo"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "Actualizar cargo"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "Capturar cargo"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "Listar cargos"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "Buscar cargos"
+                },
+                {
+                    "id": "create_product",
+                    "label": "Crear producto"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "Obtener producto"
+                },
+                {
+                    "id": "update_product",
+                    "label": "Actualizar producto"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "Eliminar producto"
+                },
+                {
+                    "id": "list_products",
+                    "label": "Listar productos"
+                },
+                {
+                    "id": "search_products",
+                    "label": "Buscar productos"
+                },
+                {
+                    "id": "create_price",
+                    "label": "Crear precio"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "Obtener precio"
+                },
+                {
+                    "id": "update_price",
+                    "label": "Actualizar precio"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "Listar precios"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "Buscar precios"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "list_events",
+                    "label": "Listar eventos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Stripe",
+            "placeholder": "Introduce tu clave secreta de Stripe (sk_test_... o sk_live_...)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "Importe (en céntimos)",
+            "placeholder": "p. ej., 1000 para $10.00",
+            "required": true
+        },
+        {
+            "id": "currency",
+            "type": "short-input",
+            "title": "Moneda",
+            "placeholder": "p. ej., usd, eur, gbp",
+            "required": true
+        },
+        {
+            "id": "payment_method",
+            "type": "short-input",
+            "title": "ID del método de pago",
+            "placeholder": "p. ej., pm_1234567890"
+        },
+        {
+            "id": "customer",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "p. ej., cus_1234567890"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Introduce una descripción"
+        },
+        {
+            "id": "metadata",
+            "type": "code",
+            "title": "Metadatos (JSON)",
+            "placeholder": "{\"key1\": \"value1\", \"key2\": \"value2\"}",
+            "language": "json"
+        },
+        {
+            "id": "receipt_email",
+            "type": "short-input",
+            "title": "Email de recibo",
+            "placeholder": "customer@example.com"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear Payment Intent (<code>stripe_create_payment_intent</code>)</div>
+
+Crea un Payment Intent nuevo para procesar un pago
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Stripe \(clave secreta\) |
+| `amount` | number | Sí | Importe en céntimos \(p. ej., 2000 para $20.00\) |
+| `currency` | string | Sí | Código de moneda ISO de tres letras \(p. ej., usd, eur\) |
+| `customer` | string | No | ID de cliente para asociar a este pago |
+| `payment_method` | string | No | ID del método de pago |
+| `description` | string | No | Descripción del pago |
+| `receipt_email` | string | No | Dirección de correo electrónico para enviar el recibo |
+| `metadata` | json | No | Conjunto de pares clave-valor para almacenar información adicional |
+| `automatic_payment_methods` | json | No | Habilitar métodos de pago automáticos \(p. ej., \{"enabled": true\}\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | El objeto Payment Intent creado |
+| `metadata` | json | Metadatos del Payment Intent, incluidos ID, estado, importe y moneda |
+
+</div>
+
+---
+
+### Recuperar Payment Intent
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "retrieve_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "Crear Payment Intent"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "Recuperar Payment Intent"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "Actualizar Payment Intent"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "Confirmar Payment Intent"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "Capturar Payment Intent"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "Cancelar Payment Intent"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "Listar Payment Intents"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "Buscar Payment Intents"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "Crear cliente"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "Recuperar cliente"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "Actualizar cliente"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "Eliminar cliente"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "Listar clientes"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "Buscar clientes"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "Crear suscripción"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "Recuperar suscripción"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "Actualizar suscripción"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "Cancelar suscripción"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "Reanudar suscripción"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "Listar suscripciones"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "Buscar suscripciones"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "Crear factura"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "Recuperar factura"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "Actualizar factura"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "Eliminar factura"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "Finalizar factura"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "Pagar factura"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "Anular factura"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "Enviar factura"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "Listar facturas"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "Buscar facturas"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "Crear cargo"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "Recuperar cargo"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "Actualizar cargo"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "Capturar cargo"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "Listar cargos"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "Buscar cargos"
+                },
+                {
+                    "id": "create_product",
+                    "label": "Crear producto"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "Recuperar producto"
+                },
+                {
+                    "id": "update_product",
+                    "label": "Actualizar producto"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "Eliminar producto"
+                },
+                {
+                    "id": "list_products",
+                    "label": "Listar productos"
+                },
+                {
+                    "id": "search_products",
+                    "label": "Buscar productos"
+                },
+                {
+                    "id": "create_price",
+                    "label": "Crear precio"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "Recuperar precio"
+                },
+                {
+                    "id": "update_price",
+                    "label": "Actualizar precio"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "Listar precios"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "Buscar precios"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "Recuperar evento"
+                },
+                {
+                    "id": "list_events",
+                    "label": "Listar eventos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Stripe",
+            "placeholder": "Introduce tu clave secreta de Stripe (sk_test_... o sk_live_...)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "Introduce el ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Recuperar Payment Intent (<code>stripe_retrieve_payment_intent</code>)</div>
+
+Recuperar un Payment Intent existente por ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Stripe \(clave secreta\) |
+| `id` | string | Sí | ID del Payment Intent \(p. ej., pi_1234567890\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | El objeto Payment Intent recuperado |
+| `metadata` | json | Metadatos del Payment Intent, incluidos ID, estado, importe y moneda |
+
+</div>
+
+---
+
+### Actualizar Payment Intent
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "Crear Payment Intent"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "Recuperar Payment Intent"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "Actualizar Payment Intent"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "Confirmar Payment Intent"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "Capturar Payment Intent"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "Cancelar Payment Intent"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "Listar Payment Intents"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "Buscar Payment Intents"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "Crear cliente"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "Recuperar cliente"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "Actualizar cliente"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "Eliminar cliente"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "Listar clientes"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "Buscar clientes"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "Crear suscripción"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "Recuperar suscripción"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "Actualizar suscripción"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "Cancelar suscripción"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "Reanudar suscripción"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "Listar suscripciones"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "Buscar suscripciones"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "Crear factura"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "Recuperar factura"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "Actualizar factura"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "Eliminar factura"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "Finalizar factura"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "Pagar factura"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "Anular factura"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "Enviar factura"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "Listar facturas"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "Buscar facturas"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "Crear cargo"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "Recuperar cargo"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "Actualizar cargo"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "Capturar cargo"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "Listar cargos"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "Buscar cargos"
+                },
+                {
+                    "id": "create_product",
+                    "label": "Crear producto"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "Recuperar producto"
+                },
+                {
+                    "id": "update_product",
+                    "label": "Actualizar producto"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "Eliminar producto"
+                },
+                {
+                    "id": "list_products",
+                    "label": "Listar productos"
+                },
+                {
+                    "id": "search_products",
+                    "label": "Buscar productos"
+                },
+                {
+                    "id": "create_price",
+                    "label": "Crear precio"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "Recuperar precio"
+                },
+                {
+                    "id": "update_price",
+                    "label": "Actualizar precio"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "Listar precios"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "Buscar precios"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "Recuperar evento"
+                },
+                {
+                    "id": "list_events",
+                    "label": "Listar eventos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Stripe",
+            "placeholder": "Introduce tu clave secreta de Stripe (sk_test_... o sk_live_...)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "Introduce el ID",
+            "required": true
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "Importe (en céntimos)",
+            "placeholder": "p. ej., 1000 para 10,00 $"
+        },
+        {
+            "id": "currency",
+            "type": "short-input",
+            "title": "Moneda",
+            "placeholder": "p. ej., usd, eur, gbp"
+        },
+        {
+            "id": "customer",
+            "type": "short-input",
+            "title": "ID de cliente",
+            "placeholder": "p. ej., cus_1234567890"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Introduce la descripción"
+        },
+        {
+            "id": "metadata",
+            "type": "code",
+            "title": "Metadatos (JSON)",
+            "placeholder": "{\"key1\": \"value1\", \"key2\": \"value2\"}",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar Payment Intent (<code>stripe_update_payment_intent</code>)</div>
+
+Actualizar un Payment Intent existente
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Stripe \(clave secreta\) |
+| `id` | string | Sí | ID del Payment Intent \(p. ej., pi_1234567890\) |
+| `amount` | number | No | Importe actualizado en céntimos |
+| `currency` | string | No | Código de moneda ISO de tres letras |
+| `customer` | string | No | ID de cliente |
+| `description` | string | No | Descripción actualizada |
+| `metadata` | json | No | Metadatos actualizados |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | El objeto Payment Intent actualizado |
+| `metadata` | json | Metadatos del Payment Intent, incluidos ID, estado, importe y moneda |
+
+</div>
+
+---
+
+### Confirmar Payment Intent
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "confirm_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "Crear Payment Intent"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "Recuperar Payment Intent"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "Actualizar Payment Intent"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "Confirmar Payment Intent"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "Capturar Payment Intent"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "Cancelar Payment Intent"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "Listar Payment Intents"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "Buscar Payment Intents"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "Crear cliente"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "Recuperar cliente"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "Actualizar cliente"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "Eliminar cliente"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "Listar clientes"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "Buscar clientes"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "Crear suscripción"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "Recuperar suscripción"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "Actualizar suscripción"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "Cancelar suscripción"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "Reanudar suscripción"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "Listar suscripciones"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "Buscar suscripciones"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "Crear factura"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "Recuperar factura"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "Actualizar factura"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "Eliminar factura"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "Finalizar factura"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "Pagar factura"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "Anular factura"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "Enviar factura"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "Listar facturas"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "Buscar facturas"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "Crear cargo"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "Recuperar cargo"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "Actualizar cargo"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "Capturar cargo"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "Listar cargos"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "Buscar cargos"
+                },
+                {
+                    "id": "create_product",
+                    "label": "Crear producto"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "Recuperar producto"
+                },
+                {
+                    "id": "update_product",
+                    "label": "Actualizar producto"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "Eliminar producto"
+                },
+                {
+                    "id": "list_products",
+                    "label": "Listar productos"
+                },
+                {
+                    "id": "search_products",
+                    "label": "Buscar productos"
+                },
+                {
+                    "id": "create_price",
+                    "label": "Crear precio"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "Recuperar precio"
+                },
+                {
+                    "id": "update_price",
+                    "label": "Actualizar precio"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "Listar precios"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "Buscar precios"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "Recuperar evento"
+                },
+                {
+                    "id": "list_events",
+                    "label": "Listar eventos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Stripe",
+            "placeholder": "Introduce tu clave secreta de Stripe (sk_test_... o sk_live_...)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "Introduce el ID",
+            "required": true
+        },
+        {
+            "id": "payment_method",
+            "type": "short-input",
+            "title": "ID del método de pago",
+            "placeholder": "p. ej., pm_1234567890"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Confirmar Payment Intent (<code>stripe_confirm_payment_intent</code>)</div>
+
+Confirma un Payment Intent para completar el pago
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Stripe \(clave secreta\) |
+| `id` | string | Sí | ID del Payment Intent \(p. ej., pi_1234567890\) |
+| `payment_method` | string | No | ID del método de pago con el que confirmar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | El objeto Payment Intent confirmado |
+| `metadata` | json | Metadatos del Payment Intent, incluidos ID, estado, importe y moneda |
+
+</div>
+
+---
+
+### Capturar Payment Intent
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "capture_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "Crear Payment Intent"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "Recuperar Payment Intent"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "Actualizar Payment Intent"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "Confirmar Payment Intent"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "Capturar Payment Intent"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "Cancelar Payment Intent"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "Listar Payment Intents"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "Buscar Payment Intents"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "Crear cliente"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "Recuperar cliente"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "Actualizar cliente"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "Eliminar cliente"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "Listar clientes"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "Buscar clientes"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "Crear suscripción"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "Recuperar suscripción"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "Actualizar suscripción"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "Cancelar suscripción"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "Reanudar suscripción"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "Listar suscripciones"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "Buscar suscripciones"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "Crear factura"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "Recuperar factura"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "Actualizar factura"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "Eliminar factura"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "Finalizar factura"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "Pagar factura"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "Anular factura"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "Enviar factura"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "Listar facturas"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "Buscar facturas"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "Crear cargo"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "Recuperar cargo"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "Actualizar cargo"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "Capturar cargo"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "Listar cargos"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "Buscar cargos"
+                },
+                {
+                    "id": "create_product",
+                    "label": "Crear producto"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "Recuperar producto"
+                },
+                {
+                    "id": "update_product",
+                    "label": "Actualizar producto"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "Eliminar producto"
+                },
+                {
+                    "id": "list_products",
+                    "label": "Listar productos"
+                },
+                {
+                    "id": "search_products",
+                    "label": "Buscar productos"
+                },
+                {
+                    "id": "create_price",
+                    "label": "Crear precio"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "Recuperar precio"
+                },
+                {
+                    "id": "update_price",
+                    "label": "Actualizar precio"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "Listar precios"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "Buscar precios"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "Recuperar evento"
+                },
+                {
+                    "id": "list_events",
+                    "label": "Listar eventos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Stripe",
+            "placeholder": "Introduce tu clave secreta de Stripe (sk_test_... o sk_live_...)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "Introduce el ID",
+            "required": true
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "Importe (en céntimos)",
+            "placeholder": "p. ej., 1000 para 10,00 $"
+        },
+        {
+            "id": "amount_to_capture",
+            "type": "short-input",
+            "title": "Importe a capturar (en céntimos)",
+            "placeholder": "Déjalo vacío para capturar el importe completo"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Capturar intención de pago (<code>stripe_capture_payment_intent</code>)</div>
+
+Captura una intención de pago autorizada
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Stripe \(clave secreta\) |
+| `id` | string | Sí | ID de la intención de pago \(p. ej., pi_1234567890\) |
+| `amount_to_capture` | number | No | Importe a capturar en céntimos \(el valor predeterminado es el importe total\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | El objeto de la intención de pago capturada |
+| `metadata` | json | Metadatos de la intención de pago, incluidos ID, estado, importe y moneda |
+
+</div>
+
+---
+
+### Cancelar intención de pago
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "cancel_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "Crear intención de pago"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "Obtener intención de pago"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "Actualizar intención de pago"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "Confirmar intención de pago"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "Capturar intención de pago"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "Cancelar intención de pago"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "Listar intenciones de pago"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "Buscar intenciones de pago"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "Crear cliente"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "Obtener cliente"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "Actualizar cliente"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "Eliminar cliente"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "Listar clientes"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "Buscar clientes"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "Crear suscripción"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "Obtener suscripción"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "Actualizar suscripción"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "Cancelar suscripción"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "Reanudar suscripción"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "Listar suscripciones"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "Buscar suscripciones"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "Crear factura"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "Obtener factura"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "Actualizar factura"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "Eliminar factura"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "Finalizar factura"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "Pagar factura"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "Anular factura"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "Enviar factura"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "Listar facturas"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "Buscar facturas"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "Crear cargo"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "Obtener cargo"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "Actualizar cargo"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "Capturar cargo"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "Listar cargos"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "Buscar cargos"
+                },
+                {
+                    "id": "create_product",
+                    "label": "Crear producto"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "Obtener producto"
+                },
+                {
+                    "id": "update_product",
+                    "label": "Actualizar producto"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "Eliminar producto"
+                },
+                {
+                    "id": "list_products",
+                    "label": "Listar productos"
+                },
+                {
+                    "id": "search_products",
+                    "label": "Buscar productos"
+                },
+                {
+                    "id": "create_price",
+                    "label": "Crear precio"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "Obtener precio"
+                },
+                {
+                    "id": "update_price",
+                    "label": "Actualizar precio"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "Listar precios"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "Buscar precios"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "list_events",
+                    "label": "Listar eventos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Stripe",
+            "placeholder": "Introduce tu clave secreta de Stripe (sk_test_... o sk_live_...)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "Introduce el ID",
+            "required": true
+        },
+        {
+            "id": "cancellation_reason",
+            "type": "short-input",
+            "title": "Motivo de cancelación",
+            "placeholder": "p. ej., requested_by_customer"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cancelar Payment Intent (<code>stripe_cancel_payment_intent</code>)</div>
+
+Cancelar un Payment Intent
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API de Stripe \(clave secreta\) |
+| `id` | string | Sí | ID de Payment Intent \(p. ej., pi_1234567890\) |
+| `cancellation_reason` | string | No | Motivo de cancelación \(duplicate, fraudulent, requested_by_customer, abandoned\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | El objeto Payment Intent cancelado |
+| `metadata` | json | Metadatos del Payment Intent, incluidos ID, estado, importe y moneda |
+
+</div>
+
+---
+
+### Listar Payment Intents
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "list_payment_intents",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "Crear Payment Intent"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "Recuperar Payment Intent"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "Actualizar Payment Intent"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "Confirmar Payment Intent"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "Capturar Payment Intent"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "Cancelar Payment Intent"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "Listar Payment Intents"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "Buscar Payment Intents"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "Crear cliente"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "Recuperar cliente"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "Actualizar cliente"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "Eliminar cliente"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "Listar clientes"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "Buscar clientes"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "Crear suscripción"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "Recuperar suscripción"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "Actualizar suscripción"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "Cancelar suscripción"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "Reanudar suscripción"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "Listar suscripciones"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "Buscar suscripciones"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "Crear factura"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "Recuperar factura"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "Actualizar factura"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "Eliminar factura"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "Finalizar factura"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "Pagar factura"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "Anular factura"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "Enviar factura"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "Listar facturas"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "Buscar facturas"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "Crear cargo"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "Recuperar cargo"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "Actualizar cargo"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "Capturar cargo"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "Listar cargos"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "Buscar cargos"
+                },
+                {
+                    "id": "create_product",
+                    "label": "Crear producto"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "Recuperar producto"
+                },
+                {
+                    "id": "update_product",
+                    "label": "Actualizar producto"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "Eliminar producto"
+                },
+                {
+                    "id": "list_products",
+                    "label": "Listar productos"
+                },
+                {
+                    "id": "search_products",
+                    "label": "Buscar productos"
+                },
+                {
+                    "id": "create_price",
+                    "label": "Crear precio"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "Recuperar precio"
+                },
+                {
+                    "id": "update_price",
+                    "label": "Actualizar precio"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "Listar precios"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "Buscar precios"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "Recuperar evento"
+                },
+                {
+                    "id": "list_events",
+                    "label": "Listar eventos"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API de Stripe",
+            "placeholder": "Introduce tu clave secreta de Stripe (sk_test_... o sk_live_...)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Máximo de resultados (predeterminado: 10)"
+        }
+    ]}
+  />
+</ShowcaseCard>

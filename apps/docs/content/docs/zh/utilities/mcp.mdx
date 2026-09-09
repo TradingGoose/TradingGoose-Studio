@@ -1,0 +1,130 @@
+---
+title: MCP（模型上下文协议）
+description: 通过模型上下文协议，将 Studio 中的 Agent 区块连接到外部工具与服务。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Steps, Step } from 'fumadocs-ui/components/steps'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+[模型上下文协议](https://modelcontextprotocol.com/)（MCP）是一项开放标准，可让 AI 智能体连接工具和数据源。TradingGoose 在两个方向均支持 MCP：
+
+- **[Copilot MCP](/copilot/copilot-mcp)** -- 在受信任的编程智能体中使用 TradingGoose 的服务端 Copilot 工具。
+- **MCP 客户端** -- 将 Studio 中的 Agent 区块连接到外部 MCP 服务器提供的工具。
+
+## 从编程智能体使用 TradingGoose
+
+参阅 [Copilot MCP](/copilot/copilot-mcp) 了解支持的能力，并查看 Claude Code、Cursor、OpenCode、Codex、Antigravity 和 Gemini CLI 的[安装说明](/copilot/copilot-mcp#installation)。该指南还涵盖浏览器审批、手动客户端配置、权限以及密钥吊销。
+
+## 将 Studio 连接到 MCP 服务器
+
+TradingGoose 的 MCP 客户端使用 JSON-RPC 2.0，并支持跨多个规范修订版本的协议版本协商（`2025-06-18`、`2025-03-26`、`2024-11-05`）。
+
+## 支持的传输方式
+
+你注册的每个 MCP 服务器都会使用以下三种基于 HTTP 的传输模式之一：
+
+| 传输方式 | 说明 |
+|-----------|-------------|
+| **HTTP** | 标准 HTTP POST，返回 JSON。适用于简单的请求/响应工具。 |
+| **SSE** | Server-Sent Events。服务器可用 `text/event-stream` 返回流式结果。 |
+| **Streamable HTTP** | 规范 2025-03-26 引入、2025-06-18 仍支持的传输方式。通过 `Mcp-Session-Id` 请求头进行会话管理，并在 JSON 与 SSE 之间协商 content-type。 |
+
+三种传输方式由同一底层客户端处理——transport 字段仅用于标识连接方式，客户端会根据服务器的 `Content-Type` 响应头自动协商响应格式。
+
+## 添加 MCP 服务器
+
+<Steps>
+<Step>
+### 打开 MCP 编辑器组件
+
+将 **MCP 服务器**列表和 **MCP 编辑器**组件添加到仪表盘。从列表中创建服务器，然后在编辑器中选择它。有关编辑器界面的详细信息，请参阅 [MCP 编辑器组件文档](/widgets/editor-mcp)。
+</Step>
+<Step>
+### 提供服务器配置
+
+每个服务器需要：
+
+- **名称** -- 便于识别的标签。
+- **传输** -- `http`、`sse` 或 `streamable-http` 之一。
+- **URL** -- 服务器端点（例如 `https://mcp.example.com/v1`）。
+- **请求头**（可选） -- 自定义请求头，例如 `Authorization`。支持环境变量插值（见下文）。
+- **超时**（可选） -- 请求超时时间，单位为毫秒。默认为 30 000 ms。
+- **重试**（可选） -- 与服务器一并保存。当前 URL 传输运行时不会应用此设置。
+</Step>
+<Step>
+### 保存并测试
+
+点击 **保存**，然后使用 MCP 编辑器工具栏中的 **测试连接** 按钮。客户端将执行完整的初始化握手——版本协商、能力交换，以及 `initialized` 通知——以确认服务器可访问。
+</Step>
+</Steps>
+
+## 身份验证与环境变量
+
+你可以在服务器 URL 和请求头中使用双花括号语法引用工作区或个人环境变量：
+
+```
+Authorization: Bearer {{MY_API_KEY}}
+```
+
+运行时，服务会根据你的有效解密环境尝试解析这些占位符。如果引用的变量缺失，Studio 会记录解析错误，并在 URL 或请求头中保留未解析的占位符。下游服务器随后可能会拒绝该请求，或收到字面形式的占位符。
+
+<Callout type="warn">
+切勿在服务器配置中直接硬编码密钥。请始终将敏感值存储为环境变量，并使用 `{{VAR_NAME}}` 语法引用它们。
+</Callout>
+
+## 工具发现
+
+当你连接到服务器时，客户端会发送 `tools/list` JSON-RPC 请求。响应会被解析为工具列表，每项包含：
+
+- **name** -- 该服务器上的唯一工具标识符。
+- **description** -- 工具的功能说明。
+- **inputSchema** -- 描述预期参数的 JSON Schema。
+
+Studio 界面会将已发现的工具缓存五分钟，缓存键为工作区和当前服务器记录。服务器变更后以及定期刷新时会重新加载工具，你也可以从 MCP 编辑器工具栏强制刷新。
+
+## 在 Agent 区块中使用 MCP 工具
+
+服务器注册并启用后，其工具会与内置工具一起出现在任意 **Agent** 区块的工具选择器中。
+
+<Steps>
+<Step>
+### 选择 MCP 工具
+
+打开 Agent 区块并展开 **工具** 部分。MCP 工具按其服务器名称列出。选择所需工具。
+</Step>
+<Step>
+### 运行 Agent
+
+执行过程中，Agent 会在相应的 MCP 服务器上调用 `tools/call`，并传入工具名称和参数。结果以结构化内容（文本、图像或资源）返回，并回写到 Agent 的上下文中。
+</Step>
+</Steps>
+
+每次工具调用都使用已认证用户的工作区访问权限，并在派发前在服务器日志中获得审计标识符。
+
+## 安全
+
+MCP 客户端会应用以下防护措施：
+
+- **工作区授权** -- 服务器管理和工具操作需要目标工作区的访问权限。
+- **连接测试时的 URL 校验** -- Studio 接受 HTTP 或 HTTPS，并拒绝已知的本地/私有目标以及被屏蔽的服务端口。
+- **密钥插值** -- 凭据可保留在个人或工作区环境变量中，而不写入已保存的服务器定义。
+- **请求边界** -- 服务器请求使用已配置的超时，Studio 还会对工具执行应用总体超时。
+- **审计关联** -- 工具调用会在服务器日志中获得审计标识符。
+
+## 故障排除
+
+<Cards>
+<Card title="服务器无法连接">
+确认 URL 正确且服务器正在运行。客户端会同时尝试带尾部斜杠和不带尾部斜杠的地址，因此路径问题会自动处理。请查看浏览器控制台以获取详细的连接错误。
+</Card>
+<Card title="工具未显示">
+确认服务器已**启用**且未被软删除。在 MCP 编辑器中使用**刷新工具**按钮强制清除缓存并重新发现。
+</Card>
+<Card title="环境变量未解析">
+Studio 会将缺失的 `{{VAR_NAME}}` 占位符保持原样，而不会拒绝该配置本身。请在工作区或个人环境设置中添加该变量，然后重试连接或工具调用。
+</Card>
+<Card title="超时错误">
+在 MCP 编辑器中增大服务器超时值。默认值为 30 秒。较慢的服务器或较大的工具响应可能需要更多时间。
+</Card>
+</Cards>

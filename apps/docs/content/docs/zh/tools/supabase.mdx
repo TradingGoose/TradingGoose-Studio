@@ -1,0 +1,839 @@
+---
+title: Supabase
+description: 使用 Supabase 数据库
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="supabase"
+  color="#3ECF8E"
+/>
+
+## 配置
+
+### 获取多行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color="#3ECF8E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "获取多行"
+                },
+                {
+                    "id": "get_row",
+                    "label": "获取一行"
+                },
+                {
+                    "id": "insert",
+                    "label": "创建一行"
+                },
+                {
+                    "id": "update",
+                    "label": "更新一行"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除一行"
+                },
+                {
+                    "id": "upsert",
+                    "label": "插入或更新一行"
+                },
+                {
+                    "id": "vector_search",
+                    "label": "向量搜索"
+                }
+            ]
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "你的 Supabase 项目 ID（例如：jdrkgepadsdopsntdlom）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "表名",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务角色密钥",
+            "layout": "full",
+            "placeholder": "你的 Supabase 服务角色密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "筛选（PostgREST 语法）",
+            "layout": "full",
+            "placeholder": "status=eq.active"
+        },
+        {
+            "id": "orderBy",
+            "type": "short-input",
+            "title": "排序",
+            "layout": "full",
+            "placeholder": "column_name（降序请加 DESC）"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "layout": "full",
+            "placeholder": "100"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取多行 (<code>supabase_query</code>)</div>
+
+从 Supabase 表查询数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 你的 Supabase 项目 ID（例如：jdrkgepadsdopsntdlom） |
+| `table` | string | 是 | 要查询的 Supabase 表名 |
+| `filter` | string | 否 | PostgREST 筛选条件（例如："id=eq.123"） |
+| `orderBy` | string | 否 | 用于排序的列（降序请加 DESC） |
+| `limit` | number | 否 | 返回的最大行数 |
+| `apiKey` | string | 是 | 你的 Supabase 服务角色密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `results` | array | 查询返回的记录数组 |
+
+</div>
+
+---
+
+### 获取一行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color="#3ECF8E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "get_row",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "获取多行"
+                },
+                {
+                    "id": "get_row",
+                    "label": "获取一行"
+                },
+                {
+                    "id": "insert",
+                    "label": "创建一行"
+                },
+                {
+                    "id": "update",
+                    "label": "更新一行"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除一行"
+                },
+                {
+                    "id": "upsert",
+                    "label": "插入或更新一行"
+                },
+                {
+                    "id": "vector_search",
+                    "label": "向量搜索"
+                }
+            ]
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "你的 Supabase 项目 ID（例如 jdrkgepadsdopsntdlom）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "表名",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务角色密钥",
+            "layout": "full",
+            "placeholder": "你的 Supabase 服务角色密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "筛选（PostgREST 语法）",
+            "layout": "full",
+            "placeholder": "id=eq.123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取一行 (<code>supabase_get_row</code>)</div>
+
+根据筛选条件从 Supabase 表获取单行
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 你的 Supabase 项目 ID（例如 jdrkgepadsdopsntdlom） |
+| `table` | string | 是 | 要查询的 Supabase 表名 |
+| `filter` | string | 是 | 用于查找特定行的 PostgREST 筛选条件（例如 "id=eq.123"） |
+| `apiKey` | string | 是 | 你的 Supabase 服务角色密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `results` | array | 找到时包含行数据的数组，未找到时为空数组 |
+
+</div>
+
+---
+
+### 创建一行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color="#3ECF8E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "insert",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "获取多行"
+                },
+                {
+                    "id": "get_row",
+                    "label": "获取一行"
+                },
+                {
+                    "id": "insert",
+                    "label": "创建一行"
+                },
+                {
+                    "id": "update",
+                    "label": "更新一行"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除一行"
+                },
+                {
+                    "id": "upsert",
+                    "label": "插入或更新一行"
+                },
+                {
+                    "id": "vector_search",
+                    "label": "向量搜索"
+                }
+            ]
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "你的 Supabase 项目 ID（例如：jdrkgepadsdopsntdlom）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "表名",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务角色密钥",
+            "layout": "full",
+            "placeholder": "你的 Supabase 服务角色密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "数据",
+            "layout": "full",
+            "placeholder": "{\n  \"column1\": \"value1\",\n  \"column2\": \"value2\"\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建一行 (<code>supabase_insert</code>)</div>
+
+向 Supabase 表插入数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 你的 Supabase 项目 ID \(例如：jdrkgepadsdopsntdlom\) |
+| `table` | string | 是 | 要插入数据的 Supabase 表名 |
+| `data` | array | 是 | 要插入的数据 \(对象数组或单个对象\) |
+| `apiKey` | string | 是 | 你的 Supabase 服务角色密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `results` | array | 已插入记录的数组 |
+
+</div>
+
+---
+
+### 更新一行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color="#3ECF8E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "获取多行"
+                },
+                {
+                    "id": "get_row",
+                    "label": "获取一行"
+                },
+                {
+                    "id": "insert",
+                    "label": "创建一行"
+                },
+                {
+                    "id": "update",
+                    "label": "更新一行"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除一行"
+                },
+                {
+                    "id": "upsert",
+                    "label": "插入或更新一行"
+                },
+                {
+                    "id": "vector_search",
+                    "label": "向量搜索"
+                }
+            ]
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "你的 Supabase 项目 ID（例如 jdrkgepadsdopsntdlom）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "表名称",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务角色密钥",
+            "layout": "full",
+            "placeholder": "你的 Supabase 服务角色密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "数据",
+            "layout": "full",
+            "placeholder": "{\n  \"column1\": \"value1\",\n  \"column2\": \"value2\"\n}",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "筛选（PostgREST 语法）",
+            "layout": "full",
+            "placeholder": "id=eq.123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新一行（<code>supabase_update</code>）</div>
+
+根据筛选条件更新 Supabase 表中的行
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 你的 Supabase 项目 ID（例如：jdrkgepadsdopsntdlom） |
+| `table` | string | 是 | 要更新的 Supabase 表名称 |
+| `filter` | string | 是 | 用于定位要更新行的 PostgREST 筛选条件（例如："id=eq.123"） |
+| `data` | object | 是 | 要写入匹配行的数据 |
+| `apiKey` | string | 是 | 你的 Supabase service role 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `results` | array | 已更新记录的数组 |
+
+</div>
+
+---
+
+### 删除一行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color="#3ECF8E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "delete",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "获取多行"
+                },
+                {
+                    "id": "get_row",
+                    "label": "获取一行"
+                },
+                {
+                    "id": "insert",
+                    "label": "创建一行"
+                },
+                {
+                    "id": "update",
+                    "label": "更新一行"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除一行"
+                },
+                {
+                    "id": "upsert",
+                    "label": "插入或更新一行"
+                },
+                {
+                    "id": "vector_search",
+                    "label": "向量搜索"
+                }
+            ]
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "你的 Supabase 项目 ID（例如：jdrkgepadsdopsntdlom）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "表名称",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Service Role 密钥",
+            "layout": "full",
+            "placeholder": "你的 Supabase service role 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "short-input",
+            "title": "筛选条件（PostgREST 语法）",
+            "layout": "full",
+            "placeholder": "id=eq.123",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除一行（<code>supabase_delete</code>）</div>
+
+根据筛选条件从 Supabase 表中删除行
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 你的 Supabase 项目 ID（例如：jdrkgepadsdopsntdlom） |
+| `table` | string | 是 | 要从中删除数据的 Supabase 表名称 |
+| `filter` | string | 是 | 用于标识待删除行的 PostgREST 筛选条件（例如："id=eq.123"） |
+| `apiKey` | string | 是 | 你的 Supabase 服务角色密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `results` | array | 已删除记录的数组 |
+
+</div>
+
+---
+
+### 插入或更新一行
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color="#3ECF8E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "upsert",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "获取多行"
+                },
+                {
+                    "id": "get_row",
+                    "label": "获取一行"
+                },
+                {
+                    "id": "insert",
+                    "label": "创建一行"
+                },
+                {
+                    "id": "update",
+                    "label": "更新一行"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除一行"
+                },
+                {
+                    "id": "upsert",
+                    "label": "插入或更新一行"
+                },
+                {
+                    "id": "vector_search",
+                    "label": "向量搜索"
+                }
+            ]
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "你的 Supabase 项目 ID（例如：jdrkgepadsdopsntdlom）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "表名称",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务角色密钥",
+            "layout": "full",
+            "placeholder": "你的 Supabase 服务角色密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "data",
+            "type": "code",
+            "title": "数据",
+            "layout": "full",
+            "placeholder": "{\n  \"column1\": \"value1\",\n  \"column2\": \"value2\"\n}",
+            "language": "json",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">插入或更新一行（<code>supabase_upsert</code>）</div>
+
+在 Supabase 表中插入或更新数据（upsert 操作）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 你的 Supabase 项目 ID（例如 jdrkgepadsdopsntdlom） |
+| `table` | string | 是 | 要插入或更新数据的 Supabase 表名称 |
+| `data` | array | 是 | 要插入或更新的数据（插入或更新）- 对象数组或单个对象 |
+| `apiKey` | string | 是 | 你的 Supabase 服务角色密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `results` | array | 已插入或更新的记录数组 |
+
+</div>
+
+---
+
+### 向量搜索
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Supabase"
+    type="supabase"
+    color="#3ECF8E"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "vector_search",
+            "options": [
+                {
+                    "id": "query",
+                    "label": "获取多行"
+                },
+                {
+                    "id": "get_row",
+                    "label": "获取一行"
+                },
+                {
+                    "id": "insert",
+                    "label": "创建一行"
+                },
+                {
+                    "id": "update",
+                    "label": "更新一行"
+                },
+                {
+                    "id": "delete",
+                    "label": "删除一行"
+                },
+                {
+                    "id": "upsert",
+                    "label": "插入或更新一行"
+                },
+                {
+                    "id": "vector_search",
+                    "label": "向量搜索"
+                }
+            ]
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "layout": "full",
+            "placeholder": "你的 Supabase 项目 ID（例如 jdrkgepadsdopsntdlom）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "table",
+            "type": "short-input",
+            "title": "表",
+            "layout": "full",
+            "placeholder": "表名称",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "服务角色密钥",
+            "layout": "full",
+            "placeholder": "你的 Supabase 服务角色密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "functionName",
+            "type": "short-input",
+            "title": "函数名称",
+            "layout": "full",
+            "placeholder": "match_documents",
+            "required": true
+        },
+        {
+            "id": "queryEmbedding",
+            "type": "code",
+            "title": "查询嵌入",
+            "layout": "full",
+            "placeholder": "[0.1, 0.2, 0.3, ...]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "matchThreshold",
+            "type": "short-input",
+            "title": "匹配阈值（可选）",
+            "layout": "full",
+            "placeholder": "0.78"
+        },
+        {
+            "id": "matchCount",
+            "type": "short-input",
+            "title": "匹配数量（可选）",
+            "layout": "full",
+            "placeholder": "10"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">向量搜索（<code>supabase_vector_search</code>）</div>
+
+在 Supabase 表中使用 pgvector 执行相似度搜索
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 你的 Supabase 项目 ID（例如：jdrkgepadsdopsntdlom） |
+| `functionName` | string | 是 | 执行向量搜索的 PostgreSQL 函数名称（例如：match_documents） |
+| `queryEmbedding` | array | 是 | 用于搜索相似项的查询向量/嵌入 |
+| `matchThreshold` | number | 否 | 最低相似度阈值（0-1），通常为 0.7-0.9 |
+| `matchCount` | number | 否 | 返回结果的最大数量（默认：10） |
+| `apiKey` | string | 是 | 你的 Supabase service role 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | string | 操作状态消息 |
+| `results` | array | 向量搜索返回的带相似度分数的记录数组。每条记录包含 similarity 字段（0-1），表示其与查询向量的相似程度。 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Supabase 集成到工作流中。可获取多行，以及获取、创建、更新、删除和 upsert 单行。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`supabase`

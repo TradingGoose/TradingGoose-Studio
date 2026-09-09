@@ -1,0 +1,324 @@
+---
+title: Typeform
+description: 与 Typeform 交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="typeform"
+  color=""
+/>
+
+## 配置
+
+### 获取回复
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Typeform"
+    type="typeform"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "typeform_responses",
+            "options": [
+                {
+                    "id": "typeform_responses",
+                    "label": "获取回复"
+                },
+                {
+                    "id": "typeform_files",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "typeform_insights",
+                    "label": "表单洞察"
+                }
+            ]
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "表单 ID",
+            "layout": "full",
+            "placeholder": "输入 Typeform 表单 ID",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "layout": "full",
+            "placeholder": "输入 Typeform 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "每页数量",
+            "layout": "half",
+            "placeholder": "每页回复数量（默认：25）"
+        },
+        {
+            "id": "since",
+            "type": "datetime-input",
+            "title": "起始时间",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD 或 YYYY-MM-DDTHH:mm:ssZ"
+        },
+        {
+            "id": "until",
+            "type": "datetime-input",
+            "title": "截止时间",
+            "layout": "half",
+            "placeholder": "YYYY-MM-DD 或 YYYY-MM-DDTHH:mm:ssZ"
+        },
+        {
+            "id": "completed",
+            "type": "dropdown",
+            "title": "完成状态",
+            "layout": "half",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "全部回复"
+                },
+                {
+                    "id": "true",
+                    "label": "仅已完成"
+                },
+                {
+                    "id": "false",
+                    "label": "仅未完成"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取回复（<code>typeform_responses</code>）</div>
+
+从 Typeform 获取表单回复
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `formId` | string | 是 | Typeform 表单 ID |
+| `apiKey` | string | 是 | Typeform 个人访问令牌 |
+| `pageSize` | number | 否 | 要获取的回复数量 \(默认：25\) |
+| `since` | string | 否 | 获取此日期之后提交的回复 \(ISO 8601 格式\) |
+| `until` | string | 否 | 获取此日期之前提交的回复 \(ISO 8601 格式\) |
+| `completed` | string | 否 | 按完成状态筛选 \(true/false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出（块级契约）</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `total_items` | number | 响应总数 |
+| `page_count` | number | 总页数 |
+| `items` | json | 响应项 |
+
+</div>
+
+---
+
+### 下载文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Typeform"
+    type="typeform"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "typeform_files",
+            "options": [
+                {
+                    "id": "typeform_responses",
+                    "label": "获取响应"
+                },
+                {
+                    "id": "typeform_files",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "typeform_insights",
+                    "label": "表单洞察"
+                }
+            ]
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "表单 ID",
+            "layout": "full",
+            "placeholder": "输入 Typeform 表单 ID",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "layout": "full",
+            "placeholder": "输入 Typeform 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "responseId",
+            "type": "short-input",
+            "title": "响应 ID",
+            "layout": "full",
+            "placeholder": "输入响应 ID（token）"
+        },
+        {
+            "id": "fieldId",
+            "type": "short-input",
+            "title": "字段 ID",
+            "layout": "half",
+            "placeholder": "输入文件上传字段 ID"
+        },
+        {
+            "id": "filename",
+            "type": "short-input",
+            "title": "文件名",
+            "layout": "half",
+            "placeholder": "输入文件的准确文件名"
+        },
+        {
+            "id": "inline",
+            "type": "switch",
+            "title": "内联显示",
+            "layout": "half"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">下载文件（<code>typeform_files</code>）</div>
+
+下载 Typeform 响应中上传的文件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `formId` | string | 是 | Typeform 表单 ID |
+| `responseId` | string | 是 | 包含文件的响应 ID |
+| `fieldId` | string | 是 | 文件上传字段的唯一 ID |
+| `filename` | string | 是 | 已上传文件的文件名 |
+| `inline` | boolean | 否 | 是否以内联 Content-Disposition 请求该文件 |
+| `apiKey` | string | 是 | Typeform 个人访问令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `fileUrl` | string | 已上传文件的直接下载 URL |
+| `contentType` | string | 已上传文件的 MIME 类型 |
+| `filename` | string | 已上传文件的原始文件名 |
+
+</div>
+
+---
+
+### 表单洞察
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Typeform"
+    type="typeform"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "typeform_insights",
+            "options": [
+                {
+                    "id": "typeform_responses",
+                    "label": "获取回复"
+                },
+                {
+                    "id": "typeform_files",
+                    "label": "下载文件"
+                },
+                {
+                    "id": "typeform_insights",
+                    "label": "表单洞察"
+                }
+            ]
+        },
+        {
+            "id": "formId",
+            "type": "short-input",
+            "title": "表单 ID",
+            "layout": "full",
+            "placeholder": "输入你的 Typeform 表单 ID",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "layout": "full",
+            "placeholder": "输入你的 Typeform 个人访问令牌",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">表单洞察 (<code>typeform_insights</code>)</div>
+
+获取 Typeform 表单的洞察与分析数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `formId` | string | 是 | Typeform 表单 ID |
+| `apiKey` | string | 是 | Typeform 个人访问令牌 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `fields` | array | 单个表单字段的分析数据 |
+| `form` | object | 表单级分析与表现数据 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Typeform 集成到工作流中。可获取回复、下载文件并获取表单洞察。需要 API Key。
+
+## 备注
+
+- 分类：`tools`
+- 类型：`typeform`

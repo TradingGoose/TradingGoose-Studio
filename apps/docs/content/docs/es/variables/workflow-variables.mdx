@@ -1,0 +1,134 @@
+---
+title: Variables de flujo de trabajo
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
+
+Las variables en TradingGoose funcionan como un almacén global de datos al que puede acceder y modificar cualquier bloque de tu flujo de trabajo, lo que te permite almacenar y compartir datos en todo el flujo de trabajo con variables globales. Ofrecen una forma potente de compartir información entre distintas partes del flujo de trabajo, mantener el estado y crear aplicaciones más dinámicas.
+
+<Callout type="info">
+  Las variables te permiten almacenar y compartir datos en todo el flujo de trabajo, lo que facilita
+  mantener el estado y crear sistemas complejos e interconectados.
+</Callout>
+
+## Descripción general
+
+La función Variables sirve como almacén central de datos de tu flujo de trabajo y te permite:
+
+<Steps>
+  <Step>
+    <strong>Almacenar datos globales</strong>: Crea variables que persisten durante la ejecución del flujo de trabajo
+  </Step>
+  <Step>
+    <strong>Compartir información entre bloques</strong>: Accede a los mismos datos desde cualquier bloque de tu
+    flujo de trabajo
+  </Step>
+  <Step>
+    <strong>Mantener el estado del flujo de trabajo</strong>: Haz un seguimiento de los valores importantes mientras se ejecuta el flujo de trabajo
+  </Step>
+  <Step>
+    <strong>Crear flujos de trabajo dinámicos</strong>: Crea sistemas más flexibles que pueden adaptarse según
+    los valores almacenados
+  </Step>
+</Steps>
+
+## Crear variables
+
+Puedes crear y gestionar variables desde el panel Variables de la barra lateral. Cada variable tiene:
+
+- **Nombre**: Un identificador único para referenciar la variable
+- **Valor**: Los datos almacenados en la variable (admite varios tipos de datos)
+- **Descripción** (opcional): Una nota que explica el propósito de la variable
+
+## Acceder a las variables
+
+Las variables se pueden consultar desde cualquier bloque de tu flujo de trabajo mediante el menú desplegable de variables. Simplemente:
+
+1. Escribe `<` en cualquier campo de texto de un bloque
+2. Recorre el menú desplegable para seleccionar entre las variables disponibles
+3. Selecciona la variable que quieres usar
+
+Cuando escribes `<` en un campo de texto, aparece un menú desplegable con todas las variables del flujo de trabajo disponibles. Selecciona la que necesites para insertar una referencia a ella.
+
+<Callout>
+  También puedes arrastrar la etiqueta de conexión a un campo para abrir el menú de variables y acceder
+  a las variables disponibles.
+</Callout>
+
+## Tipos de variables
+
+Las variables de TradingGoose pueden almacenar distintos tipos de datos:
+
+<Tabs items={['Text', 'Numbers', 'Boolean', 'Objects', 'Arrays']}>
+  <Tab>
+
+    ```
+    "Hello, World!"
+    ```
+
+    <p className="mt-2">Las variables de texto almacenan cadenas de caracteres. Son útiles para guardar mensajes, nombres y otros datos de texto.</p>
+  </Tab>
+  <Tab>
+
+    ```
+    42
+    ```
+
+    <p className="mt-2">Las variables numéricas almacenan valores numéricos que se pueden usar en cálculos o comparaciones.</p>
+  </Tab>
+  <Tab>
+
+    ```
+    true
+    ```
+
+    <p className="mt-2">Las variables booleanas almacenan valores verdadero/falso, ideales para banderas y comprobaciones de condiciones.</p>
+  </Tab>
+  <Tab>
+
+    ```json
+    {
+      "name": "John",
+      "age": 30,
+      "city": "New York"
+    }
+    ```
+
+    <p className="mt-2">Las variables de objeto almacenan datos estructurados con propiedades y valores.</p>
+  </Tab>
+  <Tab>
+
+    ```json
+    [1, 2, 3, "four", "five"]
+    ```
+
+    <p className="mt-2">Las variables de array almacenan colecciones ordenadas de elementos.</p>
+  </Tab>
+</Tabs>
+
+## Uso de variables en bloques
+
+Cuando accedes a una variable desde un bloque, puedes:
+
+- **Leer su valor**: Usa el valor actual de la variable en la lógica de tu bloque
+- **Modificarla**: Actualiza el valor de la variable según el procesamiento de tu bloque
+- **Usarla en expresiones**: Incluye variables en expresiones y cálculos
+
+## Ámbito de las variables
+
+Las variables de TradingGoose tienen ámbito global, lo que significa:
+
+- Son accesibles desde cualquier bloque de tu flujo de trabajo
+- Los cambios en las variables persisten durante toda la ejecución del flujo de trabajo
+- Las variables conservan sus valores entre ejecuciones, salvo que se restablezcan de forma explícita
+
+## Prácticas recomendadas
+
+- **Usa nombres descriptivos**: Elige nombres de variables que indiquen con claridad qué representa la variable. Por ejemplo, usa `userPreferences` en lugar de `up`.
+- **Documenta tus variables**: Añade descripciones a tus variables para que otros miembros del equipo entiendan su propósito y uso.
+- **Ten en cuenta el ámbito de las variables**: Recuerda que las variables son globales y cualquier bloque puede modificarlas. Diseña tu flujo de trabajo teniendo esto en cuenta para evitar comportamientos inesperados.
+- **Inicializa las variables al principio**: Configura e inicializa tus variables al inicio del flujo de trabajo para que estén disponibles cuando se necesiten.
+- **Gestiona las variables ausentes**: Considera siempre el caso en que una variable aún no exista o tenga un valor inesperado. Añade la validación adecuada en tus bloques.
+- **Limita el número de variables**: Mantén un número de variables manejable. Demasiadas variables pueden hacer que el flujo de trabajo sea difícil de entender y mantener.

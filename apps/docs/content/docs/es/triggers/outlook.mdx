@@ -1,0 +1,189 @@
+---
+title: Activador de Outlook
+description: Se activa cuando se reciben correos nuevos en Outlook (requiere
+  credenciales de Microsoft)
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="outlook"
+  color=""
+/>
+
+Se activa cuando se reciben correos nuevos en Outlook (requiere credenciales de Microsoft)
+
+<Callout type="info">
+  Este es un activador basado en **sondeo**. TradingGoose comprueba el origen en busca de cambios coincidentes a intervalos regulares.
+</Callout>
+
+<Cards>
+  <Card title="Usar como herramienta" href="/tools/outlook">
+    Consulta las acciones de flujo de trabajo, las operaciones y las entradas de la herramienta para Outlook.
+  </Card>
+</Cards>
+
+## Instrucciones de configuración
+
+<div class="mb-3"><strong>1.</strong> Conecta tu cuenta de Microsoft con credenciales OAuth</div><div class="mb-3"><strong>2.</strong> Configura las carpetas de Outlook que se van a supervisar (opcional)</div><div class="mb-3"><strong>3.</strong> El sistema comprobará automáticamente si hay correos nuevos y activará tu flujo de trabajo</div>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Activador de correo de Outlook"
+    type="outlook_poller"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "triggerCredentials",
+            "type": "oauth-input",
+            "title": "Credenciales",
+            "description": "Este activador requiere credenciales de Outlook para acceder a tu cuenta.",
+            "provider": "outlook",
+            "required": true
+        },
+        {
+            "id": "folderIds",
+            "type": "dropdown",
+            "title": "Carpetas de Outlook a supervisar",
+            "placeholder": "Selecciona las carpetas de Outlook que se van a supervisar para correos nuevos",
+            "description": "Elige las carpetas de Outlook que se van a supervisar. Déjalo vacío para supervisar todos los correos.",
+            "required": false
+        },
+        {
+            "id": "folderFilterBehavior",
+            "type": "dropdown",
+            "title": "Comportamiento del filtro de carpetas",
+            "description": "Incluir solo correos de las carpetas seleccionadas, o excluir correos de las carpetas seleccionadas",
+            "required": true,
+            "defaultValue": "INCLUDE",
+            "options": [
+                {
+                    "id": "INCLUDE",
+                    "label": "INCLUIR"
+                },
+                {
+                    "id": "EXCLUDE",
+                    "label": "EXCLUIR"
+                }
+            ]
+        },
+        {
+            "id": "markAsRead",
+            "type": "switch",
+            "title": "Marcar como leído",
+            "description": "Marcar automáticamente los correos como leídos después de procesarlos",
+            "required": false,
+            "defaultValue": false
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "Incluir adjuntos",
+            "description": "Descargar e incluir los adjuntos del correo en el payload del activador",
+            "required": false,
+            "defaultValue": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+<SchemaTree
+  title="Carga útil del evento"
+  fields={[
+      {
+          "name": "email",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "ID del mensaje de Outlook"
+              },
+              {
+                  "name": "conversationId",
+                  "type": "string",
+                  "description": "ID de la conversación de Outlook"
+              },
+              {
+                  "name": "subject",
+                  "type": "string",
+                  "description": "Asunto del correo"
+              },
+              {
+                  "name": "from",
+                  "type": "string",
+                  "description": "Dirección de correo del remitente"
+              },
+              {
+                  "name": "to",
+                  "type": "string",
+                  "description": "Dirección de correo del destinatario"
+              },
+              {
+                  "name": "cc",
+                  "type": "string",
+                  "description": "Destinatarios en CC"
+              },
+              {
+                  "name": "date",
+                  "type": "string",
+                  "description": "Fecha del correo en formato ISO"
+              },
+              {
+                  "name": "bodyText",
+                  "type": "string",
+                  "description": "Cuerpo del correo en texto plano"
+              },
+              {
+                  "name": "bodyHtml",
+                  "type": "string",
+                  "description": "Cuerpo del correo en HTML"
+              },
+              {
+                  "name": "hasAttachments",
+                  "type": "boolean",
+                  "description": "Si el correo tiene archivos adjuntos"
+              },
+              {
+                  "name": "attachments",
+                  "type": "file[]",
+                  "description": "Array de archivos adjuntos del correo (si includeAttachments está habilitado)"
+              },
+              {
+                  "name": "isRead",
+                  "type": "boolean",
+                  "description": "Si el correo está leído"
+              },
+              {
+                  "name": "folderId",
+                  "type": "string",
+                  "description": "ID de la carpeta de Outlook donde está el correo"
+              },
+              {
+                  "name": "messageId",
+                  "type": "string",
+                  "description": "ID del mensaje para el hilo"
+              },
+              {
+                  "name": "threadId",
+                  "type": "string",
+                  "description": "ID del hilo de la conversación"
+              }
+          ]
+      },
+      {
+          "name": "timestamp",
+          "type": "string",
+          "description": "Marca de tiempo del evento"
+      }
+  ]}
+/>

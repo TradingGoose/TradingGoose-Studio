@@ -1,0 +1,64 @@
+---
+title: Editor de indicadores
+description: Edita indicadores PineTS en un solo espacio de trabajo.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Descripción general
+
+| Propiedad | Valor |
+|----------|-------|
+| **Clave** | `editor_indicator` |
+| **Categoría** | Editor |
+
+El Editor de indicadores es donde escribes y perfeccionas indicadores PineTS personalizados. Ofrece un editor de código Monaco completo con compatibilidad con TypeScript, una hoja de referencia integrada para los globales de PineTS y verificación en el servidor para validar el script antes de guardar. Usa el widget [Lista de indicadores](/widgets/list-indicator) para explorar, crear e importar indicadores; el editor es el espacio de trabajo principal para escribir su lógica.
+
+## Características
+
+- **Editor de código Monaco** con resaltado de sintaxis TypeScript, autocompletado y las definiciones de tipos de PineTS cargadas automáticamente.
+- **Barra de hoja de referencia** agrupada por categoría (data, technical-analysis, input, plot y más). Pasa el cursor sobre cualquier símbolo para ver su firma, descripción y ejemplos de uso.
+- **Botón Verificar** ejecuta el indicador en el servidor con datos simulados e informa el número de plots y marcadores producidos, además de cualquier advertencia sobre estilos o tipos de plot no compatibles.
+- **Botón Exportar** en la barra de encabezado descarga el indicador guardado actual como JSON de exportación de TradingGoose. Guarda primero si el editor tiene cambios sin guardar.
+- **Botón Guardar** persiste el código PineTS e infiere automáticamente `inputMeta` a partir de las llamadas `input.*` del script para que el gráfico pueda renderizar los controles de entrada.
+- **Barra de indicaciones Wand** permite describir la lógica del indicador en lenguaje natural y transmite el código PineTS generado directamente al editor.
+- **Desplegable de variables de entorno** se activa al escribir el patrón `{{` y permite referenciar secretos del espacio de trabajo en el código del indicador.
+- **Selector de indicadores** en la barra de encabezado cambia entre los indicadores del espacio de trabajo actual. Cuando está emparejado mediante un enlace de color, el selector se sincroniza con el widget Lista de indicadores.
+
+## Uso
+
+1. Añade el widget a un espacio de trabajo desde el selector de widgets.
+2. Selecciona un indicador existente en el menú desplegable del encabezado, o créalo primero en el widget [Lista de indicadores](/widgets/list-indicator).
+3. Escribe código PineTS en el editor. Usa los globales directamente -- `close`, `ta.sma`, `input.int`, `plot` -- sin un prefijo `$`.
+4. Haz clic en el botón **Verificar** (icono de marca de verificación) para ejecutar una simulación en el servidor. Corrige los errores o advertencias que aparezcan.
+5. Haz clic en el botón **Guardar** para persistir el indicador. El gráfico tomará el código actualizado en el siguiente renderizado.
+
+### Atajos de teclado
+
+- **Alternar varita**: Haz clic en el icono de varita en el margen del editor para abrir o cerrar la barra de prompt de IA.
+
+<Callout>
+Este widget admite el mecanismo **pairColor**. Asigna el mismo color a un Editor de indicadores y a un widget [Lista de indicadores](/widgets/list-indicator) para que, al seleccionar un indicador en la lista, se abra automáticamente en el editor.
+</Callout>
+
+## Configuración
+
+El widget no tiene configuración visible para el usuario más allá del selector de indicadores. El indicador seleccionado se almacena en los parámetros del widget como `pineIndicatorId` y se sincroniza a través del store pair-color cuando está vinculado.
+
+## Relacionado
+
+<Cards>
+  <Card title="Guía de scripting de PineTS" href="/indicators">
+    Referencia completa del runtime de PineTS, las funciones integradas y los tipos de entrada.
+  </Card>
+  <Card title="Lista de indicadores" href="/widgets/list-indicator">
+    Explora, crea e importa indicadores desde la lista del espacio de trabajo.
+  </Card>
+  <Card title="Gráfico de datos" href="/widgets/data-chart">
+    Renderiza superposiciones de indicadores sobre los datos de precio.
+  </Card>
+  <Card title="Trigger de indicadores" href="/triggers/indicator">
+    Activa flujos de trabajo según las condiciones del indicador.
+  </Card>
+</Cards>

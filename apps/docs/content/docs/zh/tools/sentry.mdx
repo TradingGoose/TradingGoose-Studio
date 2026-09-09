@@ -1,0 +1,1117 @@
+---
+title: Sentry
+description: 管理 Sentry 问题、项目、事件和版本
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="sentry"
+  color="#6e4bb4"
+/>
+
+## 配置
+
+### 列出问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_issues_list",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出版本"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建版本"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 Slug",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目 Slug",
+            "placeholder": "按项目筛选（可选）"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "例如：is:unresolved, level:error"
+        },
+        {
+            "id": "statsPeriod",
+            "type": "short-input",
+            "title": "统计周期",
+            "placeholder": "24h, 7d, 30d"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "25"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "状态",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "全部"
+                },
+                {
+                    "id": "unresolved",
+                    "label": "未解决"
+                },
+                {
+                    "id": "resolved",
+                    "label": "已解决"
+                },
+                {
+                    "id": "ignored",
+                    "label": "已忽略"
+                },
+                {
+                    "id": "muted",
+                    "label": "已静音"
+                }
+            ]
+        },
+        {
+            "id": "sort",
+            "type": "dropdown",
+            "title": "排序方式",
+            "defaultValue": "date",
+            "options": [
+                {
+                    "id": "date",
+                    "label": "日期"
+                },
+                {
+                    "id": "new",
+                    "label": "最新"
+                },
+                {
+                    "id": "freq",
+                    "label": "频率"
+                },
+                {
+                    "id": "priority",
+                    "label": "优先级"
+                },
+                {
+                    "id": "user",
+                    "label": "用户数"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出问题（<code>sentry_issues_list</code>）</div>
+
+列出指定组织在 Sentry 中的问题，也可按指定项目筛选。返回问题详情，包括状态、错误次数和最近出现时间。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 认证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 否 | 按指定项目 slug 筛选问题 \(可选\) |
+| `query` | string | 否 | 用于筛选问题的搜索查询。支持 Sentry 搜索语法 \(例如 "is:unresolved"、"level:error"\) |
+| `statsPeriod` | string | 否 | 统计时间范围 \(例如 "24h"、"7d"、"30d"\)。未指定时默认为 24h。 |
+| `cursor` | string | 否 | 用于获取下一页结果的分页游标 |
+| `limit` | number | 否 | 每页返回的问题数量 \(默认：25，最大：100\) |
+| `status` | string | 否 | 按问题状态筛选：unresolved、resolved、ignored 或 muted |
+| `sort` | string | 否 | 排序方式：date、new、freq、priority 或 user \(默认：date\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `issues` | array | Sentry 问题列表 |
+| `nextCursor` | string | 下一页结果的游标 \(如有\) |
+| `hasMore` | boolean | 是否还有更多结果 |
+
+</div>
+
+---
+
+### 获取问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_issues_get",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出版本"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建版本"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "issueId",
+            "type": "short-input",
+            "title": "问题 ID",
+            "placeholder": "输入问题 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取问题 (<code>sentry_issues_get</code>)</div>
+
+根据 ID 获取指定 Sentry 问题的详细信息。返回完整问题详情，包括元数据、标签和统计信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `issueId` | string | 是 | 要获取的问题的唯一 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `issue` | object | Sentry 问题的详细信息 |
+
+</div>
+
+---
+
+### 更新问题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_issues_update",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出版本"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建版本"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "issueId",
+            "type": "short-input",
+            "title": "问题 ID",
+            "placeholder": "输入问题 ID",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "新状态",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "无更改"
+                },
+                {
+                    "id": "resolved",
+                    "label": "已解决"
+                },
+                {
+                    "id": "unresolved",
+                    "label": "未解决"
+                },
+                {
+                    "id": "ignored",
+                    "label": "已忽略"
+                },
+                {
+                    "id": "resolvedInNextRelease",
+                    "label": "在下一版本中解决"
+                }
+            ]
+        },
+        {
+            "id": "assignedTo",
+            "type": "short-input",
+            "title": "分配给",
+            "placeholder": "用户 ID 或邮箱（留空则取消分配）"
+        },
+        {
+            "id": "isBookmarked",
+            "type": "switch",
+            "title": "收藏问题"
+        },
+        {
+            "id": "isSubscribed",
+            "type": "switch",
+            "title": "订阅更新"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新问题 (<code>sentry_issues_update</code>)</div>
+
+更新 Sentry 问题，可更改其状态、指派、书签状态或其他属性。返回更新后的问题详情。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `issueId` | string | 是 | 要更新的问题的唯一 ID |
+| `status` | string | 否 | 问题的新状态：resolved、unresolved、ignored 或 resolvedInNextRelease |
+| `assignedTo` | string | 否 | 要将问题指派给的用户 ID 或电子邮件。使用空字符串可取消指派。 |
+| `isBookmarked` | boolean | 否 | 是否将问题加入书签 |
+| `isSubscribed` | boolean | 否 | 是否订阅问题更新 |
+| `isPublic` | boolean | 否 | 问题是否应公开可见 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `issue` | object | 更新后的 Sentry 问题 |
+
+</div>
+
+---
+
+### 列出项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_projects_list",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出发布"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建发布"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "25"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出项目（<code>sentry_projects_list</code>）</div>
+
+列出 Sentry 组织中的所有项目。返回项目详情，包括名称、平台、团队和配置。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 认证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `cursor` | string | 否 | 用于获取下一页结果的分页游标 |
+| `limit` | number | 否 | 每页返回的项目数量 \(默认：25，最大：100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `projects` | array | Sentry 项目列表 |
+| `nextCursor` | string | 下一页结果的游标 \(如有\) |
+| `hasMore` | boolean | 是否还有更多结果 |
+
+</div>
+
+---
+
+### 获取项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_projects_get",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出发行版本"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建发行版本"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目 ID 或 slug",
+            "placeholder": "输入项目 ID 或 slug",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取项目 (<code>sentry_projects_get</code>)</div>
+
+通过 slug 获取指定 Sentry 项目的详细信息。返回完整的项目详情，包括团队、功能和配置。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 是 | 要获取的项目 ID 或 slug |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `project` | object | Sentry 项目的详细信息 |
+
+</div>
+
+---
+
+### 创建项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_projects_create",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出版本"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建版本"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "项目名称",
+            "placeholder": "输入项目名称",
+            "required": true
+        },
+        {
+            "id": "teamSlug",
+            "type": "short-input",
+            "title": "团队 Slug",
+            "placeholder": "将拥有该项目的团队",
+            "required": true
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "项目 Slug",
+            "placeholder": "未提供时自动生成"
+        },
+        {
+            "id": "platform",
+            "type": "short-input",
+            "title": "平台",
+            "placeholder": "javascript, python, node, etc."
+        },
+        {
+            "id": "defaultRules",
+            "type": "switch",
+            "title": "创建默认告警规则"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建项目（<code>sentry_projects_create</code>）</div>
+
+在组织中创建新的 Sentry 项目。必须指定要关联的团队。返回已创建项目的详细信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `name` | string | 是 | 项目名称 |
+| `teamSlug` | string | 是 | 将拥有此项目的团队 slug |
+| `slug` | string | 否 | URL 友好的项目标识符（未提供时根据名称自动生成） |
+| `platform` | string | 否 | 项目的平台/语言（例如 javascript、python、node、react-native）。未指定时默认为 "other" |
+| `defaultRules` | boolean | 否 | 是否创建默认告警规则（默认：true） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `project` | object | 新创建的 Sentry 项目 |
+
+</div>
+
+---
+
+### 更新项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_projects_update",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出版本"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建版本"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目 Slug",
+            "placeholder": "输入项目 slug",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "新名称",
+            "placeholder": "留空则保留当前名称"
+        },
+        {
+            "id": "slug",
+            "type": "short-input",
+            "title": "新 Slug",
+            "placeholder": "留空则保留当前 slug"
+        },
+        {
+            "id": "platform",
+            "type": "short-input",
+            "title": "平台",
+            "placeholder": "留空则保留当前平台"
+        },
+        {
+            "id": "isBookmarked",
+            "type": "switch",
+            "title": "收藏项目"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新项目 (<code>sentry_projects_update</code>)</div>
+
+通过修改名称、slug、平台或其他设置更新 Sentry 项目。返回更新后的项目详情。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 是 | 要更新的项目的 slug |
+| `name` | string | 否 | 项目的新名称 |
+| `slug` | string | 否 | 新的 URL 友好项目标识符 |
+| `platform` | string | 否 | 项目的新平台/语言（例如 javascript、python、node） |
+| `isBookmarked` | boolean | 否 | 是否将项目加入书签 |
+| `digestsMinDelay` | number | 否 | 摘要通知的最小延迟（秒） |
+| `digestsMaxDelay` | number | 否 | 摘要通知的最大延迟（秒） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `project` | object | 更新后的 Sentry 项目 |
+
+</div>
+
+---
+
+### 列出事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_events_list",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出发行版"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建发行版"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目 Slug",
+            "placeholder": "输入项目 slug",
+            "required": true
+        },
+        {
+            "id": "issueId",
+            "type": "short-input",
+            "title": "问题 ID",
+            "placeholder": "按特定问题筛选（可选）"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "例如：user.email:*@example.com"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "50"
+        },
+        {
+            "id": "statsPeriod",
+            "type": "short-input",
+            "title": "统计周期",
+            "placeholder": "24h, 7d, 30d, 90d"
+        }
+    ]}
+  />
+</ShowcaseCard>

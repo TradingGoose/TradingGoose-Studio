@@ -1,0 +1,60 @@
+---
+title: Trigger de chat
+description: Inicia un workflow desde un deployment de chat
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="chat_trigger"
+  color=""
+  icon={true}
+/>
+
+El trigger de chat crea una interfaz conversacional para tu workflow. Despliega tu workflow como chat y los usuarios pueden interactuar con él a través de una URL compartible. Cada mensaje inicia una nueva ejecución del workflow.
+
+<Callout type="info">
+  Este es un trigger **basado en deployment**. Los usuarios interactúan con tu workflow a través de una URL de chat alojada.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Trigger de chat"
+    type="chat_trigger"
+    hideHeader
+    subBlocks={[
+      { "id": "identifier", "title": "Identificador", "type": "short-input", "required": true, "placeholder": "company-name", "description": "Segmento de ruta pública usado para la URL del chat publicado" },
+      { "id": "title", "title": "Título del chat", "type": "short-input", "required": true, "placeholder": "Asistente de atención al cliente" },
+      { "id": "description", "title": "Descripción", "type": "long-input", "placeholder": "Una breve descripción de lo que hace este chat" },
+      { "id": "authType", "title": "Control de acceso", "type": "dropdown", "defaultValue": "public", "options": [{ "label": "Acceso público", "id": "public" }, { "label": "Protegido con contraseña", "id": "password" }, { "label": "Acceso por correo electrónico", "id": "email" }, { "label": "Acceso SSO", "id": "sso" }] },
+      { "id": "welcomeMessage", "title": "Mensaje de bienvenida", "type": "long-input", "placeholder": "Hola, ¿en qué puedo ayudarte?" },
+      { "id": "imageUrl", "title": "Logo del chat", "type": "short-input", "placeholder": "URL de la imagen del logo" }
+    ]}
+  />
+</ShowcaseCard>
+
+### Esquema de salida
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `input` | string | Último mensaje del usuario |
+| `conversationId` | string | ID del hilo de conversación |
+| `files` | files | Archivos subidos opcionales |
+
+### Propiedades del archivo
+
+| Propiedad | Tipo | Descripción |
+|----------|------|-------------|
+| `<chat.files[0].url>` | string | URL de descarga firmada |
+| `<chat.files[0].name>` | string | Nombre de archivo original |
+| `<chat.files[0].size>` | number | Tamaño del archivo en bytes |
+| `<chat.files[0].type>` | string | Tipo MIME |
+
+<Callout>
+Cada conversación mantiene su propio hilo. Los usuarios pueden tener varias conversaciones simultáneas.
+</Callout>

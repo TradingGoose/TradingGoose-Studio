@@ -1,0 +1,46 @@
+---
+title: 技能列表
+description: 浏览、创建并导入工作区技能。
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## 概述
+
+| 属性 | 值 |
+|----------|-------|
+| **键** | `list_skill` |
+| **分类** | 列表 |
+
+技能列表组件是工作区中可复用技能的浏览器。可用它搜索现有技能、创建新技能、导入 TradingGoose 导出的 JSON，并在技能编辑器中打开所选技能。
+
+## 功能
+
+- **浏览和搜索**当前工作区中的技能。
+- 通过创建菜单**新建**技能。
+- 通过创建菜单中的**导入技能**操作**导入**技能。
+- 在列表中选择技能即可**在编辑器中打开**。
+- 当两个组件共用同一颜色时，**配对颜色联动**会保持列表与技能编辑器同步。
+
+## 用法
+
+1. 将组件添加到工作区面板。
+2. 使用创建菜单添加新技能，或导入 TradingGoose 导出的 JSON 文件。
+3. 在列表中选择技能，即可在配对的技能编辑器组件中打开。
+4. 如需列表与编辑器之间的选择变更保持同步，请指定配对颜色。
+
+<Callout type="info">
+  创建和导入操作需要工作区的编辑权限。浏览现有技能只需具备工作区访问权限。
+</Callout>
+
+## 相关
+
+<Cards>
+  <Card title="技能编辑器" href="/widgets/editor-skill">
+    编写并导出可复用的工作区技能。
+  </Card>
+  <Card title="技能指南" href="/utilities/skills">
+    了解技能的结构、加载方式以及运行时用法。
+  </Card>
+</Cards>

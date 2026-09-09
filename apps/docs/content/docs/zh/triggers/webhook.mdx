@@ -1,0 +1,67 @@
+---
+title: Webhook
+description: 通过外部 HTTP Webhook 请求触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="generic_webhook"
+  color=""
+  icon={true}
+/>
+
+Webhook 允许外部服务通过发送 HTTP 请求来触发工作流执行。TradingGoose 支持两种基于 Webhook 的触发方式。
+
+<Callout type="info">
+  这是**基于 Webhook** 的触发器。请在外部服务中配置 Webhook URL，以便向 TradingGoose 发送事件。
+</Callout>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="通用 Webhook"
+    type="generic_webhook"
+    hideHeader
+    subBlocks={[
+      { "id": "webhookUrl", "title": "Webhook URL", "type": "short-input", "placeholder": "自动生成的 Webhook URL", "description": "复制此 URL 并在外部服务中配置" },
+      { "id": "secret", "title": "Webhook 密钥", "type": "short-input", "password": true, "placeholder": "用于请求校验的可选密钥" }
+    ]}
+  />
+</ShowcaseCard>
+
+### 工作原理
+
+1. **添加通用 Webhook 模块** — 将通用 Webhook 模块拖入以开始工作流
+2. **获取 Webhook URL** — 复制自动生成的唯一端点
+3. **外部集成** — 将外部服务配置为向此 URL 发送 POST 请求
+4. **工作流执行** — 每次向该 Webhook URL 发起请求都会触发工作流
+
+### 功能
+
+- **灵活载荷** — 接受任意 JSON 载荷结构
+- **自动解析** — Webhook 数据会自动解析，并可供后续模块使用
+- **身份验证** — 可选 Bearer Token 或自定义请求头验证
+- **速率限制** — 内置防滥用保护
+
+## 服务模块的触发模式
+
+也可以使用特定服务模块（如 Slack、GitHub 等）的「触发模式」，创建更专用的 Webhook 端点。
+
+**在以下情况使用通用 Webhook：**
+- 与自定义应用或服务集成
+- 需要载荷结构具备最大灵活性
+- 对接没有专用模块的服务
+
+**在以下情况使用触发模式：**
+- 使用受支持的服务（Slack、GitHub 等）
+- 需要按服务筛选事件
+- 需要自动注册 Webhook
+
+<Callout>
+每当 Webhook URL 收到请求时，通用 Webhook 触发器都会触发，适合实时集成。
+</Callout>

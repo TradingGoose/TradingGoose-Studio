@@ -1,0 +1,168 @@
+---
+title: Disparador de programación
+description: Dispara la ejecución del flujo de trabajo según una programación
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+
+<BlockInfoCard
+  type="schedule"
+  color=""
+/>
+
+Dispara la ejecución del flujo de trabajo según una programación
+
+<Callout type="info">
+  Este es un disparador **basado en programación**. TradingGoose ejecuta el flujo de trabajo según la programación configurada.
+</Callout>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Programación"
+    type="schedule"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "scheduleType",
+            "type": "dropdown",
+            "title": "Frecuencia de ejecución",
+            "required": true,
+            "options": [
+                {
+                    "id": "minutes",
+                    "label": "Cada X minutos"
+                },
+                {
+                    "id": "hourly",
+                    "label": "Cada hora"
+                },
+                {
+                    "id": "daily",
+                    "label": "Diario"
+                },
+                {
+                    "id": "weekly",
+                    "label": "Semanal"
+                },
+                {
+                    "id": "monthly",
+                    "label": "Mensual"
+                },
+                {
+                    "id": "custom",
+                    "label": "Cron personalizado"
+                }
+            ],
+            "defaultValue": "daily"
+        },
+        {
+            "id": "minutesInterval",
+            "type": "short-input",
+            "title": "Intervalo (minutos)",
+            "placeholder": "15",
+            "required": true,
+            "description": "Se muestra cuando scheduleType es 'minutes'."
+        },
+        {
+            "id": "hourlyMinute",
+            "type": "short-input",
+            "title": "Minuto",
+            "placeholder": "0-59",
+            "required": true,
+            "description": "Se muestra cuando scheduleType es 'hourly'."
+        },
+        {
+            "id": "dailyTime",
+            "type": "time-input",
+            "title": "Hora",
+            "required": true,
+            "description": "Se muestra cuando scheduleType es 'daily'."
+        },
+        {
+            "id": "weeklyDay",
+            "type": "dropdown",
+            "title": "Día de la semana",
+            "required": true,
+            "options": [
+                {
+                    "id": "MON",
+                    "label": "Lunes"
+                },
+                {
+                    "id": "TUE",
+                    "label": "Martes"
+                },
+                {
+                    "id": "WED",
+                    "label": "Miércoles"
+                },
+                {
+                    "id": "THU",
+                    "label": "Jueves"
+                },
+                {
+                    "id": "FRI",
+                    "label": "Viernes"
+                },
+                {
+                    "id": "SAT",
+                    "label": "Sábado"
+                },
+                {
+                    "id": "SUN",
+                    "label": "Domingo"
+                }
+            ],
+            "description": "Se muestra cuando scheduleType es 'weekly'."
+        },
+        {
+            "id": "weeklyDayTime",
+            "type": "time-input",
+            "title": "Hora",
+            "required": true,
+            "description": "Se muestra cuando scheduleType es 'weekly'."
+        },
+        {
+            "id": "monthlyDay",
+            "type": "short-input",
+            "title": "Día del mes",
+            "placeholder": "1-31",
+            "required": true,
+            "description": "Se muestra cuando scheduleType es 'monthly'."
+        },
+        {
+            "id": "monthlyTime",
+            "type": "time-input",
+            "title": "Hora",
+            "required": true,
+            "description": "Se muestra cuando scheduleType es 'monthly'."
+        },
+        {
+            "id": "cronExpression",
+            "type": "short-input",
+            "title": "Expresión cron",
+            "placeholder": "0 0 * * *",
+            "required": true,
+            "description": "Se muestra cuando scheduleType es 'custom'."
+        },
+        {
+            "id": "timezone",
+            "type": "dropdown",
+            "title": "Zona horaria",
+            "required": false,
+            "defaultValue": "UTC",
+            "description": "Se muestra cuando scheduleType no es 'minutes' ni 'hourly'."
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Esquema de salida
+
+Este activador no declara campos de salida adicionales.

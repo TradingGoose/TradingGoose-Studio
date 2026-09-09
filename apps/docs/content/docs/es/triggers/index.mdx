@@ -1,0 +1,52 @@
+---
+title: Descripción general
+description: Formas principales de iniciar flujos de trabajo de TradingGoose
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Disparadores principales
+
+Elige un disparador por flujo de trabajo para definir cómo se inicia:
+
+<Cards>
+  <Card title="API" href="/triggers/api">
+    Endpoint HTTP que asigna cuerpos JSON a las entradas del flujo de trabajo
+  </Card>
+  <Card title="Chat" href="/triggers/chat">
+    Interfaz de chat desplegada con respuestas en streaming
+  </Card>
+  <Card title="Formulario de entrada" href="/triggers/input-form">
+    Entrada manual tipada usada en ejecuciones del editor y flujos de trabajo secundarios
+  </Card>
+  <Card title="Manual" href="/triggers/manual">
+    Ejecuciones bajo demanda sin datos adicionales
+  </Card>
+  <Card title="Programación" href="/triggers/schedule">
+    Ejecución basada en cron o intervalos
+  </Card>
+  <Card title="Webhook" href="/triggers/webhook">
+    Recibe cargas útiles de webhooks externos
+  </Card>
+</Cards>
+
+## Comparación rápida
+
+| Disparador | Condición de inicio |
+|---------|-----------------|
+| **API** | POST HTTP autenticado |
+| **Chat** | Mensaje de un despliegue de chat |
+| **Formulario de entrada** | Al enviar de forma manual en el editor o en el flujo de trabajo principal |
+| **Manual** | Botón Ejecutar en el editor |
+| **Programación** | Temporizador gestionado en el modal de programación |
+| **Webhook** | En solicitud HTTP entrante |
+
+## Uso de disparadores
+
+1. Coloca el bloque de disparador en la ranura de inicio.
+2. Configura el esquema o la autenticación requeridos.
+3. Conecta el bloque con el resto del flujo de trabajo.
+
+> Los despliegues impulsan cada disparador. Actualiza el flujo de trabajo, vuelve a desplegarlo y todos los puntos de entrada de los disparadores aplican la nueva instantánea. Más información en [Ejecución → Instantáneas de despliegue](/execution).
+
+Los bloques Starter heredados se conservan en los flujos existentes, pero ya no aparecen en las compilaciones nuevas.

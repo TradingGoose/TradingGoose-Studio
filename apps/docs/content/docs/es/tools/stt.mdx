@@ -1,0 +1,1244 @@
+---
+title: Voz a texto
+description: Convierte voz a texto con IA
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="stt"
+  color=""
+/>
+
+## Configuración
+
+### OpenAI Whisper
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Voz a texto"
+    type="stt"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "whisper",
+            "options": [
+                {
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
+                },
+                {
+                    "id": "gemini",
+                    "label": "Google Gemini"
+                }
+            ]
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Archivo de audio/video",
+            "placeholder": "Sube un archivo de audio o video",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Referencia de archivo de audio/video",
+            "placeholder": "Referencia audio/video de bloques anteriores",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "URL de audio/video",
+            "placeholder": "O introduce una URL de audio/video de acceso público",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "Idioma",
+            "required": true,
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "Detección automática"
+                },
+                {
+                    "id": "en",
+                    "label": "Inglés"
+                },
+                {
+                    "id": "es",
+                    "label": "Español"
+                },
+                {
+                    "id": "fr",
+                    "label": "Francés"
+                },
+                {
+                    "id": "de",
+                    "label": "Alemán"
+                },
+                {
+                    "id": "it",
+                    "label": "Italiano"
+                },
+                {
+                    "id": "pt",
+                    "label": "Portugués"
+                },
+                {
+                    "id": "nl",
+                    "label": "Neerlandés"
+                },
+                {
+                    "id": "ru",
+                    "label": "Ruso"
+                },
+                {
+                    "id": "zh",
+                    "label": "Chino"
+                },
+                {
+                    "id": "ja",
+                    "label": "Japonés"
+                },
+                {
+                    "id": "ko",
+                    "label": "Coreano"
+                },
+                {
+                    "id": "ar",
+                    "label": "Árabe"
+                },
+                {
+                    "id": "hi",
+                    "label": "Hindi"
+                },
+                {
+                    "id": "pl",
+                    "label": "Polaco"
+                },
+                {
+                    "id": "tr",
+                    "label": "Turco"
+                },
+                {
+                    "id": "sv",
+                    "label": "Sueco"
+                },
+                {
+                    "id": "da",
+                    "label": "Danés"
+                },
+                {
+                    "id": "no",
+                    "label": "Noruego"
+                },
+                {
+                    "id": "fi",
+                    "label": "Finés"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "Marcas de tiempo",
+            "required": true,
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "Ninguno"
+                },
+                {
+                    "id": "sentence",
+                    "label": "A nivel de oración"
+                },
+                {
+                    "id": "word",
+                    "label": "A nivel de palabra"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": true,
+            "defaultValue": "whisper-1",
+            "options": [
+                {
+                    "id": "whisper-1",
+                    "label": "Whisper-1"
+                }
+            ]
+        },
+        {
+            "id": "translateToEnglish",
+            "type": "switch",
+            "title": "Traducir al inglés"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">OpenAI Whisper (<code>stt_whisper</code>)</div>
+
+Transcribir audio a texto usando OpenAI Whisper
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor STT \(whisper\) |
+| `apiKey` | string | Sí | Clave de API de OpenAI |
+| `model` | string | No | Modelo Whisper a usar \(predeterminado: whisper-1\) |
+| `audioFile` | file | No | Archivo de audio o video para transcribir |
+| `audioFileReference` | file | No | Referencia a un archivo de audio/video de bloques anteriores |
+| `audioUrl` | string | No | URL de un archivo de audio o video |
+| `language` | string | No | Código de idioma \(p. ej., "en", "es", "fr"\) o "auto" para detección automática |
+| `timestamps` | string | No | Granularidad de marcas de tiempo: none, sentence o word |
+| `translateToEnglish` | boolean | No | Traducir el audio al inglés |
+| `prompt` | string | No | Texto opcional para orientar el estilo del modelo o continuar un segmento de audio anterior. Ayuda con nombres propios y el contexto. |
+| `temperature` | number | No | Temperatura de muestreo entre 0 y 1. Valores más altos hacen la salida más aleatoria; valores más bajos, más enfocada y determinista. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `transcript` | string | Texto transcrito completo |
+| `segments` | array | Segmentos con marcas de tiempo |
+| `language` | string | Idioma detectado o especificado |
+| `duration` | number | Duración del audio en segundos |
+
+</div>
+
+---
+
+### Deepgram
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Voz a texto"
+    type="stt"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "deepgram",
+            "options": [
+                {
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
+                },
+                {
+                    "id": "gemini",
+                    "label": "Google Gemini"
+                }
+            ]
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Archivo de audio/vídeo",
+            "placeholder": "Sube un archivo de audio o vídeo",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Referencia de archivo de audio/vídeo",
+            "placeholder": "Referencia audio/vídeo de bloques anteriores",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "URL de audio/vídeo",
+            "placeholder": "O introduce una URL de audio/vídeo de acceso público",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "Idioma",
+            "required": true,
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "Detección automática"
+                },
+                {
+                    "id": "en",
+                    "label": "Inglés"
+                },
+                {
+                    "id": "es",
+                    "label": "Español"
+                },
+                {
+                    "id": "fr",
+                    "label": "Francés"
+                },
+                {
+                    "id": "de",
+                    "label": "Alemán"
+                },
+                {
+                    "id": "it",
+                    "label": "Italiano"
+                },
+                {
+                    "id": "pt",
+                    "label": "Portugués"
+                },
+                {
+                    "id": "nl",
+                    "label": "Neerlandés"
+                },
+                {
+                    "id": "ru",
+                    "label": "Ruso"
+                },
+                {
+                    "id": "zh",
+                    "label": "Chino"
+                },
+                {
+                    "id": "ja",
+                    "label": "Japonés"
+                },
+                {
+                    "id": "ko",
+                    "label": "Coreano"
+                },
+                {
+                    "id": "ar",
+                    "label": "Árabe"
+                },
+                {
+                    "id": "hi",
+                    "label": "Hindi"
+                },
+                {
+                    "id": "pl",
+                    "label": "Polaco"
+                },
+                {
+                    "id": "tr",
+                    "label": "Turco"
+                },
+                {
+                    "id": "sv",
+                    "label": "Sueco"
+                },
+                {
+                    "id": "da",
+                    "label": "Danés"
+                },
+                {
+                    "id": "no",
+                    "label": "Noruego"
+                },
+                {
+                    "id": "fi",
+                    "label": "Finés"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "Marcas de tiempo",
+            "required": true,
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "Ninguno"
+                },
+                {
+                    "id": "sentence",
+                    "label": "A nivel de oración"
+                },
+                {
+                    "id": "word",
+                    "label": "A nivel de palabra"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": true,
+            "defaultValue": "nova-3",
+            "options": [
+                {
+                    "id": "nova-3",
+                    "label": "Nova 3"
+                },
+                {
+                    "id": "nova-2",
+                    "label": "Nova 2"
+                },
+                {
+                    "id": "nova",
+                    "label": "Nova"
+                },
+                {
+                    "id": "whisper-large",
+                    "label": "Whisper Large"
+                },
+                {
+                    "id": "enhanced",
+                    "label": "Enhanced"
+                },
+                {
+                    "id": "base",
+                    "label": "Base"
+                }
+            ]
+        },
+        {
+            "id": "diarization",
+            "type": "switch",
+            "title": "Diarización de hablantes"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Deepgram (<code>stt_deepgram</code>)</div>
+
+Transcribe audio a texto con Deepgram
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor STT \(deepgram\) |
+| `apiKey` | string | Sí | Clave API de Deepgram |
+| `model` | string | No | Modelo de Deepgram a usar \(nova-3, nova-2, whisper-large, etc.\) |
+| `audioFile` | file | No | Archivo de audio o vídeo para transcribir |
+| `audioFileReference` | file | No | Referencia a un archivo de audio/vídeo de bloques anteriores |
+| `audioUrl` | string | No | URL de un archivo de audio o vídeo |
+| `language` | string | No | Código de idioma \(p. ej., "en", "es", "fr"\) o "auto" para detección automática |
+| `timestamps` | string | No | Granularidad de marcas de tiempo: none, sentence o word |
+| `diarization` | boolean | No | Activar diarización de locutores |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `transcript` | string | Texto transcrito completo |
+| `segments` | array | Segmentos con marcas de tiempo y etiquetas de locutor |
+| `language` | string | Idioma detectado o especificado |
+| `duration` | number | Duración del audio en segundos |
+| `confidence` | number | Puntuación de confianza general |
+
+</div>
+
+---
+
+### ElevenLabs
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Voz a texto"
+    type="stt"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "elevenlabs",
+            "options": [
+                {
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
+                },
+                {
+                    "id": "gemini",
+                    "label": "Google Gemini"
+                }
+            ]
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Archivo de audio/vídeo",
+            "placeholder": "Carga un archivo de audio o vídeo",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Referencia de archivo de audio/vídeo",
+            "placeholder": "Referencia de audio/vídeo de bloques anteriores",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "URL de audio/vídeo",
+            "placeholder": "O introduce una URL pública de audio/vídeo",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "Idioma",
+            "required": true,
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "Detección automática"
+                },
+                {
+                    "id": "en",
+                    "label": "Inglés"
+                },
+                {
+                    "id": "es",
+                    "label": "Español"
+                },
+                {
+                    "id": "fr",
+                    "label": "Francés"
+                },
+                {
+                    "id": "de",
+                    "label": "Alemán"
+                },
+                {
+                    "id": "it",
+                    "label": "Italiano"
+                },
+                {
+                    "id": "pt",
+                    "label": "Portugués"
+                },
+                {
+                    "id": "nl",
+                    "label": "Neerlandés"
+                },
+                {
+                    "id": "ru",
+                    "label": "Ruso"
+                },
+                {
+                    "id": "zh",
+                    "label": "Chino"
+                },
+                {
+                    "id": "ja",
+                    "label": "Japonés"
+                },
+                {
+                    "id": "ko",
+                    "label": "Coreano"
+                },
+                {
+                    "id": "ar",
+                    "label": "Árabe"
+                },
+                {
+                    "id": "hi",
+                    "label": "Hindi"
+                },
+                {
+                    "id": "pl",
+                    "label": "Polaco"
+                },
+                {
+                    "id": "tr",
+                    "label": "Turco"
+                },
+                {
+                    "id": "sv",
+                    "label": "Sueco"
+                },
+                {
+                    "id": "da",
+                    "label": "Danés"
+                },
+                {
+                    "id": "no",
+                    "label": "Noruego"
+                },
+                {
+                    "id": "fi",
+                    "label": "Finés"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "Marcas de tiempo",
+            "required": true,
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "Ninguno"
+                },
+                {
+                    "id": "sentence",
+                    "label": "A nivel de oración"
+                },
+                {
+                    "id": "word",
+                    "label": "A nivel de palabra"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": true,
+            "defaultValue": "scribe_v1",
+            "options": [
+                {
+                    "id": "scribe_v1",
+                    "label": "Scribe v1"
+                },
+                {
+                    "id": "scribe_v1_experimental",
+                    "label": "Scribe v1 Experimental"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">ElevenLabs (<code>stt_elevenlabs</code>)</div>
+
+Transcribir audio a texto con ElevenLabs
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor STT \(elevenlabs\) |
+| `apiKey` | string | Sí | Clave API de ElevenLabs |
+| `model` | string | No | Modelo de ElevenLabs a usar \(scribe_v1, scribe_v1_experimental\) |
+| `audioFile` | file | No | Archivo de audio o video para transcribir |
+| `audioFileReference` | file | No | Referencia a un archivo de audio/video de bloques anteriores |
+| `audioUrl` | string | No | URL de un archivo de audio o video |
+| `language` | string | No | Código de idioma \(p. ej., "en", "es", "fr"\) o "auto" para detección automática |
+| `timestamps` | string | No | Granularidad de marcas de tiempo: none, sentence o word |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `transcript` | string | Texto transcrito completo |
+| `segments` | array | Segmentos con marcas de tiempo |
+| `language` | string | Idioma detectado o especificado |
+| `duration` | number | Duración del audio en segundos |
+| `confidence` | number | Puntuación de confianza general |
+
+</div>
+
+---
+
+### AssemblyAI
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Voz a texto"
+    type="stt"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "assemblyai",
+            "options": [
+                {
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
+                },
+                {
+                    "id": "gemini",
+                    "label": "Google Gemini"
+                }
+            ]
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Archivo de audio/video",
+            "placeholder": "Cargar un archivo de audio o video",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Referencia de archivo de audio/video",
+            "placeholder": "Referenciar audio/video de bloques anteriores",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "URL de audio/video",
+            "placeholder": "O introduzca una URL de audio/video de acceso público",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "Idioma",
+            "required": true,
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "Detección automática"
+                },
+                {
+                    "id": "en",
+                    "label": "Inglés"
+                },
+                {
+                    "id": "es",
+                    "label": "Español"
+                },
+                {
+                    "id": "fr",
+                    "label": "Francés"
+                },
+                {
+                    "id": "de",
+                    "label": "Alemán"
+                },
+                {
+                    "id": "it",
+                    "label": "Italiano"
+                },
+                {
+                    "id": "pt",
+                    "label": "Portugués"
+                },
+                {
+                    "id": "nl",
+                    "label": "Neerlandés"
+                },
+                {
+                    "id": "ru",
+                    "label": "Ruso"
+                },
+                {
+                    "id": "zh",
+                    "label": "Chino"
+                },
+                {
+                    "id": "ja",
+                    "label": "Japonés"
+                },
+                {
+                    "id": "ko",
+                    "label": "Coreano"
+                },
+                {
+                    "id": "ar",
+                    "label": "Árabe"
+                },
+                {
+                    "id": "hi",
+                    "label": "Hindi"
+                },
+                {
+                    "id": "pl",
+                    "label": "Polaco"
+                },
+                {
+                    "id": "tr",
+                    "label": "Turco"
+                },
+                {
+                    "id": "sv",
+                    "label": "Sueco"
+                },
+                {
+                    "id": "da",
+                    "label": "Danés"
+                },
+                {
+                    "id": "no",
+                    "label": "Noruego"
+                },
+                {
+                    "id": "fi",
+                    "label": "Finés"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "Marcas de tiempo",
+            "required": true,
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "Ninguna"
+                },
+                {
+                    "id": "sentence",
+                    "label": "Por oración"
+                },
+                {
+                    "id": "word",
+                    "label": "Por palabra"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduzca su clave API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": true,
+            "defaultValue": "best",
+            "options": [
+                {
+                    "id": "best",
+                    "label": "Best"
+                },
+                {
+                    "id": "nano",
+                    "label": "Nano"
+                }
+            ]
+        },
+        {
+            "id": "diarization",
+            "type": "switch",
+            "title": "Diarización de locutores"
+        },
+        {
+            "id": "sentiment",
+            "type": "switch",
+            "title": "Análisis de sentimiento"
+        },
+        {
+            "id": "entityDetection",
+            "type": "switch",
+            "title": "Detección de entidades"
+        },
+        {
+            "id": "piiRedaction",
+            "type": "switch",
+            "title": "Redacción de PII"
+        },
+        {
+            "id": "summarization",
+            "type": "switch",
+            "title": "Resumen automático"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">AssemblyAI (<code>stt_assemblyai</code>)</div>
+
+Transcribe audio a texto usando AssemblyAI con funciones avanzadas de NLP
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor STT \(assemblyai\) |
+| `apiKey` | string | Sí | Clave de API de AssemblyAI |
+| `model` | string | No | Modelo de AssemblyAI que se usará \(predeterminado: best\) |
+| `audioFile` | file | No | Archivo de audio o video para transcribir |
+| `audioFileReference` | file | No | Referencia a un archivo de audio/video de bloques anteriores |
+| `audioUrl` | string | No | URL de un archivo de audio o video |
+| `language` | string | No | Código de idioma \(p. ej., "en", "es", "fr"\) o "auto" para detección automática |
+| `timestamps` | string | No | Granularidad de marcas de tiempo: none, sentence o word |
+| `diarization` | boolean | No | Habilitar diarización de hablantes |
+| `sentiment` | boolean | No | Habilitar análisis de sentimiento |
+| `entityDetection` | boolean | No | Habilitar detección de entidades |
+| `piiRedaction` | boolean | No | Habilitar redacción de PII |
+| `summarization` | boolean | No | Habilitar resumen automático |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `transcript` | string | Texto transcrito completo |
+| `segments` | array | Segmentos con marcas de tiempo y etiquetas de hablante |
+| `language` | string | Idioma detectado o especificado |
+| `duration` | number | Duración del audio en segundos |
+| `confidence` | number | Puntuación de confianza general |
+| `sentiment` | array | Resultados del análisis de sentimiento |
+| `entities` | array | Entidades detectadas |
+| `summary` | string | Resumen generado automáticamente |
+
+</div>
+
+---
+
+### Google Gemini
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Voz a texto"
+    type="stt"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "provider",
+            "type": "dropdown",
+            "title": "Proveedor",
+            "required": true,
+            "defaultValue": "gemini",
+            "options": [
+                {
+                    "id": "whisper",
+                    "label": "OpenAI Whisper"
+                },
+                {
+                    "id": "deepgram",
+                    "label": "Deepgram"
+                },
+                {
+                    "id": "elevenlabs",
+                    "label": "ElevenLabs"
+                },
+                {
+                    "id": "assemblyai",
+                    "label": "AssemblyAI"
+                },
+                {
+                    "id": "gemini",
+                    "label": "Google Gemini"
+                }
+            ]
+        },
+        {
+            "id": "audioFile",
+            "type": "file-upload",
+            "title": "Archivo de audio/video",
+            "placeholder": "Cargue un archivo de audio o video",
+            "required": true
+        },
+        {
+            "id": "audioFileReference",
+            "type": "short-input",
+            "title": "Referencia de archivo de audio/video",
+            "placeholder": "Referencie audio/video de bloques anteriores",
+            "required": true
+        },
+        {
+            "id": "audioUrl",
+            "type": "short-input",
+            "title": "URL de audio/video",
+            "placeholder": "O introduzca una URL de audio/video de acceso público",
+            "required": false
+        },
+        {
+            "id": "language",
+            "type": "dropdown",
+            "title": "Idioma",
+            "required": true,
+            "defaultValue": "auto",
+            "options": [
+                {
+                    "id": "auto",
+                    "label": "Detección automática"
+                },
+                {
+                    "id": "en",
+                    "label": "Inglés"
+                },
+                {
+                    "id": "es",
+                    "label": "Español"
+                },
+                {
+                    "id": "fr",
+                    "label": "Francés"
+                },
+                {
+                    "id": "de",
+                    "label": "Alemán"
+                },
+                {
+                    "id": "it",
+                    "label": "Italiano"
+                },
+                {
+                    "id": "pt",
+                    "label": "Portugués"
+                },
+                {
+                    "id": "nl",
+                    "label": "Neerlandés"
+                },
+                {
+                    "id": "ru",
+                    "label": "Ruso"
+                },
+                {
+                    "id": "zh",
+                    "label": "Chino"
+                },
+                {
+                    "id": "ja",
+                    "label": "Japonés"
+                },
+                {
+                    "id": "ko",
+                    "label": "Coreano"
+                },
+                {
+                    "id": "ar",
+                    "label": "Árabe"
+                },
+                {
+                    "id": "hi",
+                    "label": "Hindi"
+                },
+                {
+                    "id": "pl",
+                    "label": "Polaco"
+                },
+                {
+                    "id": "tr",
+                    "label": "Turco"
+                },
+                {
+                    "id": "sv",
+                    "label": "Sueco"
+                },
+                {
+                    "id": "da",
+                    "label": "Danés"
+                },
+                {
+                    "id": "no",
+                    "label": "Noruego"
+                },
+                {
+                    "id": "fi",
+                    "label": "Finés"
+                }
+            ]
+        },
+        {
+            "id": "timestamps",
+            "type": "dropdown",
+            "title": "Marcas de tiempo",
+            "required": true,
+            "defaultValue": "none",
+            "options": [
+                {
+                    "id": "none",
+                    "label": "Ninguno"
+                },
+                {
+                    "id": "sentence",
+                    "label": "A nivel de oración"
+                },
+                {
+                    "id": "word",
+                    "label": "A nivel de palabra"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduzca su clave de API",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "required": true,
+            "defaultValue": "gemini-2.5-flash",
+            "options": [
+                {
+                    "id": "gemini-3.1-pro-preview",
+                    "label": "Gemini 3.1 Pro"
+                },
+                {
+                    "id": "gemini-2.5-pro",
+                    "label": "Gemini 2.5 Pro"
+                },
+                {
+                    "id": "gemini-2.5-flash",
+                    "label": "Gemini 2.5 Flash"
+                },
+                {
+                    "id": "gemini-2.5-flash-lite",
+                    "label": "Gemini 2.5 Flash Lite"
+                },
+                {
+                    "id": "gemini-2.0-flash-exp",
+                    "label": "Gemini 2.0 Flash"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Google Gemini (<code>stt_gemini</code>)</div>
+
+Transcribe audio a texto usando Google Gemini con capacidades multimodales
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `provider` | string | Sí | Proveedor STT \(gemini\) |
+| `apiKey` | string | Sí | Clave de API de Google |
+| `model` | string | No | Modelo de Gemini a usar \(predeterminado: gemini-2.5-flash\) |
+| `audioFile` | file | No | Archivo de audio o vídeo para transcribir |
+| `audioFileReference` | file | No | Referencia a un archivo de audio/vídeo de bloques anteriores |
+| `audioUrl` | string | No | URL del archivo de audio o vídeo |
+| `language` | string | No | Código de idioma \(p. ej., "en", "es", "fr"\) o "auto" para detección automática |
+| `timestamps` | string | No | Granularidad de las marcas de tiempo: none, sentence o word |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `transcript` | string | Texto transcrito completo |
+| `segments` | array | Segmentos con marcas de tiempo |
+| `language` | string | Idioma detectado o especificado |
+| `duration` | number | Duración del audio en segundos |
+| `confidence` | number | Puntuación general de confianza |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Transcribe archivos de audio y vídeo a texto usando los principales proveedores de IA. Admite varios idiomas, marcas de tiempo y diarización de hablantes.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `stt`

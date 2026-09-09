@@ -1,0 +1,621 @@
+---
+title: Wealthbox
+description: 与 Wealthbox 交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="wealthbox"
+  color="#116ED5"
+/>
+
+## 配置
+
+### 读取笔记
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color="#116ED5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "read_note",
+            "options": [
+                {
+                    "id": "read_note",
+                    "label": "读取笔记"
+                },
+                {
+                    "id": "write_note",
+                    "label": "写入笔记"
+                },
+                {
+                    "id": "read_contact",
+                    "label": "读取联系人"
+                },
+                {
+                    "id": "write_contact",
+                    "label": "写入联系人"
+                },
+                {
+                    "id": "read_task",
+                    "label": "读取任务"
+                },
+                {
+                    "id": "write_task",
+                    "label": "写入任务"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox 账户",
+            "layout": "full",
+            "placeholder": "选择 Wealthbox 账户",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "noteId",
+            "type": "short-input",
+            "title": "笔记 ID",
+            "layout": "full",
+            "placeholder": "输入笔记 ID（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取笔记（<code>wealthbox_read_note</code>）</div>
+
+读取 Wealthbox 笔记中的内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `noteId` | string | 否 | 要读取的笔记 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作是否成功 |
+| `output` | object | 笔记数据与元数据 |
+
+</div>
+
+---
+
+### 写入笔记
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color="#116ED5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "write_note",
+            "options": [
+                {
+                    "id": "read_note",
+                    "label": "读取笔记"
+                },
+                {
+                    "id": "write_note",
+                    "label": "写入笔记"
+                },
+                {
+                    "id": "read_contact",
+                    "label": "读取联系人"
+                },
+                {
+                    "id": "write_contact",
+                    "label": "写入联系人"
+                },
+                {
+                    "id": "read_task",
+                    "label": "读取任务"
+                },
+                {
+                    "id": "write_task",
+                    "label": "写入任务"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox 账户",
+            "layout": "full",
+            "placeholder": "选择 Wealthbox 账户",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "file-selector",
+            "title": "选择联系人",
+            "layout": "full",
+            "placeholder": "输入联系人 ID",
+            "provider": "wealthbox"
+        },
+        {
+            "id": "manualContactId",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "layout": "full",
+            "placeholder": "输入联系人 ID"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "内容",
+            "layout": "full",
+            "placeholder": "输入内容",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">写入笔记 (<code>wealthbox_write_note</code>)</div>
+
+创建或更新 Wealthbox 笔记
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `content` | string | 是 | 笔记正文 |
+| `contactId` | string | 否 | 要关联到此笔记的联系人 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 已创建或更新的笔记数据及元数据 |
+
+</div>
+
+---
+
+### 读取联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color="#116ED5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "read_contact",
+            "options": [
+                {
+                    "id": "read_note",
+                    "label": "读取笔记"
+                },
+                {
+                    "id": "write_note",
+                    "label": "写入笔记"
+                },
+                {
+                    "id": "read_contact",
+                    "label": "读取联系人"
+                },
+                {
+                    "id": "write_contact",
+                    "label": "写入联系人"
+                },
+                {
+                    "id": "read_task",
+                    "label": "读取任务"
+                },
+                {
+                    "id": "write_task",
+                    "label": "写入任务"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox 账户",
+            "layout": "full",
+            "placeholder": "选择 Wealthbox 账户",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "file-selector",
+            "title": "选择联系人",
+            "layout": "full",
+            "placeholder": "输入联系人 ID",
+            "provider": "wealthbox"
+        },
+        {
+            "id": "manualContactId",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "layout": "full",
+            "placeholder": "输入联系人 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取联系人 (<code>wealthbox_read_contact</code>)</div>
+
+读取 Wealthbox 联系人内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | string | 否 | 要读取的联系人 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 联系人数据与元数据 |
+
+</div>
+
+---
+
+### 写入联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color="#116ED5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "write_contact",
+            "options": [
+                {
+                    "id": "read_note",
+                    "label": "读取备注"
+                },
+                {
+                    "id": "write_note",
+                    "label": "写入备注"
+                },
+                {
+                    "id": "read_contact",
+                    "label": "读取联系人"
+                },
+                {
+                    "id": "write_contact",
+                    "label": "写入联系人"
+                },
+                {
+                    "id": "read_task",
+                    "label": "读取任务"
+                },
+                {
+                    "id": "write_task",
+                    "label": "写入任务"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox 账户",
+            "layout": "full",
+            "placeholder": "选择 Wealthbox 账户",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "firstName",
+            "type": "short-input",
+            "title": "名",
+            "layout": "full",
+            "placeholder": "输入名",
+            "required": true
+        },
+        {
+            "id": "lastName",
+            "type": "short-input",
+            "title": "姓",
+            "layout": "full",
+            "placeholder": "输入姓",
+            "required": true
+        },
+        {
+            "id": "emailAddress",
+            "type": "short-input",
+            "title": "邮箱地址",
+            "layout": "full",
+            "placeholder": "输入邮箱地址"
+        },
+        {
+            "id": "backgroundInformation",
+            "type": "long-input",
+            "title": "背景信息",
+            "layout": "full",
+            "placeholder": "输入背景信息"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">写入联系人 (<code>wealthbox_write_contact</code>)</div>
+
+创建新的 Wealthbox 联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `firstName` | string | 是 | 联系人的名 |
+| `lastName` | string | 是 | 联系人的姓 |
+| `emailAddress` | string | 否 | 联系人的电子邮箱 |
+| `backgroundInformation` | string | 否 | 联系人的背景信息 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作是否成功 |
+| `output` | object | 已创建或已更新的联系人数据及元数据 |
+
+</div>
+
+---
+
+### 读取任务
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color="#116ED5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "read_task",
+            "options": [
+                {
+                    "id": "read_note",
+                    "label": "读取笔记"
+                },
+                {
+                    "id": "write_note",
+                    "label": "写入笔记"
+                },
+                {
+                    "id": "read_contact",
+                    "label": "读取联系人"
+                },
+                {
+                    "id": "write_contact",
+                    "label": "写入联系人"
+                },
+                {
+                    "id": "read_task",
+                    "label": "读取任务"
+                },
+                {
+                    "id": "write_task",
+                    "label": "写入任务"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox 账户",
+            "layout": "full",
+            "placeholder": "选择 Wealthbox 账户",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "taskId",
+            "type": "short-input",
+            "title": "任务 ID",
+            "layout": "full",
+            "placeholder": "输入任务 ID"
+        },
+        {
+            "id": "manualTaskId",
+            "type": "short-input",
+            "title": "任务 ID",
+            "layout": "full",
+            "placeholder": "输入任务 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取任务 (<code>wealthbox_read_task</code>)</div>
+
+读取 Wealthbox 任务中的内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `taskId` | string | 否 | 要读取的任务 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 任务数据与元数据 |
+
+</div>
+
+---
+
+### 写入任务
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Wealthbox"
+    type="wealthbox"
+    color="#116ED5"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "write_task",
+            "options": [
+                {
+                    "id": "read_note",
+                    "label": "读取笔记"
+                },
+                {
+                    "id": "write_note",
+                    "label": "写入笔记"
+                },
+                {
+                    "id": "read_contact",
+                    "label": "读取联系人"
+                },
+                {
+                    "id": "write_contact",
+                    "label": "写入联系人"
+                },
+                {
+                    "id": "read_task",
+                    "label": "读取任务"
+                },
+                {
+                    "id": "write_task",
+                    "label": "写入任务"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Wealthbox 账户",
+            "layout": "full",
+            "placeholder": "选择 Wealthbox 账户",
+            "provider": "wealthbox",
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "file-selector",
+            "title": "选择联系人",
+            "layout": "full",
+            "placeholder": "输入联系人 ID",
+            "provider": "wealthbox"
+        },
+        {
+            "id": "manualContactId",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "layout": "full",
+            "placeholder": "输入联系人 ID"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "layout": "full",
+            "placeholder": "输入标题",
+            "required": true
+        },
+        {
+            "id": "dueDate",
+            "type": "datetime-input",
+            "title": "截止日期",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ（例如 2015-05-24T11:00:00Z）",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "内容",
+            "layout": "full",
+            "placeholder": "输入内容",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">写入任务 (<code>wealthbox_write_task</code>)</div>
+
+创建或更新 Wealthbox 任务
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `title` | string | 是 | 任务的名称/标题 |
+| `dueDate` | string | 是 | 任务的截止日期和时间（格式："YYYY-MM-DDTHH:mm:ssZ"，例如："2015-05-24T11:00:00Z"） |
+| `contactId` | string | 否 | 要关联到此任务的联系人 ID |
+| `description` | string | 否 | 任务的描述或备注 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作是否成功 |
+| `output` | object | 已创建或已更新的任务数据及元数据 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Wealthbox 集成到工作流。可读写笔记、联系人和任务。
+
+## 说明
+
+- 类别：`tools`
+- 类型：`wealthbox`

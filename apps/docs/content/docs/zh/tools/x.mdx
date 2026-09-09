@@ -1,0 +1,404 @@
+---
+title: X
+description: 与 X 交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="x"
+  color=""
+/>
+
+## 配置
+
+### 发布新推文
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "x_write",
+            "options": [
+                {
+                    "id": "x_write",
+                    "label": "发布新推文"
+                },
+                {
+                    "id": "x_read",
+                    "label": "获取推文详情"
+                },
+                {
+                    "id": "x_search",
+                    "label": "搜索推文"
+                },
+                {
+                    "id": "x_user",
+                    "label": "获取用户资料"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X 账号",
+            "layout": "full",
+            "placeholder": "选择 X 账号",
+            "provider": "x"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "推文内容",
+            "layout": "full",
+            "placeholder": "有什么新鲜事？",
+            "required": true
+        },
+        {
+            "id": "replyTo",
+            "type": "short-input",
+            "title": "回复至（推文 ID）",
+            "layout": "full",
+            "placeholder": "输入要回复的推文 ID"
+        },
+        {
+            "id": "mediaIds",
+            "type": "short-input",
+            "title": "媒体 ID",
+            "layout": "full",
+            "placeholder": "输入以逗号分隔的媒体 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发布新推文 (<code>x_write</code>)</div>
+
+在 X（Twitter）上发布新推文、回复推文或创建投票
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `text` | string | 是 | 推文的文本内容 |
+| `replyTo` | string | 否 | 要回复的推文 ID |
+| `mediaIds` | array | 否 | 附加到推文的媒体 ID 数组 |
+| `poll` | object | 否 | 推文的投票配置 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `tweet` | object | 新创建的推文数据 |
+
+</div>
+
+---
+
+### 获取推文详情
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "x_read",
+            "options": [
+                {
+                    "id": "x_write",
+                    "label": "发布新推文"
+                },
+                {
+                    "id": "x_read",
+                    "label": "获取推文详情"
+                },
+                {
+                    "id": "x_search",
+                    "label": "搜索推文"
+                },
+                {
+                    "id": "x_user",
+                    "label": "获取用户资料"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X 账号",
+            "layout": "full",
+            "placeholder": "选择 X 账号",
+            "provider": "x"
+        },
+        {
+            "id": "tweetId",
+            "type": "short-input",
+            "title": "推文 ID",
+            "layout": "full",
+            "placeholder": "输入要读取的推文 ID",
+            "required": true
+        },
+        {
+            "id": "includeReplies",
+            "type": "dropdown",
+            "title": "包含回复",
+            "layout": "full",
+            "defaultValue": "false",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "true"
+                },
+                {
+                    "id": "false",
+                    "label": "false"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取推文详情 (<code>x_read</code>)</div>
+
+读取推文详情，包括回复和对话上下文
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `tweetId` | string | 是 | 要读取的推文 ID |
+| `includeReplies` | boolean | 否 | 是否包含该推文的回复 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `tweet` | object | 主推文数据 |
+| `context` | object | 对话上下文，包括父推文和根推文 |
+
+</div>
+
+---
+
+### 搜索推文
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "x_search",
+            "options": [
+                {
+                    "id": "x_write",
+                    "label": "发布新推文"
+                },
+                {
+                    "id": "x_read",
+                    "label": "获取推文详情"
+                },
+                {
+                    "id": "x_search",
+                    "label": "搜索推文"
+                },
+                {
+                    "id": "x_user",
+                    "label": "获取用户资料"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X 账号",
+            "layout": "full",
+            "placeholder": "选择 X 账号",
+            "provider": "x"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入搜索词（支持 X 搜索运算符）",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "layout": "full",
+            "placeholder": "10"
+        },
+        {
+            "id": "sortOrder",
+            "type": "dropdown",
+            "title": "排序方式",
+            "layout": "full",
+            "defaultValue": "recency",
+            "options": [
+                {
+                    "id": "recency",
+                    "label": "最新"
+                },
+                {
+                    "id": "relevancy",
+                    "label": "相关性"
+                }
+            ]
+        },
+        {
+            "id": "startTime",
+            "type": "datetime-input",
+            "title": "开始时间",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ"
+        },
+        {
+            "id": "endTime",
+            "type": "datetime-input",
+            "title": "结束时间",
+            "layout": "full",
+            "placeholder": "YYYY-MM-DDTHH:mm:ssZ"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索推文（<code>x_search</code>）</div>
+
+使用关键词、话题标签或高级查询搜索推文
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 搜索查询（支持 X 搜索运算符） |
+| `maxResults` | number | 否 | 返回结果的最大数量（默认：10，最大：100） |
+| `startTime` | string | 否 | 搜索开始时间（ISO 8601 格式） |
+| `endTime` | string | 否 | 搜索结束时间（ISO 8601 格式） |
+| `sortOrder` | string | 否 | 结果排序方式（recency 或 relevancy） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `tweets` | array | 匹配搜索查询的推文数组 |
+| `includes` | object | 附加数据，包括用户资料和媒体 |
+| `meta` | object | 搜索元数据，包括结果数量和分页令牌 |
+
+</div>
+
+---
+
+### 获取用户资料
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="X"
+    type="x"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "x_user",
+            "options": [
+                {
+                    "id": "x_write",
+                    "label": "发布新推文"
+                },
+                {
+                    "id": "x_read",
+                    "label": "获取推文详情"
+                },
+                {
+                    "id": "x_search",
+                    "label": "搜索推文"
+                },
+                {
+                    "id": "x_user",
+                    "label": "获取用户资料"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "X 账号",
+            "layout": "full",
+            "placeholder": "选择 X 账号",
+            "provider": "x"
+        },
+        {
+            "id": "username",
+            "type": "short-input",
+            "title": "用户名",
+            "layout": "full",
+            "placeholder": "输入用户名（不含 @）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取用户资料（<code>x_user</code>）</div>
+
+获取用户资料信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `username` | string | 是 | 要查找的用户名（不含 @ 符号） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `user` | object | X 用户资料信息 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 X 集成到工作流。可发布新推文、获取推文详情、搜索推文，以及获取用户资料。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`x`

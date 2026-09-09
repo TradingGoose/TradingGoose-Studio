@@ -1,0 +1,597 @@
+---
+title: Grain 触发器
+description: 适用于所有 Grain 事件的通用 webhook 触发器
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { SchemaTree } from "@/components/ui/schema-tree"
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="grain"
+  color=""
+/>
+
+适用于所有 Grain 事件的通用 webhook 触发器
+
+<Callout type="info">
+  这是基于 **webhook** 的触发器。请将外部服务配置为向工作流 webhook URL 发送事件。
+</Callout>
+
+<Cards>
+  <Card title="用作工具" href="/tools/grain">
+    查看 Grain 的工作流动作、操作和工具输入。
+  </Card>
+</Cards>
+
+## 事件
+
+### Grain Webhook
+
+适用于所有 Grain 事件的通用 webhook 触发器
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 在上方输入你的 Grain API 密钥（Personal Access Token）。</div><div class="mb-3"><strong>2.</strong> 可在 Grain 的 <strong>Settings > Integrations > API</strong> 中查找或创建 API 密钥。</div><div class="mb-3"><strong>3.</strong> 点击 <strong>"保存配置"</strong>，即可在 Grain 中自动创建适用于 <strong>All events</strong> 事件的 webhook。</div><div class="mb-3"><strong>4.</strong> 移除此触发器时，webhook 将自动删除。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain Webhook"
+    type="grain_webhook"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Grain API 密钥（Personal Access Token）",
+            "description": "用于在 Grain 中创建 webhook。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "事件类型（例如 recording_added）"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "触发该事件的用户 UUID"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "description": "事件数据对象（recording、highlight 等）"
+      }
+  ]}
+/>
+
+---
+
+### Grain 录制已创建
+
+当 Grain 中新增录制时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 在上方输入你的 Grain API 密钥（个人访问令牌）。</div><div class="mb-3"><strong>2.</strong> 可在 Grain 的 <strong>设置 > 集成 > API</strong> 中查找或创建 API 密钥。</div><div class="mb-3"><strong>3.</strong> 点击 <strong>"保存配置"</strong>，即可自动在 Grain 中为 <strong>Recording (new)</strong> 事件创建 webhook。</div><div class="mb-3"><strong>4.</strong> 移除此触发器时，webhook 将自动删除。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain 录制已创建"
+    type="grain_recording_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Grain API 密钥（个人访问令牌）",
+            "description": "在 Grain 中创建 webhook 时必需。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "事件类型"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "触发该事件的用户 UUID"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "录制 UUID"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "录制标题"
+              },
+              {
+                  "name": "start_datetime",
+                  "type": "string",
+                  "description": "ISO8601 开始时间戳"
+              },
+              {
+                  "name": "end_datetime",
+                  "type": "string",
+                  "description": "ISO8601 结束时间戳"
+              },
+              {
+                  "name": "duration_ms",
+                  "type": "number",
+                  "description": "时长（毫秒）"
+              },
+              {
+                  "name": "media_type",
+                  "type": "string",
+                  "description": "audio、transcript 或 video"
+              },
+              {
+                  "name": "source",
+                  "type": "string",
+                  "description": "录制来源（zoom、meet、local_capture 等）"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "在 Grain 中查看的 URL"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "缩略图 URL（可为 null）"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "标签字符串数组"
+              },
+              {
+                  "name": "teams",
+                  "type": "array",
+                  "description": "团队对象数组"
+              },
+              {
+                  "name": "meeting_type",
+                  "type": "object",
+                  "description": "会议类型信息，包含 id、name、scope（可为 null）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Grain 录制已更新
+
+当 Grain 中的录制更新时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 在上方输入你的 Grain API 密钥（个人访问令牌）。</div><div class="mb-3"><strong>2.</strong> 你可以在 Grain 的 <strong>Settings > Integrations > API</strong> 中查找或创建 API 密钥。</div><div class="mb-3"><strong>3.</strong> 点击<strong>“保存配置”</strong>，即可在 Grain 中自动为 <strong>Recording (updated)</strong> 事件创建 webhook。</div><div class="mb-3"><strong>4.</strong> 移除此触发器时，webhook 将自动删除。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain 录制已更新"
+    type="grain_recording_updated"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Grain API 密钥（个人访问令牌）",
+            "description": "在 Grain 中创建 webhook 时必需。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "事件类型"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "触发该事件的用户 UUID"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "录制 UUID"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "录制标题"
+              },
+              {
+                  "name": "start_datetime",
+                  "type": "string",
+                  "description": "ISO8601 开始时间戳"
+              },
+              {
+                  "name": "end_datetime",
+                  "type": "string",
+                  "description": "ISO8601 结束时间戳"
+              },
+              {
+                  "name": "duration_ms",
+                  "type": "number",
+                  "description": "时长（毫秒）"
+              },
+              {
+                  "name": "media_type",
+                  "type": "string",
+                  "description": "audio、transcript 或 video"
+              },
+              {
+                  "name": "source",
+                  "type": "string",
+                  "description": "录制来源（zoom、meet、local_capture 等）"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "在 Grain 中查看的 URL"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "缩略图 URL（可为 null）"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "标签字符串数组"
+              },
+              {
+                  "name": "teams",
+                  "type": "array",
+                  "description": "团队对象数组"
+              },
+              {
+                  "name": "meeting_type",
+                  "type": "object",
+                  "description": "会议类型信息，包含 id、name、scope（可为 null）"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Grain 高光已创建
+
+在 Grain 中创建新高光/片段时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 在上方输入你的 Grain API Key（个人访问令牌）。</div><div class="mb-3"><strong>2.</strong> 可在 Grain 的 <strong>Settings > Integrations > API</strong> 中查找或创建 API Key。</div><div class="mb-3"><strong>3.</strong> 点击 <strong>“保存配置”</strong>，即可自动在 Grain 中为 <strong>Highlight (new)</strong> 事件创建 Webhook。</div><div class="mb-3"><strong>4.</strong> 移除此触发器时，Webhook 会自动删除。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain 高光已创建"
+    type="grain_highlight_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Grain API Key（个人访问令牌）",
+            "description": "在 Grain 中创建 Webhook 所需。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "事件类型"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "触发该事件的用户 UUID"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "高光 UUID"
+              },
+              {
+                  "name": "recording_id",
+                  "type": "string",
+                  "description": "所属录制 UUID"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "高光标题/描述"
+              },
+              {
+                  "name": "transcript",
+                  "type": "string",
+                  "description": "片段的转录文本"
+              },
+              {
+                  "name": "speakers",
+                  "type": "array",
+                  "description": "发言人姓名数组"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "number",
+                  "description": "起始时间戳（毫秒）"
+              },
+              {
+                  "name": "duration",
+                  "type": "number",
+                  "description": "时长（毫秒）"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "标签字符串数组"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "在 Grain 中查看的 URL"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "缩略图 URL"
+              },
+              {
+                  "name": "created_datetime",
+                  "type": "string",
+                  "description": "ISO8601 创建时间戳"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Grain 高亮片段已更新
+
+当 Grain 中的高亮/片段更新时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 在上方输入你的 Grain API 密钥（个人访问令牌）。</div><div class="mb-3"><strong>2.</strong> 可在 Grain 的 <strong>Settings > Integrations > API</strong> 中查找或创建 API 密钥。</div><div class="mb-3"><strong>3.</strong> 点击<strong>"保存配置"</strong>，即可自动在 Grain 中创建 <strong>Highlight (updated)</strong> 事件的 webhook。</div><div class="mb-3"><strong>4.</strong> 移除此触发器时，webhook 将自动删除。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain 高亮片段已更新"
+    type="grain_highlight_updated"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Grain API 密钥（个人访问令牌）",
+            "description": "用于在 Grain 中创建 webhook。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出结构
+
+<SchemaTree
+  title="事件负载"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "事件类型"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "触发该事件的用户 UUID"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "高亮片段 UUID"
+              },
+              {
+                  "name": "recording_id",
+                  "type": "string",
+                  "description": "所属录制 UUID"
+              },
+              {
+                  "name": "text",
+                  "type": "string",
+                  "description": "高亮片段标题/描述"
+              },
+              {
+                  "name": "transcript",
+                  "type": "string",
+                  "description": "片段转写文本"
+              },
+              {
+                  "name": "speakers",
+                  "type": "array",
+                  "description": "发言人姓名数组"
+              },
+              {
+                  "name": "timestamp",
+                  "type": "number",
+                  "description": "开始时间戳（毫秒）"
+              },
+              {
+                  "name": "duration",
+                  "type": "number",
+                  "description": "时长（毫秒）"
+              },
+              {
+                  "name": "tags",
+                  "type": "array",
+                  "description": "标签字符串数组"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "在 Grain 中查看的 URL"
+              },
+              {
+                  "name": "thumbnail_url",
+                  "type": "string",
+                  "description": "缩略图 URL"
+              },
+              {
+                  "name": "created_datetime",
+                  "type": "string",
+                  "description": "ISO8601 创建时间戳"
+              }
+          ]
+      }
+  ]}
+/>
+
+---
+
+### Grain 故事已创建
+
+当 Grain 中创建新故事时触发工作流
+
+#### 设置说明
+
+<div class="mb-3"><strong>1.</strong> 在上方输入你的 Grain API 密钥（个人访问令牌）。</div><div class="mb-3"><strong>2.</strong> 可在 Grain 的 <strong>Settings > Integrations > API</strong> 中查找或创建 API 密钥。</div><div class="mb-3"><strong>3.</strong> 点击 <strong>"保存配置"</strong>，即可自动在 Grain 中为 <strong>Story (new)</strong> 事件创建 webhook。</div><div class="mb-3"><strong>4.</strong> 移除此触发器时，webhook 将自动删除。</div>
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grain 故事已创建"
+    type="grain_story_created"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Grain API 密钥（个人访问令牌）",
+            "description": "用于在 Grain 中创建 webhook。",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+#### 输出架构
+
+<SchemaTree
+  title="事件载荷"
+  fields={[
+      {
+          "name": "type",
+          "type": "string",
+          "description": "事件类型"
+      },
+      {
+          "name": "user_id",
+          "type": "string",
+          "description": "触发该事件的用户 UUID"
+      },
+      {
+          "name": "data",
+          "type": "object",
+          "children": [
+              {
+                  "name": "id",
+                  "type": "string",
+                  "description": "故事 UUID"
+              },
+              {
+                  "name": "title",
+                  "type": "string",
+                  "description": "故事标题"
+              },
+              {
+                  "name": "url",
+                  "type": "string",
+                  "description": "在 Grain 中查看的 URL"
+              },
+              {
+                  "name": "created_datetime",
+                  "type": "string",
+                  "description": "ISO8601 创建时间戳"
+              }
+          ]
+      }
+  ]}
+/>
+
+---

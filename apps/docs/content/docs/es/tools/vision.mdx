@@ -1,0 +1,122 @@
+---
+title: Visión
+description: Analiza imágenes con modelos de visión
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="vision"
+  color="#4D5FFF"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Visión"
+    type="vision"
+    color="#4D5FFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "imageFile",
+            "type": "file-upload",
+            "title": "Archivo de imagen",
+            "layout": "full",
+            "placeholder": "Sube un archivo de imagen",
+            "required": false
+        },
+        {
+            "id": "imageFileReference",
+            "type": "short-input",
+            "title": "Referencia de archivo de imagen",
+            "layout": "full",
+            "placeholder": "Referencia una imagen de bloques anteriores",
+            "required": false
+        },
+        {
+            "id": "imageUrl",
+            "type": "short-input",
+            "title": "URL de imagen (alternativa)",
+            "layout": "full",
+            "placeholder": "O introduce una URL de imagen de acceso público",
+            "required": false
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo de visión",
+            "layout": "half",
+            "defaultValue": "gpt-4o",
+            "options": [
+                {
+                    "id": "gpt-4o",
+                    "label": "gpt-4o"
+                },
+                {
+                    "id": "claude-3-opus-20240229",
+                    "label": "claude-3-opus"
+                },
+                {
+                    "id": "claude-3-sonnet-20240229",
+                    "label": "claude-3-sonnet"
+                }
+            ]
+        },
+        {
+            "id": "prompt",
+            "type": "long-input",
+            "title": "Prompt",
+            "layout": "full",
+            "placeholder": "Introduce el prompt para el análisis de la imagen",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `vision_tool`
+
+Procesa y analiza imágenes con modelos de visión avanzados. Comprende el contenido de la imagen, extrae texto, identifica objetos y ofrece descripciones visuales detalladas.
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API del proveedor del modelo seleccionado |
+| `imageUrl` | string | No | URL de imagen de acceso público |
+| `imageFile` | file | No | Archivo de imagen para analizar |
+| `model` | string | No | Modelo de visión que se usará \(gpt-4o, claude-3-opus-20240229, etc\) |
+| `prompt` | string | No | Prompt personalizado para el análisis de la imagen |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `content` | string | El contenido analizado y la descripción de la imagen |
+| `model` | string | El modelo de visión utilizado para el análisis |
+| `tokens` | number | Total de tokens utilizados para el análisis |
+| `usage` | object | Desglose detallado del uso de tokens |
+
+## Instrucciones de uso
+
+Integra Vision en el flujo de trabajo. Puede analizar imágenes con modelos de visión.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `vision`

@@ -1,0 +1,4910 @@
+---
+title: Mailchimp
+description: Gestiona audiencias, campañas y automatización de marketing en Mailchimp
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mailchimp"
+  color="#FFE01B"
+/>
+
+## Configuración
+
+### Obtener audiencias
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_audiences",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Cancelar programación de campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de intereses"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de intereses"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de intereses"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de intereses"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de intereses"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "Cantidad",
+            "placeholder": "Número de resultados (predeterminado: 10, máx.: 1000)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "Número de resultados a omitir"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener audiencias (<code>mailchimp_get_audiences</code>)</div>
+
+Recupera una lista de audiencias (listas) de Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `count` | string | No | Número de resultados \(predeterminado: 10, máx.: 1000\) |
+| `offset` | string | No | Número de resultados que se omitirán |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos y metadatos de las audiencias |
+
+</div>
+
+---
+
+### Obtener audiencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_audience",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Agregar miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Agregar o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Agregar suscriptor a automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Agregar miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Agregar etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de intereses"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de interés"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de interés"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de interés"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de interés"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener audiencia (<code>mailchimp_get_audience</code>)</div>
+
+Recuperar los detalles de una audiencia (lista) específica de Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | Sí | El ID único de la lista |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos y metadatos de la audiencia |
+
+</div>
+
+---
+
+### Crear audiencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_audience",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de intereses"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de intereses"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de intereses"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de intereses"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de intereses"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "audienceName",
+            "type": "short-input",
+            "title": "Nombre de la audiencia",
+            "placeholder": "Nombre de la audiencia",
+            "required": true
+        },
+        {
+            "id": "contact",
+            "type": "long-input",
+            "title": "Información de contacto",
+            "placeholder": "Objeto JSON con company, address1, city, state, zip, country",
+            "required": true
+        },
+        {
+            "id": "permissionReminder",
+            "type": "short-input",
+            "title": "Recordatorio de permiso",
+            "placeholder": "Texto del recordatorio de permiso",
+            "required": true
+        },
+        {
+            "id": "campaignDefaults",
+            "type": "long-input",
+            "title": "Valores predeterminados de campaña",
+            "placeholder": "Objeto JSON con from_name, from_email, subject, language",
+            "required": true
+        },
+        {
+            "id": "emailTypeOption",
+            "type": "dropdown",
+            "title": "Opción de tipo de correo",
+            "defaultValue": "true",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "Verdadero"
+                },
+                {
+                    "id": "false",
+                    "label": "Falso"
+                }
+            ],
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear audiencia (<code>mailchimp_create_audience</code>)</div>
+
+Crear una audiencia (lista) nueva en Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `audienceName` | string | Sí | El nombre de la lista |
+| `contact` | string | Sí | Objeto JSON con la información de contacto |
+| `permissionReminder` | string | Sí | Texto del recordatorio de permiso |
+| `campaignDefaults` | string | Sí | Objeto JSON con la configuración predeterminada de la campaña |
+| `emailTypeOption` | string | Sí | Admitir varios formatos de correo electrónico |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos de la audiencia creada |
+
+</div>
+
+---
+
+### Actualizar audiencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_audience",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a la automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de intereses"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de intereses"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de intereses"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de intereses"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de intereses"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        },
+        {
+            "id": "audienceName",
+            "type": "short-input",
+            "title": "Nombre de la audiencia",
+            "placeholder": "Nombre de la audiencia"
+        },
+        {
+            "id": "contact",
+            "type": "long-input",
+            "title": "Información de contacto",
+            "placeholder": "Objeto JSON con company, address1, city, state, zip, country"
+        },
+        {
+            "id": "permissionReminder",
+            "type": "short-input",
+            "title": "Recordatorio de permiso",
+            "placeholder": "Texto del recordatorio de permiso"
+        },
+        {
+            "id": "campaignDefaults",
+            "type": "long-input",
+            "title": "Valores predeterminados de campaña",
+            "placeholder": "Objeto JSON con from_name, from_email, subject, language"
+        },
+        {
+            "id": "emailTypeOption",
+            "type": "dropdown",
+            "title": "Opción de tipo de correo",
+            "defaultValue": "true",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "Verdadero"
+                },
+                {
+                    "id": "false",
+                    "label": "Falso"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar audiencia (<code>mailchimp_update_audience</code>)</div>
+
+Actualizar una audiencia (lista) existente en Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | Sí | El ID único de la lista |
+| `audienceName` | string | No | El nombre de la lista |
+| `permissionReminder` | string | No | Texto del recordatorio de permiso |
+| `campaignDefaults` | string | No | Objeto JSON con la configuración predeterminada de la campaña |
+| `emailTypeOption` | string | No | Admitir varios formatos de correo electrónico |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos de la audiencia actualizada |
+
+</div>
+
+---
+
+### Eliminar audiencia
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete_audience",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Cancelar programación de campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a la automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos de fusión"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo de fusión"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo de fusión"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo de fusión"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo de fusión"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de interés"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de interés"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de interés"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de interés"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de interés"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar audiencia (<code>mailchimp_delete_audience</code>)</div>
+
+Eliminar una audiencia (lista) de Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | Sí | El ID único de la lista que se va a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Confirmación de eliminación |
+
+</div>
+
+---
+
+### Obtener miembros
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_members",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Agregar miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Agregar o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de la campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de la campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Agregar suscriptor a la automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Agregar miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Agregar etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de intereses"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de intereses"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de intereses"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de intereses"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de intereses"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "id": "subscribed",
+                    "label": "Suscrito"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "No suscrito"
+                },
+                {
+                    "id": "cleaned",
+                    "label": "Limpio"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "transactional",
+                    "label": "Transaccional"
+                }
+            ]
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "Cantidad",
+            "placeholder": "Número de resultados (predeterminado: 10, máx.: 1000)"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "Número de resultados que se omitirán"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener miembros (<code>mailchimp_get_members</code>)</div>
+
+Recupera una lista de miembros de una audiencia de Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | Sí | El ID único de la lista |
+| `status` | string | No | Filtrar por estado \(subscribed, unsubscribed, cleaned, pending\) |
+| `count` | string | No | Número de resultados \(predeterminado: 10, máx.: 1000\) |
+| `offset` | string | No | Número de resultados a omitir |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos y metadatos de los miembros |
+
+</div>
+
+---
+
+### Obtener miembro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a la automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de interés"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de interés"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de interés"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de interés"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de interés"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "Correo del suscriptor",
+            "placeholder": "Dirección de correo o hash MD5",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener miembro (<code>mailchimp_get_member</code>)</div>
+
+Recupera los detalles de un miembro específico de una audiencia de Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | Sí | El ID único de la lista |
+| `subscriberEmail` | string | Sí | Dirección de correo del miembro o hash MD5 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos y metadatos del miembro |
+
+</div>
+
+---
+
+### Añadir miembro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "add_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a la automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de interés"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de interés"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de interés"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de interés"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de interés"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        },
+        {
+            "id": "emailAddress",
+            "type": "short-input",
+            "title": "Dirección de correo",
+            "placeholder": "Dirección de correo del miembro",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "id": "subscribed",
+                    "label": "Suscrito"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "No suscrito"
+                },
+                {
+                    "id": "cleaned",
+                    "label": "Limpio"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "transactional",
+                    "label": "Transaccional"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "mergeFields",
+            "type": "long-input",
+            "title": "Campos combinados",
+            "placeholder": "Objeto JSON con valores de campos combinados (p. ej., {\"FNAME\": \"John\", \"LNAME\": \"Doe\"})"
+        },
+        {
+            "id": "interests",
+            "type": "long-input",
+            "title": "Intereses",
+            "placeholder": "Objeto JSON con IDs de interés y valores booleanos"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir miembro (<code>mailchimp_add_member</code>)</div>
+
+Añadir un miembro nuevo a una audiencia de Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | Sí | El ID único de la lista |
+| `emailAddress` | string | Sí | Dirección de correo del miembro |
+| `status` | string | Sí | Estado del suscriptor |
+| `mergeFields` | string | No | Objeto JSON de campos combinados |
+| `interests` | string | No | Objeto JSON de intereses |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos del miembro añadido |
+
+</div>
+
+---
+
+### Añadir o actualizar miembro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "add_or_update_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de intereses"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de intereses"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de intereses"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de intereses"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de intereses"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "Correo del suscriptor",
+            "placeholder": "Dirección de correo o hash MD5",
+            "required": true
+        },
+        {
+            "id": "emailAddress",
+            "type": "short-input",
+            "title": "Dirección de correo",
+            "placeholder": "Dirección de correo del miembro",
+            "required": true
+        },
+        {
+            "id": "statusIfNew",
+            "type": "dropdown",
+            "title": "Estado si es nuevo",
+            "options": [
+                {
+                    "id": "subscribed",
+                    "label": "Suscrito"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "No suscrito"
+                },
+                {
+                    "id": "cleaned",
+                    "label": "Limpio"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "transactional",
+                    "label": "Transaccional"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "mergeFields",
+            "type": "long-input",
+            "title": "Campos combinados",
+            "placeholder": "Objeto JSON con valores de campos combinados (p. ej., {\"FNAME\": \"John\", \"LNAME\": \"Doe\"})"
+        },
+        {
+            "id": "interests",
+            "type": "long-input",
+            "title": "Intereses",
+            "placeholder": "Objeto JSON con IDs de intereses y valores booleanos"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Añadir o actualizar miembro (<code>mailchimp_add_or_update_member</code>)</div>
+
+Añadir un miembro nuevo o actualizar uno existente en una audiencia de Mailchimp (upsert)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | Sí | El ID único de la lista |
+| `subscriberEmail` | string | Sí | Dirección de correo del miembro o hash MD5 |
+| `emailAddress` | string | Sí | Dirección de correo del miembro |
+| `statusIfNew` | string | Sí | Estado del suscriptor si es un miembro nuevo |
+| `mergeFields` | string | No | Objeto JSON de campos combinados |
+| `interests` | string | No | Objeto JSON de intereses |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos del miembro |
+
+</div>
+
+---
+
+### Actualizar miembro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de interés"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de interés"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de interés"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de interés"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de interés"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "Correo del suscriptor",
+            "placeholder": "Dirección de correo o hash MD5",
+            "required": true
+        },
+        {
+            "id": "emailAddress",
+            "type": "short-input",
+            "title": "Dirección de correo",
+            "placeholder": "Dirección de correo del miembro"
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "id": "subscribed",
+                    "label": "Suscrito"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "Cancelado"
+                },
+                {
+                    "id": "cleaned",
+                    "label": "Limpio"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "transactional",
+                    "label": "Transaccional"
+                }
+            ]
+        },
+        {
+            "id": "mergeFields",
+            "type": "long-input",
+            "title": "Campos combinados",
+            "placeholder": "Objeto JSON con valores de campos combinados (p. ej., {\"FNAME\": \"John\", \"LNAME\": \"Doe\"})"
+        },
+        {
+            "id": "interests",
+            "type": "long-input",
+            "title": "Intereses",
+            "placeholder": "Objeto JSON con IDs de interés y valores booleanos"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar miembro (<code>mailchimp_update_member</code>)</div>
+
+Actualizar un miembro existente en una audiencia de Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | Sí | El ID único de la lista |
+| `subscriberEmail` | string | Sí | Dirección de correo del miembro o hash MD5 |
+| `emailAddress` | string | No | Dirección de correo del miembro |
+| `status` | string | No | Estado del suscriptor |
+| `mergeFields` | string | No | Objeto JSON de campos combinados |
+| `interests` | string | No | Objeto JSON de intereses |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Datos del miembro actualizado |
+
+</div>
+
+---
+
+### Eliminar miembro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "delete_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de intereses"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de intereses"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de intereses"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de intereses"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de intereses"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "Correo del suscriptor",
+            "placeholder": "Dirección de correo o hash MD5",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar miembro (<code>mailchimp_delete_member</code>)</div>
+
+Eliminar un miembro de una audiencia de Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | Sí | El ID único de la lista |
+| `subscriberEmail` | string | Sí | Dirección de correo del miembro o hash MD5 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Confirmación de eliminación |
+
+</div>
+
+---
+
+### Archivar miembro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "archive_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de interés"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de interés"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de interés"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de interés"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de interés"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave API",
+            "placeholder": "Introduce tu clave API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "Correo del suscriptor",
+            "placeholder": "Dirección de correo o hash MD5",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Archivar miembro (<code>mailchimp_archive_member</code>)</div>
+
+Archivar (eliminar) de forma permanente un miembro de una audiencia de Mailchimp
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `listId` | string | Sí | El ID único de la lista |
+| `subscriberEmail` | string | Sí | Dirección de correo del miembro o hash MD5 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Confirmación de archivo |
+
+</div>
+
+---
+
+### Desarchivar miembro
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Mailchimp"
+    type="mailchimp"
+    color="#FFE01B"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "unarchive_member",
+            "options": [
+                {
+                    "id": "get_audiences",
+                    "label": "Obtener audiencias"
+                },
+                {
+                    "id": "get_audience",
+                    "label": "Obtener audiencia"
+                },
+                {
+                    "id": "create_audience",
+                    "label": "Crear audiencia"
+                },
+                {
+                    "id": "update_audience",
+                    "label": "Actualizar audiencia"
+                },
+                {
+                    "id": "delete_audience",
+                    "label": "Eliminar audiencia"
+                },
+                {
+                    "id": "get_members",
+                    "label": "Obtener miembros"
+                },
+                {
+                    "id": "get_member",
+                    "label": "Obtener miembro"
+                },
+                {
+                    "id": "add_member",
+                    "label": "Añadir miembro"
+                },
+                {
+                    "id": "add_or_update_member",
+                    "label": "Añadir o actualizar miembro"
+                },
+                {
+                    "id": "update_member",
+                    "label": "Actualizar miembro"
+                },
+                {
+                    "id": "delete_member",
+                    "label": "Eliminar miembro"
+                },
+                {
+                    "id": "archive_member",
+                    "label": "Archivar miembro"
+                },
+                {
+                    "id": "unarchive_member",
+                    "label": "Desarchivar miembro"
+                },
+                {
+                    "id": "get_campaigns",
+                    "label": "Obtener campañas"
+                },
+                {
+                    "id": "get_campaign",
+                    "label": "Obtener campaña"
+                },
+                {
+                    "id": "create_campaign",
+                    "label": "Crear campaña"
+                },
+                {
+                    "id": "update_campaign",
+                    "label": "Actualizar campaña"
+                },
+                {
+                    "id": "delete_campaign",
+                    "label": "Eliminar campaña"
+                },
+                {
+                    "id": "send_campaign",
+                    "label": "Enviar campaña"
+                },
+                {
+                    "id": "schedule_campaign",
+                    "label": "Programar campaña"
+                },
+                {
+                    "id": "unschedule_campaign",
+                    "label": "Desprogramar campaña"
+                },
+                {
+                    "id": "replicate_campaign",
+                    "label": "Replicar campaña"
+                },
+                {
+                    "id": "get_campaign_content",
+                    "label": "Obtener contenido de campaña"
+                },
+                {
+                    "id": "set_campaign_content",
+                    "label": "Establecer contenido de campaña"
+                },
+                {
+                    "id": "get_automations",
+                    "label": "Obtener automatizaciones"
+                },
+                {
+                    "id": "get_automation",
+                    "label": "Obtener automatización"
+                },
+                {
+                    "id": "start_automation",
+                    "label": "Iniciar automatización"
+                },
+                {
+                    "id": "pause_automation",
+                    "label": "Pausar automatización"
+                },
+                {
+                    "id": "add_subscriber_to_automation",
+                    "label": "Añadir suscriptor a automatización"
+                },
+                {
+                    "id": "get_templates",
+                    "label": "Obtener plantillas"
+                },
+                {
+                    "id": "get_template",
+                    "label": "Obtener plantilla"
+                },
+                {
+                    "id": "create_template",
+                    "label": "Crear plantilla"
+                },
+                {
+                    "id": "update_template",
+                    "label": "Actualizar plantilla"
+                },
+                {
+                    "id": "delete_template",
+                    "label": "Eliminar plantilla"
+                },
+                {
+                    "id": "get_campaign_reports",
+                    "label": "Obtener informes de campaña"
+                },
+                {
+                    "id": "get_campaign_report",
+                    "label": "Obtener informe de campaña"
+                },
+                {
+                    "id": "get_segments",
+                    "label": "Obtener segmentos"
+                },
+                {
+                    "id": "get_segment",
+                    "label": "Obtener segmento"
+                },
+                {
+                    "id": "create_segment",
+                    "label": "Crear segmento"
+                },
+                {
+                    "id": "update_segment",
+                    "label": "Actualizar segmento"
+                },
+                {
+                    "id": "delete_segment",
+                    "label": "Eliminar segmento"
+                },
+                {
+                    "id": "get_segment_members",
+                    "label": "Obtener miembros del segmento"
+                },
+                {
+                    "id": "add_segment_member",
+                    "label": "Añadir miembro al segmento"
+                },
+                {
+                    "id": "remove_segment_member",
+                    "label": "Quitar miembro del segmento"
+                },
+                {
+                    "id": "get_member_tags",
+                    "label": "Obtener etiquetas del miembro"
+                },
+                {
+                    "id": "add_member_tags",
+                    "label": "Añadir etiquetas al miembro"
+                },
+                {
+                    "id": "remove_member_tags",
+                    "label": "Quitar etiquetas del miembro"
+                },
+                {
+                    "id": "get_merge_fields",
+                    "label": "Obtener campos combinados"
+                },
+                {
+                    "id": "get_merge_field",
+                    "label": "Obtener campo combinado"
+                },
+                {
+                    "id": "create_merge_field",
+                    "label": "Crear campo combinado"
+                },
+                {
+                    "id": "update_merge_field",
+                    "label": "Actualizar campo combinado"
+                },
+                {
+                    "id": "delete_merge_field",
+                    "label": "Eliminar campo combinado"
+                },
+                {
+                    "id": "get_interest_categories",
+                    "label": "Obtener categorías de intereses"
+                },
+                {
+                    "id": "get_interest_category",
+                    "label": "Obtener categoría de interés"
+                },
+                {
+                    "id": "create_interest_category",
+                    "label": "Crear categoría de interés"
+                },
+                {
+                    "id": "update_interest_category",
+                    "label": "Actualizar categoría de interés"
+                },
+                {
+                    "id": "delete_interest_category",
+                    "label": "Eliminar categoría de interés"
+                },
+                {
+                    "id": "get_interests",
+                    "label": "Obtener intereses"
+                },
+                {
+                    "id": "get_interest",
+                    "label": "Obtener interés"
+                },
+                {
+                    "id": "create_interest",
+                    "label": "Crear interés"
+                },
+                {
+                    "id": "update_interest",
+                    "label": "Actualizar interés"
+                },
+                {
+                    "id": "delete_interest",
+                    "label": "Eliminar interés"
+                },
+                {
+                    "id": "get_landing_pages",
+                    "label": "Obtener páginas de destino"
+                },
+                {
+                    "id": "get_landing_page",
+                    "label": "Obtener página de destino"
+                },
+                {
+                    "id": "create_landing_page",
+                    "label": "Crear página de destino"
+                },
+                {
+                    "id": "update_landing_page",
+                    "label": "Actualizar página de destino"
+                },
+                {
+                    "id": "delete_landing_page",
+                    "label": "Eliminar página de destino"
+                },
+                {
+                    "id": "publish_landing_page",
+                    "label": "Publicar página de destino"
+                },
+                {
+                    "id": "unpublish_landing_page",
+                    "label": "Despublicar página de destino"
+                },
+                {
+                    "id": "get_batch_operations",
+                    "label": "Obtener operaciones por lotes"
+                },
+                {
+                    "id": "get_batch_operation",
+                    "label": "Obtener operación por lotes"
+                },
+                {
+                    "id": "create_batch_operation",
+                    "label": "Crear operación por lotes"
+                },
+                {
+                    "id": "delete_batch_operation",
+                    "label": "Eliminar operación por lotes"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "placeholder": "Introduce tu clave de API de Mailchimp (incluye el prefijo del servidor)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "listId",
+            "type": "short-input",
+            "title": "ID de audiencia",
+            "placeholder": "ID de audiencia/lista",
+            "required": true
+        },
+        {
+            "id": "subscriberEmail",
+            "type": "short-input",
+            "title": "Correo del suscriptor",
+            "placeholder": "Dirección de correo o hash MD5",
+            "required": true
+        },
+        {
+            "id": "emailAddress",
+            "type": "short-input",
+            "title": "Dirección de correo",
+            "placeholder": "Dirección de correo del miembro",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "id": "subscribed",
+                    "label": "Suscrito"
+                },
+                {
+                    "id": "unsubscribed",
+                    "label": "No suscrito"
+                },
+                {
+                    "id": "cleaned",
+                    "label": "Limpio"
+                },
+                {
+                    "id": "pending",
+                    "label": "Pendiente"
+                },
+                {
+                    "id": "transactional",
+                    "label": "Transaccional"
+                }
+            ],
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>

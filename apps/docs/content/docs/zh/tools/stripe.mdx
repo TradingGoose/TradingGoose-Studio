@@ -1,0 +1,4138 @@
+---
+title: Stripe
+description: 处理支付并管理 Stripe 数据
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="stripe"
+  color="#635BFF"
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/stripe">
+    查看 Stripe 的触发事件、设置和事件载荷。
+  </Card>
+</Cards>
+
+## 配置
+
+### 创建付款意图
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意图"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意图"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意图"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意图"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意图"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意图"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意图"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意图"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "完成发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建扣款"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索扣款"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新扣款"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获扣款"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出扣款"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索扣款"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "金额（以分为单位）",
+            "placeholder": "例如：1000 表示 $10.00",
+            "required": true
+        },
+        {
+            "id": "currency",
+            "type": "short-input",
+            "title": "货币",
+            "placeholder": "例如：usd、eur、gbp",
+            "required": true
+        },
+        {
+            "id": "payment_method",
+            "type": "short-input",
+            "title": "付款方式 ID",
+            "placeholder": "例如：pm_1234567890"
+        },
+        {
+            "id": "customer",
+            "type": "short-input",
+            "title": "客户 ID",
+            "placeholder": "例如：cus_1234567890"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "输入描述"
+        },
+        {
+            "id": "metadata",
+            "type": "code",
+            "title": "元数据 (JSON)",
+            "placeholder": "{\"key1\": \"value1\", \"key2\": \"value2\"}",
+            "language": "json"
+        },
+        {
+            "id": "receipt_email",
+            "type": "short-input",
+            "title": "收据邮箱",
+            "placeholder": "customer@example.com"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建付款意向（<code>stripe_create_payment_intent</code>）</div>
+
+创建新的付款意向以处理付款
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥（密钥） |
+| `amount` | number | 是 | 金额，以美分为单位（例如 2000 表示 $20.00） |
+| `currency` | string | 是 | 三字母 ISO 货币代码（例如 usd、eur） |
+| `customer` | string | 否 | 要关联到此付款的客户 ID |
+| `payment_method` | string | 否 | 付款方式 ID |
+| `description` | string | 否 | 付款说明 |
+| `receipt_email` | string | 否 | 用于接收收据的电子邮件地址 |
+| `metadata` | json | 否 | 用于存储附加信息的键值对 |
+| `automatic_payment_methods` | json | 否 | 启用自动付款方式（例如 {"enabled": true}） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | 已创建的付款意向对象 |
+| `metadata` | json | 付款意向元数据，包括 ID、状态、金额和货币 |
+
+</div>
+
+---
+
+### 检索付款意向
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "retrieve_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "完成发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建扣款"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索扣款"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新扣款"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获扣款"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出扣款"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索扣款"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入你的 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "输入 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">检索付款意向 (<code>stripe_retrieve_payment_intent</code>)</div>
+
+按 ID 检索现有付款意向
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥 \(私钥\) |
+| `id` | string | 是 | 付款意向 ID \(例如 pi_1234567890\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | 检索到的付款意向对象 |
+| `metadata` | json | 付款意向元数据，包括 ID、状态、金额和币种 |
+
+</div>
+
+---
+
+### 更新付款意向
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "定稿发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建收费"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索收费"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新收费"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获收费"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出收费"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索收费"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入 Stripe 私钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "输入 ID",
+            "required": true
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "金额（美分）",
+            "placeholder": "例如 1000 表示 $10.00"
+        },
+        {
+            "id": "currency",
+            "type": "short-input",
+            "title": "币种",
+            "placeholder": "例如 usd、eur、gbp"
+        },
+        {
+            "id": "customer",
+            "type": "short-input",
+            "title": "客户 ID",
+            "placeholder": "例如 cus_1234567890"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "说明",
+            "placeholder": "输入说明"
+        },
+        {
+            "id": "metadata",
+            "type": "code",
+            "title": "元数据 (JSON)",
+            "placeholder": "{\"key1\": \"value1\", \"key2\": \"value2\"}",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新付款意图（<code>stripe_update_payment_intent</code>）</div>
+
+更新现有付款意图
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥 \(密钥\) |
+| `id` | string | 是 | 付款意图 ID \(例如 pi_1234567890\) |
+| `amount` | number | 否 | 更新金额（单位：美分） |
+| `currency` | string | 否 | 三位字母 ISO 货币代码 |
+| `customer` | string | 否 | 客户 ID |
+| `description` | string | 否 | 更新后的描述 |
+| `metadata` | json | 否 | 更新后的元数据 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | 更新后的付款意图对象 |
+| `metadata` | json | 付款意图元数据，包括 ID、状态、金额和货币 |
+
+</div>
+
+---
+
+### 确认付款意图
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "confirm_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意图"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意图"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意图"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意图"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意图"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意图"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意图"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意图"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "定稿发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建收款"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索收款"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新收款"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获收款"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出收款"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索收款"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "输入 ID",
+            "required": true
+        },
+        {
+            "id": "payment_method",
+            "type": "short-input",
+            "title": "付款方式 ID",
+            "placeholder": "例如 pm_1234567890"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">确认付款意向（<code>stripe_confirm_payment_intent</code>）</div>
+
+确认付款意向以完成付款
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥（secret key） |
+| `id` | string | 是 | 付款意向 ID（例如 pi_1234567890） |
+| `payment_method` | string | 否 | 用于确认的付款方式 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | 已确认的付款意向对象 |
+| `metadata` | json | 付款意向元数据，包括 ID、状态、金额和货币 |
+
+</div>
+
+---
+
+### 捕获付款意向
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "capture_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "完成发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建扣款"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索扣款"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新扣款"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获扣款"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出扣款"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索扣款"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "输入 ID",
+            "required": true
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "金额（美分）",
+            "placeholder": "例如 1000 表示 $10.00"
+        },
+        {
+            "id": "amount_to_capture",
+            "type": "short-input",
+            "title": "捕获金额（美分）",
+            "placeholder": "留空则捕获全部金额"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">捕获付款意向（<code>stripe_capture_payment_intent</code>）</div>
+
+捕获已授权的付款意向
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥（secret key） |
+| `id` | string | 是 | 付款意向 ID（例如 pi_1234567890） |
+| `amount_to_capture` | number | 否 | 要捕获的金额，单位为分（默认捕获全额） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | 已捕获的付款意向对象 |
+| `metadata` | json | 付款意向元数据，包括 ID、状态、金额和币种 |
+
+</div>
+
+---
+
+### 取消付款意向
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "cancel_payment_intent",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "完成发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建扣款"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索扣款"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新扣款"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获扣款"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出扣款"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索扣款"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入 Stripe secret key（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "输入 ID",
+            "required": true
+        },
+        {
+            "id": "cancellation_reason",
+            "type": "short-input",
+            "title": "取消原因",
+            "placeholder": "例如 requested_by_customer"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">取消付款意图 (<code>stripe_cancel_payment_intent</code>)</div>
+
+取消付款意图
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥 \(密钥\) |
+| `id` | string | 是 | 付款意图 ID \(例如：pi_1234567890\) |
+| `cancellation_reason` | string | 否 | 取消原因 \(duplicate、fraudulent、requested_by_customer、abandoned\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `payment_intent` | json | 已取消的付款意图对象 |
+| `metadata` | json | 付款意图元数据，包括 ID、状态、金额和货币 |
+
+</div>
+
+---
+
+### 列出付款意图
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_payment_intents",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意图"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意图"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意图"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意图"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意图"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意图"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意图"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意图"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "完成发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建扣款"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索扣款"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新扣款"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获扣款"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出扣款"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索扣款"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建商品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索商品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新商品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除商品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出商品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索商品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入你的 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大结果数（默认：10）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出付款意向（<code>stripe_list_payment_intents</code>）</div>
+
+列出所有付款意向
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥 \(密钥\) |
+| `limit` | number | 否 | 返回结果数量 \(默认 10，最大 100\) |
+| `customer` | string | 否 | 按客户 ID 筛选 |
+| `created` | json | 否 | 按创建日期筛选 \(例如：\{"gt": 1633024800\}\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `payment_intents` | json | 付款意向对象数组 |
+| `metadata` | json | 列表元数据，包含 count 和 has_more |
+
+</div>
+
+---
+
+### 搜索付款意向
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "search_payment_intents",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "完成发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建扣款"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索扣款"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新扣款"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获扣款"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出扣款"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索扣款"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建商品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索商品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新商品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除商品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出商品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索商品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大结果数（默认：10）"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "输入 Stripe 搜索查询",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索付款意向（<code>stripe_search_payment_intents</code>）</div>
+
+使用查询语法搜索付款意向
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥（私钥） |
+| `query` | string | 是 | 搜索查询（例如 "status:'succeeded' AND currency:'usd'"） |
+| `limit` | number | 否 | 返回结果数量（默认 10，最大 100） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `payment_intents` | json | 匹配的付款意向对象数组 |
+| `metadata` | json | 搜索元数据，包含 count 和 has_more |
+
+</div>
+
+---
+
+### 创建客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_customer",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "完成发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建扣款"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索扣款"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新扣款"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获扣款"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出扣款"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索扣款"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "payment_method",
+            "type": "short-input",
+            "title": "付款方式 ID",
+            "placeholder": "例如 pm_1234567890"
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "邮箱",
+            "placeholder": "customer@example.com"
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "名称",
+            "placeholder": "客户或产品名称"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "电话",
+            "placeholder": "+1234567890"
+        },
+        {
+            "id": "address",
+            "type": "code",
+            "title": "地址（JSON）",
+            "placeholder": "{\"line1\": \"123 Main St\", \"city\": \"New York\", \"country\": \"US\"}",
+            "language": "json"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "输入描述"
+        },
+        {
+            "id": "metadata",
+            "type": "code",
+            "title": "元数据（JSON）",
+            "placeholder": "{\"key1\": \"value1\", \"key2\": \"value2\"}",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建客户（<code>stripe_create_customer</code>）</div>
+
+创建新的客户对象
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥（密钥） |
+| `email` | string | 否 | 客户电子邮件地址 |
+| `name` | string | 否 | 客户全名 |
+| `phone` | string | 否 | 客户电话号码 |
+| `description` | string | 否 | 客户描述 |
+| `address` | json | 否 | 客户地址对象 |
+| `metadata` | json | 否 | 键值对集合 |
+| `payment_method` | string | 否 | 要附加的付款方式 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `customer` | json | 已创建的客户对象 |
+| `metadata` | json | 客户元数据 |
+
+</div>
+
+---
+
+### 检索客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "retrieve_customer",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "最终确定发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建收费"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索收费"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新收费"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获收费"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出收费"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索收费"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入你的 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "输入 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">检索客户（<code>stripe_retrieve_customer</code>）</div>
+
+按 ID 检索现有客户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥（密钥） |
+| `id` | string | 是 | 客户 ID（例如 cus_1234567890） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `customer` | json | 检索到的客户对象 |
+| `metadata` | json | 客户元数据 |
+
+</div>
+
+---
+
+### 更新客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update_customer",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "完成发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建收费"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索收费"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新收费"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获收费"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出收费"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索收费"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "输入 ID",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "邮箱",
+            "placeholder": "customer@example.com"
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "名称",
+            "placeholder": "客户或产品名称"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "电话",
+            "placeholder": "+1234567890"
+        },
+        {
+            "id": "address",
+            "type": "code",
+            "title": "地址（JSON）",
+            "placeholder": "{\"line1\": \"123 Main St\", \"city\": \"New York\", \"country\": \"US\"}",
+            "language": "json"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "输入描述"
+        },
+        {
+            "id": "metadata",
+            "type": "code",
+            "title": "元数据（JSON）",
+            "placeholder": "{\"key1\": \"value1\", \"key2\": \"value2\"}",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新客户 (<code>stripe_update_customer</code>)</div>
+
+更新现有客户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥 \(密钥\) |
+| `id` | string | 是 | 客户 ID \(例如 cus_1234567890\) |
+| `email` | string | 否 | 更新后的电子邮箱 |
+| `name` | string | 否 | 更新后的名称 |
+| `phone` | string | 否 | 更新后的电话号码 |
+| `description` | string | 否 | 更新后的描述 |
+| `address` | json | 否 | 更新后的地址对象 |
+| `metadata` | json | 否 | 更新后的元数据 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `customer` | json | 更新后的客户对象 |
+| `metadata` | json | 客户元数据 |
+
+</div>
+
+---
+
+### 删除客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete_customer",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "最终确定发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建收费"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索收费"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新收费"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获收费"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出收费"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索收费"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "id",
+            "type": "short-input",
+            "title": "ID",
+            "placeholder": "输入 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除客户（<code>stripe_delete_customer</code>）</div>
+
+永久删除客户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥 \(密钥\) |
+| `id` | string | 是 | 客户 ID \(例如 cus_1234567890\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `deleted` | boolean | 客户是否已删除 |
+| `id` | string | 已删除客户的 ID |
+| `metadata` | json | 删除元数据 |
+
+</div>
+
+---
+
+### 列出客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_customers",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建 Payment Intent"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索 Payment Intent"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新 Payment Intent"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认 Payment Intent"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获 Payment Intent"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消 Payment Intent"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出 Payment Intent"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索 Payment Intent"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "完成发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建收款"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索收款"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新收款"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获收款"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出收款"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索收款"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入你的 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大结果数（默认：10）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出客户 (<code>stripe_list_customers</code>)</div>
+
+列出所有客户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥 \(密钥\) |
+| `limit` | number | 否 | 返回结果数量 \(默认 10，最大 100\) |
+| `email` | string | 否 | 按电子邮件地址筛选 |
+| `created` | json | 否 | 按创建日期筛选 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `customers` | json | 客户对象数组 |
+| `metadata` | json | 列表元数据 |
+
+</div>
+
+---
+
+### 搜索客户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "search_customers",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "获取付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "获取订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "获取发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "最终确定发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建收费"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "获取收费"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新收费"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获收费"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出收费"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索收费"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "获取产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "获取价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入你的 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大结果数（默认：10）"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "输入 Stripe 搜索查询",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索客户 (<code>stripe_search_customers</code>)</div>
+
+使用查询语法搜索客户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Stripe API 密钥 \(secret key\) |
+| `query` | string | 是 | 搜索查询 \(例如 "email:'customer@example.com'"\) |
+| `limit` | number | 否 | 返回结果数量 \(默认 10，最大 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `customers` | json | 匹配的客户对象数组 |
+| `metadata` | json | 搜索元数据 |
+
+</div>
+
+---
+
+### 创建订阅
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Stripe"
+    type="stripe"
+    color="#635BFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_subscription",
+            "options": [
+                {
+                    "id": "create_payment_intent",
+                    "label": "创建付款意向"
+                },
+                {
+                    "id": "retrieve_payment_intent",
+                    "label": "检索付款意向"
+                },
+                {
+                    "id": "update_payment_intent",
+                    "label": "更新付款意向"
+                },
+                {
+                    "id": "confirm_payment_intent",
+                    "label": "确认付款意向"
+                },
+                {
+                    "id": "capture_payment_intent",
+                    "label": "捕获付款意向"
+                },
+                {
+                    "id": "cancel_payment_intent",
+                    "label": "取消付款意向"
+                },
+                {
+                    "id": "list_payment_intents",
+                    "label": "列出付款意向"
+                },
+                {
+                    "id": "search_payment_intents",
+                    "label": "搜索付款意向"
+                },
+                {
+                    "id": "create_customer",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "retrieve_customer",
+                    "label": "检索客户"
+                },
+                {
+                    "id": "update_customer",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_customer",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "list_customers",
+                    "label": "列出客户"
+                },
+                {
+                    "id": "search_customers",
+                    "label": "搜索客户"
+                },
+                {
+                    "id": "create_subscription",
+                    "label": "创建订阅"
+                },
+                {
+                    "id": "retrieve_subscription",
+                    "label": "检索订阅"
+                },
+                {
+                    "id": "update_subscription",
+                    "label": "更新订阅"
+                },
+                {
+                    "id": "cancel_subscription",
+                    "label": "取消订阅"
+                },
+                {
+                    "id": "resume_subscription",
+                    "label": "恢复订阅"
+                },
+                {
+                    "id": "list_subscriptions",
+                    "label": "列出订阅"
+                },
+                {
+                    "id": "search_subscriptions",
+                    "label": "搜索订阅"
+                },
+                {
+                    "id": "create_invoice",
+                    "label": "创建发票"
+                },
+                {
+                    "id": "retrieve_invoice",
+                    "label": "检索发票"
+                },
+                {
+                    "id": "update_invoice",
+                    "label": "更新发票"
+                },
+                {
+                    "id": "delete_invoice",
+                    "label": "删除发票"
+                },
+                {
+                    "id": "finalize_invoice",
+                    "label": "完成发票"
+                },
+                {
+                    "id": "pay_invoice",
+                    "label": "支付发票"
+                },
+                {
+                    "id": "void_invoice",
+                    "label": "作废发票"
+                },
+                {
+                    "id": "send_invoice",
+                    "label": "发送发票"
+                },
+                {
+                    "id": "list_invoices",
+                    "label": "列出发票"
+                },
+                {
+                    "id": "search_invoices",
+                    "label": "搜索发票"
+                },
+                {
+                    "id": "create_charge",
+                    "label": "创建收费"
+                },
+                {
+                    "id": "retrieve_charge",
+                    "label": "检索收费"
+                },
+                {
+                    "id": "update_charge",
+                    "label": "更新收费"
+                },
+                {
+                    "id": "capture_charge",
+                    "label": "捕获收费"
+                },
+                {
+                    "id": "list_charges",
+                    "label": "列出收费"
+                },
+                {
+                    "id": "search_charges",
+                    "label": "搜索收费"
+                },
+                {
+                    "id": "create_product",
+                    "label": "创建产品"
+                },
+                {
+                    "id": "retrieve_product",
+                    "label": "检索产品"
+                },
+                {
+                    "id": "update_product",
+                    "label": "更新产品"
+                },
+                {
+                    "id": "delete_product",
+                    "label": "删除产品"
+                },
+                {
+                    "id": "list_products",
+                    "label": "列出产品"
+                },
+                {
+                    "id": "search_products",
+                    "label": "搜索产品"
+                },
+                {
+                    "id": "create_price",
+                    "label": "创建价格"
+                },
+                {
+                    "id": "retrieve_price",
+                    "label": "检索价格"
+                },
+                {
+                    "id": "update_price",
+                    "label": "更新价格"
+                },
+                {
+                    "id": "list_prices",
+                    "label": "列出价格"
+                },
+                {
+                    "id": "search_prices",
+                    "label": "搜索价格"
+                },
+                {
+                    "id": "retrieve_event",
+                    "label": "检索事件"
+                },
+                {
+                    "id": "list_events",
+                    "label": "列出事件"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Stripe API 密钥",
+            "placeholder": "输入 Stripe 密钥（sk_test_... 或 sk_live_...）",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "customer",
+            "type": "short-input",
+            "title": "客户 ID",
+            "placeholder": "例如 cus_1234567890",
+            "required": true
+        },
+        {
+            "id": "items",
+            "type": "code",
+            "title": "项目（JSON 数组）",
+            "placeholder": "[{\"price\": \"price_1234567890\", \"quantity\": 1}]",
+            "language": "json",
+            "required": true
+        },
+        {
+            "id": "trial_period_days",
+            "type": "short-input",
+            "title": "试用期（天）",
+            "placeholder": "例如 14"
+        },
+        {
+            "id": "default_payment_method",
+            "type": "short-input",
+            "title": "默认付款方式",
+            "placeholder": "例如 pm_1234567890"
+        },
+        {
+            "id": "cancel_at_period_end",
+            "type": "dropdown",
+            "title": "周期结束时取消",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "是"
+                },
+                {
+                    "id": "false",
+                    "label": "否"
+                }
+            ]
+        },
+        {
+            "id": "metadata",
+            "type": "code",
+            "title": "元数据（JSON）",
+            "placeholder": "{\"key1\": \"value1\", \"key2\": \"value2\"}",
+            "language": "json"
+        }
+    ]}
+  />
+</ShowcaseCard>
