@@ -4,11 +4,16 @@
   "engineId": "eng_y8VsxNUigtXeqOuM",
   "locale": {
     "source": "en",
-    "targets": ["es", "zh"]
+    "targets": [
+      "es",
+      "zh"
+    ]
   },
   "buckets": {
     "json": {
-      "include": ["i18n/messages/[locale].json"]
+      "include": [
+        "i18n/messages/[locale].json"
+      ]
     }
   }
 }
