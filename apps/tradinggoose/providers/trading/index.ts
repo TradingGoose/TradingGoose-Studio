@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { alpacaProvider } from '@/providers/trading/alpaca'
+import { ibkrProvider } from '@/providers/trading/ibkr'
 import {
   getTradingProviderDefinition,
   type TradingProviderAdapter,
@@ -18,6 +19,7 @@ const logger = createLogger('TradingProviders')
 
 const providerAdapters: Record<string, TradingProviderAdapter> = {
   alpaca: alpacaProvider,
+  ibkr: ibkrProvider,
   tradier: tradierProvider,
 }
 

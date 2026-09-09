@@ -114,7 +114,7 @@ This is the build kit already included in TradingGoose-Studio. Canvas types and 
 | **254 agent-callable actions across 71 integrations** | Give agents market research, data, communications, storage, web access, and configured trading actions. |
 | **86 built-in PineTS studies** | Use them in charts, Copilot, and Function blocks; author or import a trigger-enabled indicator when a market monitor should start a workflow. |
 | **4 market-data providers** | Alpaca, Finnhub, Alpha Vantage and Yahoo Finance. All support series; Alpaca and Finnhub also provide live data. |
-| **2 trading providers** | Alpaca and Tradier provide portfolio context and configured order actions. |
+| **3 trading providers** | Alpaca, Tradier, and IBKR provide portfolio context and configured order actions. |
 | **16 AI providers** | Choose from direct, cloud, and local model-provider options for agents. |
 
 Connect the credentials, endpoint, or broker account required by each provider. Custom tools and connected MCP servers are workspace-specific, so they are deliberately not included in the fixed counts above.

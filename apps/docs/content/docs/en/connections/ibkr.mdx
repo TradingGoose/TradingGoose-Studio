@@ -1,0 +1,66 @@
+---
+title: IBKR
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+
+# Interactive Brokers (IBKR)
+
+Connect an Interactive Brokers account to TradingGoose for portfolio context,
+portfolio-state monitors, and configured order actions.
+
+<Callout type="info">
+  The IBKR provider uses the Interactive Brokers <strong>Client Portal Web
+  API</strong> (REST/JSON). It expects an OAuth 2.0 access token and a base URL
+  for the API, which is normally served by a local <strong>IB Gateway</strong>
+  on port <code>5000</code>.
+</Callout>
+
+## Prerequisites
+
+1. An Interactive Brokers account (paper or live) with the Client Portal Web
+   API enabled, and API access enabled in Account Settings → Settings → API.
+2. A reachable IB Gateway (or hosted Client Portal Web API endpoint). The
+   gateway must be running and authenticated for the account you want to use.
+
+## Configuration
+
+Set these environment variables for the app:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `IBKR_API_BASE_URL` | Base URL of the Client Portal Web API | `http://127.0.0.1:5000/v1/api` |
+| `IBKR_TOKEN_ENDPOINT` | OAuth2 token endpoint for the access token | `https://api.ibkr.com/v1/api/oauth2/token` |
+| `IBKR_API_IP` | IP header sent with requests (gateway allowlist) | `127.0.0.1` |
+
+For a local gateway, the default base URL works out of the box. For a hosted
+API (IBKR Web API Gateway), set `IBKR_API_BASE_URL` to the hosted endpoint.
+
+## Connecting an account
+
+1. Open **Connections** in the workspace.
+2. Choose **IBKR Live** or **IBKR Paper**.
+3. Complete the OAuth flow with your IBKR credentials.
+4. The connected account becomes available as a trading provider for order
+   actions, portfolio detail, and portfolio-state monitors.
+
+## Supported capabilities
+
+- **Asset classes**: stocks, ETFs, futures, currencies, indices, mutual funds
+- **Order types**: market, limit, stop, stop-limit, trailing stop
+- **Time in force**: day, GTC, IOC, FOK, GTD
+- **Sizing**: quantity only
+- **Portfolio detail**: account summary, positions, cash balances, performance
+
+<Callout type="warning">
+  IBKR order submissions are asynchronous. A submitted order may still be
+  pending at the broker after the initial response; order status updates are
+  reflected in run history as they arrive from the gateway.
+</Callout>
+
+## Notes
+
+- The provider registers for a workspace only when the gateway is reachable
+  and an account has been connected through the OAuth flow.
+- Paper and live environments are separate services; use the paper account for
+  testing.

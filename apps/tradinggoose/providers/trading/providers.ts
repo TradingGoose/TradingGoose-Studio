@@ -5,6 +5,7 @@ import {
   alpacaTradingProviderConfig,
   buildAlpacaOrderDetailSiteUrl,
 } from '@/providers/trading/alpaca/config'
+import { ibkrTradingProviderConfig } from '@/providers/trading/ibkr/config'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingAuthType,
@@ -146,6 +147,26 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
     },
     config: alpacaTradingProviderConfig,
     orderDetailSiteUrl: ({ providerOrderId }) => buildAlpacaOrderDetailSiteUrl(providerOrderId),
+  },
+  ibkr: {
+    id: 'ibkr',
+    name: 'IBKR',
+    description: 'Trading via Interactive Brokers Client Portal Web API.',
+    authType: 'oauth',
+    oauth: {
+      provider: 'ibkr',
+      services: [
+        { serviceId: 'ibkr-live', environment: 'live' },
+        { serviceId: 'ibkr-paper', environment: 'paper' },
+      ],
+      scopes: getCanonicalScopesForProvider('ibkr-live'),
+    },
+    defaults: {
+      orderSizingMode: 'quantity',
+      orderType: 'market',
+      timeInForce: 'day',
+    },
+    config: ibkrTradingProviderConfig,
   },
   tradier: {
     id: 'tradier',

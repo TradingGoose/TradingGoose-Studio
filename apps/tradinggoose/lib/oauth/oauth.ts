@@ -50,6 +50,7 @@ export type OAuthProvider =
   | 'wealthbox'
   | 'webflow'
   | 'tradier'
+  | 'ibkr'
   | string
 
 export type OAuthService =
@@ -83,6 +84,8 @@ export type OAuthService =
   | 'onedrive'
   | 'webflow'
   | 'tradier-live'
+  | 'ibkr-live'
+  | 'ibkr-paper'
   | string
 
 export interface OAuthCredentialFieldConfig {
@@ -118,6 +121,7 @@ const DEFAULT_OAUTH_CREDENTIAL_FIELDS: OAuthCredentialFieldConfig[] = [
 
 const ALPACA_OAUTH_SCOPES = ['trading', 'data']
 const TRADIER_OAUTH_SCOPES = ['read', 'write', 'trade']
+const IBKR_OAUTH_SCOPES = ['read', 'trade']
 
 export interface OAuthProviderConfig {
   id: OAuthProvider
@@ -608,6 +612,31 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
       },
     },
     defaultService: 'wealthbox',
+  },
+  ibkr: {
+    id: 'ibkr',
+    name: 'IBKR',
+    icon: (props) => DollarIcon(props),
+    services: {
+      'ibkr-live': {
+        id: 'ibkr-live',
+        name: 'IBKR Live',
+        description: 'Trade and manage an Interactive Brokers live account.',
+        providerId: 'ibkr-live',
+        icon: (props) => DollarIcon(props),
+        baseProviderIcon: (props) => DollarIcon(props),
+        scopes: IBKR_OAUTH_SCOPES,
+      },
+      'ibkr-paper': {
+        id: 'ibkr-paper',
+        name: 'IBKR Paper',
+        description: 'Trade and manage an Interactive Brokers paper account.',
+        providerId: 'ibkr-paper',
+        icon: (props) => DollarIcon(props),
+        baseProviderIcon: (props) => DollarIcon(props),
+        scopes: IBKR_OAUTH_SCOPES,
+      },
+    },
   },
   tradier: {
     id: 'tradier',

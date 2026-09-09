@@ -1,6 +1,9 @@
 import { getAlpacaTradingAccounts } from '@/providers/trading/alpaca/accounts'
 import { getAlpacaTradingAccountPerformance } from '@/providers/trading/alpaca/performance'
 import { getAlpacaTradingAccountSnapshot } from '@/providers/trading/alpaca/snapshot'
+import { getIbkrTradingAccounts } from '@/providers/trading/ibkr/accounts'
+import { getIbkrTradingAccountPerformance } from '@/providers/trading/ibkr/performance'
+import { getIbkrTradingAccountSnapshot } from '@/providers/trading/ibkr/snapshot'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { getTradingPortfolioDetailCapabilities } from '@/providers/trading/providers'
 import { getTradierTradingAccounts } from '@/providers/trading/tradier/accounts'
@@ -31,6 +34,8 @@ export async function listPortfolioIdentities(
   switch (context.providerId) {
     case 'alpaca':
       return getAlpacaTradingAccounts(context)
+    case 'ibkr':
+      return getIbkrTradingAccounts(context)
     case 'tradier':
       return getTradierTradingAccounts(context)
     default:
@@ -44,6 +49,8 @@ export async function getPortfolioDetail(
   switch (context.providerId) {
     case 'alpaca':
       return getAlpacaTradingAccountSnapshot(context)
+    case 'ibkr':
+      return getIbkrTradingAccountSnapshot(context)
     case 'tradier':
       return getTradierTradingAccountSnapshot(context)
     default:
@@ -57,6 +64,8 @@ export async function getTradingAccountPerformance(
   switch (context.providerId) {
     case 'alpaca':
       return getAlpacaTradingAccountPerformance(context)
+    case 'ibkr':
+      return getIbkrTradingAccountPerformance(context)
     case 'tradier':
       return getTradierTradingAccountPerformance(context)
     default:

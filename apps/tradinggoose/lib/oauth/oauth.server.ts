@@ -123,6 +123,11 @@ function getProviderAuthTemplate(
         tokenEndpoint: 'https://api.tradier.com/v1/oauth/refreshtoken',
         useBasicAuth: true,
       }
+    case 'ibkr':
+      return {
+        tokenEndpoint: 'https://api.ibkr.com/v1/api/oauth2/token',
+        useBasicAuth: true,
+      }
     case 'wealthbox':
       return {
         tokenEndpoint: 'https://app.crmworkspace.com/oauth/token',
