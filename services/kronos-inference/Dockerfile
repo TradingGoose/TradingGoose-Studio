@@ -8,7 +8,10 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /build
 
-RUN curl -fsSL https://astral.sh/uv/install.sh | sh
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
+    curl -fsSL https://astral.sh/uv/install.sh | sh && \
+    apt-get purge -y --auto-remove curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 ENV PATH="/root/.local/bin:${PATH}"
 
 COPY pyproject.toml uv.lock ./
@@ -34,8 +37,7 @@ RUN mkdir -p /models/kronos-base /models/kronos-tokenizer-base \
  && python -c "from huggingface_hub import snapshot_download; snapshot_download('NeoQuasar/Kronos-base', revision='2b554741eca47781b64468546e77fef3e85130e6', local_dir='/models/kronos-base', local_dir_use_symlinks=False)" \
  && python -c "from huggingface_hub import snapshot_download; snapshot_download('NeoQuasar/Kronos-Tokenizer-base', revision='0e0117387f39004a9016484a186a908917e22426', local_dir='/models/kronos-tokenizer-base', local_dir_use_symlinks=False)" \
  && python -c "from model import Kronos, KronosTokenizer, KronosPredictor; import torch; t=KronosTokenizer.from_pretrained('/models/kronos-tokenizer-base'); m=Kronos.from_pretrained('/models/kronos-base'); print('Kronos-base loaded:', sum(p.numel() for p in m.parameters()), 'parameters')" \
- && apt-get purge -y --auto-remove curl ca-certificates \
- && rm -rf /var/lib/apt/lists/* /root/.cache
+ && rm -rf /root/.cache
 
 LABEL org.opencontainers.image.title="TradingGoose Kronos Inference" \
       org.opencontainers.image.description="Private Kronos-base forecasting service for TradingGoose" \
