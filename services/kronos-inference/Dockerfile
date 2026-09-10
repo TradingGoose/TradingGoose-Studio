@@ -1,12 +1,16 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim
 
-ENV UV_COMPILE_BYTECODE=1 \
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_NO_CACHE=1 \
-    UV_INDEX_STRATEGY=unsafe-best-match
+    UV_INDEX_STRATEGY=unsafe-best-match \
+    HF_HUB_OFFLINE=1 \
+    TORCH_HOME=/models
 
-WORKDIR /build
+WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
     curl -fsSL https://astral.sh/uv/install.sh | sh && \
@@ -15,19 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
 ENV PATH="/root/.local/bin:${PATH}"
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --no-dev --frozen --index-url https://download.pytorch.org/whl/cpu
+RUN uv pip install --system --no-dev --frozen --index-url https://download.pytorch.org/whl/cpu
 
-FROM python:3.11-slim
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/app/.venv/bin:${PATH}" \
-    HF_HUB_OFFLINE=1 \
-    TORCH_HOME=/models
-
-WORKDIR /app
-
-COPY --from=builder /build/.venv /app/.venv
 COPY src ./src
 COPY third_party/kronos/model ./third_party/kronos/model
 COPY third_party/kronos/LICENSE ./third_party/kronos/LICENSE
