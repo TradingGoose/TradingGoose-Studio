@@ -3,7 +3,13 @@ import { z } from 'zod'
 import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { isKronosEnabled, callKronosForecast, KronosError, KronosErrorCode } from '@/lib/kronos'
+import {
+  isKronosEnabled,
+  callKronosForecast,
+  KronosError,
+  KronosErrorCode,
+  type KronosCallContext,
+} from '@/lib/kronos'
 import { ForecastRequest } from '@/lib/kronos/types'
 
 const logger = createLogger('KronosForecastRoute')
@@ -87,7 +93,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const response = await callKronosForecast(requestData as unknown as ForecastRequest)
+    const context: KronosCallContext = {
+      workflowId: new URL(request.url).searchParams.get('workflowId')?.trim() || undefined,
+      executionId: new URL(request.url).searchParams.get('executionId')?.trim() || undefined,
+      workspaceId: requestData.workspaceId,
+      userId: auth.userId,
+    }
+    const response = await callKronosForecast(
+      requestData as unknown as ForecastRequest,
+      context
+    )
 
     return NextResponse.json(response)
   } catch (error) {
