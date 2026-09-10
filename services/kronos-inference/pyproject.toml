@@ -21,16 +21,6 @@ dev = [
   "pytest>=8.4,<10",
 ]
 
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv.sources]
-torch = [
-  { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
-]
-
 [tool.pytest.ini_options]
 addopts = "-q"
 pythonpath = ["src", "third_party/kronos"]

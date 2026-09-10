@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
 ENV PATH="/root/.local/bin:${PATH}"
 
 COPY pyproject.toml uv.lock ./
-RUN uv pip install --system --index-url https://download.pytorch.org/whl/cpu .
+RUN uv pip install --system --index-url https://pypi.org/simple --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match .
 
 COPY src ./src
 COPY third_party/kronos/model ./third_party/kronos/model
