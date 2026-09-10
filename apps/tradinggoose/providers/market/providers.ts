@@ -18,6 +18,7 @@ import type { WorkflowProviderParamType } from '@/lib/workflows/value-types'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
+import { ibkrMarketProviderConfig } from '@/providers/market/ibkr/config'
 import type {
   AssetClass,
   MarketDataAvailability,
