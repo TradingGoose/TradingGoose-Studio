@@ -50,7 +50,10 @@ const getKubernetesRealtimeUrl = () => {
 }
 
 const getInternalRealtimeUrl = () =>
-  getKubernetesRealtimeUrl() || getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
+  getEnv('INTERNAL_REALTIME_URL')?.trim() ||
+  getKubernetesRealtimeUrl() ||
+  getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() ||
+  'http://localhost:3002'
 
 // Wrap createEnv in a function so non-Next.js consumers (e.g. React Email preview)
 // get a safe fallback instead of a top-level crash.
@@ -145,6 +148,7 @@ function safeCreateEnv() {
     KB_CONFIG_DELAY_BETWEEN_DOCUMENTS: z.number().optional().default(50),      // Delay between documents in ms
 
     // Real-time Communication
+    INTERNAL_REALTIME_URL: z.string().url().optional(),           // Internal realtime URL for container-to-container comms
     SOCKET_PORT: z.number().optional(),                  // Port for the realtime socket server process
     PORT: z.number().optional(),                  // Main application port
     ALLOWED_ORIGINS: z.string().optional(),                  // CORS allowed origins
