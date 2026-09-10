@@ -6,7 +6,6 @@ ENV PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_NO_CACHE=1 \
-    UV_INDEX_STRATEGY=unsafe-best-match \
     HF_HUB_OFFLINE=1 \
     TORCH_HOME=/models
 
@@ -17,9 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
     apt-get purge -y --auto-remove curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 ENV PATH="/root/.local/bin:${PATH}"
+ENV PYTHONPATH="/app/src:/app/third_party/kronos"
 
 COPY pyproject.toml uv.lock ./
-RUN uv pip install --system --index-url https://pypi.org/simple --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match .
+RUN uv pip install --system --index https://download.pytorch.org/whl/cpu --default-index https://pypi.org/simple .
 
 COPY src ./src
 COPY third_party/kronos/model ./third_party/kronos/model
