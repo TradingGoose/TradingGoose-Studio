@@ -33,10 +33,11 @@ COPY third_party/kronos/model ./third_party/kronos/model
 COPY third_party/kronos/LICENSE ./third_party/kronos/LICENSE
 COPY third_party/kronos/UPSTREAM_REVISION ./third_party/kronos/UPSTREAM_REVISION
 
-RUN mkdir -p /models/kronos-base /models/kronos-tokenizer-base \
- && python -c "from huggingface_hub import snapshot_download; snapshot_download('NeoQuasar/Kronos-base', revision='2b554741eca47781b64468546e77fef3e85130e6', local_dir='/models/kronos-base', local_dir_use_symlinks=False)" \
- && python -c "from huggingface_hub import snapshot_download; snapshot_download('NeoQuasar/Kronos-Tokenizer-base', revision='0e0117387f39004a9016484a186a908917e22426', local_dir='/models/kronos-tokenizer-base', local_dir_use_symlinks=False)" \
- && python -c "from model import Kronos, KronosTokenizer, KronosPredictor; import torch; t=KronosTokenizer.from_pretrained('/models/kronos-tokenizer-base'); m=Kronos.from_pretrained('/models/kronos-base'); print('Kronos-base loaded:', sum(p.numel() for p in m.parameters()), 'parameters')" \
+# Copy model weights from local cache (pre-downloaded by setup script)
+COPY models/kronos-base /models/kronos-base
+COPY models/kronos-tokenizer-base /models/kronos-tokenizer-base
+
+RUN python -c "from model import Kronos, KronosTokenizer, KronosPredictor; import torch; t=KronosTokenizer.from_pretrained('/models/kronos-tokenizer-base'); m=Kronos.from_pretrained('/models/kronos-base'); print('Kronos-base loaded:', sum(p.numel() for p in m.parameters()), 'parameters')" \
  && rm -rf /root/.cache
 
 LABEL org.opencontainers.image.title="TradingGoose Kronos Inference" \
