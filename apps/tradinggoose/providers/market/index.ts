@@ -3,6 +3,7 @@ import { alpacaProvider } from '@/providers/market/alpaca'
 import { alphaVantageProvider } from '@/providers/market/alpha-vantage'
 import { MarketProviderError } from '@/providers/market/errors'
 import { finnhubProvider } from '@/providers/market/finnhub'
+import { ibkrMarketProvider } from '@/providers/market/ibkr'
 import {
   clampToMarketSession,
   filterSeriesBySessions,
@@ -27,6 +28,7 @@ const providers = {
   'alpha-vantage': alphaVantageProvider,
   alpaca: alpacaProvider,
   finnhub: finnhubProvider,
+  ibkr: ibkrMarketProvider,
   'yahoo-finance': YahooFinanceProvider,
 }
 

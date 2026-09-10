@@ -56,6 +56,7 @@ export interface MarketProviderParams {
 export type MarketProviderAuth = {
   apiKey?: string
   apiSecret?: string
+  accessToken?: string
 }
 
 export interface MarketRequestBase {

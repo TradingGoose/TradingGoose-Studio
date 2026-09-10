@@ -214,6 +214,12 @@ export const MARKET_PROVIDER_DEFINITIONS: Record<string, MarketProviderDefinitio
     config: finnhubProviderConfig,
     icon: FinnhubIcon,
   },
+  ibkr: {
+    id: 'ibkr',
+    name: 'IBKR',
+    description: 'IBKR market data (live quotes & historical bars).',
+    config: ibkrMarketProviderConfig,
+  },
 }
 
 export function getMarketProviderDefinition(providerId: string): MarketProviderDefinition | null {
