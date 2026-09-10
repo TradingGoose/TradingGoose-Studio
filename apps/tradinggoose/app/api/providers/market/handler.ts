@@ -26,6 +26,7 @@ export interface MarketProviderRouteBody {
   auth?: {
     apiKey?: string
     apiSecret?: string
+    accessToken?: string
   }
   interval?: string
   windows?: MarketSeriesWindow[]
@@ -79,6 +80,7 @@ export async function handleMarketProviderRequest({
         .object({
           apiKey: z.string().optional(),
           apiSecret: z.string().optional(),
+          accessToken: z.string().optional(),
         })
         .optional(),
       interval: z.string().optional(),

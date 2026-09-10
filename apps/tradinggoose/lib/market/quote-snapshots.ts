@@ -29,7 +29,7 @@ const buildDailyRequest = async ({
 }: {
   provider: string
   listing: ListingIdentity
-  auth?: { apiKey?: string; apiSecret?: string }
+  auth?: { apiKey?: string; apiSecret?: string; accessToken?: string }
   providerParams?: Record<string, unknown>
 }) => {
   const response = await executeProviderRequest(provider, {
@@ -55,7 +55,7 @@ const buildRegularLastRequest = async ({
 }: {
   provider: string
   listing: ListingIdentity
-  auth?: { apiKey?: string; apiSecret?: string }
+  auth?: { apiKey?: string; apiSecret?: string; accessToken?: string }
   providerParams?: Record<string, unknown>
 }) => {
   try {
@@ -86,7 +86,7 @@ export const buildMarketQuoteSnapshot = async ({
 }: {
   provider: string
   listing: ListingIdentity
-  auth?: { apiKey?: string; apiSecret?: string }
+  auth?: { apiKey?: string; apiSecret?: string; accessToken?: string }
   providerParams?: Record<string, unknown>
 }): Promise<MarketQuoteSnapshot> => {
   try {

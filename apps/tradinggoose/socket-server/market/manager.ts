@@ -59,6 +59,7 @@ export interface MarketSubscribePayload {
   auth?: {
     apiKey?: string
     apiSecret?: string
+    accessToken?: string
   }
   providerParams?: Record<string, any>
 }

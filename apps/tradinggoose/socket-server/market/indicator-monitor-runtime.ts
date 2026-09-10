@@ -718,7 +718,7 @@ export class IndicatorMonitorRuntime {
 
   private async fetchMonitorBars(
     monitor: MonitorRuntimeConfig,
-    auth: { apiKey?: string; apiSecret?: string }
+    auth: { apiKey?: string; apiSecret?: string; accessToken?: string }
   ): Promise<BarMs[]> {
     const result = await executeProviderRequest(monitor.providerId, {
       kind: 'series',

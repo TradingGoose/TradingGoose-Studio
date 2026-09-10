@@ -32,15 +32,17 @@ export const resolveMarketProviderSettingsDefinitions = (
 
 export const sanitizeMarketProviderAuth = (
   auth: unknown
-): { apiKey?: string; apiSecret?: string } | undefined => {
+): { apiKey?: string; apiSecret?: string; accessToken?: string } | undefined => {
   if (!isRecord(auth)) return undefined
 
-  const nextAuth: { apiKey?: string; apiSecret?: string } = {}
+  const nextAuth: { apiKey?: string; apiSecret?: string; accessToken?: string } = {}
   const apiKey = readCredentialString(auth.apiKey)
   const apiSecret = readCredentialString(auth.apiSecret)
+  const accessToken = readCredentialString(auth.accessToken)
 
   if (apiKey) nextAuth.apiKey = apiKey
   if (apiSecret) nextAuth.apiSecret = apiSecret
+  if (accessToken) nextAuth.accessToken = accessToken
 
   return Object.keys(nextAuth).length > 0 ? nextAuth : undefined
 }

@@ -39,7 +39,7 @@ type UseLiveBarsArgs = {
   listing: ListingIdentity | null
   interval?: string | null
   providerParams?: Record<string, unknown>
-  auth?: { apiKey?: string; apiSecret?: string }
+  auth?: { apiKey?: string; apiSecret?: string; accessToken?: string }
   enabled?: boolean
   candleType?: DataChartCandleType | string
   mainSeriesRef: MutableRefObject<
