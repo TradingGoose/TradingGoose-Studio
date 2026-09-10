@@ -1,0 +1,1 @@
+"""TradingGoose Kronos inference service."""
