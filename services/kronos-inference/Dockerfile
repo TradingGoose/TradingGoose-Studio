@@ -37,9 +37,6 @@ COPY third_party/kronos/UPSTREAM_REVISION ./third_party/kronos/UPSTREAM_REVISION
 COPY models/kronos-base /models/kronos-base
 COPY models/kronos-tokenizer-base /models/kronos-tokenizer-base
 
-RUN python -c "from model import Kronos, KronosTokenizer, KronosPredictor; import torch; t=KronosTokenizer.from_pretrained('/models/kronos-tokenizer-base'); m=Kronos.from_pretrained('/models/kronos-base'); print('Kronos-base loaded:', sum(p.numel() for p in m.parameters()), 'parameters')" \
- && rm -rf /root/.cache
-
 LABEL org.opencontainers.image.title="TradingGoose Kronos Inference" \
       org.opencontainers.image.description="Private Kronos-base forecasting service for TradingGoose" \
       kronos.source.revision="67b630e67f6a18c9e9be918d9b4337c960db1e9a" \
