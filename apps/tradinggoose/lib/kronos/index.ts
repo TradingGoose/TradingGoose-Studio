@@ -26,4 +26,5 @@ export async function callKronosForecast(
 }
 
 export { logForecastRequest, logForecastRealization, logForecastError }
+export { isKronosEnabled } from './client'
 export * from './types'
