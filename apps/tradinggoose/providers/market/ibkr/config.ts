@@ -1,5 +1,4 @@
-import { ibkrTradingSymbolRules } from '@/providers/trading/ibkr/rules'
-import type { MarketProviderConfig } from '@/providers/market/providers'
+import type { MarketProviderConfig, MarketSymbolRule } from '@/providers/market/providers'
 import type { AssetClass } from '@/providers/market/types'
 
 const availableAssetClasses: AssetClass[] = [
@@ -26,6 +25,38 @@ const exchangeCodesList: MarketProviderConfig['exchangeCodes'] = []
 
 const exchangeCodeToMarketMap: MarketProviderConfig['exchangeCodeToMarket'] = {}
 const marketToExchangeCodeMap: MarketProviderConfig['marketToExchangeCode'] = {}
+
+const ibkrMarketSymbolRules: MarketSymbolRule[] = [
+  {
+    currency: 'USD',
+    template: '{base}',
+    active: true,
+  },
+  {
+    currency: 'EUR',
+    template: '{base}',
+    active: true,
+  },
+  {
+    currency: 'GBP',
+    template: '{base}',
+    active: true,
+  },
+  {
+    currency: 'JPY',
+    template: '{base}',
+    active: true,
+  },
+  {
+    assetClass: 'currency',
+    template: '{base}{quote}',
+    active: true,
+  },
+  {
+    template: '{base}',
+    active: true,
+  },
+]
 
 export const ibkrMarketProviderConfig: MarketProviderConfig = {
   id: 'ibkr',
@@ -75,5 +106,5 @@ export const ibkrMarketProviderConfig: MarketProviderConfig = {
   exchangeCodeToMarket: exchangeCodeToMarketMap,
   marketToExchangeCode: marketToExchangeCodeMap,
   exchangeCodes: exchangeCodesList,
-  rules: ibkrTradingSymbolRules,
+  rules: ibkrMarketSymbolRules,
 }
