@@ -112,7 +112,7 @@ export const buildTimeCSPDirectives: CSPDirectives = {
 
   'media-src': ["'self'", 'blob:'],
 
-  'font-src': ["'self'", 'https://fonts.gstatic.com'],
+  'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com'],
 
   'connect-src': [
     "'self'",
@@ -202,7 +202,7 @@ export async function generateRuntimeCSP(): Promise<string> {
       ...(getEnv('NODE_ENV') === 'development' ? getOriginFromUrl('http://localhost:3001') : []),
     ],
     'media-src': ["'self'", 'blob:'],
-    'font-src': ["'self'", 'https://fonts.gstatic.com'],
+    'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com'],
     'connect-src': [
       "'self'",
       ...getOriginFromUrl(getEnv('NEXT_PUBLIC_APP_URL')),

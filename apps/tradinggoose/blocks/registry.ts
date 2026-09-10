@@ -55,6 +55,7 @@ import { JiraBlock } from '@/blocks/blocks/jira'
 import { JiraServiceManagementBlock } from '@/blocks/blocks/jira_service_management'
 import { KalshiBlock } from '@/blocks/blocks/kalshi'
 import { KnowledgeBlock } from '@/blocks/blocks/knowledge'
+import { KronosForecastBlock } from '@/blocks/blocks/kronos_forecast'
 import { LinearBlock } from '@/blocks/blocks/linear'
 import { LinkedInBlock } from '@/blocks/blocks/linkedin'
 import { LinkupBlock } from '@/blocks/blocks/linkup'
@@ -186,6 +187,7 @@ export const registry: Record<string, BlockConfig> = {
   jina: JinaBlock,
   jira: JiraBlock,
   knowledge: KnowledgeBlock,
+  kronos_forecast: KronosForecastBlock,
   linear: LinearBlock,
   linkup: LinkupBlock,
   mcp: McpBlock,

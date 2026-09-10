@@ -50,7 +50,10 @@ const getKubernetesRealtimeUrl = () => {
 }
 
 const getInternalRealtimeUrl = () =>
-  getKubernetesRealtimeUrl() || getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002'
+  getEnv('INTERNAL_REALTIME_URL')?.trim() ||
+  getKubernetesRealtimeUrl() ||
+  getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() ||
+  'http://localhost:3002'
 
 // Wrap createEnv in a function so non-Next.js consumers (e.g. React Email preview)
 // get a safe fallback instead of a top-level crash.
@@ -98,6 +101,13 @@ function safeCreateEnv() {
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),           // Trigger.dev secret key for background jobs
     CRON_SECRET: z.string().optional(),                  // Secret for authenticating cron job requests
 
+    // Kronos forecasting service
+    KRONOS_ENABLED: z.boolean().optional().default(false),           // Enable the Kronos forecast block
+    KRONOS_INTERNAL_URL: z.string().url().optional(),                 // Internal Kronos service URL
+    KRONOS_INTERNAL_TOKEN: z.string().min(32).optional(),             // Bearer token for the Kronos service
+    KRONOS_TIMEOUT_MS: z.number().int().positive().optional(),       // Timeout for Kronos requests in ms
+    KRONOS_MAX_HORIZON: z.number().int().positive().optional(),      // Max forecast horizon in bars
+
     // Cloud Storage - AWS S3
     STORAGE_PROVIDER: z.enum(['local', 's3', 'azure', 'vercel']).optional(),                  // Explicit storage provider override
     AWS_REGION: z.string().optional(),                  // AWS region for S3 buckets
@@ -138,6 +148,7 @@ function safeCreateEnv() {
     KB_CONFIG_DELAY_BETWEEN_DOCUMENTS: z.number().optional().default(50),      // Delay between documents in ms
 
     // Real-time Communication
+    INTERNAL_REALTIME_URL: z.string().url().optional(),           // Internal realtime URL for container-to-container comms
     SOCKET_PORT: z.number().optional(),                  // Port for the realtime socket server process
     PORT: z.number().optional(),                  // Main application port
     ALLOWED_ORIGINS: z.string().optional(),                  // CORS allowed origins
