@@ -111,6 +111,7 @@ import {
   queryTool as mongodbQueryTool,
   updateTool as mongodbUpdateTool,
 } from '@/tools/mongodb'
+import { kronosForecastTool } from '@/tools/kronos'
 import {
   deleteTool as mysqlDeleteTool,
   executeTool as mysqlExecuteTool,
@@ -312,6 +313,7 @@ export const tools: Record<string, ToolConfig> = {
   google_search: googleSearchTool,
   guardrails_validate: guardrailsValidateTool,
   jina_read_url: readUrlTool,
+  kronos_forecast: kronosForecastTool,
   linkup_search: linkupSearchTool,
   resend_send: mailSendTool,
   sms_send: smsSendTool,
