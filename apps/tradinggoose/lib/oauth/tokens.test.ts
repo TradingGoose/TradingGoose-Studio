@@ -316,7 +316,12 @@ describe('OAuth Tokens', () => {
 
       const { refreshAccessTokenIfNeeded } = await import('@/lib/oauth/tokens')
 
-      const token = await refreshAccessTokenIfNeeded('account-id', 'test-user-id', 'request-id')
+      const token = await refreshAccessTokenIfNeeded(
+        'account-id',
+        'test-user-id',
+        'request-id',
+        'google'
+      )
 
       expect(mockRefreshOAuthToken).not.toHaveBeenCalled()
       expect(token).toBe('valid-token')
@@ -341,13 +346,40 @@ describe('OAuth Tokens', () => {
 
       const { refreshAccessTokenIfNeeded } = await import('@/lib/oauth/tokens')
 
-      const token = await refreshAccessTokenIfNeeded('account-id', 'test-user-id', 'request-id')
+      const token = await refreshAccessTokenIfNeeded(
+        'account-id',
+        'test-user-id',
+        'request-id',
+        'google'
+      )
 
       expect(mockRefreshOAuthToken).toHaveBeenCalledWith('google', 'refresh-token')
       expect(mockDb.update).toHaveBeenCalled()
       expect(mockDb.set).toHaveBeenCalled()
       expect(token).toBe('new-token')
     })
+
+    it.each([3600, -3600])(
+      'rejects a different provider before token use or refresh (expiry %s)',
+      async (expiresIn) => {
+        mockDb.limit.mockReturnValueOnce([
+          {
+            accessToken: 'token',
+            refreshToken: 'refresh',
+            providerId: 'alpaca-live',
+            userId: 'test-user-id',
+            accessTokenExpiresAt: new Date(Date.now() + expiresIn * 1000),
+          },
+        ])
+        const { refreshAccessTokenIfNeeded } = await import('@/lib/oauth/tokens')
+
+        await expect(
+          refreshAccessTokenIfNeeded('account-id', 'test-user-id', 'request-id', 'robinhood')
+        ).resolves.toBeNull()
+        expect(mockRefreshOAuthToken).not.toHaveBeenCalled()
+        expect(mockDb.update).not.toHaveBeenCalled()
+      }
+    )
 
     it('should return null if token account not found', async () => {
       mockDb.limit.mockReturnValueOnce([])

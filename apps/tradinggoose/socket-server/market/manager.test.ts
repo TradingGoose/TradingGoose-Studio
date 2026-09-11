@@ -7,6 +7,13 @@ const { getEffectiveDecryptedEnvMock } = vi.hoisted(() => ({
   getEffectiveDecryptedEnvMock: vi.fn(),
 }))
 
+const { refreshAccessTokenIfNeededMock } = vi.hoisted(() => ({
+  refreshAccessTokenIfNeededMock: vi.fn(),
+}))
+vi.mock('@/lib/oauth/tokens', () => ({
+  refreshAccessTokenIfNeeded: refreshAccessTokenIfNeededMock,
+}))
+
 const {
   buildMarketQuoteSnapshotMock,
   executeProviderRequestMock,
@@ -57,6 +64,8 @@ vi.mock('@/providers/market/finnhub/config', () => ({
 
 vi.mock('@/providers/market/providers', () => ({
   getMarketProviderConfig: getMarketProviderConfigMock,
+  getMarketProviderDefinition: (id: string) =>
+    id === 'robinhood' ? { oauth: { provider: 'robinhood' } } : undefined,
   getMarketProviderPollingIntervalMs: getMarketProviderPollingIntervalMsMock,
 }))
 
@@ -408,7 +417,8 @@ describe('MarketStreamManager quote snapshots', () => {
         kind: 'series',
         interval: '1m',
         windows: [{ mode: 'bars', barCount: 1 }],
-      })
+      }),
+      { userId: 'user-1' }
     )
     expect(firstSocket.emit).toHaveBeenCalledWith(
       'market-bar',
@@ -442,5 +452,41 @@ describe('MarketStreamManager quote snapshots', () => {
 
     manager.removeSocket(firstSocket.id)
     manager.removeSocket(secondSocket.id)
+  })
+
+  it('authorizes connections before exposing isolated OAuth polling caches', async () => {
+    vi.useFakeTimers()
+    const manager = new MarketStreamManager()
+    const owner = createSocket('owner-socket')
+    const other = { ...createSocket('other-socket'), userId: 'other-user' }
+    const payload: MarketSubscribePayload = {
+      provider: 'robinhood',
+      listing,
+      channel: 'quote-snapshots',
+      providerParams: { credentialId: 'connection' },
+    }
+    refreshAccessTokenIfNeededMock.mockResolvedValue('token')
+    await manager.subscribe(owner, payload)
+    refreshAccessTokenIfNeededMock.mockResolvedValueOnce(null)
+    await expect(manager.subscribe(other, payload)).rejects.toThrow('Select or reconnect')
+    expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(1)
+    expect(other.emit).not.toHaveBeenCalled()
+
+    await manager.subscribe(other, payload)
+    await Promise.resolve()
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledWith(
+      'connection',
+      'other-user',
+      expect.any(String),
+      'robinhood'
+    )
+    expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(2)
+    for (const userId of ['user-1', 'other-user']) {
+      expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledWith(
+        expect.objectContaining({ context: { userId } })
+      )
+    }
+    manager.removeSocket(owner.id)
+    manager.removeSocket(other.id)
   })
 })

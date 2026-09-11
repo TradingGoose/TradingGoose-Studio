@@ -280,6 +280,26 @@ describe('OAuth Token Refresh', () => {
     vi.clearAllMocks()
   })
 
+  it('refreshes Robinhood as a public client with the MCP resource and rotated refresh token', async () => {
+    setIntegration(['robinhood'], 'registered-robinhood-client', '')
+
+    await expect(refreshOAuthToken('robinhood', 'old-refresh-token')).resolves.toEqual({
+      accessToken: 'new_access_token',
+      expiresIn: 3600,
+      refreshToken: 'new_refresh_token',
+    })
+
+    const [url, requestOptions] = mockFetch.mock.calls[0]
+    expect(url).toBe('https://api.robinhood.com/oauth2/token/')
+    expect(requestOptions.headers.Authorization).toBeUndefined()
+    expect(Object.fromEntries(new URLSearchParams(requestOptions.body))).toEqual({
+      grant_type: 'refresh_token',
+      refresh_token: 'old-refresh-token',
+      client_id: 'registered-robinhood-client',
+      resource: 'https://agent.robinhood.com/mcp/trading',
+    })
+  })
+
   describe('Basic Auth Providers', () => {
     const basicAuthProviders = [
       {
