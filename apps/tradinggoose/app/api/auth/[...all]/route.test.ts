@@ -17,6 +17,7 @@ const {
   mockGetStoredStripeUserCustomerId,
   mockEnsurePlanChangePortalConfiguration,
   mockGetOccupiedSeatCount,
+  mockEnsureRobinhoodOAuthClient,
 } = vi.hoisted(() => ({
   mockAuthHandler: vi.fn(),
   mockLoadSystemOAuthClientCredentials: vi.fn(),
@@ -32,6 +33,7 @@ const {
   mockGetStoredStripeUserCustomerId: vi.fn(),
   mockEnsurePlanChangePortalConfiguration: vi.fn(),
   mockGetOccupiedSeatCount: vi.fn(),
+  mockEnsureRobinhoodOAuthClient: vi.fn(),
 }))
 
 vi.mock('better-auth/next-js', () => ({
@@ -94,6 +96,14 @@ vi.mock('@/lib/oauth/system-managed-config', () => ({
     callback: () => Promise<Response>,
     credentials: Record<string, unknown>
   ) => mockRunWithSystemOAuthClientCredentials(callback, credentials),
+}))
+
+vi.mock('@/lib/robinhood/registration', () => ({
+  ensureRobinhoodOAuthClient: (...args: unknown[]) => mockEnsureRobinhoodOAuthClient(...args),
+}))
+
+vi.mock('@/lib/urls/utils', () => ({
+  getBaseUrl: () => 'https://studio.example.com',
 }))
 
 describe('/api/auth/[...all] route', () => {
@@ -570,28 +580,6 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
   })
 
-  it('hydrates configured system oauth credentials before delegating integration callback routes', async () => {
-    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
-    mockLoadSystemOAuthClientCredentials.mockResolvedValue({
-      'github-repo': {
-        clientId: 'client-id',
-        clientSecret: 'client-secret',
-      },
-    })
-
-    const { handleAuthRequest } = await import('./route')
-    const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/oauth2/callback/github-repo', {
-        method: 'GET',
-      })
-    )
-
-    expect(response.status).toBe(204)
-    expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['github-repo'])
-    expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledTimes(1)
-    expect(mockAuthHandler).toHaveBeenCalledTimes(1)
-  })
-
   it('hydrates Alpaca paper credentials before delegating OAuth link routes', async () => {
     mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
     mockLoadSystemOAuthClientCredentials.mockResolvedValue({
@@ -618,27 +606,31 @@ describe('/api/auth/[...all] route', () => {
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
   })
 
-  it('hydrates Alpaca paper credentials before delegating OAuth callback routes', async () => {
-    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
-    mockLoadSystemOAuthClientCredentials.mockResolvedValue({
-      'alpaca-paper': {
-        clientId: 'client-id',
-        clientSecret: 'client-secret',
-      },
-    })
-
-    const { handleAuthRequest } = await import('./route')
-    const response = await handleAuthRequest(
-      new Request('http://localhost/api/auth/oauth2/callback/alpaca-paper?code=code', {
-        method: 'GET',
+  it.each(['github-repo', 'alpaca-paper', 'robinhood'])(
+    'hydrates %s credentials before delegating OAuth callbacks',
+    async (providerId) => {
+      mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+      mockLoadSystemOAuthClientCredentials.mockResolvedValue({
+        [providerId]: {
+          clientId: 'client-id',
+          clientSecret: providerId === 'robinhood' ? '' : 'client-secret',
+        },
       })
-    )
 
-    expect(response.status).toBe(204)
-    expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['alpaca-paper'])
-    expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledTimes(1)
-    expect(mockAuthHandler).toHaveBeenCalledTimes(1)
-  })
+      const { handleAuthRequest } = await import('./route')
+      const response = await handleAuthRequest(
+        new Request(`http://localhost/api/auth/oauth2/callback/${providerId}?code=code`, {
+          method: 'GET',
+        })
+      )
+
+      expect(response.status).toBe(204)
+      expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith([providerId])
+      expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledTimes(1)
+      expect(mockAuthHandler).toHaveBeenCalledTimes(1)
+      expect(mockEnsureRobinhoodOAuthClient).not.toHaveBeenCalled()
+    }
+  )
 
   it('returns 400 when a system oauth callback provider is not configured', async () => {
     const { handleAuthRequest } = await import('./route')
@@ -654,4 +646,57 @@ describe('/api/auth/[...all] route', () => {
     })
     expect(mockAuthHandler).not.toHaveBeenCalled()
   })
+
+  it('registers Robinhood only for an authenticated link and hydrates its public client ID', async () => {
+    mockLoadSystemOAuthClientCredentials.mockResolvedValue({
+      robinhood: { clientId: '', clientSecret: '', fields: { client_id: '' } },
+    })
+    mockEnsureRobinhoodOAuthClient.mockResolvedValue('registered-client')
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/oauth2/link', {
+        method: 'POST',
+        body: JSON.stringify({ providerId: 'robinhood', callbackURL: '/workspace' }),
+      })
+    )
+
+    expect(response.status).toBe(204)
+    expect(mockEnsureRobinhoodOAuthClient).toHaveBeenCalledWith(
+      'https://studio.example.com/api/auth/oauth2/callback/robinhood'
+    )
+    expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledWith(expect.any(Function), {
+      robinhood: {
+        clientId: 'registered-client',
+        clientSecret: '',
+        fields: { client_id: 'registered-client' },
+      },
+    })
+  })
+
+  it.each([
+    ['/oauth2/link', 'POST', false, 401],
+    ['/oauth2/callback/robinhood?code=code', 'GET', true, 400],
+    ['/sign-in/oauth2', 'POST', true, 400],
+  ] as const)(
+    'does not register a new Robinhood client at %s',
+    async (path, method, authenticated, status) => {
+      if (!authenticated) mockGetSession.mockResolvedValue(null)
+      mockLoadSystemOAuthClientCredentials.mockResolvedValue({
+        robinhood: { clientId: '', clientSecret: '', fields: { client_id: '' } },
+      })
+      const { handleAuthRequest } = await import('./route')
+      const response = await handleAuthRequest(
+        new Request(`http://localhost/api/auth${path}`, {
+          method,
+          body: method === 'POST' ? JSON.stringify({ providerId: 'robinhood' }) : undefined,
+        })
+      )
+
+      expect(response.status).toBe(status)
+      expect(mockEnsureRobinhoodOAuthClient).not.toHaveBeenCalled()
+      expect(mockAuthHandler).not.toHaveBeenCalled()
+    }
+  )
 })
