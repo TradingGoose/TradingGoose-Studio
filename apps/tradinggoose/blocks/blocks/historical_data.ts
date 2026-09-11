@@ -4,6 +4,7 @@ import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import {
   coerceMarketProviderParamValue,
+  getMarketProviderDefinition,
   getMarketProviderParamCatalog,
   getMarketProvidersByKind,
   getMarketSeriesCapabilities,
@@ -160,11 +161,15 @@ const buildProviderParamSubBlocks = (): SubBlockConfig[] =>
       const definition = entry.definition
       if (definition.mode === 'advanced') return null
       const inputType = resolveParamInputType(paramId)
+      const isOAuthConnection =
+        paramId === 'credentialId' &&
+        entry.providers.some((providerId) => getMarketProviderDefinition(providerId)?.oauth)
 
       return {
         id: paramId,
         title: definition.title || formatParamTitle(paramId),
-        type: inputType,
+        type: isOAuthConnection ? 'oauth-input' : inputType,
+        providerType: isOAuthConnection ? 'market' : undefined,
         layout: definition.layout || 'full',
         required: definition.required,
         placeholder: definition.placeholder || definition.description,
@@ -177,7 +182,7 @@ const buildProviderParamSubBlocks = (): SubBlockConfig[] =>
         step: definition.step,
         integer: definition.integer,
         rows: definition.rows,
-        dependsOn: definition.dependsOn,
+        dependsOn: isOAuthConnection ? ['provider'] : definition.dependsOn,
         mode: definition.mode,
         condition: entry.providers.length
           ? { field: 'provider', value: entry.providers }

@@ -14,6 +14,9 @@ import {
   loadSystemOAuthClientCredentials,
   runWithSystemOAuthClientCredentials,
 } from '@/lib/oauth/system-managed-config'
+import { getRobinhoodRedirectUri, ROBINHOOD_PROVIDER_ID } from '@/lib/robinhood/constants'
+import { ensureRobinhoodOAuthClient } from '@/lib/robinhood/registration'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -229,6 +232,27 @@ export const handleAuthRequest = async (request: Request) => {
   const credentials = await loadSystemOAuthClientCredentials([providerId])
   if (!credentials[providerId]) {
     return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
+  }
+
+  if (providerId === ROBINHOOD_PROVIDER_ID && !credentials[providerId].clientId) {
+    if (request.method !== 'POST' || pathname !== '/api/auth/oauth2/link') {
+      return Response.json({ error: 'OAuth provider is not configured' }, { status: 400 })
+    }
+    const session = await getSession(request.headers)
+    if (!session?.user?.id) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    try {
+      const clientId = await ensureRobinhoodOAuthClient(getRobinhoodRedirectUri(getBaseUrl()))
+      credentials[providerId].clientId = clientId
+      credentials[providerId].fields.client_id = clientId
+    } catch {
+      return Response.json(
+        { error: 'Could not register the Robinhood connection' },
+        { status: 502 }
+      )
+    }
   }
 
   return runWithSystemOAuthClientCredentials(() => auth.handler(requestToHandle), credentials)

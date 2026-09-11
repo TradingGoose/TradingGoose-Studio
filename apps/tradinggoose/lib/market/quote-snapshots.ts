@@ -4,7 +4,7 @@ import {
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 import { executeProviderRequest } from '@/providers/market'
-import type { MarketSeries } from '@/providers/market/types'
+import type { MarketProviderRequestContext, MarketSeries } from '@/providers/market/types'
 
 export {
   createEmptyMarketQuoteSnapshot,
@@ -26,23 +26,29 @@ const buildDailyRequest = async ({
   listing,
   auth,
   providerParams,
+  context,
 }: {
   provider: string
   listing: ListingIdentity
   auth?: { apiKey?: string; apiSecret?: string }
   providerParams?: Record<string, unknown>
+  context?: MarketProviderRequestContext
 }) => {
-  const response = await executeProviderRequest(provider, {
-    kind: 'series',
-    listing,
-    interval: '1d',
-    windows: [{ mode: 'bars', barCount: 2 }],
-    auth,
-    providerParams: {
-      ...(providerParams ?? {}),
-      marketSession: 'regular',
+  const response = await executeProviderRequest(
+    provider,
+    {
+      kind: 'series',
+      listing,
+      interval: '1d',
+      windows: [{ mode: 'bars', barCount: 2 }],
+      auth,
+      providerParams: {
+        ...(providerParams ?? {}),
+        marketSession: 'regular',
+      },
     },
-  })
+    context
+  )
 
   return normalizeSeries(response)
 }
@@ -52,25 +58,31 @@ const buildRegularLastRequest = async ({
   listing,
   auth,
   providerParams,
+  context,
 }: {
   provider: string
   listing: ListingIdentity
   auth?: { apiKey?: string; apiSecret?: string }
   providerParams?: Record<string, unknown>
+  context?: MarketProviderRequestContext
 }) => {
   try {
-    const response = await executeProviderRequest(provider, {
-      kind: 'series',
-      listing,
-      interval: '1m',
-      windows: [{ mode: 'bars', barCount: 1 }],
-      auth,
-      providerParams: {
-        ...(providerParams ?? {}),
-        allowEmpty: true,
-        marketSession: 'regular',
+    const response = await executeProviderRequest(
+      provider,
+      {
+        kind: 'series',
+        listing,
+        interval: '1m',
+        windows: [{ mode: 'bars', barCount: 1 }],
+        auth,
+        providerParams: {
+          ...(providerParams ?? {}),
+          allowEmpty: true,
+          marketSession: 'regular',
+        },
       },
-    })
+      context
+    )
 
     return normalizeSeries(response)
   } catch {
@@ -83,14 +95,16 @@ export const buildMarketQuoteSnapshot = async ({
   listing,
   auth,
   providerParams,
+  context,
 }: {
   provider: string
   listing: ListingIdentity
   auth?: { apiKey?: string; apiSecret?: string }
   providerParams?: Record<string, unknown>
+  context?: MarketProviderRequestContext
 }): Promise<MarketQuoteSnapshot> => {
   try {
-    const daily = await buildDailyRequest({ provider, listing, auth, providerParams })
+    const daily = await buildDailyRequest({ provider, listing, auth, providerParams, context })
     const dailyBars = daily?.bars ?? []
     const latestDaily = dailyBars[dailyBars.length - 1]
     const previousDaily = dailyBars[dailyBars.length - 2]
@@ -103,7 +117,13 @@ export const buildMarketQuoteSnapshot = async ({
         : latestDailyClose !== null
           ? latestDailyClose
           : null
-    const regular = await buildRegularLastRequest({ provider, listing, auth, providerParams })
+    const regular = await buildRegularLastRequest({
+      provider,
+      listing,
+      auth,
+      providerParams,
+      context,
+    })
     const regularBar = regular?.bars?.[regular.bars.length - 1]
     const regularLastPrice = resolveNumber(regularBar?.close)
     const lastPrice = regularLastPrice ?? latestDailyClose

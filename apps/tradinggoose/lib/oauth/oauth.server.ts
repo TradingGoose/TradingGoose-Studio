@@ -10,6 +10,7 @@ import {
   loadSystemOAuthClientCredentials,
   loadSystemOAuthClientCredentialsForProvider,
 } from '@/lib/oauth/system-managed-config'
+import { ROBINHOOD_MCP_URL, ROBINHOOD_TOKEN_URL } from '@/lib/robinhood/constants'
 
 const logger = createLogger('OAuth')
 
@@ -22,6 +23,7 @@ interface ProviderAuthConfig {
   additionalHeaders?: Record<string, string>
   supportsRefreshTokenRotation?: boolean
   useJsonBody?: boolean
+  additionalBodyParams?: Record<string, string>
 }
 
 interface ProviderAuthCredentials {
@@ -46,6 +48,14 @@ function getProviderAuthTemplate(
   providerId: string
 ): Omit<ProviderAuthConfig, 'clientId' | 'clientSecret'> {
   switch (providerId) {
+    case 'robinhood':
+      return {
+        tokenEndpoint: ROBINHOOD_TOKEN_URL,
+        useBasicAuth: false,
+        requiresClientSecret: false,
+        supportsRefreshTokenRotation: true,
+        additionalBodyParams: { resource: ROBINHOOD_MCP_URL },
+      }
     case 'google':
       return {
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
@@ -210,6 +220,7 @@ function buildAuthRequest(
   const bodyParams: Record<string, string> = {
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
+    ...config.additionalBodyParams,
   }
 
   if (config.useBasicAuth) {

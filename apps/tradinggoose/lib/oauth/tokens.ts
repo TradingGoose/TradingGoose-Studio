@@ -129,16 +129,18 @@ export async function getOAuthTokenAccount(
  * @param tokenAccountId The underlying OAuth account row ID to check and potentially refresh.
  * @param ownerUserId The user ID who owns the OAuth account row.
  * @param requestId Request ID for log correlation
+ * @param expectedProviderId Optional OAuth service required by the caller.
  * @returns The valid access token or null if refresh fails
  */
 export async function refreshAccessTokenIfNeeded(
   tokenAccountId: string,
   ownerUserId: string,
-  requestId: string
+  requestId: string,
+  expectedProviderId?: string
 ): Promise<string | null> {
   const tokenAccount = await getOAuthTokenAccount(requestId, tokenAccountId, ownerUserId)
 
-  if (!tokenAccount) {
+  if (!tokenAccount || (expectedProviderId && tokenAccount.providerId !== expectedProviderId)) {
     return null
   }
 

@@ -23,11 +23,13 @@ import { INDICATOR_MONITOR_PROVIDER, PORTFOLIO_MONITOR_PROVIDER } from '@/lib/mo
 import { cn } from '@/lib/utils'
 import { type MonitorCopy, useMonitorCopy } from '@/app/workspace/[workspaceId]/monitor/copy'
 import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
-import type {
-  MarketProviderOption,
-  MarketProviderParamDefinition,
+import {
+  getMarketProviderDefinition,
+  type MarketProviderOption,
+  type MarketProviderParamDefinition,
 } from '@/providers/market/providers'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
 import { getProviderIntervalFallback, type MonitorDraftIssues } from '../config/config-draft'
 import type {
   IndicatorOption,
@@ -172,6 +174,7 @@ function IndicatorMonitorFields({
   onUpdateProviderParamValue: (fieldId: string, value: string) => void
   onUpdateIndicatorInputs: (nextInputs: Record<string, unknown>) => void
 }) {
+  const oauth = getMarketProviderDefinition(draft.providerId)?.oauth
   return (
     <>
       <div className={cn('grid gap-3', nonSecretDefinitions.length > 0 && 'sm:grid-cols-2')}>
@@ -215,6 +218,22 @@ function IndicatorMonitorFields({
               const value = draft.providerParamValues[definition.id] ?? ''
               const fieldId = `monitor-feed-${encodeURIComponent(definition.id)}`
               const fieldLabel = definition.title || definition.id
+              if (definition.id === 'credentialId' && oauth) {
+                return (
+                  <div key={definition.id} {...getIssueProps(issues, key)}>
+                    <ToolCredentialSelector
+                      credentialSource='personal'
+                      id={fieldId}
+                      label={fieldLabel}
+                      provider={oauth.provider}
+                      serviceId={oauth.provider}
+                      value={value}
+                      disabled={saving}
+                      onChange={(accountId) => onUpdateProviderParamValue(definition.id, accountId)}
+                    />
+                  </div>
+                )
+              }
               return definition.options && definition.options.length > 0 ? (
                 <Select
                   key={definition.id}

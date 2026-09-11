@@ -14,16 +14,18 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   type Credential,
+  getCanonicalScopesForProvider,
   OAUTH_PROVIDERS,
   type OAuthProvider,
   type OAuthService,
   parseProvider,
 } from '@/lib/oauth'
+import { useOAuthConnections } from '@/hooks/queries/oauth-connections'
 import { translateWorkflowLabel } from '@/i18n/block-editor'
 import type { LocaleCode } from '@/i18n/utils'
 import { formatTemplate } from '@/i18n/utils'
 import { useWorkspaceBlockEditorMessages } from '@/i18n/workspace-widget-hooks'
-import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ToolCredentialSelector')
 
@@ -55,6 +57,8 @@ const getProviderName = (providerName: OAuthProvider) => {
 }
 
 interface ToolCredentialSelectorProps {
+  id?: string
+  credentialSource?: 'workspace' | 'personal'
   value: string
   onChange: (value: string) => void
   provider: OAuthProvider
@@ -65,6 +69,8 @@ interface ToolCredentialSelectorProps {
 }
 
 export function ToolCredentialSelector({
+  id,
+  credentialSource = 'workspace',
   value,
   onChange,
   provider,
@@ -76,11 +82,28 @@ export function ToolCredentialSelector({
   const locale = useLocale() as LocaleCode
   const copy = useWorkspaceBlockEditorMessages().toolInput
   const [open, setOpen] = useState(false)
-  const [credentials, setCredentials] = useState<Credential[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [workspaceCredentials, setCredentials] = useState<Credential[]>([])
+  const [workspaceLoading, setIsLoading] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [selectedId, setSelectedId] = useState('')
-  const activeWorkflowId = useWorkflowId()
+  const activeWorkflowId = useOptionalWorkflowRoute()?.workflowId
+  const isPersonal = credentialSource === 'personal'
+  const {
+    data: connections,
+    isLoading: connectionsLoading,
+    refetch,
+  } = useOAuthConnections({ enabled: isPersonal && !disabled })
+  const connectionService = connections?.find(
+    (entry) => entry.providerId === (serviceId ?? provider)
+  )
+  const credentials = isPersonal
+    ? (connectionService?.accounts ?? []).map((account) => ({
+        ...account,
+        provider: connectionService!.providerId,
+        isOwner: true,
+      }))
+    : workspaceCredentials
+  const isLoading = isPersonal ? connectionsLoading : workspaceLoading
   const labelText = label ?? translateWorkflowLabel(locale, 'selectCredential')
 
   // Update selected ID when value changes
@@ -88,7 +111,18 @@ export function ToolCredentialSelector({
     setSelectedId(value)
   }, [value])
 
+  useEffect(() => {
+    if (disabled) {
+      setOpen(false)
+      setShowOAuthModal(false)
+    }
+  }, [disabled])
+
   const fetchCredentials = useCallback(async () => {
+    if (isPersonal) {
+      await refetch()
+      return
+    }
     setIsLoading(true)
     try {
       const params = new URLSearchParams({ provider })
@@ -107,17 +141,15 @@ export function ToolCredentialSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [provider, activeWorkflowId])
+  }, [provider, activeWorkflowId, isPersonal, refetch])
 
-  // Fetch credentials on initial mount only
   useEffect(() => {
-    fetchCredentials()
-    // This effect should only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (!isPersonal) void fetchCredentials()
+  }, [fetchCredentials, isPersonal])
 
   // Listen for visibility changes to update credentials when user returns from settings
   useEffect(() => {
+    if (isPersonal) return
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         fetchCredentials()
@@ -129,9 +161,10 @@ export function ToolCredentialSelector({
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [fetchCredentials])
+  }, [fetchCredentials, isPersonal])
 
   const handleSelect = (credentialId: string) => {
+    if (disabled) return
     setSelectedId(credentialId)
     onChange(credentialId)
     setOpen(false)
@@ -165,6 +198,8 @@ export function ToolCredentialSelector({
           disabled={disabled}
           render={
             <Button
+              id={id}
+              aria-label={labelText}
               variant='outline'
               role='combobox'
               aria-expanded={open}
@@ -256,7 +291,9 @@ export function ToolCredentialSelector({
         onClose={handleOAuthClose}
         provider={provider}
         toolName={labelText}
-        requiredScopes={requiredScopes}
+        requiredScopes={
+          isPersonal ? getCanonicalScopesForProvider(serviceId ?? provider) : requiredScopes
+        }
         serviceId={serviceId}
       />
     </>
