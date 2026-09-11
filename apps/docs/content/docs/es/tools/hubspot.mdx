@@ -1,0 +1,1219 @@
+---
+title: HubSpot
+description: Interactúa con HubSpot CRM o activa workflows desde eventos de HubSpot
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="hubspot"
+  color="#FF7A59"
+/>
+
+<Cards>
+  <Card title="Usar como trigger" href="/triggers/hubspot">
+    Consulta los eventos de trigger, la configuración y los payloads de eventos de HubSpot.
+  </Card>
+</Cards>
+
+## Configuración
+
+### Obtener usuarios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_users",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "Obtener contactos"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "Obtener empresas"
+                },
+                {
+                    "id": "create_company",
+                    "label": "Crear empresa"
+                },
+                {
+                    "id": "update_company",
+                    "label": "Actualizar empresa"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "Buscar empresas"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "Obtener negocios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de HubSpot",
+            "placeholder": "Seleccionar cuenta de HubSpot",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Máximo de resultados (lista: 100, búsqueda: 200)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener usuarios (<code>hubspot_get_users</code>)</div>
+
+Recupera todos los usuarios de la cuenta de HubSpot
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Número de resultados que se devolverán \(predeterminado: 100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `users` | array | Array de objetos de usuario de HubSpot |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
+</div>
+
+---
+
+### Obtener contactos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_contacts",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "Obtener contactos"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "Obtener empresas"
+                },
+                {
+                    "id": "create_company",
+                    "label": "Crear empresa"
+                },
+                {
+                    "id": "update_company",
+                    "label": "Actualizar empresa"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "Buscar empresas"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "Obtener negocios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de HubSpot",
+            "placeholder": "Seleccionar cuenta de HubSpot",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "ID de contacto o correo",
+            "placeholder": "Dejar vacío para listar todos los contactos"
+        },
+        {
+            "id": "idProperty",
+            "type": "short-input",
+            "title": "Propiedad de ID",
+            "placeholder": "Obligatorio si se usa email/domain (p. ej., \"email\" o \"domain\")"
+        },
+        {
+            "id": "properties",
+            "type": "short-input",
+            "title": "Propiedades a devolver",
+            "placeholder": "Lista separada por comas (p. ej., \"email,firstname,lastname\")"
+        },
+        {
+            "id": "associations",
+            "type": "short-input",
+            "title": "Asociaciones",
+            "placeholder": "Tipos de objeto separados por comas (p. ej., \"companies,deals\")"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Máximo de resultados (lista: 100, búsqueda: 200)"
+        },
+        {
+            "id": "after",
+            "type": "short-input",
+            "title": "After (paginación)",
+            "placeholder": "Cursor de paginación de la respuesta anterior"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener contactos (<code>hubspot_list_contacts</code>)</div>
+
+Recupera todos los contactos de la cuenta de HubSpot con soporte de paginación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Número máximo de resultados por página \(máx. 100, valor predeterminado 100\) |
+| `after` | string | No | Cursor de paginación para la página siguiente de resultados |
+| `properties` | string | No | Lista de propiedades separadas por comas que se devolverán \(p. ej., "email,firstname,lastname"\) |
+| `associations` | string | No | Lista de tipos de objeto separados por comas para obtener los ID asociados |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contacts` | array | Matriz de objetos de contacto de HubSpot |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
+</div>
+
+---
+
+### Crear contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_contact",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "Obtener contactos"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "Obtener empresas"
+                },
+                {
+                    "id": "create_company",
+                    "label": "Crear empresa"
+                },
+                {
+                    "id": "update_company",
+                    "label": "Actualizar empresa"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "Buscar empresas"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "Obtener negocios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de HubSpot",
+            "placeholder": "Seleccionar cuenta de HubSpot",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "propertiesToSet",
+            "type": "long-input",
+            "title": "Propiedades",
+            "placeholder": "Objeto JSON con propiedades (p. ej., {\"email\": \"test@example.com\", \"firstname\": \"John\"})"
+        },
+        {
+            "id": "associations",
+            "type": "short-input",
+            "title": "Asociaciones",
+            "placeholder": "Tipos de objeto separados por comas (p. ej., \"companies,deals\")"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear contacto (<code>hubspot_create_contact</code>)</div>
+
+Crea un contacto nuevo en HubSpot. Requiere al menos uno de: email, firstname o lastname
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `properties` | object | Sí | Propiedades del contacto como objeto JSON. Debe incluir al menos uno de: email, firstname o lastname |
+| `associations` | array | No | Matriz de asociaciones que crear con el contacto \(p. ej., companies, deals\). Cada objeto debe tener "to" \(con "id"\) y "types" \(con "associationCategory" y "associationTypeId"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contact` | object | Objeto de contacto de HubSpot creado |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
+</div>
+
+---
+
+### Actualizar contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_contact",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "Obtener contactos"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "Obtener empresas"
+                },
+                {
+                    "id": "create_company",
+                    "label": "Crear empresa"
+                },
+                {
+                    "id": "update_company",
+                    "label": "Actualizar empresa"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "Buscar empresas"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "Obtener negocios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de HubSpot",
+            "placeholder": "Seleccionar cuenta de HubSpot",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "ID de contacto o correo electrónico",
+            "placeholder": "ID numérico, o correo electrónico (requiere la propiedad de ID a continuación)",
+            "required": true
+        },
+        {
+            "id": "idProperty",
+            "type": "short-input",
+            "title": "Propiedad de ID",
+            "placeholder": "Obligatorio si se usa correo electrónico/dominio (ej., \"email\" o \"domain\")"
+        },
+        {
+            "id": "propertiesToSet",
+            "type": "long-input",
+            "title": "Propiedades",
+            "placeholder": "Objeto JSON con propiedades (ej., {\"email\": \"test@example.com\", \"firstname\": \"John\"})"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar contacto (<code>hubspot_update_contact</code>)</div>
+
+Actualiza un contacto existente en HubSpot por ID o correo electrónico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | string | Sí | El ID o correo electrónico del contacto a actualizar |
+| `idProperty` | string | No | Propiedad para usar como identificador único \(ej., \"email\"\). Si no se especifica, usa el ID del registro |
+| `properties` | object | Sí | Propiedades de contacto a actualizar como objeto JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contact` | object | Objeto de contacto de HubSpot actualizado |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
+</div>
+
+---
+
+### Buscar contactos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "search_contacts",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "Obtener contactos"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "Obtener empresas"
+                },
+                {
+                    "id": "create_company",
+                    "label": "Crear empresa"
+                },
+                {
+                    "id": "update_company",
+                    "label": "Actualizar empresa"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "Buscar empresas"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "Obtener negocios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de HubSpot",
+            "placeholder": "Seleccionar cuenta de HubSpot",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Máximo de resultados (lista: 100, búsqueda: 200)"
+        },
+        {
+            "id": "after",
+            "type": "short-input",
+            "title": "After (paginación)",
+            "placeholder": "Cursor de paginación de la respuesta anterior"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "Término de búsqueda (p. ej., nombre de empresa, correo electrónico de contacto)"
+        },
+        {
+            "id": "filterGroups",
+            "type": "long-input",
+            "title": "Grupos de filtros",
+            "placeholder": "Matriz JSON de grupos de filtros (p. ej., [{\"filters\":[{\"propertyName\":\"email\",\"operator\":\"EQ\",\"value\":\"test@example.com\"}]}])"
+        },
+        {
+            "id": "sorts",
+            "type": "long-input",
+            "title": "Orden de clasificación",
+            "placeholder": "Matriz JSON de objetos de ordenación (p. ej., [{\"propertyName\":\"createdate\",\"direction\":\"DESCENDING\"}])"
+        },
+        {
+            "id": "searchProperties",
+            "type": "long-input",
+            "title": "Propiedades a devolver",
+            "placeholder": "Matriz JSON de propiedades (p. ej., [\"email\",\"firstname\",\"lastname\"])"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar contactos (<code>hubspot_search_contacts</code>)</div>
+
+Busca contactos en HubSpot mediante filtros, ordenación y consultas
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `filterGroups` | array | No | Array de grupos de filtros. Cada grupo contiene filtros con propertyName, operator y value |
+| `sorts` | array | No | Array de objetos de ordenación con propertyName y direction \("ASCENDING" o "DESCENDING"\) |
+| `query` | string | No | Cadena de consulta de búsqueda |
+| `properties` | array | No | Array de nombres de propiedades que se devolverán |
+| `limit` | number | No | Número máximo de resultados que se devolverán \(máx. 100\) |
+| `after` | string | No | Cursor de paginación para la página siguiente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `contacts` | array | Array de objetos de contacto de HubSpot coincidentes |
+| `total` | number | Número total de contactos coincidentes |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
+</div>
+
+---
+
+### Obtener empresas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_companies",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "Obtener contactos"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "Obtener empresas"
+                },
+                {
+                    "id": "create_company",
+                    "label": "Crear empresa"
+                },
+                {
+                    "id": "update_company",
+                    "label": "Actualizar empresa"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "Buscar empresas"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "Obtener negocios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de HubSpot",
+            "placeholder": "Seleccionar cuenta de HubSpot",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "companyId",
+            "type": "short-input",
+            "title": "ID o dominio de la empresa",
+            "placeholder": "Dejar vacío para listar todas las empresas"
+        },
+        {
+            "id": "idProperty",
+            "type": "short-input",
+            "title": "Propiedad de ID",
+            "placeholder": "Obligatorio si se usa email/domain (p. ej., \"email\" o \"domain\")"
+        },
+        {
+            "id": "properties",
+            "type": "short-input",
+            "title": "Propiedades a devolver",
+            "placeholder": "Lista separada por comas (p. ej., \"email,firstname,lastname\")"
+        },
+        {
+            "id": "associations",
+            "type": "short-input",
+            "title": "Asociaciones",
+            "placeholder": "Tipos de objeto separados por comas (p. ej., \"companies,deals\")"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Resultados máximos (list: 100, search: 200)"
+        },
+        {
+            "id": "after",
+            "type": "short-input",
+            "title": "After (paginación)",
+            "placeholder": "Cursor de paginación de la respuesta anterior"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener empresas (<code>hubspot_list_companies</code>)</div>
+
+Recupera todas las empresas de la cuenta de HubSpot con soporte de paginación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Número máximo de resultados por página \(máx. 100, predeterminado 100\) |
+| `after` | string | No | Cursor de paginación para la siguiente página de resultados |
+| `properties` | string | No | Lista de propiedades separadas por comas a devolver |
+| `associations` | string | No | Lista de tipos de objeto separados por comas para los que recuperar IDs asociados |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `companies` | array | Array de objetos de empresa de HubSpot |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
+</div>
+
+---
+
+### Crear empresa
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_company",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "Obtener contactos"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "Obtener empresas"
+                },
+                {
+                    "id": "create_company",
+                    "label": "Crear empresa"
+                },
+                {
+                    "id": "update_company",
+                    "label": "Actualizar empresa"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "Buscar empresas"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "Obtener negocios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de HubSpot",
+            "placeholder": "Seleccionar cuenta de HubSpot",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "propertiesToSet",
+            "type": "long-input",
+            "title": "Propiedades",
+            "placeholder": "Objeto JSON con propiedades (p. ej., {\"email\": \"test@example.com\", \"firstname\": \"John\"})"
+        },
+        {
+            "id": "associations",
+            "type": "short-input",
+            "title": "Asociaciones",
+            "placeholder": "Tipos de objeto separados por comas (p. ej., \"companies,deals\")"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear empresa (<code>hubspot_create_company</code>)</div>
+
+Crear una nueva empresa en HubSpot
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `properties` | objeto | Sí | Propiedades de la empresa como objeto JSON \(p. ej., nombre, dominio, ciudad, industria\) |
+| `associations` | arreglo | No | Arreglo de asociaciones para crear con la empresa |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `company` | objeto | Objeto de empresa de HubSpot creado |
+| `metadata` | objeto | Metadatos de la operación |
+| `success` | booleano | Estado de éxito de la operación |
+
+</div>
+
+---
+
+### Actualizar empresa
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "update_company",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "Obtener contactos"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "Obtener empresas"
+                },
+                {
+                    "id": "create_company",
+                    "label": "Crear empresa"
+                },
+                {
+                    "id": "update_company",
+                    "label": "Actualizar empresa"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "Buscar empresas"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "Obtener negocios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de HubSpot",
+            "placeholder": "Seleccionar cuenta de HubSpot",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "companyId",
+            "type": "short-input",
+            "title": "ID de empresa o dominio",
+            "placeholder": "ID numérico, o dominio (requiere la propiedad de ID a continuación)",
+            "required": true
+        },
+        {
+            "id": "idProperty",
+            "type": "short-input",
+            "title": "Propiedad de ID",
+            "placeholder": "Obligatorio si se utiliza correo electrónico/dominio (p. ej., \"email\" o \"domain\")"
+        },
+        {
+            "id": "propertiesToSet",
+            "type": "long-input",
+            "title": "Propiedades",
+            "placeholder": "Objeto JSON con propiedades (p. ej., {\"email\": \"test@example.com\", \"firstname\": \"John\"})"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar empresa (<code>hubspot_update_company</code>)</div>
+
+Actualiza una empresa existente en HubSpot por ID o dominio
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `companyId` | string | Sí | El ID o dominio de la empresa que se va a actualizar |
+| `idProperty` | string | No | Propiedad que se usará como identificador único \(p. ej., "domain"\). Si no se especifica, se usa el ID del registro |
+| `properties` | object | Sí | Propiedades de la empresa que se van a actualizar como objeto JSON |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `company` | object | Objeto de empresa de HubSpot actualizado |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
+</div>
+
+---
+
+### Buscar empresas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "search_companies",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "Obtener contactos"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "Obtener empresas"
+                },
+                {
+                    "id": "create_company",
+                    "label": "Crear empresa"
+                },
+                {
+                    "id": "update_company",
+                    "label": "Actualizar empresa"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "Buscar empresas"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "Obtener negocios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de HubSpot",
+            "placeholder": "Selecciona una cuenta de HubSpot",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Máximo de resultados (lista: 100, búsqueda: 200)"
+        },
+        {
+            "id": "after",
+            "type": "short-input",
+            "title": "Después (paginación)",
+            "placeholder": "Cursor de paginación de la respuesta anterior"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "Término de búsqueda (p. ej., nombre de la empresa, correo electrónico de contacto)"
+        },
+        {
+            "id": "filterGroups",
+            "type": "long-input",
+            "title": "Grupos de filtros",
+            "placeholder": "Array JSON de grupos de filtros (p. ej., [{\"filters\":[{\"propertyName\":\"email\",\"operator\":\"EQ\",\"value\":\"test@example.com\"}]}])"
+        },
+        {
+            "id": "sorts",
+            "type": "long-input",
+            "title": "Orden de clasificación",
+            "placeholder": "Array JSON de objetos de ordenación (p. ej., [{\"propertyName\":\"createdate\",\"direction\":\"DESCENDING\"}])"
+        },
+        {
+            "id": "searchProperties",
+            "type": "long-input",
+            "title": "Propiedades a devolver",
+            "placeholder": "Array JSON de propiedades (p. ej., [\"email\",\"firstname\",\"lastname\"])"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Buscar empresas (<code>hubspot_search_companies</code>)</div>
+
+Busca empresas en HubSpot mediante filtros, ordenación y consultas
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `filterGroups` | array | No | Matriz de grupos de filtros. Cada grupo contiene filtros con propertyName, operator y value |
+| `sorts` | array | No | Matriz de objetos de ordenación con propertyName y direction \("ASCENDING" o "DESCENDING"\) |
+| `query` | string | No | Cadena de consulta de búsqueda |
+| `properties` | array | No | Matriz de nombres de propiedades que se devolverán |
+| `limit` | number | No | Número máximo de resultados que se devolverán \(máx. 100\) |
+| `after` | string | No | Cursor de paginación para la página siguiente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `companies` | array | Matriz de objetos de empresa de HubSpot coincidentes |
+| `total` | number | Número total de empresas coincidentes |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
+</div>
+
+---
+
+### Obtener negocios
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_deals",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "Obtener usuarios"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "Obtener contactos"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "Crear contacto"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "Actualizar contacto"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "Buscar contactos"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "Obtener empresas"
+                },
+                {
+                    "id": "create_company",
+                    "label": "Crear empresa"
+                },
+                {
+                    "id": "update_company",
+                    "label": "Actualizar empresa"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "Buscar empresas"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "Obtener negocios"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de HubSpot",
+            "placeholder": "Selecciona una cuenta de HubSpot",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "properties",
+            "type": "short-input",
+            "title": "Propiedades que se devolverán",
+            "placeholder": "Lista separada por comas (p. ej., \"email,firstname,lastname\")"
+        },
+        {
+            "id": "associations",
+            "type": "short-input",
+            "title": "Asociaciones",
+            "placeholder": "Tipos de objeto separados por comas (p. ej., \"companies,deals\")"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Máximo de resultados (list: 100, search: 200)"
+        },
+        {
+            "id": "after",
+            "type": "short-input",
+            "title": "After (paginación)",
+            "placeholder": "Cursor de paginación de la respuesta anterior"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener negocios (<code>hubspot_list_deals</code>)</div>
+
+Recupera todos los negocios de la cuenta de HubSpot con soporte de paginación
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Número máximo de resultados por página \(máx. 100, predeterminado 100\) |
+| `after` | string | No | Cursor de paginación para la siguiente página de resultados |
+| `properties` | string | No | Lista de propiedades separadas por comas que se devolverán |
+| `associations` | string | No | Lista de tipos de objeto separados por comas para los que se recuperarán los IDs asociados |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `deals` | array | Array de objetos de negocio de HubSpot |
+| `paging` | object | Información de paginación |
+| `metadata` | object | Metadatos de la operación |
+| `success` | boolean | Estado de éxito de la operación |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra HubSpot en tu flujo de trabajo. Gestiona contactos, empresas, negocios, tickets y otros objetos de CRM con potentes capacidades de automatización. Se puede usar en modo desencadenador para iniciar flujos de trabajo cuando se crean, eliminan o actualizan contactos.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `hubspot`

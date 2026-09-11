@@ -1,0 +1,2588 @@
+---
+title: Intercom
+description: 在 Intercom 中管理联系人、公司、对话、工单和消息
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="intercom"
+  color="#0057FF"
+/>
+
+## 配置
+
+### 创建联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_contact",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "角色",
+            "options": [
+                {
+                    "id": "lead",
+                    "label": "潜在客户"
+                },
+                {
+                    "id": "user",
+                    "label": "用户"
+                }
+            ]
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "邮箱",
+            "placeholder": "联系人邮箱"
+        },
+        {
+            "id": "external_id",
+            "type": "short-input",
+            "title": "外部 ID",
+            "placeholder": "联系人的外部标识符"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "电话",
+            "placeholder": "联系人电话号码"
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "姓名",
+            "placeholder": "联系人姓名"
+        },
+        {
+            "id": "avatar",
+            "type": "short-input",
+            "title": "头像 URL",
+            "placeholder": "头像图片 URL"
+        },
+        {
+            "id": "signed_up_at",
+            "type": "short-input",
+            "title": "注册时间",
+            "placeholder": "Unix 时间戳"
+        },
+        {
+            "id": "last_seen_at",
+            "type": "short-input",
+            "title": "最后查看时间",
+            "placeholder": "Unix 时间戳"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "管理员 ID"
+        },
+        {
+            "id": "unsubscribed_from_emails",
+            "type": "dropdown",
+            "title": "已退订邮件",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "是"
+                },
+                {
+                    "id": "false",
+                    "label": "否"
+                }
+            ]
+        },
+        {
+            "id": "custom_attributes",
+            "type": "long-input",
+            "title": "自定义属性",
+            "placeholder": "包含自定义属性的 JSON 对象"
+        },
+        {
+            "id": "contact_company_id",
+            "type": "short-input",
+            "title": "公司 ID",
+            "placeholder": "要关联到联系人的公司 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建联系人（<code>intercom_create_contact</code>）</div>
+
+使用 email、external_id 或 role 在 Intercom 中创建新联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `role` | string | 否 | 联系人角色。可接受 'user' 或 'lead'。未指定时默认为 'lead'。 |
+| `email` | string | 否 | 联系人的邮箱地址 |
+| `external_id` | string | 否 | 客户端提供的联系人唯一标识符 |
+| `phone` | string | 否 | 联系人的电话号码 |
+| `name` | string | 否 | 联系人的姓名 |
+| `avatar` | string | 否 | 联系人的头像图片 URL |
+| `signed_up_at` | number | 否 | 用户注册时间，Unix 时间戳 |
+| `last_seen_at` | number | 否 | 用户上次出现时间，Unix 时间戳 |
+| `owner_id` | string | 否 | 被指定为该联系人账户所有者的管理员 ID |
+| `unsubscribed_from_emails` | boolean | 否 | 联系人是否已退订邮件 |
+| `custom_attributes` | string | 否 | 自定义属性，JSON 对象 \(例如 \{"attribute_name": "value"\}\) |
+| `company_id` | string | 否 | 创建时要关联到该联系人的公司 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contact` | object | 已创建的联系人对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 获取联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_contact",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "联系人 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取联系人 (<code>intercom_get_contact</code>)</div>
+
+通过 ID 从 Intercom 获取单个联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | string | 是 | 要获取的联系人 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contact` | object | 联系人对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 更新联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update_contact",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "role",
+            "type": "dropdown",
+            "title": "角色",
+            "options": [
+                {
+                    "id": "lead",
+                    "label": "潜在客户"
+                },
+                {
+                    "id": "user",
+                    "label": "用户"
+                }
+            ]
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "联系人 ID",
+            "required": true
+        },
+        {
+            "id": "email",
+            "type": "short-input",
+            "title": "邮箱",
+            "placeholder": "联系人邮箱"
+        },
+        {
+            "id": "external_id",
+            "type": "short-input",
+            "title": "外部 ID",
+            "placeholder": "联系人的外部标识符"
+        },
+        {
+            "id": "phone",
+            "type": "short-input",
+            "title": "电话",
+            "placeholder": "联系人电话号码"
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "姓名",
+            "placeholder": "联系人姓名"
+        },
+        {
+            "id": "avatar",
+            "type": "short-input",
+            "title": "头像 URL",
+            "placeholder": "头像图片 URL"
+        },
+        {
+            "id": "signed_up_at",
+            "type": "short-input",
+            "title": "注册时间",
+            "placeholder": "Unix 时间戳"
+        },
+        {
+            "id": "last_seen_at",
+            "type": "short-input",
+            "title": "上次查看时间",
+            "placeholder": "Unix 时间戳"
+        },
+        {
+            "id": "owner_id",
+            "type": "short-input",
+            "title": "所有者 ID",
+            "placeholder": "管理员 ID"
+        },
+        {
+            "id": "unsubscribed_from_emails",
+            "type": "dropdown",
+            "title": "已退订邮件",
+            "options": [
+                {
+                    "id": "true",
+                    "label": "真"
+                },
+                {
+                    "id": "false",
+                    "label": "假"
+                }
+            ]
+        },
+        {
+            "id": "custom_attributes",
+            "type": "long-input",
+            "title": "自定义属性",
+            "placeholder": "包含自定义属性的 JSON 对象"
+        },
+        {
+            "id": "contact_company_id",
+            "type": "short-input",
+            "title": "公司 ID",
+            "placeholder": "要关联到联系人的公司 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新联系人（<code>intercom_update_contact</code>）</div>
+
+更新 Intercom 中的现有联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | string | 是 | 要更新的联系人 ID |
+| `role` | string | 否 | 联系人角色。接受 “user” 或 “lead”。 |
+| `external_id` | string | 否 | 客户端提供的联系人唯一标识符 |
+| `email` | string | 否 | 联系人的邮箱地址 |
+| `phone` | string | 否 | 联系人的电话号码 |
+| `name` | string | 否 | 联系人姓名 |
+| `avatar` | string | 否 | 联系人头像图片 URL |
+| `signed_up_at` | number | 否 | 用户注册时间，Unix 时间戳 |
+| `last_seen_at` | number | 否 | 用户上次出现时间，Unix 时间戳 |
+| `owner_id` | string | 否 | 已获分配该联系人账户所有权的管理员 ID |
+| `unsubscribed_from_emails` | boolean | 否 | 联系人是否已退订邮件 |
+| `custom_attributes` | string | 否 | 自定义属性，JSON 对象 \(例如 \{"attribute_name": "value"\}\) |
+| `company_id` | string | 否 | 要与该联系人关联的公司 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `contact` | object | 更新后的联系人对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 列出联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_contacts",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页条数",
+            "placeholder": "每页结果数（最多 150）"
+        },
+        {
+            "id": "starting_after",
+            "type": "short-input",
+            "title": "起始于",
+            "placeholder": "分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出联系人 (<code>intercom_list_contacts</code>)</div>
+
+从 Intercom 列出所有联系人，支持分页
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `per_page` | number | 否 | 每页结果数 \(最多: 150\) |
+| `starting_after` | string | 否 | 分页游标 - 从此 ID 之后开始 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contacts` | array | 联系人对象数组 |
+| `pages` | object | 分页信息 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 搜索联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "search_contacts",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "JSON 搜索查询或文本",
+            "required": true
+        },
+        {
+            "id": "sort_field",
+            "type": "short-input",
+            "title": "排序字段",
+            "placeholder": "用于排序的字段（例如 name、created_at）"
+        },
+        {
+            "id": "sort_order",
+            "type": "dropdown",
+            "title": "排序顺序",
+            "options": [
+                {
+                    "id": "descending",
+                    "label": "降序"
+                },
+                {
+                    "id": "ascending",
+                    "label": "升序"
+                }
+            ]
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页条数",
+            "placeholder": "每页结果数（最多 150）"
+        },
+        {
+            "id": "starting_after",
+            "type": "short-input",
+            "title": "起始游标",
+            "placeholder": "分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索联系人 (<code>intercom_search_contacts</code>)</div>
+
+使用查询在 Intercom 中搜索联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 搜索查询（例如：\{"field":"email","operator":"=","value":"user@example.com"\}） |
+| `per_page` | number | 否 | 每页结果数（最多 150） |
+| `starting_after` | string | 否 | 分页游标 |
+| `sort_field` | string | 否 | 排序字段（例如："name"、"created_at"、"last_seen_at"） |
+| `sort_order` | string | 否 | 排序顺序："ascending" 或 "descending" |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contacts` | array | 匹配的联系人对象数组 |
+| `pages` | object | 分页信息 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 删除联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete_contact",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "联系人 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除联系人 (<code>intercom_delete_contact</code>)</div>
+
+根据 ID 从 Intercom 删除联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | string | 是 | 要删除的联系人 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `id` | string | 已删除联系人的 ID |
+| `deleted` | boolean | 联系人是否已删除 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 创建公司
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_company",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "company_id",
+            "type": "short-input",
+            "title": "公司 ID（外部）",
+            "placeholder": "公司的唯一标识符",
+            "required": true
+        },
+        {
+            "id": "company_name",
+            "type": "short-input",
+            "title": "公司名称",
+            "placeholder": "公司名称"
+        },
+        {
+            "id": "website",
+            "type": "short-input",
+            "title": "网站",
+            "placeholder": "公司网站"
+        },
+        {
+            "id": "plan",
+            "type": "short-input",
+            "title": "套餐",
+            "placeholder": "订阅套餐"
+        },
+        {
+            "id": "size",
+            "type": "short-input",
+            "title": "规模",
+            "placeholder": "员工人数"
+        },
+        {
+            "id": "industry",
+            "type": "short-input",
+            "title": "行业",
+            "placeholder": "公司行业"
+        },
+        {
+            "id": "monthly_spend",
+            "type": "short-input",
+            "title": "月消费",
+            "placeholder": "收入金额"
+        },
+        {
+            "id": "remote_created_at",
+            "type": "short-input",
+            "title": "远程创建时间",
+            "placeholder": "公司创建时的 Unix 时间戳"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建公司（<code>intercom_create_company</code>）</div>
+
+在 Intercom 中创建或更新公司
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `company_id` | string | 是 | 你为该公司设定的唯一标识符 |
+| `name` | string | 否 | 公司名称 |
+| `website` | string | 否 | 公司网站 |
+| `plan` | string | 否 | 公司套餐名称 |
+| `size` | number | 否 | 公司员工人数 |
+| `industry` | string | 否 | 公司所属行业 |
+| `monthly_spend` | number | 否 | 该公司为你的业务带来的收入。注意：此字段会将浮点数截断为整数 \（例如 155.98 变为 155\） |
+| `custom_attributes` | string | 否 | 自定义属性，JSON 对象 |
+| `remote_created_at` | number | 否 | 你创建该公司的时间，Unix 时间戳 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `company` | object | 已创建或已更新的公司对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 获取公司
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_company",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "companyId",
+            "type": "short-input",
+            "title": "公司 ID",
+            "placeholder": "Intercom 公司 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取公司（<code>intercom_get_company</code>）</div>
+
+按 ID 从 Intercom 获取单个公司
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `companyId` | string | 是 | 要获取的公司 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `company` | object | 公司对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 列出公司
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_companies",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页条数",
+            "placeholder": "每页结果数（最多 150）"
+        },
+        {
+            "id": "starting_after",
+            "type": "short-input",
+            "title": "起始游标",
+            "placeholder": "分页游标"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "页码"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出公司（<code>intercom_list_companies</code>）</div>
+
+列出 Intercom 中的所有公司，支持分页。注意：此端点通过分页最多可返回 10,000 家公司。若数据集超过 10,000 家公司，请改用 Scroll API。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `per_page` | number | 否 | 每页结果数 |
+| `page` | number | 否 | 页码 |
+| `starting_after` | string | 否 | 分页游标（优先于基于页码的分页） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `companies` | array | 公司对象数组 |
+| `pages` | object | 分页信息 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 获取对话
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_conversation",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "conversationId",
+            "type": "short-input",
+            "title": "对话 ID",
+            "placeholder": "对话 ID",
+            "required": true
+        },
+        {
+            "id": "display_as",
+            "type": "dropdown",
+            "title": "显示为",
+            "options": [
+                {
+                    "id": "html",
+                    "label": "HTML"
+                },
+                {
+                    "id": "plaintext",
+                    "label": "纯文本"
+                }
+            ]
+        },
+        {
+            "id": "include_translations",
+            "type": "dropdown",
+            "title": "包含翻译",
+            "options": [
+                {
+                    "id": "false",
+                    "label": "否"
+                },
+                {
+                    "id": "true",
+                    "label": "是"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取对话 (<code>intercom_get_conversation</code>)</div>
+
+根据 ID 从 Intercom 获取单条对话
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `conversationId` | string | 是 | 要获取的对话 ID |
+| `display_as` | string | 否 | 设为 "plaintext" 以纯文本形式获取消息 |
+| `include_translations` | boolean | 否 | 为 true 时，对话片段将翻译为检测到的对话语言 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `conversation` | object | 对话对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 列出对话
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_conversations",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "sort",
+            "type": "short-input",
+            "title": "排序字段",
+            "placeholder": "排序字段（例如 waiting_since、updated_at）"
+        },
+        {
+            "id": "order",
+            "type": "dropdown",
+            "title": "排序",
+            "options": [
+                {
+                    "id": "desc",
+                    "label": "降序"
+                },
+                {
+                    "id": "asc",
+                    "label": "升序"
+                }
+            ]
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页条数",
+            "placeholder": "每页结果数（最多 150）"
+        },
+        {
+            "id": "starting_after",
+            "type": "short-input",
+            "title": "起始游标",
+            "placeholder": "分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出对话 (<code>intercom_list_conversations</code>)</div>
+
+列出 Intercom 中的所有对话，支持分页
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `per_page` | number | 否 | 每页结果数量（最多 150） |
+| `starting_after` | string | 否 | 分页游标 |
+| `sort` | string | 否 | 排序字段（例如 "waiting_since"、"updated_at"、"created_at"） |
+| `order` | string | 否 | 排序顺序："asc"（升序）或 "desc"（降序） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `conversations` | array | 对话对象数组 |
+| `pages` | object | 分页信息 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 回复对话
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "reply_conversation",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "conversationId",
+            "type": "short-input",
+            "title": "对话 ID",
+            "placeholder": "对话 ID",
+            "required": true
+        },
+        {
+            "id": "message_type",
+            "type": "dropdown",
+            "title": "消息类型",
+            "required": true,
+            "options": [
+                {
+                    "id": "comment",
+                    "label": "评论"
+                },
+                {
+                    "id": "note",
+                    "label": "备注"
+                }
+            ]
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "消息正文",
+            "placeholder": "消息文本",
+            "required": true
+        },
+        {
+            "id": "admin_id",
+            "type": "short-input",
+            "title": "管理员 ID",
+            "placeholder": "发送消息的管理员 ID",
+            "required": true
+        },
+        {
+            "id": "attachment_urls",
+            "type": "short-input",
+            "title": "附件 URL",
+            "placeholder": "逗号分隔的图片 URL（最多 10 个）"
+        },
+        {
+            "id": "reply_created_at",
+            "type": "short-input",
+            "title": "创建时间",
+            "placeholder": "回复创建时间的 Unix 时间戳"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">回复对话 (<code>intercom_reply_conversation</code>)</div>
+
+在 Intercom 中以管理员身份回复对话
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `conversationId` | string | 是 | 要回复的对话 ID |
+| `message_type` | string | 是 | 消息类型："comment" 或 "note" |
+| `body` | string | 是 | 回复正文 |
+| `admin_id` | string | 否 | 撰写该回复的管理员 ID。未提供时，将使用默认管理员（Operator/Fin）。 |
+| `attachment_urls` | string | 否 | 逗号分隔的图片 URL 列表（最多 10 个） |
+| `created_at` | number | 否 | 回复创建时的 Unix 时间戳。未提供时使用当前时间。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `conversation` | object | 更新后的对话对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 搜索对话
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "search_conversations",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "JSON 搜索查询或文本",
+            "required": true
+        },
+        {
+            "id": "sort_field",
+            "type": "short-input",
+            "title": "排序字段",
+            "placeholder": "用于排序的字段（例如 name、created_at）"
+        },
+        {
+            "id": "sort_order",
+            "type": "dropdown",
+            "title": "排序顺序",
+            "options": [
+                {
+                    "id": "descending",
+                    "label": "降序"
+                },
+                {
+                    "id": "ascending",
+                    "label": "升序"
+                }
+            ]
+        },
+        {
+            "id": "per_page",
+            "type": "short-input",
+            "title": "每页条数",
+            "placeholder": "每页结果数（最多 150）"
+        },
+        {
+            "id": "starting_after",
+            "type": "short-input",
+            "title": "起始游标",
+            "placeholder": "分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索对话 (<code>intercom_search_conversations</code>)</div>
+
+使用查询在 Intercom 中搜索对话
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 作为 JSON 对象的搜索查询 |
+| `per_page` | number | 否 | 每页结果数 \(最多：150\) |
+| `starting_after` | string | 否 | 分页游标 |
+| `sort_field` | string | 否 | 排序字段 \(例如 "created_at"、"updated_at"\) |
+| `sort_order` | string | 否 | 排序顺序："ascending" 或 "descending" |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `conversations` | array | 匹配的对话对象数组 |
+| `pages` | object | 分页信息 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 创建工单
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_ticket",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ticket_type_id",
+            "type": "short-input",
+            "title": "工单类型 ID",
+            "placeholder": "工单类型的 ID",
+            "required": true
+        },
+        {
+            "id": "contacts",
+            "type": "long-input",
+            "title": "联系人",
+            "placeholder": "联系人标识符的 JSON 数组",
+            "required": true
+        },
+        {
+            "id": "ticket_attributes",
+            "type": "long-input",
+            "title": "工单属性",
+            "placeholder": "包含工单属性的 JSON 对象",
+            "required": true
+        },
+        {
+            "id": "ticket_company_id",
+            "type": "short-input",
+            "title": "公司 ID",
+            "placeholder": "要关联到工单的公司 ID"
+        },
+        {
+            "id": "ticket_created_at",
+            "type": "short-input",
+            "title": "创建时间",
+            "placeholder": "工单创建时间的 Unix 时间戳"
+        },
+        {
+            "id": "conversation_to_link_id",
+            "type": "short-input",
+            "title": "要关联的对话",
+            "placeholder": "要关联到工单的对话 ID"
+        },
+        {
+            "id": "disable_notifications",
+            "type": "dropdown",
+            "title": "禁用通知",
+            "options": [
+                {
+                    "id": "false",
+                    "label": "否"
+                },
+                {
+                    "id": "true",
+                    "label": "是"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建工单（<code>intercom_create_ticket</code>）</div>
+
+在 Intercom 中创建新工单
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `ticket_type_id` | string | 是 | 工单类型的 ID |
+| `contacts` | string | 是 | 联系人标识符的 JSON 数组（例如：\[\{"id": "contact_id"\}\]\） |
+| `ticket_attributes` | string | 是 | 包含 _default_title_ 和 _default_description_ 的工单属性 JSON 对象 |
+| `company_id` | string | 否 | 要与该工单关联的公司 ID |
+| `created_at` | number | 否 | 工单创建时的 Unix 时间戳。未提供时使用当前时间。 |
+| `conversation_to_link_id` | string | 否 | 要关联到该工单的现有对话 ID |
+| `disable_notifications` | boolean | 否 | 为 true 时，创建工单时不发送通知 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ticket` | object | 已创建的工单对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 获取工单
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_ticket",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取对话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出对话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复对话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索对话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "ticketId",
+            "type": "short-input",
+            "title": "工单 ID",
+            "placeholder": "工单 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取工单 (<code>intercom_get_ticket</code>)</div>
+
+根据 ID 从 Intercom 获取单个工单
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `ticketId` | string | 是 | 要获取的工单 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ticket` | object | 工单对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 创建消息
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Intercom"
+    type="intercom"
+    color="#0057FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_message",
+            "options": [
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "get_contact",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "list_contacts",
+                    "label": "列出联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "get_company",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "list_companies",
+                    "label": "列出公司"
+                },
+                {
+                    "id": "get_conversation",
+                    "label": "获取会话"
+                },
+                {
+                    "id": "list_conversations",
+                    "label": "列出会话"
+                },
+                {
+                    "id": "reply_conversation",
+                    "label": "回复会话"
+                },
+                {
+                    "id": "search_conversations",
+                    "label": "搜索会话"
+                },
+                {
+                    "id": "create_ticket",
+                    "label": "创建工单"
+                },
+                {
+                    "id": "get_ticket",
+                    "label": "获取工单"
+                },
+                {
+                    "id": "create_message",
+                    "label": "创建消息"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "访问令牌",
+            "placeholder": "输入你的 Intercom 访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "消息正文",
+            "placeholder": "消息文本",
+            "required": true
+        },
+        {
+            "id": "message_type_msg",
+            "type": "dropdown",
+            "title": "消息类型",
+            "required": true,
+            "options": [
+                {
+                    "id": "inapp",
+                    "label": "应用内"
+                },
+                {
+                    "id": "email",
+                    "label": "邮件"
+                }
+            ]
+        },
+        {
+            "id": "template",
+            "type": "dropdown",
+            "title": "模板",
+            "required": true,
+            "options": [
+                {
+                    "id": "plain",
+                    "label": "纯文本"
+                },
+                {
+                    "id": "personal",
+                    "label": "个性化"
+                }
+            ]
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "邮件主题（邮件类型时填写）"
+        },
+        {
+            "id": "from_type",
+            "type": "dropdown",
+            "title": "发送方类型",
+            "required": true,
+            "options": [
+                {
+                    "id": "admin",
+                    "label": "管理员"
+                }
+            ]
+        },
+        {
+            "id": "from_id",
+            "type": "short-input",
+            "title": "发送方 ID",
+            "placeholder": "管理员 ID",
+            "required": true
+        },
+        {
+            "id": "to_type",
+            "type": "dropdown",
+            "title": "接收方类型",
+            "required": true,
+            "options": [
+                {
+                    "id": "contact",
+                    "label": "联系人"
+                }
+            ]
+        },
+        {
+            "id": "to_id",
+            "type": "short-input",
+            "title": "接收方 ID",
+            "placeholder": "联系人 ID",
+            "required": true
+        },
+        {
+            "id": "message_created_at",
+            "type": "short-input",
+            "title": "创建时间",
+            "placeholder": "消息创建时间的 Unix 时间戳"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建消息 (<code>intercom_create_message</code>)</div>
+
+在 Intercom 中创建并发送管理员发起的新消息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `message_type` | string | 是 | 消息类型："inapp" 表示应用内消息，"email" 表示电子邮件消息 |
+| `template` | string | 是 | 消息模板样式："plain" 表示纯文本，"personal" 表示个性化样式 |
+| `subject` | string | 否 | 消息主题（电子邮件类型） |
+| `body` | string | 是 | 消息正文 |
+| `from_type` | string | 是 | 发送者类型："admin" |
+| `from_id` | string | 是 | 发送该消息的管理员 ID |
+| `to_type` | string | 是 | 接收者类型："contact" |
+| `to_id` | string | 是 | 接收该消息的联系人 ID |
+| `created_at` | number | 否 | 消息创建时的 Unix 时间戳。未提供时使用当前时间。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `message` | object | 已创建的消息对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Intercom 集成到工作流。可创建、获取、更新、列出、搜索和删除联系人；创建、获取和列出公司；获取、列出、回复和搜索对话；创建和获取工单；以及创建消息。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`intercom`

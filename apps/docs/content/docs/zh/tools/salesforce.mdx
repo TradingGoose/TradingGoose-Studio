@@ -194,8 +194,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "orderBy",
             "type": "short-input",
-            "title": "排序",
-            "placeholder": "字段和方向（例如：\"Name ASC\"）"
+            "title": "排序依据",
+            "placeholder": "字段和方向（例如 \"Name ASC\"）"
         }
     ]}
   />
@@ -210,9 +210,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `limit` | string | 否 | 返回的结果数量 \(默认：100，最大：2000\) |
-| `fields` | string | 否 | 要返回的字段，逗号分隔 \(例如："Id,Name,Industry,Phone"\) |
-| `orderBy` | string | 否 | 排序字段 \(例如："Name ASC" 或 "CreatedDate DESC"\) |
+| `limit` | string | 否 | 返回结果数量（默认：100，最大：2000） |
+| `fields` | string | 否 | 要返回的字段，以逗号分隔（例如："Id,Name,Industry,Phone"） |
+| `orderBy` | string | 否 | 排序字段（例如："Name ASC" 或 "CreatedDate DESC"） |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
@@ -290,19 +290,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
                 },
                 {
                     "id": "get_opportunities",
-                    "label": "获取业务机会"
+                    "label": "获取商机"
                 },
                 {
                     "id": "create_opportunity",
-                    "label": "创建业务机会"
+                    "label": "创建商机"
                 },
                 {
                     "id": "update_opportunity",
-                    "label": "更新业务机会"
+                    "label": "更新商机"
                 },
                 {
                     "id": "delete_opportunity",
-                    "label": "删除业务机会"
+                    "label": "删除商机"
                 },
                 {
                     "id": "get_cases",
@@ -385,8 +385,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 账户",
-            "placeholder": "选择 Salesforce 账户",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
             "provider": "salesforce",
             "required": true
         },
@@ -439,9 +439,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `name` | string | 是 | 客户名称（必填） |
-| `type` | string | 否 | 客户类型（例如：Customer、Partner、Prospect） |
-| `industry` | string | 否 | 行业（例如：Technology、Healthcare、Finance） |
+| `name` | string | 是 | 客户名称 \(必填\) |
+| `type` | string | 否 | 客户类型 \(例如：Customer、Partner、Prospect\) |
+| `industry` | string | 否 | 行业 \(例如：Technology、Healthcare、Finance\) |
 | `phone` | string | 否 | 电话号码 |
 | `website` | string | 否 | 网站 URL |
 | `billingStreet` | string | 否 | 账单街道地址 |
@@ -450,8 +450,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `billingPostalCode` | string | 否 | 账单邮政编码 |
 | `billingCountry` | string | 否 | 账单国家/地区 |
 | `description` | string | 否 | 客户描述 |
-| `annualRevenue` | string | 否 | 年收入（数字） |
-| `numberOfEmployees` | string | 否 | 员工人数（数字） |
+| `annualRevenue` | string | 否 | 年收入 \(数字\) |
+| `numberOfEmployees` | string | 否 | 员工人数 \(数字\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
@@ -624,8 +624,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 帐户",
-            "placeholder": "选择 Salesforce 帐户",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
             "provider": "salesforce",
             "required": true
         },
@@ -682,7 +682,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `accountId` | string | 是 | 要更新的客户 ID（必填） |
 | `name` | string | 否 | 客户名称 |
@@ -701,7 +701,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | 操作成功状态 |
 | `output` | object | 更新后的客户数据 |
@@ -724,203 +724,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "操作",
             "defaultValue": "delete_account",
-            "options": [
-                {
-                    "id": "get_accounts",
-                    "label": "获取客户"
-                },
-                {
-                    "id": "create_account",
-                    "label": "创建客户"
-                },
-                {
-                    "id": "update_account",
-                    "label": "更新客户"
-                },
-                {
-                    "id": "delete_account",
-                    "label": "删除客户"
-                },
-                {
-                    "id": "get_contacts",
-                    "label": "获取联系人"
-                },
-                {
-                    "id": "create_contact",
-                    "label": "创建联系人"
-                },
-                {
-                    "id": "update_contact",
-                    "label": "更新联系人"
-                },
-                {
-                    "id": "delete_contact",
-                    "label": "删除联系人"
-                },
-                {
-                    "id": "get_leads",
-                    "label": "获取线索"
-                },
-                {
-                    "id": "create_lead",
-                    "label": "创建线索"
-                },
-                {
-                    "id": "update_lead",
-                    "label": "更新线索"
-                },
-                {
-                    "id": "delete_lead",
-                    "label": "删除线索"
-                },
-                {
-                    "id": "get_opportunities",
-                    "label": "获取商机"
-                },
-                {
-                    "id": "create_opportunity",
-                    "label": "创建商机"
-                },
-                {
-                    "id": "update_opportunity",
-                    "label": "更新商机"
-                },
-                {
-                    "id": "delete_opportunity",
-                    "label": "删除商机"
-                },
-                {
-                    "id": "get_cases",
-                    "label": "获取个案"
-                },
-                {
-                    "id": "create_case",
-                    "label": "创建个案"
-                },
-                {
-                    "id": "update_case",
-                    "label": "更新个案"
-                },
-                {
-                    "id": "delete_case",
-                    "label": "删除个案"
-                },
-                {
-                    "id": "get_tasks",
-                    "label": "获取任务"
-                },
-                {
-                    "id": "create_task",
-                    "label": "创建任务"
-                },
-                {
-                    "id": "update_task",
-                    "label": "更新任务"
-                },
-                {
-                    "id": "delete_task",
-                    "label": "删除任务"
-                },
-                {
-                    "id": "list_reports",
-                    "label": "列出报表"
-                },
-                {
-                    "id": "get_report",
-                    "label": "获取报表"
-                },
-                {
-                    "id": "run_report",
-                    "label": "运行报表"
-                },
-                {
-                    "id": "list_report_types",
-                    "label": "列出报表类型"
-                },
-                {
-                    "id": "list_dashboards",
-                    "label": "列出仪表板"
-                },
-                {
-                    "id": "get_dashboard",
-                    "label": "获取仪表板"
-                },
-                {
-                    "id": "refresh_dashboard",
-                    "label": "刷新仪表板"
-                },
-                {
-                    "id": "query",
-                    "label": "运行 SOQL 查询"
-                },
-                {
-                    "id": "query_more",
-                    "label": "获取更多查询结果"
-                },
-                {
-                    "id": "describe_object",
-                    "label": "描述对象"
-                },
-                {
-                    "id": "list_objects",
-                    "label": "列出对象"
-                }
-            ]
-        },
-        {
-            "id": "credential",
-            "type": "oauth-input",
-            "title": "Salesforce 账户",
-            "placeholder": "选择 Salesforce 账户",
-            "provider": "salesforce",
-            "required": true
-        },
-        {
-            "id": "accountId",
-            "type": "short-input",
-            "title": "客户 ID",
-            "placeholder": "Salesforce 客户 ID"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-<div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">删除客户 (<code>salesforce_delete_account</code>)</div>
-
-从 Salesforce CRM 中删除客户
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
-
-| 参数 | 类型 | 必填 | 说明 |
-| --------- | ---- | -------- | ----------- |
-| `accountId` | string | 是 | 要删除的客户 ID（必填） |
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
-
-| 参数 | 类型 | 说明 |
-| --------- | ---- | ----------- |
-| `success` | boolean | 操作是否成功 |
-| `output` | object | 已删除的客户数据 |
-
-</div>
-
----
-
-### 获取联系人
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Salesforce"
-    type="salesforce"
-    color="#E0E0E0"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "operation",
-            "type": "dropdown",
-            "title": "操作",
-            "defaultValue": "get_contacts",
             "options": [
                 {
                     "id": "get_accounts",
@@ -1067,8 +870,205 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 帐户",
-            "placeholder": "选择 Salesforce 帐户",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "accountId",
+            "type": "short-input",
+            "title": "客户 ID",
+            "placeholder": "Salesforce 客户 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除客户 (<code>salesforce_delete_account</code>)</div>
+
+从 Salesforce CRM 中删除客户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `accountId` | string | 是 | 要删除的客户 ID（必填） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 已删除的客户数据 |
+
+</div>
+
+---
+
+### 获取联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_contacts",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取商机"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建商机"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新商机"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除商机"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
             "provider": "salesforce",
             "required": true
         },
@@ -1323,8 +1323,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "title",
             "type": "short-input",
-            "title": "职位",
-            "placeholder": "职位"
+            "title": "职务",
+            "placeholder": "职务"
         },
         {
             "id": "description",
@@ -1343,11 +1343,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `lastName` | string | 是 | 姓氏 \(必填\) |
+| `lastName` | string | 是 | 姓氏（必填） |
 | `firstName` | string | 否 | 名字 |
-| `email` | string | 否 | 电子邮件地址 |
+| `email` | string | 否 | 电子邮箱 |
 | `phone` | string | 否 | 电话号码 |
 | `accountId` | string | 否 | 要关联联系人的客户 ID |
 | `title` | string | 否 | 职位 |
@@ -1357,11 +1357,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `mailingState` | string | 否 | 邮寄州/省 |
 | `mailingPostalCode` | string | 否 | 邮寄邮政编码 |
 | `mailingCountry` | string | 否 | 邮寄国家/地区 |
-| `description` | string | 否 | 联系人说明 |
+| `description` | string | 否 | 联系人描述 |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | 操作成功状态 |
 | `output` | object | 已创建的联系人数据 |
@@ -1530,8 +1530,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 帐户",
-            "placeholder": "选择 Salesforce 帐户",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
             "provider": "salesforce",
             "required": true
         },
@@ -1568,8 +1568,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "email",
             "type": "short-input",
-            "title": "电子邮件",
-            "placeholder": "电子邮件"
+            "title": "电子邮箱",
+            "placeholder": "电子邮箱"
         },
         {
             "id": "title",
@@ -1580,8 +1580,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "description",
             "type": "long-input",
-            "title": "说明",
-            "placeholder": "说明"
+            "title": "描述",
+            "placeholder": "描述"
         }
     ]}
   />
@@ -1599,10 +1599,10 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | `contactId` | string | 是 | 要更新的联系人 ID（必填） |
 | `lastName` | string | 否 | 姓氏 |
 | `firstName` | string | 否 | 名字 |
-| `email` | string | 否 | 电子邮箱 |
+| `email` | string | 否 | 电子邮件地址 |
 | `phone` | string | 否 | 电话号码 |
 | `accountId` | string | 否 | 要关联的客户 ID |
-| `title` | string | 否 | 职位 |
+| `title` | string | 否 | 职务 |
 | `department` | string | 否 | 部门 |
 | `mailingStreet` | string | 否 | 邮寄街道 |
 | `mailingCity` | string | 否 | 邮寄城市 |
@@ -1615,7 +1615,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 说明 |
 | --------- | ---- | ----------- |
-| `success` | boolean | 操作是否成功 |
+| `success` | boolean | 操作成功状态 |
 | `output` | object | 更新后的联系人数据 |
 
 </div>
@@ -1804,13 +1804,13 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `contactId` | string | 是 | 要删除的联系人 ID（必填） |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | 操作成功状态 |
 | `output` | object | 已删除的联系人数据 |
@@ -1884,19 +1884,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
                 },
                 {
                     "id": "get_opportunities",
-                    "label": "获取商机"
+                    "label": "获取业务机会"
                 },
                 {
                     "id": "create_opportunity",
-                    "label": "创建商机"
+                    "label": "创建业务机会"
                 },
                 {
                     "id": "update_opportunity",
-                    "label": "更新商机"
+                    "label": "更新业务机会"
                 },
                 {
                     "id": "delete_opportunity",
-                    "label": "删除商机"
+                    "label": "删除业务机会"
                 },
                 {
                     "id": "get_cases",
@@ -1979,8 +1979,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 帐户",
-            "placeholder": "选择 Salesforce 帐户",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
             "provider": "salesforce",
             "required": true
         },
@@ -2021,8 +2021,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `leadId` | string | 否 | 潜在客户 ID \(可选\) |
-| `limit` | string | 否 | 最大结果数 \(默认：100\) |
+| `leadId` | string | 否 | 潜在客户 ID（可选） |
+| `limit` | string | 否 | 最大结果数（默认：100） |
 | `fields` | string | 否 | 逗号分隔的字段 |
 | `orderBy` | string | 否 | 排序字段 |
 
@@ -2223,14 +2223,14 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "email",
             "type": "short-input",
-            "title": "电子邮件",
-            "placeholder": "电子邮件"
+            "title": "邮箱",
+            "placeholder": "邮箱"
         },
         {
             "id": "title",
             "type": "short-input",
-            "title": "职务",
-            "placeholder": "职务"
+            "title": "职位",
+            "placeholder": "职位"
         },
         {
             "id": "company",
@@ -2269,14 +2269,14 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `lastName` | string | 是 | 姓氏 \(必填\) |
-| `company` | string | 是 | 公司 \(必填\) |
+| `lastName` | string | 是 | 姓氏（必填） |
+| `company` | string | 是 | 公司（必填） |
 | `firstName` | string | 否 | 名字 |
-| `email` | string | 否 | 电子邮件 |
+| `email` | string | 否 | 邮箱 |
 | `phone` | string | 否 | 电话 |
 | `status` | string | 否 | 潜在客户状态 |
 | `leadSource` | string | 否 | 潜在客户来源 |
-| `title` | string | 否 | 职位 |
+| `title` | string | 否 | 职务 |
 | `description` | string | 否 | 描述 |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
@@ -2450,8 +2450,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 帐户",
-            "placeholder": "选择 Salesforce 帐户",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
             "provider": "salesforce",
             "required": true
         },
@@ -2476,14 +2476,14 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "email",
             "type": "short-input",
-            "title": "电子邮件",
-            "placeholder": "电子邮件"
+            "title": "邮箱",
+            "placeholder": "邮箱"
         },
         {
             "id": "title",
             "type": "short-input",
-            "title": "职位",
-            "placeholder": "职位"
+            "title": "职务",
+            "placeholder": "职务"
         },
         {
             "id": "leadId",
@@ -2528,15 +2528,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `leadId` | string | 是 | 潜在客户 ID（必填） |
+| `leadId` | string | 是 | 线索 ID（必填） |
 | `lastName` | string | 否 | 姓氏 |
 | `company` | string | 否 | 公司 |
 | `firstName` | string | 否 | 名字 |
-| `email` | string | 否 | 电子邮件 |
+| `email` | string | 否 | 邮箱 |
 | `phone` | string | 否 | 电话 |
-| `status` | string | 否 | 潜在客户状态 |
-| `leadSource` | string | 否 | 潜在客户来源 |
-| `title` | string | 否 | 职务 |
+| `status` | string | 否 | 线索状态 |
+| `leadSource` | string | 否 | 线索来源 |
+| `title` | string | 否 | 职位 |
 | `description` | string | 否 | 描述 |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
@@ -2544,7 +2544,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | 参数 | 类型 | 说明 |
 | --------- | ---- | ----------- |
 | `success` | boolean | 成功 |
-| `output` | object | 已更新的潜在客户 |
+| `output` | object | 已更新的线索 |
 
 </div>
 
@@ -2564,6 +2564,203 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "操作",
             "defaultValue": "delete_lead",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取线索"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建线索"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新线索"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除线索"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取商机"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建商机"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新商机"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除商机"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表盘"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表盘"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表盘"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "leadId",
+            "type": "short-input",
+            "title": "线索 ID",
+            "placeholder": "线索 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除潜在客户 (<code>salesforce_delete_lead</code>)</div>
+
+删除潜在客户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `leadId` | string | 是 | 潜在客户 ID \(必填\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功 |
+| `output` | object | 已删除的潜在客户 |
+
+</div>
+
+---
+
+### 获取商机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_opportunities",
             "options": [
                 {
                     "id": "get_accounts",
@@ -2710,203 +2907,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 账号",
-            "placeholder": "选择 Salesforce 账号",
-            "provider": "salesforce",
-            "required": true
-        },
-        {
-            "id": "leadId",
-            "type": "short-input",
-            "title": "潜在客户 ID",
-            "placeholder": "潜在客户 ID"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-<div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">删除潜在客户 (<code>salesforce_delete_lead</code>)</div>
-
-删除潜在客户
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
-
-| 参数 | 类型 | 必填 | 说明 |
-| --------- | ---- | -------- | ----------- |
-| `leadId` | string | 是 | 潜在客户 ID \(必填\) |
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
-
-| 参数 | 类型 | 说明 |
-| --------- | ---- | ----------- |
-| `success` | boolean | 成功 |
-| `output` | object | 已删除的潜在客户 |
-
-</div>
-
----
-
-### 获取商机
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Salesforce"
-    type="salesforce"
-    color="#E0E0E0"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "operation",
-            "type": "dropdown",
-            "title": "操作",
-            "defaultValue": "get_opportunities",
-            "options": [
-                {
-                    "id": "get_accounts",
-                    "label": "获取客户"
-                },
-                {
-                    "id": "create_account",
-                    "label": "创建客户"
-                },
-                {
-                    "id": "update_account",
-                    "label": "更新客户"
-                },
-                {
-                    "id": "delete_account",
-                    "label": "删除客户"
-                },
-                {
-                    "id": "get_contacts",
-                    "label": "获取联系人"
-                },
-                {
-                    "id": "create_contact",
-                    "label": "创建联系人"
-                },
-                {
-                    "id": "update_contact",
-                    "label": "更新联系人"
-                },
-                {
-                    "id": "delete_contact",
-                    "label": "删除联系人"
-                },
-                {
-                    "id": "get_leads",
-                    "label": "获取潜在客户"
-                },
-                {
-                    "id": "create_lead",
-                    "label": "创建潜在客户"
-                },
-                {
-                    "id": "update_lead",
-                    "label": "更新潜在客户"
-                },
-                {
-                    "id": "delete_lead",
-                    "label": "删除潜在客户"
-                },
-                {
-                    "id": "get_opportunities",
-                    "label": "获取商机"
-                },
-                {
-                    "id": "create_opportunity",
-                    "label": "创建商机"
-                },
-                {
-                    "id": "update_opportunity",
-                    "label": "更新商机"
-                },
-                {
-                    "id": "delete_opportunity",
-                    "label": "删除商机"
-                },
-                {
-                    "id": "get_cases",
-                    "label": "获取个案"
-                },
-                {
-                    "id": "create_case",
-                    "label": "创建个案"
-                },
-                {
-                    "id": "update_case",
-                    "label": "更新个案"
-                },
-                {
-                    "id": "delete_case",
-                    "label": "删除个案"
-                },
-                {
-                    "id": "get_tasks",
-                    "label": "获取任务"
-                },
-                {
-                    "id": "create_task",
-                    "label": "创建任务"
-                },
-                {
-                    "id": "update_task",
-                    "label": "更新任务"
-                },
-                {
-                    "id": "delete_task",
-                    "label": "删除任务"
-                },
-                {
-                    "id": "list_reports",
-                    "label": "列出报表"
-                },
-                {
-                    "id": "get_report",
-                    "label": "获取报表"
-                },
-                {
-                    "id": "run_report",
-                    "label": "运行报表"
-                },
-                {
-                    "id": "list_report_types",
-                    "label": "列出报表类型"
-                },
-                {
-                    "id": "list_dashboards",
-                    "label": "列出仪表板"
-                },
-                {
-                    "id": "get_dashboard",
-                    "label": "获取仪表板"
-                },
-                {
-                    "id": "refresh_dashboard",
-                    "label": "刷新仪表板"
-                },
-                {
-                    "id": "query",
-                    "label": "运行 SOQL 查询"
-                },
-                {
-                    "id": "query_more",
-                    "label": "获取更多查询结果"
-                },
-                {
-                    "id": "describe_object",
-                    "label": "描述对象"
-                },
-                {
-                    "id": "list_objects",
-                    "label": "列出对象"
-                }
-            ]
-        },
-        {
-            "id": "credential",
-            "type": "oauth-input",
             "title": "Salesforce 账户",
             "placeholder": "选择 Salesforce 账户",
             "provider": "salesforce",
@@ -2928,13 +2928,13 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "orderBy",
             "type": "short-input",
             "title": "排序",
-            "placeholder": "字段和方向（例如 \"Name ASC\"）"
+            "placeholder": "字段和方向（例如，\"Name ASC\"）"
         },
         {
             "id": "opportunityId",
             "type": "short-input",
-            "title": "商机 ID",
-            "placeholder": "商机 ID"
+            "title": "业务机会 ID",
+            "placeholder": "业务机会 ID"
         }
     ]}
   />
@@ -2947,7 +2947,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
 | `opportunityId` | string | 否 | 商机 ID（可选） |
 | `limit` | string | 否 | 最大结果数（默认：100） |
@@ -2956,7 +2956,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | 成功 |
 | `output` | object | 商机数据 |
@@ -3125,8 +3125,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 帐户",
-            "placeholder": "选择 Salesforce 帐户",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
             "provider": "salesforce",
             "required": true
         },
@@ -3145,7 +3145,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "closeDate",
             "type": "datetime-input",
-            "title": "关闭日期",
+            "title": "结束日期",
             "placeholder": "YYYY-MM-DD（创建时必填）",
             "required": true
         },
@@ -3182,10 +3182,10 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | --------- | ---- | -------- | ----------- |
 | `name` | string | 是 | 商机名称（必填） |
 | `stageName` | string | 是 | 阶段名称（必填） |
-| `closeDate` | string | 是 | 结束日期 YYYY-MM-DD（必填） |
+| `closeDate` | string | 是 | 关闭日期 YYYY-MM-DD（必填） |
 | `accountId` | string | 否 | 客户 ID |
 | `amount` | string | 否 | 金额（数字） |
-| `probability` | string | 否 | 可能性（0-100） |
+| `probability` | string | 否 | 赢率（0-100） |
 | `description` | string | 否 | 描述 |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
@@ -3213,6 +3213,247 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "操作",
             "defaultValue": "update_opportunity",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取线索"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建线索"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新线索"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除线索"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取商机"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建商机"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新商机"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除商机"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表盘"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表盘"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表盘"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "名称",
+            "placeholder": "名称"
+        },
+        {
+            "id": "opportunityId",
+            "type": "short-input",
+            "title": "商机 ID",
+            "placeholder": "商机 ID"
+        },
+        {
+            "id": "stageName",
+            "type": "short-input",
+            "title": "阶段名称",
+            "placeholder": "阶段名称"
+        },
+        {
+            "id": "closeDate",
+            "type": "datetime-input",
+            "title": "关闭日期",
+            "placeholder": "YYYY-MM-DD（创建时必填）",
+            "required": true
+        },
+        {
+            "id": "amount",
+            "type": "short-input",
+            "title": "金额",
+            "placeholder": "成交金额"
+        },
+        {
+            "id": "probability",
+            "type": "short-input",
+            "title": "赢率",
+            "placeholder": "赢单概率（0-100）"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "描述"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新商机 (<code>salesforce_update_opportunity</code>)</div>
+
+更新现有商机
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `opportunityId` | string | 是 | 商机 ID（必填） |
+| `name` | string | 否 | 商机名称 |
+| `stageName` | string | 否 | 阶段名称 |
+| `closeDate` | string | 否 | 关闭日期 YYYY-MM-DD |
+| `accountId` | string | 否 | 客户 ID |
+| `amount` | string | 否 | 金额 |
+| `probability` | string | 否 | 概率（0-100） |
+| `description` | string | 否 | 描述 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功 |
+| `output` | object | 已更新的商机 |
+
+</div>
+
+---
+
+### 删除商机
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "delete_opportunity",
             "options": [
                 {
                     "id": "get_accounts",
@@ -3365,247 +3606,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "required": true
         },
         {
-            "id": "name",
-            "type": "short-input",
-            "title": "名称",
-            "placeholder": "名称"
-        },
-        {
-            "id": "opportunityId",
-            "type": "short-input",
-            "title": "商机 ID",
-            "placeholder": "商机 ID"
-        },
-        {
-            "id": "stageName",
-            "type": "short-input",
-            "title": "阶段名称",
-            "placeholder": "阶段名称"
-        },
-        {
-            "id": "closeDate",
-            "type": "datetime-input",
-            "title": "结束日期",
-            "placeholder": "YYYY-MM-DD（创建时必填）",
-            "required": true
-        },
-        {
-            "id": "amount",
-            "type": "short-input",
-            "title": "金额",
-            "placeholder": "成交金额"
-        },
-        {
-            "id": "probability",
-            "type": "short-input",
-            "title": "可能性",
-            "placeholder": "赢单概率（0-100）"
-        },
-        {
-            "id": "description",
-            "type": "long-input",
-            "title": "描述",
-            "placeholder": "描述"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-<div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">更新商机 (<code>salesforce_update_opportunity</code>)</div>
-
-更新现有商机
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
-
-| 参数 | 类型 | 必填 | 说明 |
-| --------- | ---- | -------- | ----------- |
-| `opportunityId` | string | 是 | 商机 ID \(必填\) |
-| `name` | string | 否 | 商机名称 |
-| `stageName` | string | 否 | 阶段名称 |
-| `closeDate` | string | 否 | 结束日期 YYYY-MM-DD |
-| `accountId` | string | 否 | 客户 ID |
-| `amount` | string | 否 | 金额 |
-| `probability` | string | 否 | 可能性 \(0-100\) |
-| `description` | string | 否 | 描述 |
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
-
-| 参数 | 类型 | 说明 |
-| --------- | ---- | ----------- |
-| `success` | boolean | 成功 |
-| `output` | object | 已更新的商机 |
-
-</div>
-
----
-
-### 删除商机
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Salesforce"
-    type="salesforce"
-    color="#E0E0E0"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "operation",
-            "type": "dropdown",
-            "title": "操作",
-            "defaultValue": "delete_opportunity",
-            "options": [
-                {
-                    "id": "get_accounts",
-                    "label": "获取客户"
-                },
-                {
-                    "id": "create_account",
-                    "label": "创建客户"
-                },
-                {
-                    "id": "update_account",
-                    "label": "更新客户"
-                },
-                {
-                    "id": "delete_account",
-                    "label": "删除客户"
-                },
-                {
-                    "id": "get_contacts",
-                    "label": "获取联系人"
-                },
-                {
-                    "id": "create_contact",
-                    "label": "创建联系人"
-                },
-                {
-                    "id": "update_contact",
-                    "label": "更新联系人"
-                },
-                {
-                    "id": "delete_contact",
-                    "label": "删除联系人"
-                },
-                {
-                    "id": "get_leads",
-                    "label": "获取线索"
-                },
-                {
-                    "id": "create_lead",
-                    "label": "创建线索"
-                },
-                {
-                    "id": "update_lead",
-                    "label": "更新线索"
-                },
-                {
-                    "id": "delete_lead",
-                    "label": "删除线索"
-                },
-                {
-                    "id": "get_opportunities",
-                    "label": "获取商机"
-                },
-                {
-                    "id": "create_opportunity",
-                    "label": "创建商机"
-                },
-                {
-                    "id": "update_opportunity",
-                    "label": "更新商机"
-                },
-                {
-                    "id": "delete_opportunity",
-                    "label": "删除商机"
-                },
-                {
-                    "id": "get_cases",
-                    "label": "获取个案"
-                },
-                {
-                    "id": "create_case",
-                    "label": "创建个案"
-                },
-                {
-                    "id": "update_case",
-                    "label": "更新个案"
-                },
-                {
-                    "id": "delete_case",
-                    "label": "删除个案"
-                },
-                {
-                    "id": "get_tasks",
-                    "label": "获取任务"
-                },
-                {
-                    "id": "create_task",
-                    "label": "创建任务"
-                },
-                {
-                    "id": "update_task",
-                    "label": "更新任务"
-                },
-                {
-                    "id": "delete_task",
-                    "label": "删除任务"
-                },
-                {
-                    "id": "list_reports",
-                    "label": "列出报表"
-                },
-                {
-                    "id": "get_report",
-                    "label": "获取报表"
-                },
-                {
-                    "id": "run_report",
-                    "label": "运行报表"
-                },
-                {
-                    "id": "list_report_types",
-                    "label": "列出报表类型"
-                },
-                {
-                    "id": "list_dashboards",
-                    "label": "列出仪表板"
-                },
-                {
-                    "id": "get_dashboard",
-                    "label": "获取仪表板"
-                },
-                {
-                    "id": "refresh_dashboard",
-                    "label": "刷新仪表板"
-                },
-                {
-                    "id": "query",
-                    "label": "运行 SOQL 查询"
-                },
-                {
-                    "id": "query_more",
-                    "label": "获取更多查询结果"
-                },
-                {
-                    "id": "describe_object",
-                    "label": "描述对象"
-                },
-                {
-                    "id": "list_objects",
-                    "label": "列出对象"
-                }
-            ]
-        },
-        {
-            "id": "credential",
-            "type": "oauth-input",
-            "title": "Salesforce 帐户",
-            "placeholder": "选择 Salesforce 帐户",
-            "provider": "salesforce",
-            "required": true
-        },
-        {
             "id": "opportunityId",
             "type": "short-input",
             "title": "商机 ID",
@@ -3624,7 +3624,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `opportunityId` | string | 是 | 业务机会 ID（必填） |
+| `opportunityId` | string | 是 | 业务机会 ID \(必填\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
@@ -3797,8 +3797,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 帐户",
-            "placeholder": "选择 Salesforce 帐户",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
             "provider": "salesforce",
             "required": true
         },
@@ -3817,7 +3817,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "orderBy",
             "type": "short-input",
-            "title": "排序方式",
+            "title": "排序",
             "placeholder": "字段和方向（例如 \"Name ASC\"）"
         },
         {
@@ -3839,8 +3839,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `caseId` | string | 否 | 个案 ID \（可选\） |
-| `limit` | string | 否 | 最大结果数 \（默认：100\） |
+| `caseId` | string | 否 | 个案 ID（可选） |
+| `limit` | string | 否 | 最大结果数（默认：100） |
 | `fields` | string | 否 | 逗号分隔的字段 |
 | `orderBy` | string | 否 | 排序字段 |
 
@@ -3869,6 +3869,245 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "操作",
             "defaultValue": "create_case",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取商机"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建商机"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新商机"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除商机"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表盘"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表盘"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表盘"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "accountId",
+            "type": "short-input",
+            "title": "客户 ID",
+            "placeholder": "Salesforce 客户 ID"
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "联系人 ID",
+            "placeholder": "联系人 ID"
+        },
+        {
+            "id": "status",
+            "type": "short-input",
+            "title": "状态",
+            "placeholder": "状态"
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "主题"
+        },
+        {
+            "id": "priority",
+            "type": "short-input",
+            "title": "优先级",
+            "placeholder": "优先级"
+        },
+        {
+            "id": "origin",
+            "type": "short-input",
+            "title": "来源",
+            "placeholder": "来源（例如：电话、电子邮件、网页）"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "描述"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建个案 (<code>salesforce_create_case</code>)</div>
+
+创建新个案
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `subject` | string | 是 | 个案主题（必填） |
+| `status` | string | 否 | 状态（例如：New、Working、Escalated） |
+| `priority` | string | 否 | 优先级（例如：Low、Medium、High） |
+| `origin` | string | 否 | 来源（例如：Phone、Email、Web） |
+| `contactId` | string | 否 | 联系人 ID |
+| `accountId` | string | 否 | 客户 ID |
+| `description` | string | 否 | 描述 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功 |
+| `output` | object | 已创建的个案 |
+
+</div>
+
+---
+
+### 更新个案
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update_case",
             "options": [
                 {
                     "id": "get_accounts",
@@ -4017,245 +4256,6 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "oauth-input",
             "title": "Salesforce 帐户",
             "placeholder": "选择 Salesforce 帐户",
-            "provider": "salesforce",
-            "required": true
-        },
-        {
-            "id": "accountId",
-            "type": "short-input",
-            "title": "客户 ID",
-            "placeholder": "Salesforce 客户 ID"
-        },
-        {
-            "id": "contactId",
-            "type": "short-input",
-            "title": "联系人 ID",
-            "placeholder": "联系人 ID"
-        },
-        {
-            "id": "status",
-            "type": "short-input",
-            "title": "状态",
-            "placeholder": "状态"
-        },
-        {
-            "id": "subject",
-            "type": "short-input",
-            "title": "主题",
-            "placeholder": "主题"
-        },
-        {
-            "id": "priority",
-            "type": "short-input",
-            "title": "优先级",
-            "placeholder": "优先级"
-        },
-        {
-            "id": "origin",
-            "type": "short-input",
-            "title": "来源",
-            "placeholder": "来源（例如：电话、电子邮件、Web）"
-        },
-        {
-            "id": "description",
-            "type": "long-input",
-            "title": "描述",
-            "placeholder": "描述"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-<div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">创建个案 (<code>salesforce_create_case</code>)</div>
-
-创建新个案
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
-
-| 参数 | 类型 | 必填 | 说明 |
-| --------- | ---- | -------- | ----------- |
-| `subject` | string | 是 | 个案主题 \(必填\) |
-| `status` | string | 否 | 状态 \(例如 New、Working、Escalated\) |
-| `priority` | string | 否 | 优先级 \(例如 Low、Medium、High\) |
-| `origin` | string | 否 | 来源 \(例如 Phone、Email、Web\) |
-| `contactId` | string | 否 | 联系人 ID |
-| `accountId` | string | 否 | 客户 ID |
-| `description` | string | 否 | 描述 |
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
-
-| 参数 | 类型 | 说明 |
-| --------- | ---- | ----------- |
-| `success` | boolean | 成功 |
-| `output` | object | 已创建的个案 |
-
-</div>
-
----
-
-### 更新个案
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Salesforce"
-    type="salesforce"
-    color="#E0E0E0"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "operation",
-            "type": "dropdown",
-            "title": "操作",
-            "defaultValue": "update_case",
-            "options": [
-                {
-                    "id": "get_accounts",
-                    "label": "获取客户"
-                },
-                {
-                    "id": "create_account",
-                    "label": "创建客户"
-                },
-                {
-                    "id": "update_account",
-                    "label": "更新客户"
-                },
-                {
-                    "id": "delete_account",
-                    "label": "删除客户"
-                },
-                {
-                    "id": "get_contacts",
-                    "label": "获取联系人"
-                },
-                {
-                    "id": "create_contact",
-                    "label": "创建联系人"
-                },
-                {
-                    "id": "update_contact",
-                    "label": "更新联系人"
-                },
-                {
-                    "id": "delete_contact",
-                    "label": "删除联系人"
-                },
-                {
-                    "id": "get_leads",
-                    "label": "获取潜在客户"
-                },
-                {
-                    "id": "create_lead",
-                    "label": "创建潜在客户"
-                },
-                {
-                    "id": "update_lead",
-                    "label": "更新潜在客户"
-                },
-                {
-                    "id": "delete_lead",
-                    "label": "删除潜在客户"
-                },
-                {
-                    "id": "get_opportunities",
-                    "label": "获取商机"
-                },
-                {
-                    "id": "create_opportunity",
-                    "label": "创建商机"
-                },
-                {
-                    "id": "update_opportunity",
-                    "label": "更新商机"
-                },
-                {
-                    "id": "delete_opportunity",
-                    "label": "删除商机"
-                },
-                {
-                    "id": "get_cases",
-                    "label": "获取个案"
-                },
-                {
-                    "id": "create_case",
-                    "label": "创建个案"
-                },
-                {
-                    "id": "update_case",
-                    "label": "更新个案"
-                },
-                {
-                    "id": "delete_case",
-                    "label": "删除个案"
-                },
-                {
-                    "id": "get_tasks",
-                    "label": "获取任务"
-                },
-                {
-                    "id": "create_task",
-                    "label": "创建任务"
-                },
-                {
-                    "id": "update_task",
-                    "label": "更新任务"
-                },
-                {
-                    "id": "delete_task",
-                    "label": "删除任务"
-                },
-                {
-                    "id": "list_reports",
-                    "label": "列出报表"
-                },
-                {
-                    "id": "get_report",
-                    "label": "获取报表"
-                },
-                {
-                    "id": "run_report",
-                    "label": "运行报表"
-                },
-                {
-                    "id": "list_report_types",
-                    "label": "列出报表类型"
-                },
-                {
-                    "id": "list_dashboards",
-                    "label": "列出仪表板"
-                },
-                {
-                    "id": "get_dashboard",
-                    "label": "获取仪表板"
-                },
-                {
-                    "id": "refresh_dashboard",
-                    "label": "刷新仪表板"
-                },
-                {
-                    "id": "query",
-                    "label": "运行 SOQL 查询"
-                },
-                {
-                    "id": "query_more",
-                    "label": "获取更多查询结果"
-                },
-                {
-                    "id": "describe_object",
-                    "label": "描述对象"
-                },
-                {
-                    "id": "list_objects",
-                    "label": "列出对象"
-                }
-            ]
-        },
-        {
-            "id": "credential",
-            "type": "oauth-input",
-            "title": "Salesforce 账户",
-            "placeholder": "选择 Salesforce 账户",
             "provider": "salesforce",
             "required": true
         },
@@ -4503,7 +4503,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `caseId` | string | 是 | 个案 ID（必填） |
+| `caseId` | string | 是 | 个案 ID \(必填\) |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
@@ -4676,8 +4676,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 帐户",
-            "placeholder": "选择 Salesforce 帐户",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
             "provider": "salesforce",
             "required": true
         },
@@ -4696,8 +4696,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "orderBy",
             "type": "short-input",
-            "title": "排序",
-            "placeholder": "字段和方向（例如：\"Name ASC\"）"
+            "title": "排序依据",
+            "placeholder": "字段和方向（例如 \"Name ASC\"）"
         },
         {
             "id": "taskId",
@@ -4716,16 +4716,16 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parameter | Type | Required | Description |
 | --------- | ---- | -------- | ----------- |
-| `taskId` | string | 否 | 任务 ID（可选） |
-| `limit` | string | 否 | 最大结果数（默认：100） |
+| `taskId` | string | 否 | 任务 ID \(可选\) |
+| `limit` | string | 否 | 最大结果数 \(默认：100\) |
 | `fields` | string | 否 | 逗号分隔的字段 |
 | `orderBy` | string | 否 | 排序字段 |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 | --------- | ---- | ----------- |
 | `success` | boolean | 成功 |
 | `output` | object | 任务数据 |
@@ -4748,6 +4748,245 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "操作",
             "defaultValue": "create_task",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取业务机会"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建业务机会"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新业务机会"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除业务机会"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "status",
+            "type": "short-input",
+            "title": "状态",
+            "placeholder": "状态"
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "placeholder": "主题"
+        },
+        {
+            "id": "priority",
+            "type": "short-input",
+            "title": "优先级",
+            "placeholder": "优先级"
+        },
+        {
+            "id": "activityDate",
+            "type": "datetime-input",
+            "title": "到期日期",
+            "placeholder": "YYYY-MM-DD"
+        },
+        {
+            "id": "whoId",
+            "type": "short-input",
+            "title": "相关联系人/潜在客户 ID",
+            "placeholder": "联系人或潜在客户 ID"
+        },
+        {
+            "id": "whatId",
+            "type": "short-input",
+            "title": "相关客户/业务机会 ID",
+            "placeholder": "客户或业务机会 ID"
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "描述"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建任务 (<code>salesforce_create_task</code>)</div>
+
+创建新任务
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `subject` | string | 是 | 任务主题（必填） |
+| `status` | string | 否 | 状态（例如：未开始、进行中、已完成） |
+| `priority` | string | 否 | 优先级（例如：低、普通、高） |
+| `activityDate` | string | 否 | 截止日期 YYYY-MM-DD |
+| `whoId` | string | 否 | 相关联系人/潜在客户 ID |
+| `whatId` | string | 否 | 相关客户/商机 ID |
+| `description` | string | 否 | 描述 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功 |
+| `output` | object | 已创建的任务 |
+
+</div>
+
+---
+
+### 更新任务
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update_task",
             "options": [
                 {
                     "id": "get_accounts",
@@ -4894,247 +5133,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 账户",
-            "placeholder": "选择 Salesforce 账户",
-            "provider": "salesforce",
-            "required": true
-        },
-        {
-            "id": "status",
-            "type": "short-input",
-            "title": "状态",
-            "placeholder": "状态"
-        },
-        {
-            "id": "subject",
-            "type": "short-input",
-            "title": "主题",
-            "placeholder": "主题"
-        },
-        {
-            "id": "priority",
-            "type": "short-input",
-            "title": "优先级",
-            "placeholder": "优先级"
-        },
-        {
-            "id": "activityDate",
-            "type": "datetime-input",
-            "title": "截止日期",
-            "placeholder": "YYYY-MM-DD"
-        },
-        {
-            "id": "whoId",
-            "type": "short-input",
-            "title": "相关联系人/潜在客户 ID",
-            "placeholder": "联系人或潜在客户 ID"
-        },
-        {
-            "id": "whatId",
-            "type": "short-input",
-            "title": "相关客户/商机 ID",
-            "placeholder": "客户或商机 ID"
-        },
-        {
-            "id": "description",
-            "type": "long-input",
-            "title": "描述",
-            "placeholder": "描述"
-        }
-    ]}
-  />
-</ShowcaseCard>
-
-<div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">创建任务 (<code>salesforce_create_task</code>)</div>
-
-创建新任务
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
-
-| 参数 | 类型 | 必填 | 说明 |
-| --------- | ---- | -------- | ----------- |
-| `subject` | string | 是 | 任务主题（必填） |
-| `status` | string | 否 | 状态（例如：未开始、进行中、已完成） |
-| `priority` | string | 否 | 优先级（例如：低、普通、高） |
-| `activityDate` | string | 否 | 截止日期 YYYY-MM-DD |
-| `whoId` | string | 否 | 相关联系人/潜在客户 ID |
-| `whatId` | string | 否 | 相关客户/业务机会 ID |
-| `description` | string | 否 | 描述 |
-
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
-
-| 参数 | 类型 | 说明 |
-| --------- | ---- | ----------- |
-| `success` | boolean | 成功 |
-| `output` | object | 已创建的任务 |
-
-</div>
-
----
-
-### 更新任务
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Salesforce"
-    type="salesforce"
-    color="#E0E0E0"
-    hideHeader
-    subBlocks={[
-        {
-            "id": "operation",
-            "type": "dropdown",
-            "title": "操作",
-            "defaultValue": "update_task",
-            "options": [
-                {
-                    "id": "get_accounts",
-                    "label": "获取客户"
-                },
-                {
-                    "id": "create_account",
-                    "label": "创建客户"
-                },
-                {
-                    "id": "update_account",
-                    "label": "更新客户"
-                },
-                {
-                    "id": "delete_account",
-                    "label": "删除客户"
-                },
-                {
-                    "id": "get_contacts",
-                    "label": "获取联系人"
-                },
-                {
-                    "id": "create_contact",
-                    "label": "创建联系人"
-                },
-                {
-                    "id": "update_contact",
-                    "label": "更新联系人"
-                },
-                {
-                    "id": "delete_contact",
-                    "label": "删除联系人"
-                },
-                {
-                    "id": "get_leads",
-                    "label": "获取潜在客户"
-                },
-                {
-                    "id": "create_lead",
-                    "label": "创建潜在客户"
-                },
-                {
-                    "id": "update_lead",
-                    "label": "更新潜在客户"
-                },
-                {
-                    "id": "delete_lead",
-                    "label": "删除潜在客户"
-                },
-                {
-                    "id": "get_opportunities",
-                    "label": "获取业务机会"
-                },
-                {
-                    "id": "create_opportunity",
-                    "label": "创建业务机会"
-                },
-                {
-                    "id": "update_opportunity",
-                    "label": "更新业务机会"
-                },
-                {
-                    "id": "delete_opportunity",
-                    "label": "删除业务机会"
-                },
-                {
-                    "id": "get_cases",
-                    "label": "获取个案"
-                },
-                {
-                    "id": "create_case",
-                    "label": "创建个案"
-                },
-                {
-                    "id": "update_case",
-                    "label": "更新个案"
-                },
-                {
-                    "id": "delete_case",
-                    "label": "删除个案"
-                },
-                {
-                    "id": "get_tasks",
-                    "label": "获取任务"
-                },
-                {
-                    "id": "create_task",
-                    "label": "创建任务"
-                },
-                {
-                    "id": "update_task",
-                    "label": "更新任务"
-                },
-                {
-                    "id": "delete_task",
-                    "label": "删除任务"
-                },
-                {
-                    "id": "list_reports",
-                    "label": "列出报表"
-                },
-                {
-                    "id": "get_report",
-                    "label": "获取报表"
-                },
-                {
-                    "id": "run_report",
-                    "label": "运行报表"
-                },
-                {
-                    "id": "list_report_types",
-                    "label": "列出报表类型"
-                },
-                {
-                    "id": "list_dashboards",
-                    "label": "列出仪表板"
-                },
-                {
-                    "id": "get_dashboard",
-                    "label": "获取仪表板"
-                },
-                {
-                    "id": "refresh_dashboard",
-                    "label": "刷新仪表板"
-                },
-                {
-                    "id": "query",
-                    "label": "运行 SOQL 查询"
-                },
-                {
-                    "id": "query_more",
-                    "label": "获取更多查询结果"
-                },
-                {
-                    "id": "describe_object",
-                    "label": "描述对象"
-                },
-                {
-                    "id": "list_objects",
-                    "label": "列出对象"
-                }
-            ]
-        },
-        {
-            "id": "credential",
-            "type": "oauth-input",
-            "title": "Salesforce 账户",
-            "placeholder": "选择 Salesforce 账户",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
             "provider": "salesforce",
             "required": true
         },
@@ -5187,11 +5187,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `taskId` | string | 是 | 任务 ID（必填） |
+| `taskId` | string | 是 | 任务 ID \(必填\) |
 | `subject` | string | 否 | 任务主题 |
 | `status` | string | 否 | 状态 |
 | `priority` | string | 否 | 优先级 |
-| `activityDate` | string | 否 | 截止日期 YYYY-MM-DD |
+| `activityDate` | string | 否 | 到期日期 YYYY-MM-DD |
 | `description` | string | 否 | 描述 |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
@@ -5270,19 +5270,19 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
                 },
                 {
                     "id": "get_opportunities",
-                    "label": "获取业务机会"
+                    "label": "获取商机"
                 },
                 {
                     "id": "create_opportunity",
-                    "label": "创建业务机会"
+                    "label": "创建商机"
                 },
                 {
                     "id": "update_opportunity",
-                    "label": "更新业务机会"
+                    "label": "更新商机"
                 },
                 {
                     "id": "delete_opportunity",
-                    "label": "删除业务机会"
+                    "label": "删除商机"
                 },
                 {
                     "id": "get_cases",
@@ -5365,8 +5365,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 账户",
-            "placeholder": "选择 Salesforce 账户",
+            "title": "Salesforce 账号",
+            "placeholder": "选择 Salesforce 账号",
             "provider": "salesforce",
             "required": true
         },
@@ -5389,7 +5389,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
-| `taskId` | string | 是 | 任务 ID \(必填\) |
+| `taskId` | string | 是 | 任务 ID（必填） |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
@@ -5562,8 +5562,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 账户",
-            "placeholder": "选择 Salesforce 账户",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
             "provider": "salesforce",
             "required": true
         },
@@ -5593,7 +5593,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | 参数 | 类型 | 必填 | 说明 |
 | --------- | ---- | -------- | ----------- |
 | `folderName` | string | 否 | 按文件夹名称筛选 |
-| `searchTerm` | string | 否 | 按名称筛选报表的搜索词 |
+| `searchTerm` | string | 否 | 用于按名称筛选报表的搜索词 |
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
@@ -5766,8 +5766,8 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "credential",
             "type": "oauth-input",
-            "title": "Salesforce 账户",
-            "placeholder": "选择 Salesforce 账户",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
             "provider": "salesforce",
             "required": true
         },
@@ -5781,3 +5781,1811 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取报表 (<code>salesforce_get_report</code>)</div>
+
+获取特定报表的元数据和描述信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `reportId` | string | 是 | 报表 ID \(必填\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功状态 |
+| `output` | object | 报表元数据 |
+
+</div>
+
+---
+
+### 运行报表
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "run_report",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取业务机会"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建业务机会"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新业务机会"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除业务机会"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "reportId",
+            "type": "short-input",
+            "title": "报表 ID",
+            "placeholder": "报表 ID",
+            "required": true
+        },
+        {
+            "id": "includeDetails",
+            "type": "short-input",
+            "title": "包含明细",
+            "placeholder": "包含明细行（true/false）"
+        },
+        {
+            "id": "filters",
+            "type": "long-input",
+            "title": "报表筛选器",
+            "placeholder": "报表筛选器的 JSON 数组"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">运行报表 (<code>salesforce_run_report</code>)</div>
+
+执行报表并获取结果
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `reportId` | string | 是 | 报表 ID \(必填\) |
+| `includeDetails` | string | 否 | 包含明细行 \(true/false，默认：true\) |
+| `filters` | string | 否 | 要应用的报表筛选条件 JSON 字符串 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功状态 |
+| `output` | object | 报表结果 |
+
+</div>
+
+---
+
+### 列出报表类型
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_report_types",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取业务机会"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建业务机会"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新业务机会"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除业务机会"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
+            "provider": "salesforce",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出报表类型（<code>salesforce_list_report_types</code>）</div>
+
+获取可用报表类型列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+此操作没有直接参数。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功状态 |
+| `output` | object | 报表类型数据 |
+
+</div>
+
+---
+
+### 列出仪表板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_dashboards",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取帐户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建帐户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新帐户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除帐户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取业务机会"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建业务机会"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新业务机会"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除业务机会"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "folderName",
+            "type": "short-input",
+            "title": "文件夹名称",
+            "placeholder": "按文件夹名称筛选"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出仪表板 (<code>salesforce_list_dashboards</code>)</div>
+
+获取当前用户可访问的仪表板列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `folderName` | string | 否 | 按文件夹名称筛选 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功状态 |
+| `output` | object | 仪表板数据 |
+
+</div>
+
+---
+
+### 获取仪表板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_dashboard",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取业务机会"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建业务机会"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新业务机会"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除业务机会"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 账户",
+            "placeholder": "选择 Salesforce 账户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "dashboardId",
+            "type": "short-input",
+            "title": "仪表板 ID",
+            "placeholder": "仪表板 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取仪表板 (<code>salesforce_get_dashboard</code>)</div>
+
+获取指定仪表板的详细信息和结果
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `dashboardId` | string | 是 | 仪表板 ID \(必填\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功状态 |
+| `output` | object | 仪表板数据 |
+
+</div>
+
+---
+
+### 刷新仪表板
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "refresh_dashboard",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取业务机会"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建业务机会"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新业务机会"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除业务机会"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "dashboardId",
+            "type": "short-input",
+            "title": "仪表板 ID",
+            "placeholder": "仪表板 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">刷新仪表板（<code>salesforce_refresh_dashboard</code>）</div>
+
+刷新仪表板以获取最新数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `dashboardId` | string | 是 | 仪表板 ID \(必填\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功状态 |
+| `output` | object | 刷新后的仪表板数据 |
+
+</div>
+
+---
+
+### 运行 SOQL 查询
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "query",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取业务机会"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建业务机会"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新业务机会"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除业务机会"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "SOQL 查询",
+            "placeholder": "SELECT Id, Name FROM Account LIMIT 10",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">运行 SOQL 查询（<code>salesforce_query</code>）</div>
+
+执行自定义 SOQL 查询，从 Salesforce 检索数据
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 要执行的 SOQL 查询（例如：SELECT Id, Name FROM Account LIMIT 10） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功状态 |
+| `output` | object | 查询结果 |
+
+</div>
+
+---
+
+### 获取更多查询结果
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "query_more",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取业务机会"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建业务机会"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新业务机会"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除业务机会"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "nextRecordsUrl",
+            "type": "short-input",
+            "title": "下一批记录 URL",
+            "placeholder": "上一查询响应中的 URL",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取更多查询结果（<code>salesforce_query_more</code>）</div>
+
+使用上次查询返回的 nextRecordsUrl 获取更多查询结果
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `nextRecordsUrl` | string | 是 | 上次查询响应中的 nextRecordsUrl |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功状态 |
+| `output` | object | 查询结果 |
+
+</div>
+
+---
+
+### 描述对象
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "describe_object",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取业务机会"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建业务机会"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新业务机会"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除业务机会"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 帐户",
+            "placeholder": "选择 Salesforce 帐户",
+            "provider": "salesforce",
+            "required": true
+        },
+        {
+            "id": "objectName",
+            "type": "short-input",
+            "title": "对象名称",
+            "placeholder": "API 名称（例如 Account、Lead、Custom_Object__c）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">描述对象（<code>salesforce_describe_object</code>）</div>
+
+获取 Salesforce 对象的元数据和字段信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `objectName` | string | 是 | 对象的 API 名称（例如：Account、Contact、Lead、Custom_Object__c） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功状态 |
+| `output` | object | 对象元数据 |
+
+</div>
+
+---
+
+### 列出对象
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Salesforce"
+    type="salesforce"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "list_objects",
+            "options": [
+                {
+                    "id": "get_accounts",
+                    "label": "获取客户"
+                },
+                {
+                    "id": "create_account",
+                    "label": "创建客户"
+                },
+                {
+                    "id": "update_account",
+                    "label": "更新客户"
+                },
+                {
+                    "id": "delete_account",
+                    "label": "删除客户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "delete_contact",
+                    "label": "删除联系人"
+                },
+                {
+                    "id": "get_leads",
+                    "label": "获取潜在客户"
+                },
+                {
+                    "id": "create_lead",
+                    "label": "创建潜在客户"
+                },
+                {
+                    "id": "update_lead",
+                    "label": "更新潜在客户"
+                },
+                {
+                    "id": "delete_lead",
+                    "label": "删除潜在客户"
+                },
+                {
+                    "id": "get_opportunities",
+                    "label": "获取商机"
+                },
+                {
+                    "id": "create_opportunity",
+                    "label": "创建商机"
+                },
+                {
+                    "id": "update_opportunity",
+                    "label": "更新商机"
+                },
+                {
+                    "id": "delete_opportunity",
+                    "label": "删除商机"
+                },
+                {
+                    "id": "get_cases",
+                    "label": "获取个案"
+                },
+                {
+                    "id": "create_case",
+                    "label": "创建个案"
+                },
+                {
+                    "id": "update_case",
+                    "label": "更新个案"
+                },
+                {
+                    "id": "delete_case",
+                    "label": "删除个案"
+                },
+                {
+                    "id": "get_tasks",
+                    "label": "获取任务"
+                },
+                {
+                    "id": "create_task",
+                    "label": "创建任务"
+                },
+                {
+                    "id": "update_task",
+                    "label": "更新任务"
+                },
+                {
+                    "id": "delete_task",
+                    "label": "删除任务"
+                },
+                {
+                    "id": "list_reports",
+                    "label": "列出报表"
+                },
+                {
+                    "id": "get_report",
+                    "label": "获取报表"
+                },
+                {
+                    "id": "run_report",
+                    "label": "运行报表"
+                },
+                {
+                    "id": "list_report_types",
+                    "label": "列出报表类型"
+                },
+                {
+                    "id": "list_dashboards",
+                    "label": "列出仪表板"
+                },
+                {
+                    "id": "get_dashboard",
+                    "label": "获取仪表板"
+                },
+                {
+                    "id": "refresh_dashboard",
+                    "label": "刷新仪表板"
+                },
+                {
+                    "id": "query",
+                    "label": "运行 SOQL 查询"
+                },
+                {
+                    "id": "query_more",
+                    "label": "获取更多查询结果"
+                },
+                {
+                    "id": "describe_object",
+                    "label": "描述对象"
+                },
+                {
+                    "id": "list_objects",
+                    "label": "列出对象"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Salesforce 账号",
+            "placeholder": "选择 Salesforce 账号",
+            "provider": "salesforce",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出对象 (<code>salesforce_list_objects</code>)</div>
+
+获取所有可用 Salesforce 对象的列表
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+此操作没有直接参数。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 成功状态 |
+| `output` | object | 对象列表 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Salesforce 集成到你的工作流中。通过强大的自动化能力管理帐户、联系人、潜在客户、商机、个案和任务。
+
+## 备注
+
+- 类别: `tools`
+- 类型: `salesforce`

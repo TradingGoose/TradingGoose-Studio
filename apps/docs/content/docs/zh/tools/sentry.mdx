@@ -67,11 +67,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
                 },
                 {
                     "id": "sentry_releases_list",
-                    "label": "列出版本"
+                    "label": "列出发行版"
                 },
                 {
                     "id": "sentry_releases_create",
-                    "label": "创建版本"
+                    "label": "创建发行版"
                 },
                 {
                     "id": "sentry_releases_deploy",
@@ -91,7 +91,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "organizationSlug",
             "type": "short-input",
             "title": "组织 Slug",
-            "placeholder": "你的 Sentry 组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
             "required": true
         },
         {
@@ -202,7 +202,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | 参数 | 类型 | 说明 |
 | --------- | ---- | ----------- |
 | `issues` | array | Sentry 问题列表 |
-| `nextCursor` | string | 下一页结果的游标 \(如有\) |
+| `nextCursor` | string | 下一页结果的游标（如有） |
 | `hasMore` | boolean | 是否还有更多结果 |
 
 </div>
@@ -262,11 +262,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
                 },
                 {
                     "id": "sentry_releases_list",
-                    "label": "列出版本"
+                    "label": "列出发行版"
                 },
                 {
                     "id": "sentry_releases_create",
-                    "label": "创建版本"
+                    "label": "创建发行版"
                 },
                 {
                     "id": "sentry_releases_deploy",
@@ -315,9 +315,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
-| 参数 | 类型 | 描述 |
+| 参数 | 类型 | 说明 |
 | --------- | ---- | ----------- |
-| `issue` | object | Sentry 问题的详细信息 |
+| `issue` | object | 该 Sentry 问题的详细信息 |
 
 </div>
 
@@ -376,11 +376,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
                 },
                 {
                     "id": "sentry_releases_list",
-                    "label": "列出版本"
+                    "label": "列出发行版"
                 },
                 {
                     "id": "sentry_releases_create",
-                    "label": "创建版本"
+                    "label": "创建发行版"
                 },
                 {
                     "id": "sentry_releases_deploy",
@@ -418,7 +418,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "options": [
                 {
                     "id": "",
-                    "label": "无更改"
+                    "label": "不更改"
                 },
                 {
                     "id": "resolved",
@@ -434,15 +434,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
                 },
                 {
                     "id": "resolvedInNextRelease",
-                    "label": "在下一版本中解决"
+                    "label": "将在下一发行版中解决"
                 }
             ]
         },
         {
             "id": "assignedTo",
             "type": "short-input",
-            "title": "分配给",
-            "placeholder": "用户 ID 或邮箱（留空则取消分配）"
+            "title": "指派给",
+            "placeholder": "用户 ID 或邮箱（留空则取消指派）"
         },
         {
             "id": "isBookmarked",
@@ -539,11 +539,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
                 },
                 {
                     "id": "sentry_releases_list",
-                    "label": "列出发布"
+                    "label": "列出发行版"
                 },
                 {
                     "id": "sentry_releases_create",
-                    "label": "创建发布"
+                    "label": "创建发行版"
                 },
                 {
                     "id": "sentry_releases_deploy",
@@ -595,7 +595,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 | 参数 | 类型 | 说明 |
 | --------- | ---- | ----------- |
 | `projects` | array | Sentry 项目列表 |
-| `nextCursor` | string | 下一页结果的游标 \(如有\) |
+| `nextCursor` | string | 下一页结果的游标（如有） |
 | `hasMore` | boolean | 是否还有更多结果 |
 
 </div>
@@ -655,11 +655,11 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
                 },
                 {
                     "id": "sentry_releases_list",
-                    "label": "列出发行版本"
+                    "label": "列出发行版"
                 },
                 {
                     "id": "sentry_releases_create",
-                    "label": "创建发行版本"
+                    "label": "创建发行版"
                 },
                 {
                     "id": "sentry_releases_deploy",
@@ -678,14 +678,14 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "organizationSlug",
             "type": "short-input",
-            "title": "组织 slug",
+            "title": "组织 Slug",
             "placeholder": "你的 Sentry 组织 slug",
             "required": true
         },
         {
             "id": "projectSlug",
             "type": "short-input",
-            "title": "项目 ID 或 slug",
+            "title": "项目 ID 或 Slug",
             "placeholder": "输入项目 ID 或 slug",
             "required": true
         }
@@ -708,7 +708,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
-| 参数 | 类型 | 说明 |
+| 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
 | `project` | object | Sentry 项目的详细信息 |
 
@@ -793,7 +793,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "organizationSlug",
             "type": "short-input",
             "title": "组织 Slug",
-            "placeholder": "你的 Sentry 组织 slug",
+            "placeholder": "你的 Sentry 组织 Slug",
             "required": true
         },
         {
@@ -814,13 +814,13 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "id": "slug",
             "type": "short-input",
             "title": "项目 Slug",
-            "placeholder": "未提供时自动生成"
+            "placeholder": "未提供则自动生成"
         },
         {
             "id": "platform",
             "type": "short-input",
             "title": "平台",
-            "placeholder": "javascript, python, node, etc."
+            "placeholder": "javascript、python、node 等"
         },
         {
             "id": "defaultRules",
@@ -850,7 +850,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 <div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
 
-| 参数 | 类型 | 说明 |
+| 参数 | 类型 | 描述 |
 | --------- | ---- | ----------- |
 | `project` | object | 新创建的 Sentry 项目 |
 
@@ -995,7 +995,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 | 参数 | 类型 | 说明 |
 | --------- | ---- | ----------- |
-| `project` | object | 更新后的 Sentry 项目 |
+| `project` | object | 已更新的 Sentry 项目 |
 
 </div>
 
@@ -1015,6 +1015,553 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "type": "dropdown",
             "title": "操作",
             "defaultValue": "sentry_events_list",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出版本"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建版本"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目 Slug",
+            "placeholder": "输入项目 slug",
+            "required": true
+        },
+        {
+            "id": "issueId",
+            "type": "short-input",
+            "title": "问题 ID",
+            "placeholder": "按特定问题筛选（可选）"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "例如：user.email:*@example.com"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "50"
+        },
+        {
+            "id": "statsPeriod",
+            "type": "short-input",
+            "title": "统计周期",
+            "placeholder": "24h, 7d, 30d, 90d"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出事件（<code>sentry_events_list</code>）</div>
+
+从 Sentry 项目列出事件。可按问题 ID、查询或时间段筛选。返回事件详情，包括上下文、标签和用户信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 是 | 要列出事件的项目 slug |
+| `issueId` | string | 否 | 按特定问题 ID 筛选事件 |
+| `query` | string | 否 | 用于筛选事件的搜索查询。支持 Sentry 搜索语法 \(例如 "user.email:*@example.com"\) |
+| `cursor` | string | 否 | 用于获取下一页结果的分页游标 |
+| `limit` | number | 否 | 每页返回的事件数 \(默认：50，最大：100\) |
+| `statsPeriod` | string | 否 | 要查询的时间段 \(例如 "24h"、"7d"、"30d"\)。未指定时默认为 90d。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `events` | array | Sentry 事件列表 |
+| `nextCursor` | string | 下一页结果的游标 \(如有\) |
+| `hasMore` | boolean | 是否还有更多可用结果 |
+
+</div>
+
+---
+
+### 获取事件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_events_get",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出版本"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建版本"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目 Slug",
+            "placeholder": "输入项目 slug",
+            "required": true
+        },
+        {
+            "id": "eventId",
+            "type": "short-input",
+            "title": "事件 ID",
+            "placeholder": "输入事件 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取事件 (<code>sentry_events_get</code>)</div>
+
+根据 ID 获取特定 Sentry 事件的详细信息。返回完整事件详情，包括堆栈跟踪、面包屑、上下文和用户信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 是 | 项目的 slug |
+| `eventId` | string | 是 | 要获取的事件的唯一 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `event` | object | Sentry 事件的详细信息 |
+
+</div>
+
+---
+
+### 列出版本
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_releases_list",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出版本"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建版本"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "projectSlug",
+            "type": "short-input",
+            "title": "项目 Slug",
+            "placeholder": "按项目筛选（可选）"
+        },
+        {
+            "id": "query",
+            "type": "long-input",
+            "title": "搜索查询",
+            "placeholder": "搜索特定版本"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "25"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出版本（<code>sentry_releases_list</code>）</div>
+
+列出某个 Sentry 组织或项目的版本。返回版本详情，包括版本号、提交、部署信息以及关联项目。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 认证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `projectSlug` | string | 否 | 按特定项目 slug 筛选发布（可选） |
+| `query` | string | 否 | 用于筛选发布的搜索查询（例如版本名称模式） |
+| `cursor` | string | 否 | 用于获取下一页结果的分页游标 |
+| `limit` | number | 否 | 每页返回的发布数量（默认：25，最大：100） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `releases` | array | Sentry 发布列表 |
+| `nextCursor` | string | 下一页结果的游标（如有） |
+| `hasMore` | boolean | 是否还有更多结果 |
+
+</div>
+
+---
+
+### 创建发布
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_releases_create",
+            "options": [
+                {
+                    "id": "sentry_issues_list",
+                    "label": "列出问题"
+                },
+                {
+                    "id": "sentry_issues_get",
+                    "label": "获取问题"
+                },
+                {
+                    "id": "sentry_issues_update",
+                    "label": "更新问题"
+                },
+                {
+                    "id": "sentry_projects_list",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "sentry_projects_get",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "sentry_projects_create",
+                    "label": "创建项目"
+                },
+                {
+                    "id": "sentry_projects_update",
+                    "label": "更新项目"
+                },
+                {
+                    "id": "sentry_events_list",
+                    "label": "列出事件"
+                },
+                {
+                    "id": "sentry_events_get",
+                    "label": "获取事件"
+                },
+                {
+                    "id": "sentry_releases_list",
+                    "label": "列出发布"
+                },
+                {
+                    "id": "sentry_releases_create",
+                    "label": "创建发布"
+                },
+                {
+                    "id": "sentry_releases_deploy",
+                    "label": "创建部署"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Sentry API 令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationSlug",
+            "type": "short-input",
+            "title": "组织 Slug",
+            "placeholder": "你的 Sentry 组织 slug",
+            "required": true
+        },
+        {
+            "id": "version",
+            "type": "short-input",
+            "title": "版本",
+            "placeholder": "例如 2.0.0 或 my-app@1.0.0",
+            "required": true
+        },
+        {
+            "id": "projects",
+            "type": "long-input",
+            "title": "项目",
+            "placeholder": "逗号分隔的项目 slug",
+            "required": true
+        },
+        {
+            "id": "ref",
+            "type": "short-input",
+            "title": "Git 引用",
+            "placeholder": "提交 SHA、标签或分支"
+        },
+        {
+            "id": "url",
+            "type": "long-input",
+            "title": "发布 URL",
+            "placeholder": "发布页面 URL（例如 GitHub release）"
+        },
+        {
+            "id": "dateReleased",
+            "type": "datetime-input",
+            "title": "发布日期",
+            "placeholder": "ISO 8601 时间戳（默认为当前时间）"
+        },
+        {
+            "id": "commits",
+            "type": "long-input",
+            "title": "提交（JSON）",
+            "placeholder": "[{\"id\":\"abc123\",\"message\":\"Fix bug\"}]"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建发行版（<code>sentry_releases_create</code>）</div>
+
+在 Sentry 中创建新的发行版。发行版是部署到某个环境的代码版本。可包含提交信息和关联项目。返回已创建发行版的详细信息。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 身份验证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `version` | string | 是 | 发行版的版本标识符（例如 "2.0.0"、"my-app@1.0.0" 或 git 提交 SHA） |
+| `projects` | string | 是 | 要与此发行版关联的项目 slug 列表，以逗号分隔 |
+| `ref` | string | 否 | 此发行版的 Git 引用（提交 SHA、标签或分支） |
+| `url` | string | 否 | 指向该发行版的 URL（例如 GitHub 发行版页面） |
+| `dateReleased` | string | 否 | 发行版部署时间的 ISO 8601 时间戳（默认为当前时间） |
+| `commits` | string | 否 | 包含 id、repository（可选）和 message（可选）的提交对象 JSON 数组。示例：\[\{"id":"abc123","message":"Fix bug"\}\] |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `release` | object | 新创建的 Sentry 发行版 |
+
+</div>
+
+---
+
+### 创建部署
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Sentry"
+    type="sentry"
+    color="#6e4bb4"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "sentry_releases_deploy",
             "options": [
                 {
                     "id": "sentry_issues_list",
@@ -1082,36 +1629,80 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
             "required": true
         },
         {
-            "id": "projectSlug",
+            "id": "version",
             "type": "short-input",
-            "title": "项目 Slug",
-            "placeholder": "输入项目 slug",
+            "title": "版本",
+            "placeholder": "要部署的发行版版本号",
             "required": true
         },
         {
-            "id": "issueId",
+            "id": "environment",
             "type": "short-input",
-            "title": "问题 ID",
-            "placeholder": "按特定问题筛选（可选）"
+            "title": "环境",
+            "placeholder": "production、staging 等",
+            "required": true
         },
         {
-            "id": "query",
+            "id": "name",
+            "type": "short-input",
+            "title": "部署名称",
+            "placeholder": "可选的部署名称"
+        },
+        {
+            "id": "url",
             "type": "long-input",
-            "title": "搜索查询",
-            "placeholder": "例如：user.email:*@example.com"
+            "title": "部署 URL",
+            "placeholder": "CI/CD 流水线或部署的 URL"
         },
         {
-            "id": "limit",
-            "type": "short-input",
-            "title": "限制",
-            "placeholder": "50"
+            "id": "dateStarted",
+            "type": "datetime-input",
+            "title": "开始时间",
+            "placeholder": "ISO 8601 时间戳（默认为当前时间）"
         },
         {
-            "id": "statsPeriod",
-            "type": "short-input",
-            "title": "统计周期",
-            "placeholder": "24h, 7d, 30d, 90d"
+            "id": "dateFinished",
+            "type": "datetime-input",
+            "title": "结束时间",
+            "placeholder": "ISO 8601 时间戳"
         }
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建部署（<code>sentry_releases_deploy</code>）</div>
+
+为指定环境中的 Sentry 发布创建部署记录。部署用于跟踪发布的时间和位置。返回已创建的部署详情。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | 是 | Sentry API 认证令牌 |
+| `organizationSlug` | string | 是 | 组织的 slug |
+| `version` | string | 是 | 正在部署的发布版本标识符 |
+| `environment` | string | 是 | 发布部署所在的环境名称（例如 "production"、"staging"） |
+| `name` | string | 否 | 此部署的可选名称（例如 "将 v2.0 部署到生产环境"） |
+| `url` | string | 否 | 指向该部署的 URL（例如 CI/CD 流水线 URL） |
+| `dateStarted` | string | 否 | 部署开始时间的 ISO 8601 时间戳（默认为当前时间） |
+| `dateFinished` | string | 否 | 部署结束时间的 ISO 8601 时间戳 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `deploy` | object | 新创建的部署记录 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Sentry 集成到工作流中。监控问题、管理项目、跟踪事件，并协调各应用的发布。
+
+## 注意事项
+
+- 类别：`tools`
+- 类型：`sentry`

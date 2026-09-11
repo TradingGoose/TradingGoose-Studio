@@ -1,0 +1,498 @@
+---
+title: Gmail
+description: 发送 Gmail，或根据 Gmail 事件触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="gmail"
+  color=""
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/gmail">
+    查看 Gmail 的触发事件、设置和事件载荷。
+  </Card>
+</Cards>
+
+## 配置
+
+### 发送邮件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "send_gmail",
+            "options": [
+                {
+                    "id": "send_gmail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "read_gmail",
+                    "label": "读取邮件"
+                },
+                {
+                    "id": "draft_gmail",
+                    "label": "草拟邮件"
+                },
+                {
+                    "id": "search_gmail",
+                    "label": "搜索邮件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Gmail 账号",
+            "layout": "full",
+            "placeholder": "选择 Gmail 账号",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "收件人",
+            "layout": "full",
+            "placeholder": "收件人邮箱地址",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "layout": "full",
+            "placeholder": "邮件主题",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "正文",
+            "layout": "full",
+            "placeholder": "邮件内容",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "附件",
+            "layout": "full",
+            "placeholder": "上传要附加的文件",
+            "required": false
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "附件",
+            "layout": "full",
+            "placeholder": "引用先前模块中的文件",
+            "required": false
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "抄送",
+            "layout": "full",
+            "placeholder": "抄送收件人（逗号分隔）",
+            "required": false
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "密送",
+            "layout": "full",
+            "placeholder": "密送收件人（逗号分隔）",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">发送邮件 (<code>gmail_send</code>)</div>
+
+使用 Gmail 发送邮件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `to` | string | 是 | 收件人邮箱地址 |
+| `subject` | string | 否 | 邮件主题 |
+| `body` | string | 是 | 邮件正文内容 |
+| `contentType` | string | 否 | 邮件正文的内容类型 \(text 或 html\) |
+| `threadId` | string | 否 | 要回复的会话 ID \(用于邮件串接\) |
+| `replyToMessageId` | string | 否 | 要回复的 Gmail 消息 ID - 使用 Gmail 读取结果中的 "id" 字段 \(不是 RFC 的 "messageId"\) |
+| `cc` | string | 否 | 抄送收件人 \(逗号分隔\) |
+| `bcc` | string | 否 | 密送收件人 \(逗号分隔\) |
+| `attachments` | file[] | 否 | 要附加到邮件的文件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 成功消息 |
+| `metadata` | object | 邮件元数据 |
+
+</div>
+
+---
+
+### 读取邮件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "read_gmail",
+            "options": [
+                {
+                    "id": "send_gmail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "read_gmail",
+                    "label": "读取邮件"
+                },
+                {
+                    "id": "draft_gmail",
+                    "label": "撰写草稿"
+                },
+                {
+                    "id": "search_gmail",
+                    "label": "搜索邮件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Gmail 账号",
+            "layout": "full",
+            "placeholder": "选择 Gmail 账号",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "folder",
+            "type": "folder-selector",
+            "title": "标签",
+            "layout": "full",
+            "placeholder": "选择 Gmail 标签/文件夹",
+            "provider": "google-email"
+        },
+        {
+            "id": "manualFolder",
+            "type": "short-input",
+            "title": "标签/文件夹",
+            "layout": "full",
+            "placeholder": "输入 Gmail 标签名称（例如 INBOX、SENT 或自定义标签）"
+        },
+        {
+            "id": "unreadOnly",
+            "type": "switch",
+            "title": "仅未读",
+            "layout": "full"
+        },
+        {
+            "id": "includeAttachments",
+            "type": "switch",
+            "title": "包含附件",
+            "layout": "full"
+        },
+        {
+            "id": "messageId",
+            "type": "short-input",
+            "title": "消息 ID",
+            "layout": "full",
+            "placeholder": "输入要读取的消息 ID（可选）",
+            "description": "当 folder 为 '' 时显示。"
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "layout": "full",
+            "placeholder": "结果数量上限（默认：10）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取邮件 (<code>gmail_read</code>)</div>
+
+从 Gmail 读取邮件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `messageId` | string | 否 | 要读取的邮件 ID |
+| `folder` | string | 否 | 读取邮件的文件夹/标签 |
+| `unreadOnly` | boolean | 否 | 仅获取未读邮件 |
+| `maxResults` | number | 否 | 最多获取的邮件数量 \(默认：1，最大：10\) |
+| `includeAttachments` | boolean | 否 | 下载并包含邮件附件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 邮件的文本内容 |
+| `metadata` | json | 邮件的元数据 |
+| `attachments` | file[] | 邮件附件 |
+
+</div>
+
+---
+
+### 撰写草稿
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "draft_gmail",
+            "options": [
+                {
+                    "id": "send_gmail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "read_gmail",
+                    "label": "读取邮件"
+                },
+                {
+                    "id": "draft_gmail",
+                    "label": "撰写草稿"
+                },
+                {
+                    "id": "search_gmail",
+                    "label": "搜索邮件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Gmail 账号",
+            "layout": "full",
+            "placeholder": "选择 Gmail 账号",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "收件人",
+            "layout": "full",
+            "placeholder": "收件人邮箱地址",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "主题",
+            "layout": "full",
+            "placeholder": "邮件主题",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "正文",
+            "layout": "full",
+            "placeholder": "邮件内容",
+            "required": true
+        },
+        {
+            "id": "attachmentFiles",
+            "type": "file-upload",
+            "title": "附件",
+            "layout": "full",
+            "placeholder": "上传要附加的文件",
+            "required": false
+        },
+        {
+            "id": "attachments",
+            "type": "short-input",
+            "title": "附件",
+            "layout": "full",
+            "placeholder": "引用先前模块的文件",
+            "required": false
+        },
+        {
+            "id": "cc",
+            "type": "short-input",
+            "title": "抄送",
+            "layout": "full",
+            "placeholder": "抄送收件人（逗号分隔）",
+            "required": false
+        },
+        {
+            "id": "bcc",
+            "type": "short-input",
+            "title": "密送",
+            "layout": "full",
+            "placeholder": "密送收件人（逗号分隔）",
+            "required": false
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">撰写草稿（<code>gmail_draft</code>）</div>
+
+使用 Gmail 撰写邮件草稿
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `to` | string | 是 | 收件人邮箱地址 |
+| `subject` | string | 否 | 邮件主题 |
+| `body` | string | 是 | 邮件正文内容 |
+| `contentType` | string | 否 | 邮件正文内容类型（text 或 html） |
+| `threadId` | string | 否 | 要回复的会话 ID（用于邮件串） |
+| `replyToMessageId` | string | 否 | 要回复的 Gmail 邮件 ID - 使用 Gmail 读取结果中的 "id" 字段（不是 RFC 的 "messageId"） |
+| `cc` | string | 否 | 抄送收件人（逗号分隔） |
+| `bcc` | string | 否 | 密送收件人（逗号分隔） |
+| `attachments` | file[] | 否 | 附加到邮件草稿的文件 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `content` | string | 成功消息 |
+| `metadata` | object | 草稿元数据 |
+
+</div>
+
+---
+
+### 搜索邮件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Gmail"
+    type="gmail"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "search_gmail",
+            "options": [
+                {
+                    "id": "send_gmail",
+                    "label": "发送邮件"
+                },
+                {
+                    "id": "read_gmail",
+                    "label": "读取邮件"
+                },
+                {
+                    "id": "draft_gmail",
+                    "label": "撰写草稿"
+                },
+                {
+                    "id": "search_gmail",
+                    "label": "搜索邮件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Gmail 账号",
+            "layout": "full",
+            "placeholder": "选择 Gmail 账号",
+            "provider": "google-email",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入搜索关键词",
+            "required": true
+        },
+        {
+            "id": "maxResults",
+            "type": "short-input",
+            "title": "最大结果数",
+            "layout": "full",
+            "placeholder": "结果数量上限（默认：10）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索邮件（<code>gmail_search</code>）</div>
+
+在 Gmail 中搜索邮件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 是 | 邮件搜索查询 |
+| `maxResults` | number | 否 | 返回结果的最大数量 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 搜索结果摘要 |
+| `metadata` | object | 搜索元数据 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Gmail 集成到工作流中。可发送、读取和搜索邮件。可在触发模式下使用，在收到新邮件时触发工作流。
+
+## 注意事项
+
+- 分类：`tools`
+- 类型：`gmail`

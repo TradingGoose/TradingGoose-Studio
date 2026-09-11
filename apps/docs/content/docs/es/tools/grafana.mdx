@@ -1,0 +1,3211 @@
+---
+title: Grafana
+description: Interactúa con paneles, alertas y anotaciones de Grafana
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="grafana"
+  color="#E0E0E0"
+/>
+
+## Configuración
+
+### Listar paneles
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_list_dashboards",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear panel"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar panel"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar panel"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "Filtrar paneles por título"
+        },
+        {
+            "id": "tag",
+            "type": "short-input",
+            "title": "Filtrar por etiqueta",
+            "placeholder": "tag1, tag2 (separadas por comas)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar dashboards (<code>grafana_list_dashboards</code>)</div>
+
+Buscar y listar todos los dashboards
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
+| `query` | string | No | Consulta de búsqueda para filtrar dashboards por título |
+| `tag` | string | No | Filtrar por etiqueta \(separadas por comas si hay varias\) |
+| `folderIds` | string | No | Filtrar por ID de carpetas \(separados por comas\) |
+| `starred` | boolean | No | Devolver solo dashboards destacados |
+| `limit` | number | No | Número máximo de dashboards que devolver |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `dashboards` | array | Lista de resultados de búsqueda de dashboards |
+
+</div>
+
+---
+
+### Obtener dashboard
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_get_dashboard",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: instancias con varias organizaciones"
+        },
+        {
+            "id": "dashboardUid",
+            "type": "short-input",
+            "title": "UID del dashboard",
+            "placeholder": "Introduce el UID del dashboard",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener dashboard (<code>grafana_get_dashboard</code>)</div>
+
+Obtener un dashboard por su UID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
+| `dashboardUid` | string | Sí | UID del dashboard que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `dashboard` | json | El objeto JSON completo del dashboard |
+| `meta` | json | Metadatos del dashboard \(versión, permisos, etc.\) |
+
+</div>
+
+---
+
+### Crear dashboard
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_create_dashboard",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Título del dashboard",
+            "placeholder": "Introduzca el título del dashboard",
+            "required": true
+        },
+        {
+            "id": "folderUid",
+            "type": "short-input",
+            "title": "UID de carpeta",
+            "placeholder": "Opcional: carpeta donde crear el dashboard"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "tag1, tag2 (separadas por comas)"
+        },
+        {
+            "id": "panels",
+            "type": "long-input",
+            "title": "Paneles (JSON)",
+            "placeholder": "Array JSON de configuraciones de paneles"
+        },
+        {
+            "id": "message",
+            "type": "short-input",
+            "title": "Mensaje de commit",
+            "placeholder": "Mensaje de versión opcional"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear dashboard (<code>grafana_create_dashboard</code>)</div>
+
+Crear un dashboard nuevo
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
+| `title` | string | Sí | El título del nuevo dashboard |
+| `folderUid` | string | No | El UID de la carpeta donde crear el dashboard |
+| `tags` | string | No | Lista de etiquetas separadas por comas |
+| `timezone` | string | No | Zona horaria del dashboard \(p. ej., browser, utc\) |
+| `refresh` | string | No | Intervalo de actualización automática \(p. ej., 5s, 1m, 5m\) |
+| `panels` | string | No | Array JSON de configuraciones de paneles |
+| `overwrite` | boolean | No | Sobrescribir el dashboard existente con el mismo título |
+| `message` | string | No | Mensaje de commit de la versión del dashboard |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | El ID numérico del dashboard creado |
+| `uid` | string | El UID del dashboard creado |
+| `url` | string | La ruta URL del dashboard |
+| `status` | string | Estado de la operación \(success\) |
+| `version` | number | El número de versión del dashboard |
+| `slug` | string | Slug del dashboard compatible con URL |
+
+</div>
+
+---
+
+### Actualizar dashboard
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_update_dashboard",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "dashboardUid",
+            "type": "short-input",
+            "title": "UID del dashboard",
+            "placeholder": "Introduce el UID del dashboard",
+            "required": true
+        },
+        {
+            "id": "folderUid",
+            "type": "short-input",
+            "title": "UID de la carpeta",
+            "placeholder": "Opcional: carpeta donde crear el dashboard"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "tag1, tag2 (separadas por comas)"
+        },
+        {
+            "id": "panels",
+            "type": "long-input",
+            "title": "Paneles (JSON)",
+            "placeholder": "Array JSON de configuraciones de paneles"
+        },
+        {
+            "id": "message",
+            "type": "short-input",
+            "title": "Mensaje de commit",
+            "placeholder": "Mensaje de versión opcional"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar dashboard (<code>grafana_update_dashboard</code>)</div>
+
+Actualiza un dashboard existente. Obtiene el dashboard actual y fusiona tus cambios.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
+| `dashboardUid` | string | Sí | UID del dashboard que se va a actualizar |
+| `title` | string | No | Nuevo título del dashboard |
+| `folderUid` | string | No | Nuevo UID de carpeta al que mover el dashboard |
+| `tags` | string | No | Lista de etiquetas nuevas separadas por comas |
+| `timezone` | string | No | Zona horaria del dashboard \(p. ej., browser, utc\) |
+| `refresh` | string | No | Intervalo de actualización automática \(p. ej., 5s, 1m, 5m\) |
+| `panels` | string | No | Array JSON de configuraciones de paneles |
+| `overwrite` | boolean | No | Sobrescribir aunque haya un conflicto de versión |
+| `message` | string | No | Mensaje de commit de esta versión |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | ID numérico del dashboard actualizado |
+| `uid` | string | UID del dashboard actualizado |
+| `url` | string | Ruta URL del dashboard |
+| `status` | string | Estado de la operación \(success\) |
+| `version` | number | Nuevo número de versión del dashboard |
+| `slug` | string | Slug del dashboard compatible con URL |
+
+</div>
+
+---
+
+### Eliminar dashboard
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_delete_dashboard",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar fuentes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener fuente de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "dashboardUid",
+            "type": "short-input",
+            "title": "UID del dashboard",
+            "placeholder": "Introduce el UID del dashboard",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar dashboard (<code>grafana_delete_dashboard</code>)</div>
+
+Elimina un dashboard por su UID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
+| `dashboardUid` | string | Sí | UID del dashboard que se va a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `title` | string | Título del dashboard eliminado |
+| `message` | string | Mensaje de confirmación |
+| `id` | number | ID del dashboard eliminado |
+
+</div>
+
+---
+
+### Listar reglas de alerta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_list_alert_rules",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar fuentes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener fuente de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar reglas de alerta (<code>grafana_list_alert_rules</code>)</div>
+
+Lista todas las reglas de alerta de la instancia de Grafana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `rules` | array | Lista de reglas de alerta |
+
+</div>
+
+---
+
+### Obtener regla de alerta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_get_alert_rule",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "alertRuleUid",
+            "type": "short-input",
+            "title": "UID de regla de alerta",
+            "placeholder": "Introducir UID de la regla de alerta",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener regla de alerta (<code>grafana_get_alert_rule</code>)</div>
+
+Obtener una regla de alerta específica por su UID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
+| `alertRuleUid` | string | Sí | UID de la regla de alerta que se va a obtener |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `uid` | string | UID de la regla de alerta |
+| `title` | string | Título de la regla de alerta |
+| `condition` | string | Condición de alerta |
+| `data` | json | Datos de consulta de la regla de alerta |
+| `folderUID` | string | UID de la carpeta principal |
+| `ruleGroup` | string | Nombre del grupo de reglas |
+| `noDataState` | string | Estado cuando no hay datos |
+| `execErrState` | string | Estado ante un error de ejecución |
+| `annotations` | json | Anotaciones de alerta |
+| `labels` | json | Etiquetas de alerta |
+
+</div>
+
+---
+
+### Crear regla de alerta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_create_alert_rule",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear panel"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar panel"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar panel"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "folderUid",
+            "type": "short-input",
+            "title": "UID de carpeta",
+            "placeholder": "Opcional: carpeta donde crear el panel"
+        },
+        {
+            "id": "alertTitle",
+            "type": "short-input",
+            "title": "Título de alerta",
+            "placeholder": "Nombre de la regla de alerta"
+        },
+        {
+            "id": "folderUid",
+            "type": "short-input",
+            "title": "UID de carpeta",
+            "placeholder": "UID de la carpeta de la regla de alerta"
+        },
+        {
+            "id": "ruleGroup",
+            "type": "short-input",
+            "title": "Grupo de reglas",
+            "placeholder": "Nombre del grupo de reglas"
+        },
+        {
+            "id": "condition",
+            "type": "short-input",
+            "title": "Condición",
+            "placeholder": "refId de la condición (p. ej., A)"
+        },
+        {
+            "id": "data",
+            "type": "long-input",
+            "title": "Datos de consulta (JSON)",
+            "placeholder": "Array JSON de objetos de datos de consulta/expresión"
+        },
+        {
+            "id": "forDuration",
+            "type": "short-input",
+            "title": "Duración",
+            "placeholder": "5m (p. ej., 5m, 1h)"
+        },
+        {
+            "id": "noDataState",
+            "type": "dropdown",
+            "title": "Estado sin datos",
+            "defaultValue": "NoData",
+            "options": [
+                {
+                    "id": "NoData",
+                    "label": "Sin datos"
+                },
+                {
+                    "id": "Alerting",
+                    "label": "Alertando"
+                },
+                {
+                    "id": "OK",
+                    "label": "OK"
+                }
+            ]
+        },
+        {
+            "id": "execErrState",
+            "type": "dropdown",
+            "title": "Estado de error",
+            "defaultValue": "Alerting",
+            "options": [
+                {
+                    "id": "Alerting",
+                    "label": "Alertando"
+                },
+                {
+                    "id": "OK",
+                    "label": "OK"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear regla de alerta (<code>grafana_create_alert_rule</code>)</div>
+
+Crear una nueva regla de alerta
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
+| `title` | string | Sí | El título de la regla de alerta |
+| `folderUid` | string | Sí | El UID de la carpeta en la que crear la alerta |
+| `ruleGroup` | string | Sí | El nombre del grupo de reglas |
+| `condition` | string | Sí | El refId de la consulta o expresión que se usará como condición de la alerta |
+| `data` | string | Sí | Array JSON de objetos de datos de consulta/expresión |
+| `forDuration` | string | No | Duración de espera antes de disparar \(p. ej., 5m, 1h\) |
+| `noDataState` | string | No | Estado cuando no se devuelven datos \(NoData, Alerting, OK\) |
+| `execErrState` | string | No | Estado ante un error de ejecución \(Alerting, OK\) |
+| `annotations` | string | No | Objeto JSON de anotaciones |
+| `labels` | string | No | Objeto JSON de etiquetas |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `uid` | string | El UID de la regla de alerta creada |
+| `title` | string | Título de la regla de alerta |
+| `folderUID` | string | UID de la carpeta padre |
+| `ruleGroup` | string | Nombre del grupo de reglas |
+
+</div>
+
+---
+
+### Actualizar regla de alerta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_update_alert_rule",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear panel"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar panel"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar panel"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "alertRuleUid",
+            "type": "short-input",
+            "title": "UID de la regla de alerta",
+            "placeholder": "Introduzca el UID de la regla de alerta",
+            "required": true
+        },
+        {
+            "id": "alertTitle",
+            "type": "short-input",
+            "title": "Título de la alerta",
+            "placeholder": "Introduzca el nombre de la regla de alerta"
+        },
+        {
+            "id": "folderUid",
+            "type": "short-input",
+            "title": "UID de la carpeta",
+            "placeholder": "UID de la carpeta de la regla de alerta"
+        },
+        {
+            "id": "ruleGroup",
+            "type": "short-input",
+            "title": "Grupo de reglas",
+            "placeholder": "Introduzca el nombre del grupo de reglas"
+        },
+        {
+            "id": "condition",
+            "type": "short-input",
+            "title": "Condición",
+            "placeholder": "refId de la condición (p. ej., A)"
+        },
+        {
+            "id": "data",
+            "type": "long-input",
+            "title": "Datos de consulta (JSON)",
+            "placeholder": "Matriz JSON de objetos de datos de consulta/expresión"
+        },
+        {
+            "id": "forDuration",
+            "type": "short-input",
+            "title": "Duración For",
+            "placeholder": "5m (p. ej., 5m, 1h)"
+        },
+        {
+            "id": "noDataState",
+            "type": "dropdown",
+            "title": "Estado sin datos",
+            "defaultValue": "NoData",
+            "options": [
+                {
+                    "id": "NoData",
+                    "label": "Sin datos"
+                },
+                {
+                    "id": "Alerting",
+                    "label": "En alerta"
+                },
+                {
+                    "id": "OK",
+                    "label": "OK"
+                }
+            ]
+        },
+        {
+            "id": "execErrState",
+            "type": "dropdown",
+            "title": "Estado de error",
+            "defaultValue": "Alerting",
+            "options": [
+                {
+                    "id": "Alerting",
+                    "label": "En alerta"
+                },
+                {
+                    "id": "OK",
+                    "label": "OK"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar regla de alerta (<code>grafana_update_alert_rule</code>)</div>
+
+Actualiza una regla de alerta existente. Obtiene la regla actual y fusiona tus cambios.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
+| `alertRuleUid` | string | Sí | El UID de la regla de alerta que se va a actualizar |
+| `title` | string | No | Nuevo título de la regla de alerta |
+| `folderUid` | string | No | Nuevo UID de carpeta al que mover la alerta |
+| `ruleGroup` | string | No | Nuevo nombre del grupo de reglas |
+| `condition` | string | No | Nuevo refId de condición |
+| `data` | string | No | Nueva matriz JSON de objetos de datos de consulta/expresión |
+| `forDuration` | string | No | Duración de espera antes de disparar \(p. ej., 5m, 1h\) |
+| `noDataState` | string | No | Estado cuando no se devuelven datos \(NoData, Alerting, OK\) |
+| `execErrState` | string | No | Estado ante error de ejecución \(Alerting, OK\) |
+| `annotations` | string | No | Objeto JSON de anotaciones |
+| `labels` | string | No | Objeto JSON de etiquetas |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `uid` | string | El UID de la regla de alerta actualizada |
+| `title` | string | Título de la regla de alerta |
+| `folderUID` | string | UID de la carpeta principal |
+| `ruleGroup` | string | Nombre del grupo de reglas |
+
+</div>
+
+---
+
+### Eliminar regla de alerta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_delete_alert_rule",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "alertRuleUid",
+            "type": "short-input",
+            "title": "UID de la regla de alerta",
+            "placeholder": "Introducir UID de la regla de alerta",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar regla de alerta (<code>grafana_delete_alert_rule</code>)</div>
+
+Elimina una regla de alerta por su UID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
+| `alertRuleUid` | string | Sí | El UID de la regla de alerta que se va a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `message` | string | Mensaje de confirmación |
+
+</div>
+
+---
+
+### Listar puntos de contacto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_list_contact_points",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear panel"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar panel"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar panel"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar puntos de contacto (<code>grafana_list_contact_points</code>)</div>
+
+Listar todos los puntos de contacto de notificación de alertas
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `contactPoints` | array | Lista de puntos de contacto |
+
+</div>
+
+---
+
+### Crear anotación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_create_annotation",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar fuentes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener fuente de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto de la anotación",
+            "placeholder": "Escriba el texto de la anotación...",
+            "required": true
+        },
+        {
+            "id": "annotationTags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "tag1, tag2 (separadas por comas)"
+        },
+        {
+            "id": "annotationDashboardUid",
+            "type": "short-input",
+            "title": "UID del dashboard",
+            "placeholder": "Introduzca el UID del dashboard",
+            "required": true
+        },
+        {
+            "id": "panelId",
+            "type": "short-input",
+            "title": "ID del panel",
+            "placeholder": "Opcional: asociar a un panel concreto"
+        },
+        {
+            "id": "time",
+            "type": "short-input",
+            "title": "Tiempo (epoch ms)",
+            "placeholder": "Opcional: de forma predeterminada, ahora"
+        },
+        {
+            "id": "timeEnd",
+            "type": "short-input",
+            "title": "Tiempo de fin (epoch ms)",
+            "placeholder": "Opcional: para anotaciones de intervalo"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear anotación (<code>grafana_create_annotation</code>)</div>
+
+Crea una anotación en un dashboard o como anotación global
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
+| `text` | string | Sí | El contenido de texto de la anotación |
+| `tags` | string | No | Lista de etiquetas separadas por comas |
+| `dashboardUid` | string | Sí | UID del dashboard al que añadir la anotación |
+| `panelId` | number | No | ID del panel al que añadir la anotación |
+| `time` | number | No | Hora de inicio en milisegundos epoch \(el valor predeterminado es ahora\) |
+| `timeEnd` | number | No | Hora de fin en milisegundos epoch \(para anotaciones de intervalo\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | El ID de la anotación creada |
+| `message` | string | Mensaje de confirmación |
+
+</div>
+
+---
+
+### Listar anotaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_list_annotations",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "annotationTags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "tag1, tag2 (separadas por comas)"
+        },
+        {
+            "id": "annotationDashboardUid",
+            "type": "short-input",
+            "title": "UID del dashboard",
+            "placeholder": "Introduce el UID del dashboard",
+            "required": true
+        },
+        {
+            "id": "panelId",
+            "type": "short-input",
+            "title": "ID del panel",
+            "placeholder": "Opcional: asociar a un panel concreto"
+        },
+        {
+            "id": "from",
+            "type": "short-input",
+            "title": "Hora de inicio (epoch ms)",
+            "placeholder": "Filtrar desde"
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "Hora de fin (epoch ms)",
+            "placeholder": "Filtrar hasta"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar anotaciones (<code>grafana_list_annotations</code>)</div>
+
+Consultar anotaciones por intervalo de tiempo, dashboard o etiquetas
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
+| `from` | number | No | Hora de inicio en milisegundos epoch |
+| `to` | number | No | Hora de fin en milisegundos epoch |
+| `dashboardUid` | string | Sí | UID del dashboard del que consultar anotaciones |
+| `panelId` | number | No | Filtrar por ID de panel |
+| `tags` | string | No | Lista de etiquetas separadas por comas para filtrar |
+| `type` | string | No | Filtrar por tipo \(alerta o anotación\) |
+| `limit` | number | No | Número máximo de anotaciones a devolver |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `annotations` | array | Lista de anotaciones |
+
+</div>
+
+---
+
+### Actualizar anotación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_update_annotation",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "text",
+            "type": "long-input",
+            "title": "Texto de la anotación",
+            "placeholder": "Introducir texto de la anotación...",
+            "required": true
+        },
+        {
+            "id": "annotationTags",
+            "type": "short-input",
+            "title": "Etiquetas",
+            "placeholder": "tag1, tag2 (separadas por comas)"
+        },
+        {
+            "id": "time",
+            "type": "short-input",
+            "title": "Hora (epoch ms)",
+            "placeholder": "Opcional: ahora por defecto"
+        },
+        {
+            "id": "timeEnd",
+            "type": "short-input",
+            "title": "Hora de fin (epoch ms)",
+            "placeholder": "Opcional: para anotaciones de intervalo"
+        },
+        {
+            "id": "annotationId",
+            "type": "short-input",
+            "title": "ID de anotación",
+            "placeholder": "Introducir ID de anotación",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar anotación (<code>grafana_update_annotation</code>)</div>
+
+Actualizar una anotación existente
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias Grafana con varias organizaciones |
+| `annotationId` | number | Sí | ID de la anotación que se va a actualizar |
+| `text` | string | Sí | Nuevo contenido de texto de la anotación |
+| `tags` | string | No | Lista de etiquetas nuevas separadas por comas |
+| `time` | number | No | Nueva hora de inicio en milisegundos epoch |
+| `timeEnd` | number | No | Nueva hora de fin en milisegundos epoch |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `id` | number | ID de la anotación actualizada |
+| `message` | string | Mensaje de confirmación |
+
+</div>
+
+---
+
+### Eliminar anotación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_delete_annotation",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear dashboard"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar dashboard"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar dashboard"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar orígenes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener origen de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "annotationId",
+            "type": "short-input",
+            "title": "ID de anotación",
+            "placeholder": "Escriba el ID de anotación",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Eliminar anotación (<code>grafana_delete_annotation</code>)</div>
+
+Eliminar una anotación por su ID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | cadena | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | cadena | Sí | URL de la instancia de Grafana \\(p. ej., https://your-grafana.com\\) |
+| `organizationId` | cadena | No | ID de organización para instancias de Grafana multi-org |
+| `annotationId` | número | Sí | El ID de la anotación a eliminar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `message` | cadena | Mensaje de confirmación |
+
+</div>
+
+---
+
+### Listar fuentes de datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_list_data_sources",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear panel"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar panel"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar panel"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar fuentes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener fuente de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional - para instancias multi-org"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar fuentes de datos (<code>grafana_list_data_sources</code>)</div>
+
+Lista todas las fuentes de datos configuradas en Grafana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `dataSources` | array | Lista de fuentes de datos |
+
+</div>
+
+---
+
+### Obtener fuente de datos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_get_data_source",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear panel"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar panel"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar panel"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar fuentes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener fuente de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "dataSourceId",
+            "type": "short-input",
+            "title": "ID de fuente de datos",
+            "placeholder": "Introduce el ID o UID de la fuente de datos",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener fuente de datos (<code>grafana_get_data_source</code>)</div>
+
+Obtiene una fuente de datos por su ID o UID
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
+| `dataSourceId` | string | Sí | El ID o UID de la fuente de datos que se desea obtener |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | ID de la fuente de datos |
+| `uid` | string | UID de la fuente de datos |
+| `name` | string | Nombre de la fuente de datos |
+| `type` | string | Tipo de fuente de datos |
+| `url` | string | URL de conexión de la fuente de datos |
+| `database` | string | Nombre de la base de datos \(si aplica\) |
+| `isDefault` | boolean | Indica si esta es la fuente de datos predeterminada |
+| `jsonData` | json | Configuración adicional de la fuente de datos |
+
+</div>
+
+---
+
+### Listar carpetas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_list_folders",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar cuadros de mando"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener cuadro de mando"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear cuadro de mando"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar cuadro de mando"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar cuadro de mando"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar fuentes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener fuente de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias multi-org"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar carpetas (<code>grafana_list_folders</code>)</div>
+
+Listar todas las carpetas en Grafana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(p. ej., https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias de Grafana con varias organizaciones |
+| `limit` | number | No | Número máximo de carpetas a devolver |
+| `page` | number | No | Número de página para la paginación |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `folders` | array | Lista de carpetas |
+
+</div>
+
+---
+
+### Crear carpeta
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Grafana"
+    type="grafana"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "grafana_create_folder",
+            "options": [
+                {
+                    "id": "grafana_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "grafana_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "grafana_create_dashboard",
+                    "label": "Crear panel"
+                },
+                {
+                    "id": "grafana_update_dashboard",
+                    "label": "Actualizar panel"
+                },
+                {
+                    "id": "grafana_delete_dashboard",
+                    "label": "Eliminar panel"
+                },
+                {
+                    "id": "grafana_list_alert_rules",
+                    "label": "Listar reglas de alerta"
+                },
+                {
+                    "id": "grafana_get_alert_rule",
+                    "label": "Obtener regla de alerta"
+                },
+                {
+                    "id": "grafana_create_alert_rule",
+                    "label": "Crear regla de alerta"
+                },
+                {
+                    "id": "grafana_update_alert_rule",
+                    "label": "Actualizar regla de alerta"
+                },
+                {
+                    "id": "grafana_delete_alert_rule",
+                    "label": "Eliminar regla de alerta"
+                },
+                {
+                    "id": "grafana_list_contact_points",
+                    "label": "Listar puntos de contacto"
+                },
+                {
+                    "id": "grafana_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "grafana_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "grafana_update_annotation",
+                    "label": "Actualizar anotación"
+                },
+                {
+                    "id": "grafana_delete_annotation",
+                    "label": "Eliminar anotación"
+                },
+                {
+                    "id": "grafana_list_data_sources",
+                    "label": "Listar fuentes de datos"
+                },
+                {
+                    "id": "grafana_get_data_source",
+                    "label": "Obtener fuente de datos"
+                },
+                {
+                    "id": "grafana_list_folders",
+                    "label": "Listar carpetas"
+                },
+                {
+                    "id": "grafana_create_folder",
+                    "label": "Crear carpeta"
+                }
+            ]
+        },
+        {
+            "id": "baseUrl",
+            "type": "short-input",
+            "title": "URL de Grafana",
+            "placeholder": "https://your-grafana.com",
+            "required": true
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Token de cuenta de servicio",
+            "placeholder": "glsa_...",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "Opcional: para instancias con varias organizaciones"
+        },
+        {
+            "id": "folderTitle",
+            "type": "short-input",
+            "title": "Título de la carpeta",
+            "placeholder": "Introduce el título de la carpeta",
+            "required": true
+        },
+        {
+            "id": "folderUidNew",
+            "type": "short-input",
+            "title": "UID de carpeta",
+            "placeholder": "Opcional: se genera automáticamente si no se proporciona"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear carpeta (<code>grafana_create_folder</code>)</div>
+
+Crear una nueva carpeta en Grafana
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Token de cuenta de servicio de Grafana |
+| `baseUrl` | string | Sí | URL de la instancia de Grafana \(por ejemplo, https://your-grafana.com\) |
+| `organizationId` | string | No | ID de organización para instancias de Grafana multi-org |
+| `title` | string | Sí | El título de la nueva carpeta |
+| `uid` | string | No | UID opcional para la carpeta \(generado automáticamente si no se proporciona\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | number | El ID numérico de la carpeta creada |
+| `uid` | string | El UID de la carpeta creada |
+| `title` | string | El título de la carpeta creada |
+| `url` | string | La ruta URL de la carpeta |
+| `hasAcl` | boolean | Si la carpeta tiene permisos ACL personalizados |
+| `canSave` | boolean | Si el usuario actual puede guardar la carpeta |
+| `canEdit` | boolean | Si el usuario actual puede editar la carpeta |
+| `canAdmin` | boolean | Si el usuario actual tiene derechos de administrador en la carpeta |
+| `canDelete` | boolean | Si el usuario actual puede eliminar la carpeta |
+| `createdBy` | string | Nombre de usuario de quien creó la carpeta |
+| `created` | string | Marca de tiempo de creación de la carpeta |
+| `updatedBy` | string | Nombre de usuario de quien actualizó la carpeta por última vez |
+| `updated` | string | Marca de tiempo de la última actualización de la carpeta |
+| `version` | number | Número de versión de la carpeta |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Grafana en los flujos de trabajo. Gestiona paneles, alertas, anotaciones, fuentes de datos y carpetas, y monitorea el estado de salud.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `grafana`

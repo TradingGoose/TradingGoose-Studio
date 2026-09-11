@@ -1,0 +1,2654 @@
+---
+title: Kalshi
+description: Accede a mercados de predicción y opera en Kalshi
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="kalshi"
+  color="#09C285"
+/>
+
+## Configuración
+
+### Obtener mercados
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_markets",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos"
+                },
+                {
+                    "id": "unopened",
+                    "label": "Sin abrir"
+                },
+                {
+                    "id": "open",
+                    "label": "Abierto"
+                },
+                {
+                    "id": "closed",
+                    "label": "Cerrado"
+                },
+                {
+                    "id": "settled",
+                    "label": "Liquidado"
+                }
+            ]
+        },
+        {
+            "id": "seriesTicker",
+            "type": "short-input",
+            "title": "Ticker de serie",
+            "placeholder": "Filtrar por ticker de serie"
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "Ticker de evento",
+            "placeholder": "Ticker de evento"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (1-1000, predeterminado: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Cursor de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener mercados (<code>kalshi_get_markets</code>)</div>
+
+Obtener una lista de mercados de predicción de Kalshi con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `status` | string | No | Filtrar por estado \(unopened, open, closed, settled\) |
+| `seriesTicker` | string | No | Filtrar por ticker de serie |
+| `eventTicker` | string | No | Filtrar por ticker de evento |
+| `limit` | string | No | Número de resultados \(1-1000, predeterminado: 100\) |
+| `cursor` | string | No | Cursor de paginación para la página siguiente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `markets` | array | Array de objetos de mercado |
+| `paging` | object | Cursor de paginación para obtener más resultados |
+
+</div>
+
+---
+
+### Obtener mercado
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_market",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "ticker",
+            "type": "short-input",
+            "title": "Ticker del mercado",
+            "placeholder": "Ticker del mercado (p. ej., KXBTC-24DEC31)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener mercado (<code>kalshi_get_market</code>)</div>
+
+Obtener los detalles de un mercado de predicción específico por ticker
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `ticker` | string | Sí | El ticker del mercado \(p. ej., "KXBTC-24DEC31"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `market` | object | Objeto de mercado con detalles |
+
+</div>
+
+---
+
+### Obtener eventos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_events",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "status",
+            "type": "dropdown",
+            "title": "Estado",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos"
+                },
+                {
+                    "id": "unopened",
+                    "label": "Sin abrir"
+                },
+                {
+                    "id": "open",
+                    "label": "Abierto"
+                },
+                {
+                    "id": "closed",
+                    "label": "Cerrado"
+                },
+                {
+                    "id": "settled",
+                    "label": "Liquidado"
+                }
+            ]
+        },
+        {
+            "id": "seriesTicker",
+            "type": "short-input",
+            "title": "Ticker de serie",
+            "placeholder": "Filtrar por ticker de serie"
+        },
+        {
+            "id": "withNestedMarkets",
+            "type": "dropdown",
+            "title": "Incluir mercados",
+            "options": [
+                {
+                    "id": "",
+                    "label": "No"
+                },
+                {
+                    "id": "true",
+                    "label": "Sí"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (1-1000, valor predeterminado: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Cursor de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener eventos (<code>kalshi_get_events</code>)</div>
+
+Recuperar una lista de eventos de Kalshi con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `status` | string | No | Filtrar por estado \(open, closed, settled\) |
+| `seriesTicker` | string | No | Filtrar por ticker de serie |
+| `withNestedMarkets` | string | No | Incluir mercados anidados en la respuesta \(true/false\) |
+| `limit` | string | No | Número de resultados \(1-200, por defecto: 200\) |
+| `cursor` | string | No | Cursor de paginación para la página siguiente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `events` | array | Array de objetos de evento |
+| `paging` | object | Cursor de paginación para obtener más resultados |
+
+</div>
+
+---
+
+### Obtener evento
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_event",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "Ticker del evento",
+            "placeholder": "Ticker del evento",
+            "required": true
+        },
+        {
+            "id": "withNestedMarkets",
+            "type": "dropdown",
+            "title": "Incluir mercados",
+            "options": [
+                {
+                    "id": "",
+                    "label": "No"
+                },
+                {
+                    "id": "true",
+                    "label": "Sí"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener evento (<code>kalshi_get_event</code>)</div>
+
+Recupera los detalles de un evento específico por ticker
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `eventTicker` | string | Sí | El ticker del evento |
+| `withNestedMarkets` | string | No | Incluir mercados anidados en la respuesta \(true/false\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `event` | object | Objeto de evento con detalles |
+
+</div>
+
+---
+
+### Obtener saldo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_balance",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "ID de clave API",
+            "placeholder": "Tu ID de clave API de Kalshi",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Clave privada",
+            "placeholder": "Tu clave privada RSA (formato PEM)",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener saldo (<code>kalshi_get_balance</code>)</div>
+
+Obtén el saldo de tu cuenta y el valor de la cartera desde Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Sí | Tu ID de clave de API de Kalshi |
+| `privateKey` | string | Sí | Tu clave privada RSA \(formato PEM\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `balance` | number | Saldo de la cuenta en céntimos |
+| `portfolioValue` | number | Valor de la cartera en céntimos |
+
+</div>
+
+---
+
+### Obtener posiciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_positions",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "ID de clave de API",
+            "placeholder": "Tu ID de clave de API de Kalshi",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Clave privada",
+            "placeholder": "Tu clave privada RSA (formato PEM)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "Ticker del evento",
+            "placeholder": "Ticker del evento"
+        },
+        {
+            "id": "tickerFilter",
+            "type": "short-input",
+            "title": "Ticker del mercado",
+            "placeholder": "Filtrar por ticker del mercado (opcional)"
+        },
+        {
+            "id": "settlementStatus",
+            "type": "dropdown",
+            "title": "Estado de liquidación",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos"
+                },
+                {
+                    "id": "unsettled",
+                    "label": "Sin liquidar"
+                },
+                {
+                    "id": "settled",
+                    "label": "Liquidados"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (1-1000, valor predeterminado: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Cursor de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener posiciones (<code>kalshi_get_positions</code>)</div>
+
+Recupera tus posiciones abiertas de Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Sí | Tu ID de clave API de Kalshi |
+| `privateKey` | string | Sí | Tu clave privada RSA \(formato PEM\) |
+| `ticker` | string | No | Filtrar por ticker de mercado |
+| `eventTicker` | string | No | Filtrar por ticker de evento \(máx. 10 separados por comas\) |
+| `settlementStatus` | string | No | Filtrar por estado de liquidación \(all, unsettled, settled\). Predeterminado: unsettled |
+| `limit` | string | No | Número de resultados \(1-1000, predeterminado: 100\) |
+| `cursor` | string | No | Cursor de paginación para la página siguiente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `positions` | array | Array de objetos de posición |
+| `paging` | object | Cursor de paginación para obtener más resultados |
+
+</div>
+
+---
+
+### Obtener órdenes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_orders",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "ID de clave API",
+            "placeholder": "Tu ID de clave API de Kalshi",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Clave privada",
+            "placeholder": "Tu clave privada RSA (formato PEM)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "eventTicker",
+            "type": "short-input",
+            "title": "Ticker de evento",
+            "placeholder": "Ticker de evento"
+        },
+        {
+            "id": "tickerFilter",
+            "type": "short-input",
+            "title": "Ticker de mercado",
+            "placeholder": "Filtrar por ticker de mercado (opcional)"
+        },
+        {
+            "id": "orderStatus",
+            "type": "dropdown",
+            "title": "Estado de la orden",
+            "options": [
+                {
+                    "id": "",
+                    "label": "Todos"
+                },
+                {
+                    "id": "resting",
+                    "label": "En espera"
+                },
+                {
+                    "id": "canceled",
+                    "label": "Cancelada"
+                },
+                {
+                    "id": "executed",
+                    "label": "Ejecutada"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (1-1000, predeterminado: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Cursor de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener órdenes (<code>kalshi_get_orders</code>)</div>
+
+Recupera tus órdenes de Kalshi con filtrado opcional
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Sí | Tu ID de clave de API de Kalshi |
+| `privateKey` | string | Sí | Tu clave privada RSA \(formato PEM\) |
+| `ticker` | string | No | Filtrar por ticker de mercado |
+| `eventTicker` | string | No | Filtrar por ticker de evento \(máx. 10 separados por comas\) |
+| `status` | string | No | Filtrar por estado \(resting, canceled, executed\) |
+| `limit` | string | No | Número de resultados \(1-200, predeterminado: 100\) |
+| `cursor` | string | No | Cursor de paginación para la página siguiente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `orders` | array | Array de objetos de orden |
+| `paging` | object | Cursor de paginación para obtener más resultados |
+
+</div>
+
+---
+
+### Obtener orden
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_order",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "ID de clave de API",
+            "placeholder": "Tu ID de clave de API de Kalshi",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Clave privada",
+            "placeholder": "Tu clave privada RSA (formato PEM)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "orderIdParam",
+            "type": "short-input",
+            "title": "ID de orden",
+            "placeholder": "ID de orden",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener orden (<code>kalshi_get_order</code>)</div>
+
+Recuperar los detalles de una orden específica por ID de Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Sí | Tu ID de clave de API de Kalshi |
+| `privateKey` | string | Sí | Tu clave privada RSA \(formato PEM\) |
+| `orderId` | string | Sí | El ID de la orden que se va a recuperar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `order` | object | Objeto de orden con los detalles |
+
+</div>
+
+---
+
+### Obtener libro de órdenes
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_orderbook",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "ticker",
+            "type": "short-input",
+            "title": "Ticker del mercado",
+            "placeholder": "Ticker del mercado (p. ej., KXBTC-24DEC31)",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener libro de órdenes (<code>kalshi_get_orderbook</code>)</div>
+
+Recupera el libro de órdenes (pujas yes y no) de un mercado específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `ticker` | string | Sí | Ticker del mercado \(p. ej., KXBTC-24DEC31\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `orderbook` | object | Libro de órdenes con pujas y ofertas yes/no |
+
+</div>
+
+---
+
+### Obtener operaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_trades",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (1-1000, predeterminado: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Cursor de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener operaciones (<code>kalshi_get_trades</code>)</div>
+
+Recupera las operaciones recientes de todos los mercados
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | No | Número de resultados \(1-1000, predeterminado: 100\) |
+| `cursor` | string | No | Cursor de paginación para la página siguiente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `trades` | array | Matriz de objetos de operación |
+| `paging` | object | Cursor de paginación para obtener más resultados |
+
+</div>
+
+---
+
+### Obtener velas
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_candlesticks",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "seriesTickerCandlesticks",
+            "type": "short-input",
+            "title": "Ticker de serie",
+            "placeholder": "Ticker de serie",
+            "required": true
+        },
+        {
+            "id": "tickerCandlesticks",
+            "type": "short-input",
+            "title": "Ticker de mercado",
+            "placeholder": "Ticker de mercado (p. ej., KXBTC-24DEC31)",
+            "required": true
+        },
+        {
+            "id": "startTs",
+            "type": "short-input",
+            "title": "Timestamp de inicio",
+            "placeholder": "Timestamp de inicio (segundos Unix)",
+            "required": true
+        },
+        {
+            "id": "endTs",
+            "type": "short-input",
+            "title": "Timestamp de fin",
+            "placeholder": "Timestamp de fin (segundos Unix)",
+            "required": true
+        },
+        {
+            "id": "periodInterval",
+            "type": "dropdown",
+            "title": "Intervalo de período",
+            "required": true,
+            "options": [
+                {
+                    "id": "1",
+                    "label": "1 minuto"
+                },
+                {
+                    "id": "60",
+                    "label": "1 hora"
+                },
+                {
+                    "id": "1440",
+                    "label": "1 día"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener velas (<code>kalshi_get_candlesticks</code>)</div>
+
+Obtener datos de velas OHLC de un mercado específico
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `seriesTicker` | string | Sí | Ticker de la serie |
+| `ticker` | string | Sí | Ticker del mercado \(p. ej., KXBTC-24DEC31\) |
+| `startTs` | number | Sí | Marca de tiempo de inicio \(Unix en segundos\) |
+| `endTs` | number | Sí | Marca de tiempo de fin \(Unix en segundos\) |
+| `periodInterval` | number | Sí | Intervalo del período: 1 \(1 min\), 60 \(1 hora\) o 1440 \(1 día\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `candlesticks` | array | Array de datos de velas OHLC |
+
+</div>
+
+---
+
+### Obtener ejecuciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_fills",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "ID de clave API",
+            "placeholder": "Tu ID de clave API de Kalshi",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Clave privada",
+            "placeholder": "Tu clave privada RSA (formato PEM)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "minTs",
+            "type": "short-input",
+            "title": "Marca de tiempo mín.",
+            "placeholder": "Marca de tiempo mínima (Unix en milisegundos)"
+        },
+        {
+            "id": "maxTs",
+            "type": "short-input",
+            "title": "Marca de tiempo máx.",
+            "placeholder": "Marca de tiempo máxima (Unix en milisegundos)"
+        },
+        {
+            "id": "tickerFills",
+            "type": "short-input",
+            "title": "Ticker del mercado",
+            "placeholder": "Filtrar por ticker de mercado (opcional)"
+        },
+        {
+            "id": "orderId",
+            "type": "short-input",
+            "title": "ID de orden",
+            "placeholder": "Filtrar por ID de orden (opcional)"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "Número de resultados (1-1000, predeterminado: 100)"
+        },
+        {
+            "id": "cursor",
+            "type": "short-input",
+            "title": "Cursor",
+            "placeholder": "Cursor de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener ejecuciones (<code>kalshi_get_fills</code>)</div>
+
+Recupera las ejecuciones/operaciones de tu cartera de Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Sí | ID de tu clave API de Kalshi |
+| `privateKey` | string | Sí | Tu clave privada RSA \(formato PEM\) |
+| `ticker` | string | No | Filtrar por ticker del mercado |
+| `orderId` | string | No | Filtrar por ID de orden |
+| `minTs` | number | No | Marca de tiempo mínima \(milisegundos Unix\) |
+| `maxTs` | number | No | Marca de tiempo máxima \(milisegundos Unix\) |
+| `limit` | string | No | Número de resultados \(1-1000, por defecto: 100\) |
+| `cursor` | string | No | Cursor de paginación para la página siguiente |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `fills` | array | Array de objetos de ejecución/operación |
+| `paging` | object | Cursor de paginación para obtener más resultados |
+
+</div>
+
+---
+
+### Obtener serie por ticker
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_series_by_ticker",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "seriesTickerGet",
+            "type": "short-input",
+            "title": "Ticker de la serie",
+            "placeholder": "Ticker de la serie",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener serie por ticker (<code>kalshi_get_series_by_ticker</code>)</div>
+
+Obtiene los detalles de una serie de mercado específica por ticker
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `seriesTicker` | string | Sí | Ticker de la serie |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `series` | object | Objeto de serie con detalles |
+
+</div>
+
+---
+
+### Obtener estado del exchange
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "get_exchange_status",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener estado del exchange (<code>kalshi_get_exchange_status</code>)</div>
+
+Obtiene el estado actual del exchange de Kalshi (actividad de trading y del exchange)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+Esta operación no tiene parámetros directos.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `status` | object | Estado del exchange con flags trading_active y exchange_active |
+
+</div>
+
+---
+
+### Crear orden
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "create_order",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "ID de clave API",
+            "placeholder": "Tu ID de clave API de Kalshi",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Clave privada",
+            "placeholder": "Tu clave privada RSA (formato PEM)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "tickerOrder",
+            "type": "short-input",
+            "title": "Ticker del mercado",
+            "placeholder": "Ticker del mercado (p. ej., KXBTC-24DEC31)",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "Lado",
+            "required": true,
+            "options": [
+                {
+                    "id": "yes",
+                    "label": "Sí"
+                },
+                {
+                    "id": "no",
+                    "label": "No"
+                }
+            ]
+        },
+        {
+            "id": "action",
+            "type": "dropdown",
+            "title": "Acción",
+            "required": true,
+            "options": [
+                {
+                    "id": "buy",
+                    "label": "Comprar"
+                },
+                {
+                    "id": "sell",
+                    "label": "Vender"
+                }
+            ]
+        },
+        {
+            "id": "count",
+            "type": "short-input",
+            "title": "Contratos",
+            "placeholder": "Número de contratos",
+            "required": true
+        },
+        {
+            "id": "orderType",
+            "type": "dropdown",
+            "title": "Tipo de orden",
+            "options": [
+                {
+                    "id": "limit",
+                    "label": "Límite"
+                },
+                {
+                    "id": "market",
+                    "label": "Mercado"
+                }
+            ]
+        },
+        {
+            "id": "yesPrice",
+            "type": "short-input",
+            "title": "Precio Sí (céntimos)",
+            "placeholder": "Precio de Sí en céntimos (1-99)"
+        },
+        {
+            "id": "noPrice",
+            "type": "short-input",
+            "title": "Precio No (céntimos)",
+            "placeholder": "Precio de No en céntimos (1-99)"
+        },
+        {
+            "id": "clientOrderId",
+            "type": "short-input",
+            "title": "ID de orden del cliente",
+            "placeholder": "Identificador de orden personalizado (opcional)"
+        },
+        {
+            "id": "timeInForce",
+            "type": "dropdown",
+            "title": "Vigencia",
+            "options": [
+                {
+                    "id": "good_till_canceled",
+                    "label": "Válida hasta cancelar"
+                },
+                {
+                    "id": "fill_or_kill",
+                    "label": "Ejecutar o cancelar"
+                },
+                {
+                    "id": "immediate_or_cancel",
+                    "label": "Inmediata o cancelar"
+                }
+            ]
+        },
+        {
+            "id": "expirationTs",
+            "type": "short-input",
+            "title": "Vencimiento",
+            "placeholder": "Timestamp Unix de vencimiento de la orden"
+        },
+        {
+            "id": "postOnly",
+            "type": "dropdown",
+            "title": "Solo post",
+            "options": [
+                {
+                    "id": "",
+                    "label": "No"
+                },
+                {
+                    "id": "true",
+                    "label": "Sí"
+                }
+            ]
+        },
+        {
+            "id": "reduceOnly",
+            "type": "dropdown",
+            "title": "Solo reducir",
+            "options": [
+                {
+                    "id": "",
+                    "label": "No"
+                },
+                {
+                    "id": "true",
+                    "label": "Sí"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear orden (<code>kalshi_create_order</code>)</div>
+
+Crea una nueva orden en un mercado de predicción de Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Sí | Tu ID de clave de API de Kalshi |
+| `privateKey` | string | Sí | Tu clave privada RSA \(formato PEM\) |
+| `ticker` | string | Sí | Ticker del mercado \(p. ej., KXBTC-24DEC31\) |
+| `side` | string | Sí | Lado de la orden: 'yes' o 'no' |
+| `action` | string | Sí | Tipo de acción: 'buy' o 'sell' |
+| `count` | string | Sí | Número de contratos \(mínimo 1\) |
+| `type` | string | No | Tipo de orden: 'limit' o 'market' \(predeterminado: limit\) |
+| `yesPrice` | string | No | Precio Yes en centavos \(1-99\) |
+| `noPrice` | string | No | Precio No en centavos \(1-99\) |
+| `yesPriceDollars` | string | No | Precio Yes en dólares \(p. ej., "0.56"\) |
+| `noPriceDollars` | string | No | Precio No en dólares \(p. ej., "0.56"\) |
+| `clientOrderId` | string | No | Identificador de orden personalizado |
+| `expirationTs` | string | No | Marca de tiempo Unix de expiración de la orden |
+| `timeInForce` | string | No | Vigencia: 'fill_or_kill', 'good_till_canceled', 'immediate_or_cancel' |
+| `buyMaxCost` | string | No | Costo máximo en centavos \(activa fill_or_kill automáticamente\) |
+| `postOnly` | string | No | Establece en 'true' para órdenes solo maker |
+| `reduceOnly` | string | No | Establece en 'true' solo para reducción de posición |
+| `selfTradePreventionType` | string | No | Prevención de autonegociación: 'taker_at_cross' o 'maker' |
+| `orderGroupId` | string | No | ID de grupo de órdenes asociado |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `order` | object | El objeto de la orden creada |
+
+</div>
+
+---
+
+### Cancelar orden
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "cancel_order",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener series por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "ID de clave API",
+            "placeholder": "ID de tu clave API de Kalshi",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Clave privada",
+            "placeholder": "Tu clave privada RSA (formato PEM)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "orderIdParam",
+            "type": "short-input",
+            "title": "ID de orden",
+            "placeholder": "ID de orden",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Cancelar orden (<code>kalshi_cancel_order</code>)</div>
+
+Cancelar una orden existente en Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Sí | Tu ID de clave de API de Kalshi |
+| `privateKey` | string | Sí | Tu clave privada RSA \(formato PEM\) |
+| `orderId` | string | Sí | El ID de la orden a cancelar |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `order` | object | El objeto de la orden cancelada |
+| `reducedBy` | number | Número de contratos cancelados |
+
+</div>
+
+---
+
+### Modificar orden
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Kalshi"
+    type="kalshi"
+    color="#09C285"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "amend_order",
+            "options": [
+                {
+                    "id": "get_markets",
+                    "label": "Obtener mercados"
+                },
+                {
+                    "id": "get_market",
+                    "label": "Obtener mercado"
+                },
+                {
+                    "id": "get_events",
+                    "label": "Obtener eventos"
+                },
+                {
+                    "id": "get_event",
+                    "label": "Obtener evento"
+                },
+                {
+                    "id": "get_balance",
+                    "label": "Obtener saldo"
+                },
+                {
+                    "id": "get_positions",
+                    "label": "Obtener posiciones"
+                },
+                {
+                    "id": "get_orders",
+                    "label": "Obtener órdenes"
+                },
+                {
+                    "id": "get_order",
+                    "label": "Obtener orden"
+                },
+                {
+                    "id": "get_orderbook",
+                    "label": "Obtener libro de órdenes"
+                },
+                {
+                    "id": "get_trades",
+                    "label": "Obtener operaciones"
+                },
+                {
+                    "id": "get_candlesticks",
+                    "label": "Obtener velas"
+                },
+                {
+                    "id": "get_fills",
+                    "label": "Obtener ejecuciones"
+                },
+                {
+                    "id": "get_series_by_ticker",
+                    "label": "Obtener serie por ticker"
+                },
+                {
+                    "id": "get_exchange_status",
+                    "label": "Obtener estado del exchange"
+                },
+                {
+                    "id": "create_order",
+                    "label": "Crear orden"
+                },
+                {
+                    "id": "cancel_order",
+                    "label": "Cancelar orden"
+                },
+                {
+                    "id": "amend_order",
+                    "label": "Modificar orden"
+                }
+            ]
+        },
+        {
+            "id": "keyId",
+            "type": "short-input",
+            "title": "ID de clave de API",
+            "placeholder": "Tu ID de clave de API de Kalshi",
+            "required": true
+        },
+        {
+            "id": "privateKey",
+            "type": "long-input",
+            "title": "Clave privada",
+            "placeholder": "Tu clave privada RSA (formato PEM)",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "orderIdParam",
+            "type": "short-input",
+            "title": "ID de orden",
+            "placeholder": "ID de orden",
+            "required": true
+        },
+        {
+            "id": "tickerOrder",
+            "type": "short-input",
+            "title": "Ticker del mercado",
+            "placeholder": "Ticker del mercado (p. ej., KXBTC-24DEC31)",
+            "required": true
+        },
+        {
+            "id": "side",
+            "type": "dropdown",
+            "title": "Lado",
+            "required": true,
+            "options": [
+                {
+                    "id": "yes",
+                    "label": "Sí"
+                },
+                {
+                    "id": "no",
+                    "label": "No"
+                }
+            ]
+        },
+        {
+            "id": "action",
+            "type": "dropdown",
+            "title": "Acción",
+            "required": true,
+            "options": [
+                {
+                    "id": "buy",
+                    "label": "Comprar"
+                },
+                {
+                    "id": "sell",
+                    "label": "Vender"
+                }
+            ]
+        },
+        {
+            "id": "countAmend",
+            "type": "short-input",
+            "title": "Contratos",
+            "placeholder": "Número actualizado de contratos (opcional)"
+        },
+        {
+            "id": "yesPrice",
+            "type": "short-input",
+            "title": "Precio Sí (céntimos)",
+            "placeholder": "Precio Sí en céntimos (1-99)"
+        },
+        {
+            "id": "noPrice",
+            "type": "short-input",
+            "title": "Precio No (céntimos)",
+            "placeholder": "Precio No en céntimos (1-99)"
+        },
+        {
+            "id": "clientOrderIdAmend",
+            "type": "short-input",
+            "title": "ID de orden del cliente",
+            "placeholder": "ID de orden del cliente original",
+            "required": true
+        },
+        {
+            "id": "updatedClientOrderId",
+            "type": "short-input",
+            "title": "Nuevo ID de orden del cliente",
+            "placeholder": "Nuevo ID de orden del cliente tras la modificación",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Modificar orden (<code>kalshi_amend_order</code>)</div>
+
+Modificar el precio o la cantidad de una orden existente en Kalshi
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `keyId` | string | Sí | Tu ID de clave API de Kalshi |
+| `privateKey` | string | Sí | Tu clave privada RSA \(formato PEM\) |
+| `orderId` | string | Sí | El ID de la orden a modificar |
+| `ticker` | string | Sí | Ticker del mercado |
+| `side` | string | Sí | Lado de la orden: 'yes' o 'no' |
+| `action` | string | Sí | Tipo de acción: 'buy' o 'sell' |
+| `clientOrderId` | string | Sí | El ID de orden original especificado por el cliente |
+| `updatedClientOrderId` | string | Sí | El nuevo ID de orden especificado por el cliente después de la modificación |
+| `count` | string | No | Cantidad actualizada de la orden |
+| `yesPrice` | string | No | Precio yes actualizado en centavos \(1-99\) |
+| `noPrice` | string | No | Precio no actualizado en centavos \(1-99\) |
+| `yesPriceDollars` | string | No | Precio yes actualizado en dólares \(p. ej., "0.56"\) |
+| `noPriceDollars` | string | No | Precio no actualizado en dólares \(p. ej., "0.56"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `order` | object | El objeto de la orden modificada |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra los mercados de predicción de Kalshi en el flujo de trabajo. Puede obtener mercados, mercado, eventos, evento, saldo, posiciones, órdenes, libro de órdenes, operaciones, velas, ejecuciones, series, estado del exchange, y colocar/cancelar/modificar operaciones.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `kalshi`

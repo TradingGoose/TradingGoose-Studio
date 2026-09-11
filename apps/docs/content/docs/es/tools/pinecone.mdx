@@ -1,6 +1,6 @@
 ---
 title: Pinecone
-description: 使用 Pinecone 向量数据库
+description: Usar la base de datos vectorial Pinecone
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
@@ -12,9 +12,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
   color="#1C17FF"
 />
 
-## 配置
+## Configuración
 
-### 生成嵌入
+### Generar embeddings
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -26,45 +26,45 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "operation",
             "type": "dropdown",
-            "title": "操作",
+            "title": "Operación",
             "layout": "full",
             "defaultValue": "generate",
             "options": [
                 {
                     "id": "generate",
-                    "label": "生成嵌入"
+                    "label": "Generar embeddings"
                 },
                 {
                     "id": "upsert_text",
-                    "label": "更新插入文本"
+                    "label": "Upsert de texto"
                 },
                 {
                     "id": "search_text",
-                    "label": "使用文本搜索"
+                    "label": "Buscar con texto"
                 },
                 {
                     "id": "search_vector",
-                    "label": "使用向量搜索"
+                    "label": "Buscar con vector"
                 },
                 {
                     "id": "fetch",
-                    "label": "获取向量"
+                    "label": "Obtener vectores"
                 }
             ]
         },
         {
             "id": "apiKey",
             "type": "short-input",
-            "title": "API 密钥",
+            "title": "Clave de API",
             "layout": "full",
-            "placeholder": "您的 Pinecone API 密钥",
+            "placeholder": "Tu clave de API de Pinecone",
             "password": true,
             "required": true
         },
         {
             "id": "model",
             "type": "dropdown",
-            "title": "模型",
+            "title": "Modelo",
             "layout": "full",
             "defaultValue": "multilingual-e5-large",
             "options": [
@@ -85,9 +85,9 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "inputs",
             "type": "long-input",
-            "title": "文本输入",
+            "title": "Entradas de texto",
             "layout": "full",
-            "placeholder": "[{\"text\": \"在此输入文本\"}]",
+            "placeholder": "[{\"text\": \"Tu texto aquí\"}]",
             "required": true
         }
     ]}
@@ -95,32 +95,32 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">生成嵌入（<code>pinecone_generate_embeddings</code>）</div>
+<div className="text-base font-semibold mb-2">Generar embeddings (<code>pinecone_generate_embeddings</code>)</div>
 
-使用 Pinecone 托管模型根据文本生成嵌入
+Generar embeddings a partir de texto con los modelos alojados de Pinecone
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
-| `model` | string | 是 | 用于生成嵌入的模型 |
-| `inputs` | array | 是 | 要生成嵌入的文本输入数组 |
-| `apiKey` | string | 是 | Pinecone API 密钥 |
+| `model` | string | Sí | Modelo que se usará para generar embeddings |
+| `inputs` | array | Sí | Array de entradas de texto para generar embeddings |
+| `apiKey` | string | Sí | Clave de API de Pinecone |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
-| 参数 | 类型 | 说明 |
+| Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `data` | array | 生成的嵌入数据，包含数值和向量类型 |
-| `model` | string | 用于生成嵌入的模型 |
-| `vector_type` | string | 生成的向量类型（dense/sparse） |
-| `usage` | object | 嵌入生成的用量统计 |
+| `data` | array | Datos de embeddings generados con valores y tipo de vector |
+| `model` | string | Modelo usado para generar embeddings |
+| `vector_type` | string | Tipo de vector generado \(dense/sparse\) |
+| `usage` | object | Estadísticas de uso de la generación de embeddings |
 
 </div>
 
 ---
 
-### 更新插入文本
+### Insertar o actualizar texto
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -132,45 +132,45 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "operation",
             "type": "dropdown",
-            "title": "操作",
+            "title": "Operación",
             "layout": "full",
             "defaultValue": "upsert_text",
             "options": [
                 {
                     "id": "generate",
-                    "label": "生成嵌入"
+                    "label": "Generar embeddings"
                 },
                 {
                     "id": "upsert_text",
-                    "label": "更新插入文本"
+                    "label": "Insertar o actualizar texto"
                 },
                 {
                     "id": "search_text",
-                    "label": "使用文本搜索"
+                    "label": "Buscar con texto"
                 },
                 {
                     "id": "search_vector",
-                    "label": "使用向量搜索"
+                    "label": "Buscar con vector"
                 },
                 {
                     "id": "fetch",
-                    "label": "获取向量"
+                    "label": "Obtener vectores"
                 }
             ]
         },
         {
             "id": "apiKey",
             "type": "short-input",
-            "title": "API 密钥",
+            "title": "Clave de API",
             "layout": "full",
-            "placeholder": "您的 Pinecone API 密钥",
+            "placeholder": "Tu clave de API de Pinecone",
             "password": true,
             "required": true
         },
         {
             "id": "indexHost",
             "type": "short-input",
-            "title": "索引主机",
+            "title": "Host del índice",
             "layout": "full",
             "placeholder": "https://index-name-abc123.svc.project-id.pinecone.io",
             "required": true
@@ -178,7 +178,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "namespace",
             "type": "short-input",
-            "title": "命名空间",
+            "title": "Espacio de nombres",
             "layout": "full",
             "placeholder": "default",
             "required": true
@@ -186,7 +186,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "records",
             "type": "long-input",
-            "title": "记录",
+            "title": "Registros",
             "layout": "full",
             "placeholder": "{\"_id\": \"rec1\", \"text\": \"Apple's first product, the Apple I, was released in 1976.\", \"category\": \"product\"}\n{\"_id\": \"rec2\", \"chunk_text\": \"Apples are a great source of dietary fiber.\", \"category\": \"nutrition\"}",
             "required": true
@@ -196,31 +196,31 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">更新插入文本 (<code>pinecone_upsert_text</code>)</div>
+<div className="text-base font-semibold mb-2">Insertar o actualizar texto (<code>pinecone_upsert_text</code>)</div>
 
-在 Pinecone 索引中插入或更新文本记录
+Insertar o actualizar registros de texto en un índice de Pinecone
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
-| `indexHost` | string | 是 | 完整的 Pinecone 索引主机 URL |
-| `namespace` | string | 是 | 用于更新插入记录的命名空间 |
-| `records` | array | 是 | 要更新插入的记录或记录数组，每条包含 _id、text 和可选元数据 |
-| `apiKey` | string | 是 | Pinecone API 密钥 |
+| `indexHost` | string | Sí | URL completa del host del índice de Pinecone |
+| `namespace` | string | Sí | Espacio de nombres en el que insertar o actualizar los registros |
+| `records` | array | Sí | Registro o array de registros para insertar o actualizar, cada uno con _id, text y metadatos opcionales |
+| `apiKey` | string | Sí | Clave de API de Pinecone |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
-| 参数 | 类型 | 说明 |
+| Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `statusText` | string | upsert 操作的状态 |
-| `upsertedCount` | number | 成功 upsert 的记录数 |
+| `statusText` | string | Estado de la operación de upsert |
+| `upsertedCount` | number | Número de registros insertados o actualizados correctamente |
 
 </div>
 
 ---
 
-### 使用文本搜索
+### Buscar con texto
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -232,45 +232,45 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "operation",
             "type": "dropdown",
-            "title": "操作",
+            "title": "Operación",
             "layout": "full",
             "defaultValue": "search_text",
             "options": [
                 {
                     "id": "generate",
-                    "label": "生成嵌入"
+                    "label": "Generar embeddings"
                 },
                 {
                     "id": "upsert_text",
-                    "label": "Upsert 文本"
+                    "label": "Upsert de texto"
                 },
                 {
                     "id": "search_text",
-                    "label": "使用文本搜索"
+                    "label": "Buscar con texto"
                 },
                 {
                     "id": "search_vector",
-                    "label": "使用向量搜索"
+                    "label": "Buscar con vector"
                 },
                 {
                     "id": "fetch",
-                    "label": "获取向量"
+                    "label": "Obtener vectores"
                 }
             ]
         },
         {
             "id": "apiKey",
             "type": "short-input",
-            "title": "API 密钥",
+            "title": "Clave de API",
             "layout": "full",
-            "placeholder": "你的 Pinecone API 密钥",
+            "placeholder": "Tu clave de API de Pinecone",
             "password": true,
             "required": true
         },
         {
             "id": "indexHost",
             "type": "short-input",
-            "title": "索引主机",
+            "title": "Host del índice",
             "layout": "full",
             "placeholder": "https://index-name-abc123.svc.project-id.pinecone.io",
             "required": true
@@ -278,7 +278,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "namespace",
             "type": "short-input",
-            "title": "命名空间",
+            "title": "Espacio de nombres",
             "layout": "full",
             "placeholder": "default",
             "required": true
@@ -286,36 +286,36 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "searchQuery",
             "type": "long-input",
-            "title": "搜索查询",
+            "title": "Consulta de búsqueda",
             "layout": "full",
-            "placeholder": "输入要搜索的文本",
+            "placeholder": "Introduce el texto a buscar",
             "required": true
         },
         {
             "id": "topK",
             "type": "short-input",
-            "title": "Top K 结果",
+            "title": "Resultados Top K",
             "layout": "full",
             "placeholder": "10"
         },
         {
             "id": "fields",
             "type": "long-input",
-            "title": "返回字段",
+            "title": "Campos a devolver",
             "layout": "full",
             "placeholder": "[\"category\", \"text\"]"
         },
         {
             "id": "filter",
             "type": "long-input",
-            "title": "筛选",
+            "title": "Filtro",
             "layout": "full",
             "placeholder": "{\"category\": \"product\"}"
         },
         {
             "id": "rerank",
             "type": "long-input",
-            "title": "重排序选项",
+            "title": "Opciones de rerank",
             "layout": "full",
             "placeholder": "{\"model\": \"bge-reranker-v2-m3\", \"rank_fields\": [\"text\"], \"top_n\": 2}"
         }
@@ -324,35 +324,35 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">使用文本搜索 (<code>pinecone_search_text</code>)</div>
+<div className="text-base font-semibold mb-2">Buscar con texto (<code>pinecone_search_text</code>)</div>
 
-在 Pinecone 索引中搜索相似文本
+Buscar texto similar en un índice de Pinecone
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
-| `indexHost` | string | 是 | 完整的 Pinecone 索引主机 URL |
-| `namespace` | string | 否 | 要搜索的命名空间 |
-| `searchQuery` | string | 是 | 要搜索的文本 |
-| `topK` | string | 否 | 返回结果数量 |
-| `fields` | array | 否 | 结果中返回的字段 |
-| `filter` | object | 否 | 应用于搜索的筛选条件 |
-| `rerank` | object | 否 | 重排序参数 |
-| `apiKey` | string | 是 | Pinecone API 密钥 |
+| `indexHost` | string | Sí | URL completa del host del índice de Pinecone |
+| `namespace` | string | No | Espacio de nombres en el que buscar |
+| `searchQuery` | string | Sí | Texto que buscar |
+| `topK` | string | No | Número de resultados que devolver |
+| `fields` | array | No | Campos que devolver en los resultados |
+| `filter` | object | No | Filtro que aplicar a la búsqueda |
+| `rerank` | object | No | Parámetros de reranking |
+| `apiKey` | string | Sí | Clave de API de Pinecone |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
-| 参数 | 类型 | 说明 |
+| Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `matches` | array | 包含 ID、分数和元数据的搜索结果 |
-| `usage` | object | 用量统计，包括 token、读取单元和重排序单元 |
+| `matches` | array | Resultados de búsqueda con ID, puntuación y metadatos |
+| `usage` | object | Estadísticas de uso, incluidos tokens, unidades de lectura y unidades de rerank |
 
 </div>
 
 ---
 
-### 使用向量搜索
+### Buscar con vector
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -364,45 +364,45 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "operation",
             "type": "dropdown",
-            "title": "操作",
+            "title": "Operación",
             "layout": "full",
             "defaultValue": "search_vector",
             "options": [
                 {
                     "id": "generate",
-                    "label": "生成嵌入"
+                    "label": "Generar embeddings"
                 },
                 {
                     "id": "upsert_text",
-                    "label": "Upsert 文本"
+                    "label": "Upsert de texto"
                 },
                 {
                     "id": "search_text",
-                    "label": "使用文本搜索"
+                    "label": "Buscar con texto"
                 },
                 {
                     "id": "search_vector",
-                    "label": "使用向量搜索"
+                    "label": "Buscar con vector"
                 },
                 {
                     "id": "fetch",
-                    "label": "获取向量"
+                    "label": "Obtener vectores"
                 }
             ]
         },
         {
             "id": "apiKey",
             "type": "short-input",
-            "title": "API 密钥",
+            "title": "Clave de API",
             "layout": "full",
-            "placeholder": "您的 Pinecone API 密钥",
+            "placeholder": "Tu clave de API de Pinecone",
             "password": true,
             "required": true
         },
         {
             "id": "indexHost",
             "type": "short-input",
-            "title": "索引主机",
+            "title": "Host del índice",
             "layout": "full",
             "placeholder": "https://index-name-abc123.svc.project-id.pinecone.io",
             "required": true
@@ -410,7 +410,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "namespace",
             "type": "short-input",
-            "title": "命名空间",
+            "title": "Espacio de nombres",
             "layout": "full",
             "placeholder": "default",
             "required": true
@@ -418,7 +418,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "vector",
             "type": "long-input",
-            "title": "查询向量",
+            "title": "Vector de consulta",
             "layout": "full",
             "placeholder": "[0.1, 0.2, 0.3, ...]",
             "required": true
@@ -426,23 +426,23 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "topK",
             "type": "short-input",
-            "title": "Top K 结果",
+            "title": "Resultados Top K",
             "layout": "full",
             "placeholder": "10"
         },
         {
             "id": "options",
             "type": "checkbox-list",
-            "title": "选项",
+            "title": "Opciones",
             "layout": "full",
             "options": [
                 {
                     "id": "includeValues",
-                    "label": "包含值"
+                    "label": "Incluir valores"
                 },
                 {
                     "id": "includeMetadata",
-                    "label": "包含元数据"
+                    "label": "Incluir metadatos"
                 }
             ]
         }
@@ -451,35 +451,35 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">使用向量搜索 (<code>pinecone_search_vector</code>)</div>
+<div className="text-base font-semibold mb-2">Buscar con vector (<code>pinecone_search_vector</code>)</div>
 
-在 Pinecone 索引中搜索相似向量
+Buscar vectores similares en un índice de Pinecone
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
-| `indexHost` | string | 是 | Pinecone 索引的完整主机 URL |
-| `namespace` | string | 否 | 要搜索的命名空间 |
-| `vector` | array | 是 | 要搜索的向量 |
-| `topK` | number | 否 | 返回的结果数量 |
-| `filter` | object | 否 | 应用于搜索的过滤器 |
-| `includeValues` | boolean | 否 | 在响应中包含向量值 |
-| `includeMetadata` | boolean | 否 | 在响应中包含元数据 |
-| `apiKey` | string | 是 | Pinecone API 密钥 |
+| `indexHost` | string | Sí | URL completa del host del índice de Pinecone |
+| `namespace` | string | No | Espacio de nombres en el que buscar |
+| `vector` | array | Sí | Vector a buscar |
+| `topK` | number | No | Número de resultados a devolver |
+| `filter` | object | No | Filtro que aplicar a la búsqueda |
+| `includeValues` | boolean | No | Incluir valores de vector en la respuesta |
+| `includeMetadata` | boolean | No | Incluir metadatos en la respuesta |
+| `apiKey` | string | Sí | Clave de API de Pinecone |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
-| 参数 | 类型 | 说明 |
+| Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `matches` | array | 向量搜索结果，包含 ID、分数、值和元数据 |
-| `namespace` | string | 执行搜索的命名空间 |
+| `matches` | array | Resultados de búsqueda de vectores con ID, puntuación, valores y metadatos |
+| `namespace` | string | Espacio de nombres donde se realizó la búsqueda |
 
 </div>
 
 ---
 
-### 获取向量
+### Obtener vectores
 
 <ShowcaseCard>
   <BlockConfigPreview
@@ -491,45 +491,45 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "operation",
             "type": "dropdown",
-            "title": "操作",
+            "title": "Operación",
             "layout": "full",
             "defaultValue": "fetch",
             "options": [
                 {
                     "id": "generate",
-                    "label": "生成嵌入"
+                    "label": "Generar embeddings"
                 },
                 {
                     "id": "upsert_text",
-                    "label": "更新插入文本"
+                    "label": "Insertar o actualizar texto"
                 },
                 {
                     "id": "search_text",
-                    "label": "使用文本搜索"
+                    "label": "Buscar con texto"
                 },
                 {
                     "id": "search_vector",
-                    "label": "使用向量搜索"
+                    "label": "Buscar con vector"
                 },
                 {
                     "id": "fetch",
-                    "label": "获取向量"
+                    "label": "Obtener vectores"
                 }
             ]
         },
         {
             "id": "apiKey",
             "type": "short-input",
-            "title": "API 密钥",
+            "title": "Clave de API",
             "layout": "full",
-            "placeholder": "你的 Pinecone API 密钥",
+            "placeholder": "Tu clave de API de Pinecone",
             "password": true,
             "required": true
         },
         {
             "id": "indexHost",
             "type": "short-input",
-            "title": "索引主机",
+            "title": "Host del índice",
             "layout": "full",
             "placeholder": "https://index-name-abc123.svc.project-id.pinecone.io",
             "required": true
@@ -537,15 +537,15 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
         {
             "id": "namespace",
             "type": "short-input",
-            "title": "命名空间",
+            "title": "Espacio de nombres",
             "layout": "full",
-            "placeholder": "命名空间",
+            "placeholder": "Espacio de nombres",
             "required": true
         },
         {
             "id": "ids",
             "type": "long-input",
-            "title": "向量 ID",
+            "title": "IDs de vector",
             "layout": "full",
             "placeholder": "[\"vec1\", \"vec2\"]",
             "required": true
@@ -555,36 +555,36 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 </ShowcaseCard>
 
 <div className="mt-6 border-t border-fd-border pt-4">
-<div className="text-base font-semibold mb-2">获取向量 (<code>pinecone_fetch</code>)</div>
+<div className="text-base font-semibold mb-2">Obtener vectores (<code>pinecone_fetch</code>)</div>
 
-按 ID 从 Pinecone 索引获取向量
+Obtener vectores por ID de un índice de Pinecone
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parámetro | Tipo | Obligatorio | Descripción |
 | --------- | ---- | -------- | ----------- |
-| `indexHost` | string | 是 | Pinecone 索引的完整主机 URL |
-| `ids` | array | 是 | 要获取的向量 ID 数组 |
-| `namespace` | string | 否 | 要从中获取向量的命名空间 |
-| `apiKey` | string | 是 | Pinecone API 密钥 |
+| `indexHost` | string | Sí | URL completa del host del índice de Pinecone |
+| `ids` | array | Sí | Array de IDs de vectores a obtener |
+| `namespace` | string | No | Espacio de nombres del que obtener vectores |
+| `apiKey` | string | Sí | Clave de API de Pinecone |
 
-<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
 
-| 参数 | 类型 | 说明 |
+| Parámetro | Tipo | Descripción |
 | --------- | ---- | ----------- |
-| `matches` | array | 获取到的向量，包含 ID、values、metadata 和 score |
-| `data` | array | 包含 values 和向量类型的向量数据 |
-| `usage` | object | 使用统计，包含总读取单元数 |
+| `matches` | array | Vectores obtenidos con ID, valores, metadatos y puntuación |
+| `data` | array | Datos del vector con valores y tipo de vector |
+| `usage` | object | Estadísticas de uso, incluidas las unidades de lectura totales |
 
 </div>
 
 ---
 
-## 使用说明
+## Instrucciones de uso
 
-将 Pinecone 集成到工作流。可生成嵌入、upsert 文本、按文本搜索、获取向量以及按向量搜索。
+Integra Pinecone en el flujo de trabajo. Puede generar embeddings, hacer upsert de texto, buscar con texto, obtener vectores y buscar con vectores.
 
-## 备注
+## Notas
 
-- 类别：`tools`
-- 类型：`pinecone`
+- Categoría: `tools`
+- Tipo: `pinecone`

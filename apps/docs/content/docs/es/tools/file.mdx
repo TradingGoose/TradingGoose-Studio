@@ -1,0 +1,143 @@
+---
+title: Archivo
+description: Leer y procesar varios archivos
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="file"
+  color="#40916C"
+/>
+
+## Configuración
+
+### URL del archivo
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="File"
+    type="file"
+    color="#40916C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "Seleccionar método de entrada",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "url",
+                    "label": "URL del archivo"
+                },
+                {
+                    "id": "upload",
+                    "label": "Archivos subidos"
+                }
+            ],
+            "defaultValue": "url"
+        },
+        {
+            "id": "filePath",
+            "type": "short-input",
+            "title": "URL del archivo",
+            "layout": "full",
+            "placeholder": "Introduce la URL de un archivo (https://example.com/document.pdf)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">URL del archivo (<code>file_parser</code>)</div>
+
+Procesa uno o varios archivos subidos o archivos desde URL (texto, PDF, CSV, imágenes, etc.)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | Sí | Ruta al archivo\(s\). Puede ser una ruta única, una URL o un array de rutas. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `files` | array | Array de archivos procesados con contenido y metadatos |
+| `combinedContent` | string | Contenido combinado de todos los archivos procesados |
+| `processedFiles` | file[] | Array de objetos UserFile para su uso posterior |
+
+</div>
+
+---
+
+### Archivos subidos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="File"
+    type="file"
+    color="#40916C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "Seleccionar método de entrada",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "url",
+                    "label": "URL del archivo"
+                },
+                {
+                    "id": "upload",
+                    "label": "Archivos subidos"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "file",
+            "type": "file-upload",
+            "title": "Procesar archivos",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Archivos subidos (<code>file_parser</code>)</div>
+
+Analiza uno o más archivos subidos o archivos desde URL (texto, PDF, CSV, imágenes, etc.)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | Sí | Ruta al archivo(s). Puede ser una ruta única, una URL o un arreglo de rutas. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `files` | array | Arreglo de archivos analizados con contenido y metadatos |
+| `combinedContent` | string | Contenido combinado de todos los archivos analizados |
+| `processedFiles` | file[] | Arreglo de objetos UserFile para uso posterior |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra File en el flujo de trabajo. Puedes subir un archivo manualmente o insertar una URL de archivo.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `file`

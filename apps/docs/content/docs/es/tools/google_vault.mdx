@@ -1,0 +1,845 @@
+---
+title: Google Vault
+description: Busca, exporta y gestiona retenciones y exportaciones para asuntos de Vault
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_vault"
+  color=""
+/>
+
+## Configuración
+
+### Crear exportación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "create_matters_export",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "Crear exportación"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "Listar exportaciones"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "Descargar archivo de exportación"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "Crear retención"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "Listar retenciones"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "Crear asunto"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "Listar asuntos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Vault",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Google Vault",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "ID de asunto",
+            "layout": "full",
+            "placeholder": "Introduce el ID del asunto"
+        },
+        {
+            "id": "exportName",
+            "type": "short-input",
+            "title": "Nombre de la exportación",
+            "layout": "full",
+            "placeholder": "Nombre para la exportación",
+            "required": true
+        },
+        {
+            "id": "corpus",
+            "type": "dropdown",
+            "title": "Corpus",
+            "layout": "half",
+            "required": true,
+            "options": [
+                {
+                    "id": "MAIL",
+                    "label": "MAIL"
+                },
+                {
+                    "id": "DRIVE",
+                    "label": "DRIVE"
+                },
+                {
+                    "id": "GROUPS",
+                    "label": "GROUPS"
+                },
+                {
+                    "id": "HANGOUTS_CHAT",
+                    "label": "HANGOUTS_CHAT"
+                },
+                {
+                    "id": "VOICE",
+                    "label": "VOICE"
+                }
+            ]
+        },
+        {
+            "id": "accountEmails",
+            "type": "long-input",
+            "title": "Correos de cuentas",
+            "layout": "full",
+            "placeholder": "Correos separados por comas (alternativa a la unidad organizativa)"
+        },
+        {
+            "id": "orgUnitId",
+            "type": "short-input",
+            "title": "ID de unidad organizativa",
+            "layout": "half",
+            "placeholder": "ID de unidad organizativa (alternativa a los correos)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear exportación (<code>google_vault_create_matters_export</code>)</div>
+
+Crear una exportación en un asunto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `matterId` | string | Sí | ID del asunto de Vault que contendrá la exportación |
+| `exportName` | string | Sí | Nombre para la nueva exportación de Vault |
+| `corpus` | string | Sí | Corpus de datos a exportar \(MAIL, DRIVE, GROUPS, HANGOUTS_CHAT, VOICE\) |
+| `accountEmails` | string | No | Lista de correos electrónicos de usuarios separados por comas para delimitar la exportación |
+| `orgUnitId` | string | No | ID de unidad organizativa para delimitar la exportación \(alternativa a los correos electrónicos\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida (contrato a nivel de bloque)</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `output` | json | Datos de respuesta de la API de Vault |
+| `file` | json | Archivo de exportación descargado \(UserFile\) de los archivos de ejecución |
+
+</div>
+
+---
+
+### Listar exportaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "list_matters_export",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "Crear exportación"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "Listar exportaciones"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "Descargar archivo de exportación"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "Crear retención"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "Listar retenciones"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "Crear asunto"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "Listar asuntos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Vault",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google Vault",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "ID de asunto",
+            "layout": "full",
+            "placeholder": "Ingresar ID de asunto"
+        },
+        {
+            "id": "exportId",
+            "type": "short-input",
+            "title": "ID de exportación",
+            "layout": "full",
+            "placeholder": "Ingresar ID de exportación (opcional para obtener una exportación específica)"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Tamaño de página",
+            "layout": "half",
+            "placeholder": "Número de elementos a devolver"
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "Token de página",
+            "layout": "half",
+            "placeholder": "Token de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar exportaciones (<code>google_vault_list_matters_export</code>)</div>
+
+Listar exportaciones de un asunto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `matterId` | string | Sí | ID del asunto de Vault cuyas exportaciones se leerán |
+| `pageSize` | number | No | Número máximo de exportaciones a devolver |
+| `exportId` | string | No | ID de exportación opcional para recuperar en lugar de listar exportaciones |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida (contrato a nivel de bloque)</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `output` | json | Datos de respuesta de la API de Vault |
+| `file` | json | Archivo de exportación descargado \(UserFile\) de los archivos de ejecución |
+
+</div>
+
+---
+
+### Descargar archivo de exportación
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "download_export_file",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "Crear exportación"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "Listar exportaciones"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "Descargar archivo de exportación"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "Crear retención"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "Listar retenciones"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "Crear asunto"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "Listar asuntos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Vault",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google Vault",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "ID de asunto",
+            "layout": "full",
+            "placeholder": "Introducir ID de asunto"
+        },
+        {
+            "id": "bucketName",
+            "type": "short-input",
+            "title": "Nombre del bucket",
+            "layout": "full",
+            "placeholder": "Bucket de exportación de Vault (de cloudStorageSink.files.bucketName)",
+            "required": true
+        },
+        {
+            "id": "objectName",
+            "type": "long-input",
+            "title": "Nombre del objeto",
+            "layout": "full",
+            "placeholder": "Objeto de exportación de Vault (de cloudStorageSink.files.objectName)",
+            "required": true
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "Nombre de archivo (opcional)",
+            "layout": "full",
+            "placeholder": "Sobrescribir el nombre de archivo usado para almacenamiento/visualización"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Descargar archivo de exportación (<code>google_vault_download_export_file</code>)</div>
+
+Descarga un único archivo de una exportación de Google Vault (objeto de GCS)
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `matterId` | string | Sí | ID del asunto de Vault asociado con la exportación |
+| `bucketName` | string | Sí | Bucket de Cloud Storage que contiene el archivo exportado |
+| `objectName` | string | Sí | Nombre del objeto de Cloud Storage para el archivo exportado |
+| `fileName` | string | No | Nombre de archivo opcional para el resultado descargado |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `file` | file | Archivo de exportación de Vault descargado, almacenado en los archivos de ejecución |
+
+</div>
+
+---
+
+### Crear retención
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "create_matters_holds",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "Crear exportación"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "Listar exportaciones"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "Descargar archivo de exportación"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "Crear retención"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "Listar retenciones"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "Crear asunto"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "Listar asuntos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Vault",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google Vault",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "ID del asunto",
+            "layout": "full",
+            "placeholder": "Introduce el ID del asunto"
+        },
+        {
+            "id": "holdName",
+            "type": "short-input",
+            "title": "Nombre de la retención",
+            "layout": "full",
+            "placeholder": "Nombre de la retención",
+            "required": true
+        },
+        {
+            "id": "corpus",
+            "type": "dropdown",
+            "title": "Corpus",
+            "layout": "half",
+            "required": true,
+            "options": [
+                {
+                    "id": "MAIL",
+                    "label": "MAIL"
+                },
+                {
+                    "id": "DRIVE",
+                    "label": "DRIVE"
+                },
+                {
+                    "id": "GROUPS",
+                    "label": "GROUPS"
+                },
+                {
+                    "id": "HANGOUTS_CHAT",
+                    "label": "HANGOUTS_CHAT"
+                },
+                {
+                    "id": "VOICE",
+                    "label": "VOICE"
+                }
+            ]
+        },
+        {
+            "id": "accountEmails",
+            "type": "long-input",
+            "title": "Correos electrónicos de cuentas",
+            "layout": "full",
+            "placeholder": "Correos separados por comas (alternativa a la unidad organizativa)"
+        },
+        {
+            "id": "orgUnitId",
+            "type": "short-input",
+            "title": "ID de unidad organizativa",
+            "layout": "half",
+            "placeholder": "ID de unidad organizativa (alternativa a los correos electrónicos)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear retención (<code>google_vault_create_matters_holds</code>)</div>
+
+Crear una retención en un asunto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `matterId` | string | Sí | ID del asunto de Vault que contendrá la retención |
+| `holdName` | string | Sí | Nombre para la nueva retención de Vault |
+| `corpus` | string | Sí | Corpus de datos a retener \(MAIL, DRIVE, GROUPS, HANGOUTS_CHAT, VOICE\) |
+| `accountEmails` | string | No | Lista separada por comas de correos electrónicos de usuarios a retener |
+| `orgUnitId` | string | No | ID de unidad organizativa a retener \(alternativa a cuentas\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida (contrato a nivel de bloque)</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `output` | json | Datos de respuesta de la API de Vault |
+| `file` | json | Archivo de exportación descargado \(UserFile\) de los archivos de ejecución |
+
+</div>
+
+---
+
+### Listar retenciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "list_matters_holds",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "Crear exportación"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "Listar exportaciones"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "Descargar archivo de exportación"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "Crear retención"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "Listar retenciones"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "Crear asunto"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "Listar asuntos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Vault",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google Vault",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "ID de asunto",
+            "layout": "full",
+            "placeholder": "Ingresar ID de asunto"
+        },
+        {
+            "id": "holdId",
+            "type": "short-input",
+            "title": "ID de retención",
+            "layout": "full",
+            "placeholder": "Ingresar ID de retención (opcional para obtener una retención específica)"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Tamaño de página",
+            "layout": "half",
+            "placeholder": "Número de elementos a devolver"
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "Token de página",
+            "layout": "half",
+            "placeholder": "Token de paginación"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar retenciones (<code>google_vault_list_matters_holds</code>)</div>
+
+Listar retenciones de un asunto
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `matterId` | string | Sí | ID del asunto de Vault cuyas retenciones se leerán |
+| `pageSize` | number | No | Número máximo de retenciones a devolver |
+| `holdId` | string | No | ID de retención opcional para recuperar en lugar de listar retenciones |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida (contrato a nivel de bloque)</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `output` | json | Datos de respuesta de la API de Vault |
+| `file` | json | Archivo de exportación descargado \(UserFile\) de los archivos de ejecución |
+
+</div>
+
+---
+
+### Crear asunto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "create_matters",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "Crear exportación"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "Listar exportaciones"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "Descargar archivo de exportación"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "Crear retención"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "Listar retenciones"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "Crear asunto"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "Listar asuntos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Vault",
+            "layout": "full",
+            "placeholder": "Seleccionar cuenta de Google Vault",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "Nombre del asunto",
+            "layout": "full",
+            "placeholder": "Ingresar nombre del asunto",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "short-input",
+            "title": "Descripción",
+            "layout": "full",
+            "placeholder": "Descripción opcional para el asunto"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear asunto (<code>google_vault_create_matters</code>)</div>
+
+Crea un nuevo asunto en Google Vault
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `name` | string | Sí | Nombre para el nuevo asunto de Vault |
+| `description` | string | No | Descripción opcional para el nuevo asunto de Vault |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida (contrato a nivel de bloque)</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `output` | json | Datos de respuesta de la API de Vault |
+| `file` | json | Archivo de exportación descargado \(UserFile\) de los archivos de ejecución |
+
+</div>
+
+---
+
+### Listar asuntos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "list_matters",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "Crear exportación"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "Listar exportaciones"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "Descargar archivo de exportación"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "Crear retención"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "Listar retenciones"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "Crear asunto"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "Listar asuntos"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Google Vault",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Google Vault",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "Tamaño de página",
+            "layout": "half",
+            "placeholder": "Número de elementos a devolver"
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "Token de página",
+            "layout": "half",
+            "placeholder": "Token de paginación"
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "ID de asunto",
+            "layout": "full",
+            "placeholder": "Introduce el ID de asunto (opcional para obtener un asunto específico)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar asuntos (<code>google_vault_list_matters</code>)</div>
+
+Lista asuntos, o recupera un asunto específico si se proporciona matterId
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Requerido | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `pageSize` | number | No | Número máximo de asuntos a devolver |
+| `matterId` | string | No | ID de asunto opcional para recuperar en lugar de listar asuntos |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida (contrato a nivel de bloque)</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `output` | json | Datos de respuesta de la API de Vault |
+| `file` | json | Archivo de exportación descargado \(UserFile\) de los archivos de ejecución |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Conecta Google Vault para crear exportaciones, listar exportaciones y gestionar retenciones dentro de los asuntos.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `google_vault`

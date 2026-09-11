@@ -1,0 +1,217 @@
+---
+title: Confluence
+description: Interactúa con Confluence
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="confluence"
+  color="#2684FF"
+/>
+
+## Configuración
+
+### Leer página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Confluence"
+    type="confluence"
+    color="#2684FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar página"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "layout": "full",
+            "placeholder": "Introduce el dominio de Confluence (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Confluence",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Confluence",
+            "provider": "confluence",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "file-selector",
+            "title": "Seleccionar página",
+            "layout": "full",
+            "placeholder": "Selecciona una página de Confluence",
+            "provider": "confluence"
+        },
+        {
+            "id": "manualPageId",
+            "type": "short-input",
+            "title": "ID de página",
+            "layout": "full",
+            "placeholder": "Introduce el ID de página de Confluence"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Leer página (<code>confluence_retrieve</code>)</div>
+
+Recupera contenido de páginas de Confluence mediante la API de Confluence.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Sí | Tu dominio de Confluence \(p. ej., yourcompany.atlassian.net\) |
+| `pageId` | string | Sí | ID de la página de Confluence que se va a recuperar |
+| `cloudId` | string | No | ID de Confluence Cloud de la instancia. Si no se proporciona, se obtendrá mediante el dominio. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | string | Marca de tiempo de la recuperación |
+| `pageId` | string | ID de página de Confluence |
+| `content` | string | Contenido de la página con las etiquetas HTML eliminadas |
+| `title` | string | Título de la página |
+
+</div>
+
+---
+
+### Actualizar página
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Confluence"
+    type="confluence"
+    color="#2684FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "Leer página"
+                },
+                {
+                    "id": "update",
+                    "label": "Actualizar página"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "Dominio",
+            "layout": "full",
+            "placeholder": "Introduce el dominio de Confluence (p. ej., tradinggoose.atlassian.net)",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Confluence",
+            "layout": "full",
+            "placeholder": "Selecciona una cuenta de Confluence",
+            "provider": "confluence",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "file-selector",
+            "title": "Seleccionar página",
+            "layout": "full",
+            "placeholder": "Selecciona una página de Confluence",
+            "provider": "confluence"
+        },
+        {
+            "id": "manualPageId",
+            "type": "short-input",
+            "title": "ID de página",
+            "layout": "full",
+            "placeholder": "Introduce el ID de la página de Confluence"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "Nuevo título",
+            "layout": "full",
+            "placeholder": "Introduce un nuevo título para la página"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Nuevo contenido",
+            "layout": "full",
+            "placeholder": "Introduce el nuevo contenido de la página"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar página (<code>confluence_update</code>)</div>
+
+Actualiza una página de Confluence con la API de Confluence.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | Sí | Tu dominio de Confluence \(p. ej., yourcompany.atlassian.net\) |
+| `pageId` | string | Sí | ID de la página de Confluence a actualizar |
+| `title` | string | No | Nuevo título de la página |
+| `content` | string | No | Nuevo contenido de la página en formato de almacenamiento de Confluence |
+| `version` | number | No | Número de versión de la página \(obligatorio para evitar conflictos\) |
+| `cloudId` | string | No | ID de Confluence Cloud de la instancia. Si no se proporciona, se obtendrá mediante el dominio. |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `ts` | string | Marca temporal de la actualización |
+| `pageId` | string | ID de página de Confluence |
+| `title` | string | Título de la página actualizada |
+| `success` | boolean | Estado de éxito de la operación de actualización |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Confluence en el flujo de trabajo. Puede leer y actualizar una página.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `confluence`

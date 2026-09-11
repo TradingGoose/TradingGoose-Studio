@@ -1,0 +1,132 @@
+---
+title: Perplexity
+description: 使用 Perplexity AI 聊天模型
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="perplexity"
+  color="#21808D"
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Perplexity"
+    type="perplexity"
+    color="#21808D"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "systemPrompt",
+            "type": "long-input",
+            "title": "系统提示词",
+            "layout": "full",
+            "placeholder": "用于引导模型行为的系统提示词..."
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "用户提示词",
+            "layout": "full",
+            "placeholder": "在此输入提示词...",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "模型",
+            "layout": "half",
+            "defaultValue": "sonar",
+            "options": [
+                {
+                    "id": "sonar",
+                    "label": "Sonar"
+                },
+                {
+                    "id": "mistral",
+                    "label": "Mistral"
+                },
+                {
+                    "id": "claude-3-opus",
+                    "label": "Claude-3-Opus"
+                },
+                {
+                    "id": "claude-3-sonnet",
+                    "label": "Claude-3-Sonnet"
+                },
+                {
+                    "id": "command-r",
+                    "label": "Command-R"
+                },
+                {
+                    "id": "gpt-4o",
+                    "label": "GPT-4o"
+                }
+            ]
+        },
+        {
+            "id": "temperature",
+            "type": "slider",
+            "title": "温度",
+            "layout": "half",
+            "min": 0,
+            "max": 1,
+            "defaultValue": "0.7"
+        },
+        {
+            "id": "max_tokens",
+            "type": "short-input",
+            "title": "最大 Token 数",
+            "layout": "half",
+            "placeholder": "生成的最大 Token 数"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "layout": "full",
+            "placeholder": "输入你的 Perplexity API 密钥",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 工具
+
+### `perplexity_chat`
+
+使用 Perplexity AI 聊天模型生成补全
+
+#### 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `systemPrompt` | string | 否 | 用于引导模型行为的系统提示词 |
+| `content` | string | 是 | 发送给模型的用户消息内容 |
+| `model` | string | 是 | 用于聊天补全的模型 \(例如 sonar、mistral\) |
+| `max_tokens` | number | 否 | 生成的最大 Token 数 |
+| `temperature` | number | 否 | 采样温度，范围为 0 到 1 |
+| `apiKey` | string | 是 | Perplexity API 密钥 |
+
+#### 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 操作成功状态 |
+| `output` | object | 聊天补全结果 |
+
+## 使用说明
+
+将 Perplexity 集成到工作流中。可使用 Perplexity AI 聊天模型生成补全。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`perplexity`

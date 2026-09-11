@@ -1,0 +1,132 @@
+---
+title: Perplexity
+description: Usa modelos de chat de Perplexity AI
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="perplexity"
+  color="#21808D"
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Perplexity"
+    type="perplexity"
+    color="#21808D"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "systemPrompt",
+            "type": "long-input",
+            "title": "Prompt del sistema",
+            "layout": "full",
+            "placeholder": "Prompt del sistema para orientar el comportamiento del modelo..."
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "Prompt del usuario",
+            "layout": "full",
+            "placeholder": "Escribe tu prompt aquí...",
+            "required": true
+        },
+        {
+            "id": "model",
+            "type": "dropdown",
+            "title": "Modelo",
+            "layout": "half",
+            "defaultValue": "sonar",
+            "options": [
+                {
+                    "id": "sonar",
+                    "label": "Sonar"
+                },
+                {
+                    "id": "mistral",
+                    "label": "Mistral"
+                },
+                {
+                    "id": "claude-3-opus",
+                    "label": "Claude-3-Opus"
+                },
+                {
+                    "id": "claude-3-sonnet",
+                    "label": "Claude-3-Sonnet"
+                },
+                {
+                    "id": "command-r",
+                    "label": "Command-R"
+                },
+                {
+                    "id": "gpt-4o",
+                    "label": "GPT-4o"
+                }
+            ]
+        },
+        {
+            "id": "temperature",
+            "type": "slider",
+            "title": "Temperatura",
+            "layout": "half",
+            "min": 0,
+            "max": 1,
+            "defaultValue": "0.7"
+        },
+        {
+            "id": "max_tokens",
+            "type": "short-input",
+            "title": "Máximo de tokens",
+            "layout": "half",
+            "placeholder": "Número máximo de tokens"
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "Clave de API",
+            "layout": "full",
+            "placeholder": "Introduce tu clave de API de Perplexity",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `perplexity_chat`
+
+Genera completions con los modelos de chat de Perplexity AI
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `systemPrompt` | string | No | Prompt del sistema para orientar el comportamiento del modelo |
+| `content` | string | Sí | El contenido del mensaje del usuario que se envía al modelo |
+| `model` | string | Sí | Modelo que se usa para las completions de chat \(p. ej., sonar, mistral\) |
+| `max_tokens` | number | No | Número máximo de tokens que se generarán |
+| `temperature` | number | No | Temperatura de muestreo entre 0 y 1 |
+| `apiKey` | string | Sí | Clave de API de Perplexity |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Estado de éxito de la operación |
+| `output` | object | Resultados de la compleción de chat |
+
+## Instrucciones de uso
+
+Integre Perplexity en el flujo de trabajo. Puede generar compleciones con modelos de chat de Perplexity AI.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `perplexity`

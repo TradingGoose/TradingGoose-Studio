@@ -1,0 +1,1050 @@
+---
+title: Ahrefs
+description: 使用 Ahrefs 进行 SEO 分析
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="ahrefs"
+  color="#E0E0E0"
+/>
+
+## 配置
+
+### 域名评级
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operation",
+            "defaultValue": "ahrefs_domain_rating",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "Domain Rating"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "Backlinks"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "Backlinks Stats"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "Referring Domains"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "Organic Keywords"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "Top Pages"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "Keyword Overview"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "Broken Backlinks"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API Key",
+            "placeholder": "Enter your Ahrefs API key",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "Target Domain",
+            "placeholder": "example.com",
+            "required": true
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "Date",
+            "placeholder": "YYYY-MM-DD (defaults to today)"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">域名评级 (<code>ahrefs_domain_rating</code>)</div>
+
+获取目标域名的域名评级（DR）和 Ahrefs Rank。域名评级显示网站外链配置文件的强度，评分范围为 0 到 100。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | 是 | 要分析的目标域名 \(例如 example.com\) |
+| `date` | string | 否 | 历史数据的日期，格式为 YYYY-MM-DD \(默认为今天\) |
+| `apiKey` | string | 是 | Ahrefs API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `domainRating` | number | 域名评级分数 \(0-100\) |
+| `ahrefsRank` | number | Ahrefs Rank - 基于外链档案强度的全球排名 |
+
+</div>
+
+---
+
+### 反向链接
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ahrefs_backlinks",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "域名评级"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "反向链接"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "反向链接统计"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "引用域"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "自然关键词"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "热门页面"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "关键词概览"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "失效反向链接"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Ahrefs API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "目标域名/URL",
+            "placeholder": "example.com 或 https://example.com/page",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "分析模式",
+            "defaultValue": "domain",
+            "options": [
+                {
+                    "id": "domain",
+                    "label": "域名（整个域名）"
+                },
+                {
+                    "id": "prefix",
+                    "label": "前缀（URL 前缀）"
+                },
+                {
+                    "id": "subdomains",
+                    "label": "子域名（包含全部）"
+                },
+                {
+                    "id": "exact",
+                    "label": "精确（精确 URL）"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "上限",
+            "placeholder": "100"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "0"
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "日期",
+            "placeholder": "YYYY-MM-DD（默认为今天）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">反向链接 (<code>ahrefs_backlinks</code>)</div>
+
+获取指向目标域名或 URL 的反向链接列表。返回每个反向链接的详细信息，包括来源 URL、锚文本和域名评级。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | 是 | 要分析的目标域名或 URL |
+| `mode` | string | 否 | 分析模式：domain \(整个域名\)，prefix \(URL 前缀\)，subdomains \(包含所有子域名\)，exact \(精确 URL 匹配\) |
+| `date` | string | 否 | 历史数据日期，格式为 YYYY-MM-DD \(默认为今天\) |
+| `limit` | number | 否 | 返回的最大结果数 \(默认：100\) |
+| `offset` | number | 否 | 分页时跳过的结果数 |
+| `apiKey` | string | 是 | Ahrefs API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `backlinks` | array | 指向目标的反向链接列表 |
+
+</div>
+
+---
+
+### 反向链接统计
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ahrefs_backlinks_stats",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "域名评级"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "反向链接"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "反向链接统计"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "引荐域名"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "自然关键词"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "热门页面"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "关键词概览"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "失效反向链接"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Ahrefs API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "目标域名/URL",
+            "placeholder": "example.com",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "分析模式",
+            "defaultValue": "domain",
+            "options": [
+                {
+                    "id": "domain",
+                    "label": "Domain（整个域名）"
+                },
+                {
+                    "id": "prefix",
+                    "label": "Prefix（URL 前缀）"
+                },
+                {
+                    "id": "subdomains",
+                    "label": "Subdomains（包含所有子域名）"
+                },
+                {
+                    "id": "exact",
+                    "label": "Exact（精确 URL）"
+                }
+            ]
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "日期",
+            "placeholder": "YYYY-MM-DD（默认为今天）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">反向链接统计（<code>ahrefs_backlinks_stats</code>）</div>
+
+获取目标域名或 URL 的反向链接统计。返回各类反向链接的总数，包括 dofollow、nofollow、文本、图片和重定向链接。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | 是 | 待分析的目标域名或 URL |
+| `mode` | string | 否 | 分析模式：domain \(整个域名\)、prefix \(URL 前缀\)、subdomains \(包含所有子域名\)、exact \(精确 URL 匹配\) |
+| `date` | string | 否 | 历史数据日期，格式为 YYYY-MM-DD \(默认为今天\) |
+| `apiKey` | string | 是 | Ahrefs API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `stats` | object | 反向链接统计摘要 |
+
+</div>
+
+---
+
+### 引荐域名
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ahrefs_referring_domains",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "域名评分"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "反向链接"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "反向链接统计"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "引荐域名"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "自然关键词"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "热门页面"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "关键词概览"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "失效反向链接"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Ahrefs API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "目标域名/URL",
+            "placeholder": "example.com",
+            "required": true
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "分析模式",
+            "defaultValue": "domain",
+            "options": [
+                {
+                    "id": "domain",
+                    "label": "域名（整个域名）"
+                },
+                {
+                    "id": "prefix",
+                    "label": "前缀（URL 前缀）"
+                },
+                {
+                    "id": "subdomains",
+                    "label": "子域名（包含全部）"
+                },
+                {
+                    "id": "exact",
+                    "label": "精确（精确 URL）"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "100"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "0"
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "日期",
+            "placeholder": "YYYY-MM-DD（默认为今天）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">引用域 (<code>ahrefs_referring_domains</code>)</div>
+
+获取链接到目标域名或 URL 的域名列表。返回唯一的引用域及其域名评分、反向链接数量和发现日期。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | 是 | 要分析的目标域名或 URL |
+| `mode` | string | 否 | 分析模式：domain \(整个域名\), prefix \(URL 前缀\), subdomains \(包含所有子域名\), exact \(精确 URL 匹配\) |
+| `date` | string | 否 | 历史数据日期，格式为 YYYY-MM-DD \(默认为今天\) |
+| `limit` | number | 否 | 返回的最大结果数 \(默认：100\) |
+| `offset` | number | 否 | 分页时要跳过的结果数 |
+| `apiKey` | string | 是 | Ahrefs API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `referringDomains` | array | 链接到目标的域名列表 |
+
+</div>
+
+---
+
+### 自然关键词
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ahrefs_organic_keywords",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "域名评分"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "反向链接"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "反向链接统计"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "引用域"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "自然关键词"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "热门页面"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "关键词概览"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "失效反向链接"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入您的 Ahrefs API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "目标域名/URL",
+            "placeholder": "example.com",
+            "required": true
+        },
+        {
+            "id": "country",
+            "type": "dropdown",
+            "title": "国家",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "美国"
+                },
+                {
+                    "id": "gb",
+                    "label": "英国"
+                },
+                {
+                    "id": "de",
+                    "label": "德国"
+                },
+                {
+                    "id": "fr",
+                    "label": "法国"
+                },
+                {
+                    "id": "es",
+                    "label": "西班牙"
+                },
+                {
+                    "id": "it",
+                    "label": "意大利"
+                },
+                {
+                    "id": "ca",
+                    "label": "加拿大"
+                },
+                {
+                    "id": "au",
+                    "label": "澳大利亚"
+                },
+                {
+                    "id": "jp",
+                    "label": "日本"
+                },
+                {
+                    "id": "br",
+                    "label": "巴西"
+                },
+                {
+                    "id": "in",
+                    "label": "印度"
+                },
+                {
+                    "id": "nl",
+                    "label": "荷兰"
+                },
+                {
+                    "id": "pl",
+                    "label": "波兰"
+                },
+                {
+                    "id": "ru",
+                    "label": "俄罗斯"
+                },
+                {
+                    "id": "mx",
+                    "label": "墨西哥"
+                }
+            ]
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "分析模式",
+            "defaultValue": "domain",
+            "options": [
+                {
+                    "id": "domain",
+                    "label": "域名（整个域名）"
+                },
+                {
+                    "id": "prefix",
+                    "label": "前缀（URL 前缀）"
+                },
+                {
+                    "id": "subdomains",
+                    "label": "子域名（包含全部）"
+                },
+                {
+                    "id": "exact",
+                    "label": "精确（精确 URL）"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "100"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "0"
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "日期",
+            "placeholder": "YYYY-MM-DD（默认为今天）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">自然关键词（<code>ahrefs_organic_keywords</code>）</div>
+
+获取目标域名或 URL 在 Google 搜索结果中排名的自然关键词。返回关键词详情，包括搜索量、排名位置和预估流量。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | 是 | 要分析的目标域名或 URL |
+| `country` | string | 否 | 搜索结果的国家代码 \(例如 us、gb、de\)。默认：us |
+| `mode` | string | 否 | 分析模式：domain \(整个域名\)、prefix \(URL 前缀\)、subdomains \(包含所有子域名\)、exact \(精确 URL 匹配\) |
+| `date` | string | 否 | 历史数据日期，格式为 YYYY-MM-DD \(默认为当天\) |
+| `limit` | number | 否 | 返回结果的最大数量 \(默认：100\) |
+| `offset` | number | 否 | 分页时要跳过的结果数量 |
+| `apiKey` | string | 是 | Ahrefs API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `keywords` | array | 目标排名所对应的自然关键词列表 |
+
+</div>
+
+---
+
+### 热门页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ahrefs_top_pages",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "域名评分"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "反向链接"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "反向链接统计"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "引用域"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "自然关键词"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "热门页面"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "关键词概览"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "失效反向链接"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Ahrefs API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "target",
+            "type": "short-input",
+            "title": "目标域名",
+            "placeholder": "example.com",
+            "required": true
+        },
+        {
+            "id": "country",
+            "type": "dropdown",
+            "title": "国家",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "美国"
+                },
+                {
+                    "id": "gb",
+                    "label": "英国"
+                },
+                {
+                    "id": "de",
+                    "label": "德国"
+                },
+                {
+                    "id": "fr",
+                    "label": "法国"
+                },
+                {
+                    "id": "es",
+                    "label": "西班牙"
+                },
+                {
+                    "id": "it",
+                    "label": "意大利"
+                },
+                {
+                    "id": "ca",
+                    "label": "加拿大"
+                },
+                {
+                    "id": "au",
+                    "label": "澳大利亚"
+                },
+                {
+                    "id": "jp",
+                    "label": "日本"
+                },
+                {
+                    "id": "br",
+                    "label": "巴西"
+                },
+                {
+                    "id": "in",
+                    "label": "印度"
+                },
+                {
+                    "id": "nl",
+                    "label": "荷兰"
+                },
+                {
+                    "id": "pl",
+                    "label": "波兰"
+                },
+                {
+                    "id": "ru",
+                    "label": "俄罗斯"
+                },
+                {
+                    "id": "mx",
+                    "label": "墨西哥"
+                }
+            ]
+        },
+        {
+            "id": "mode",
+            "type": "dropdown",
+            "title": "分析模式",
+            "defaultValue": "domain",
+            "options": [
+                {
+                    "id": "domain",
+                    "label": "domain（整个域名）"
+                },
+                {
+                    "id": "prefix",
+                    "label": "prefix（URL 前缀）"
+                },
+                {
+                    "id": "subdomains",
+                    "label": "subdomains（包含所有子域名）"
+                }
+            ]
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "数量上限",
+            "placeholder": "100"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "偏移量",
+            "placeholder": "0"
+        },
+        {
+            "id": "date",
+            "type": "datetime-input",
+            "title": "日期",
+            "placeholder": "YYYY-MM-DD（默认为当天）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">热门页面（<code>ahrefs_top_pages</code>）</div>
+
+获取目标域名按自然流量排序的热门页面。返回页面 URL 及其流量、关键词数量和预估流量价值。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `target` | string | 是 | 要分析的目标域名 |
+| `country` | string | 否 | 流量数据的国家代码 \(例如 us、gb、de\)。默认：us |
+| `mode` | string | 否 | 分析模式：domain \(整个域名\)、prefix \(URL 前缀\)、subdomains \(包含所有子域名\) |
+| `date` | string | 否 | 历史数据日期，格式为 YYYY-MM-DD \(默认为今天\) |
+| `limit` | number | 否 | 返回结果的最大数量 \(默认：100\) |
+| `offset` | number | 否 | 分页时跳过的结果数量 |
+| `select` | string | 否 | 以逗号分隔的要返回字段列表 \(例如 url,traffic,keywords,top_keyword,value\)。默认：url,traffic,keywords,top_keyword,value |
+| `apiKey` | string | 是 | Ahrefs API 密钥 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `pages` | array | 按自然流量排序的热门页面列表 |
+
+</div>
+
+---
+
+### 关键词概览
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Ahrefs"
+    type="ahrefs"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "ahrefs_keyword_overview",
+            "options": [
+                {
+                    "id": "ahrefs_domain_rating",
+                    "label": "域名评分"
+                },
+                {
+                    "id": "ahrefs_backlinks",
+                    "label": "外链"
+                },
+                {
+                    "id": "ahrefs_backlinks_stats",
+                    "label": "外链统计"
+                },
+                {
+                    "id": "ahrefs_referring_domains",
+                    "label": "引用域名"
+                },
+                {
+                    "id": "ahrefs_organic_keywords",
+                    "label": "自然关键词"
+                },
+                {
+                    "id": "ahrefs_top_pages",
+                    "label": "热门页面"
+                },
+                {
+                    "id": "ahrefs_keyword_overview",
+                    "label": "关键词概览"
+                },
+                {
+                    "id": "ahrefs_broken_backlinks",
+                    "label": "失效外链"
+                }
+            ]
+        },
+        {
+            "id": "apiKey",
+            "type": "short-input",
+            "title": "API 密钥",
+            "placeholder": "输入你的 Ahrefs API 密钥",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "keyword",
+            "type": "short-input",
+            "title": "关键词",
+            "placeholder": "输入要分析的关键词",
+            "required": true
+        },
+        {
+            "id": "country",
+            "type": "dropdown",
+            "title": "国家",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "美国"
+                },
+                {
+                    "id": "gb",
+                    "label": "英国"
+                },
+                {
+                    "id": "de",
+                    "label": "德国"
+                },
+                {
+                    "id": "fr",
+                    "label": "法国"
+                },
+                {
+                    "id": "es",
+                    "label": "西班牙"
+                },
+                {
+                    "id": "it",
+                    "label": "意大利"
+                },
+                {
+                    "id": "ca",
+                    "label": "加拿大"
+                },
+                {
+                    "id": "au",
+                    "label": "澳大利亚"
+                },
+                {
+                    "id": "jp",
+                    "label": "日本"
+                },
+                {
+                    "id": "br",
+                    "label": "巴西"
+                },
+                {
+                    "id": "in",
+                    "label": "印度"
+                },
+                {
+                    "id": "nl",
+                    "label": "荷兰"
+                },
+                {
+                    "id": "pl",
+                    "label": "波兰"
+                },
+                {
+                    "id": "ru",
+                    "label": "俄罗斯"
+                },
+                {
+                    "id": "mx",
+                    "label": "墨西哥"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>

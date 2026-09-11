@@ -1,0 +1,1219 @@
+---
+title: HubSpot
+description: 与 HubSpot CRM 交互，或根据 HubSpot 事件触发工作流
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+<BlockInfoCard
+  type="hubspot"
+  color="#FF7A59"
+/>
+
+<Cards>
+  <Card title="用作触发器" href="/triggers/hubspot">
+    查看 HubSpot 的触发事件、设置和事件载荷。
+  </Card>
+</Cards>
+
+## 配置
+
+### 获取用户
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_users",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "update_company",
+                    "label": "更新公司"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "搜索公司"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "获取交易"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "HubSpot 账户",
+            "placeholder": "选择 HubSpot 账户",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大结果数（列表：100，搜索：200）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取用户 (<code>hubspot_get_users</code>)</div>
+
+从 HubSpot 账户检索所有用户
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | 否 | 返回的结果数量（默认：100） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `users` | array | HubSpot 用户对象数组 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 获取联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_contacts",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "update_company",
+                    "label": "更新公司"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "搜索公司"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "获取交易"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "HubSpot 账户",
+            "placeholder": "选择 HubSpot 账户",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "联系人 ID 或邮箱",
+            "placeholder": "留空以列出全部联系人"
+        },
+        {
+            "id": "idProperty",
+            "type": "short-input",
+            "title": "ID 属性",
+            "placeholder": "使用邮箱/域名时必填（例如 \"email\" 或 \"domain\"）"
+        },
+        {
+            "id": "properties",
+            "type": "short-input",
+            "title": "要返回的属性",
+            "placeholder": "逗号分隔列表（例如 \"email,firstname,lastname\"）"
+        },
+        {
+            "id": "associations",
+            "type": "short-input",
+            "title": "关联",
+            "placeholder": "逗号分隔的对象类型（例如 \"companies,deals\"）"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大结果数（列表：100，搜索：200）"
+        },
+        {
+            "id": "after",
+            "type": "short-input",
+            "title": "After（分页）",
+            "placeholder": "上一响应中的分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取联系人 (<code>hubspot_list_contacts</code>)</div>
+
+从 HubSpot 账户检索全部联系人，支持分页
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | 否 | 每页最大结果数 \(最多 100，默认 100\) |
+| `after` | string | 否 | 下一页结果的分页游标 |
+| `properties` | string | 否 | 要返回的属性，逗号分隔 \(例如，"email,firstname,lastname"\) |
+| `associations` | string | 否 | 要检索关联 ID 的对象类型，逗号分隔 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contacts` | array | HubSpot 联系人对象数组 |
+| `paging` | object | 分页信息 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 创建联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_contact",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "update_company",
+                    "label": "更新公司"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "搜索公司"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "获取交易"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "HubSpot 账户",
+            "placeholder": "选择 HubSpot 账户",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "propertiesToSet",
+            "type": "long-input",
+            "title": "属性",
+            "placeholder": "包含属性的 JSON 对象（例如 {\"email\": \"test@example.com\", \"firstname\": \"John\"}）"
+        },
+        {
+            "id": "associations",
+            "type": "short-input",
+            "title": "关联",
+            "placeholder": "逗号分隔的对象类型（例如 \"companies,deals\"）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建联系人（<code>hubspot_create_contact</code>）</div>
+
+在 HubSpot 中创建新联系人。至少需要提供 email、firstname 或 lastname 之一
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `properties` | object | 是 | 联系人属性，JSON 对象。必须至少包含 email、firstname 或 lastname 之一 |
+| `associations` | array | 否 | 要与该联系人创建的关联数组 \(例如 companies、deals\)。每个对象应包含 "to" \(含 "id"\) 和 "types" \(含 "associationCategory" 和 "associationTypeId"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `contact` | object | 已创建的 HubSpot 联系人对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 更新联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update_contact",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "update_company",
+                    "label": "更新公司"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "搜索公司"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "获取交易"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "HubSpot 账户",
+            "placeholder": "选择 HubSpot 账户",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "contactId",
+            "type": "short-input",
+            "title": "联系人 ID 或邮箱",
+            "placeholder": "数字 ID，或邮箱（需填写下方的 ID 属性）",
+            "required": true
+        },
+        {
+            "id": "idProperty",
+            "type": "short-input",
+            "title": "ID 属性",
+            "placeholder": "使用邮箱/域名时必填（例如 \"email\" 或 \"domain\"）"
+        },
+        {
+            "id": "propertiesToSet",
+            "type": "long-input",
+            "title": "属性",
+            "placeholder": "包含属性的 JSON 对象（例如 {\"email\": \"test@example.com\", \"firstname\": \"John\"}）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新联系人（<code>hubspot_update_contact</code>）</div>
+
+按 ID 或邮箱更新 HubSpot 中的现有联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `contactId` | string | 是 | 要更新的联系人 ID 或邮箱 |
+| `idProperty` | string | 否 | 用作唯一标识的属性（例如 "email"）。未指定时使用记录 ID |
+| `properties` | object | 是 | 要更新的联系人属性，JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contact` | object | 更新后的 HubSpot 联系人对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 搜索联系人
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "search_contacts",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "update_company",
+                    "label": "更新公司"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "搜索公司"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "获取交易"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "HubSpot 账户",
+            "placeholder": "选择 HubSpot 账户",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大结果数（列表：100，搜索：200）"
+        },
+        {
+            "id": "after",
+            "type": "short-input",
+            "title": "After（分页）",
+            "placeholder": "上一响应中的分页游标"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "placeholder": "搜索词（例如公司名称、联系人邮箱）"
+        },
+        {
+            "id": "filterGroups",
+            "type": "long-input",
+            "title": "筛选组",
+            "placeholder": "筛选组的 JSON 数组（例如：[{\"filters\":[{\"propertyName\":\"email\",\"operator\":\"EQ\",\"value\":\"test@example.com\"}]}]）"
+        },
+        {
+            "id": "sorts",
+            "type": "long-input",
+            "title": "排序",
+            "placeholder": "排序对象的 JSON 数组（例如：[{\"propertyName\":\"createdate\",\"direction\":\"DESCENDING\"}]）"
+        },
+        {
+            "id": "searchProperties",
+            "type": "long-input",
+            "title": "返回的属性",
+            "placeholder": "属性的 JSON 数组（例如：[\"email\",\"firstname\",\"lastname\"]）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索联系人（<code>hubspot_search_contacts</code>）</div>
+
+使用筛选、排序和查询在 HubSpot 中搜索联系人
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `filterGroups` | array | 否 | 筛选组数组。每组包含带有 propertyName、operator 和 value 的筛选条件 |
+| `sorts` | array | 否 | 包含 propertyName 和 direction（"ASCENDING" 或 "DESCENDING"）的排序对象数组 |
+| `query` | string | 否 | 搜索查询字符串 |
+| `properties` | array | 否 | 要返回的属性名称数组 |
+| `limit` | number | 否 | 返回结果的最大数量（最多 100） |
+| `after` | string | 否 | 下一页的分页游标 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `contacts` | array | 匹配的 HubSpot 联系人对象数组 |
+| `total` | number | 匹配联系人总数 |
+| `paging` | object | 分页信息 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 获取公司
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_companies",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "update_company",
+                    "label": "更新公司"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "搜索公司"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "获取交易"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "HubSpot 账户",
+            "placeholder": "选择 HubSpot 账户",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "companyId",
+            "type": "short-input",
+            "title": "公司 ID 或域名",
+            "placeholder": "留空则列出所有公司"
+        },
+        {
+            "id": "idProperty",
+            "type": "short-input",
+            "title": "ID 属性",
+            "placeholder": "使用邮箱/域名时必填（例如 \"email\" 或 \"domain\"）"
+        },
+        {
+            "id": "properties",
+            "type": "short-input",
+            "title": "要返回的属性",
+            "placeholder": "逗号分隔列表（例如 \"email,firstname,lastname\"）"
+        },
+        {
+            "id": "associations",
+            "type": "short-input",
+            "title": "关联",
+            "placeholder": "逗号分隔的对象类型（例如 \"companies,deals\"）"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大结果数（列表：100，搜索：200）"
+        },
+        {
+            "id": "after",
+            "type": "short-input",
+            "title": "After（分页）",
+            "placeholder": "上一响应中的分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取公司（<code>hubspot_list_companies</code>）</div>
+
+从 HubSpot 账户获取全部公司，支持分页
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | 否 | 每页结果的最大数量 \(最多 100，默认 100\) |
+| `after` | string | 否 | 下一页结果的分页游标 |
+| `properties` | string | 否 | 要返回的属性列表，逗号分隔 |
+| `associations` | string | 否 | 要检索关联 ID 的对象类型列表，逗号分隔 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `companies` | array | HubSpot 公司对象数组 |
+| `paging` | object | 分页信息 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 创建公司
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "create_company",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "update_company",
+                    "label": "更新公司"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "搜索公司"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "获取交易"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "HubSpot 账户",
+            "placeholder": "选择 HubSpot 账户",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "propertiesToSet",
+            "type": "long-input",
+            "title": "属性",
+            "placeholder": "包含属性的 JSON 对象（例如 {\"email\": \"test@example.com\", \"firstname\": \"John\"}）"
+        },
+        {
+            "id": "associations",
+            "type": "short-input",
+            "title": "关联",
+            "placeholder": "逗号分隔的对象类型（例如 \"companies,deals\"）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建公司 (<code>hubspot_create_company</code>)</div>
+
+在 HubSpot 中创建新公司
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `properties` | object | 是 | 公司属性的 JSON 对象 \（例如 name、domain、city、industry\） |
+| `associations` | array | 否 | 要与该公司创建的关联数组 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `company` | object | 已创建的 HubSpot 公司对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 更新公司
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "update_company",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "update_company",
+                    "label": "更新公司"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "搜索公司"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "获取交易"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "HubSpot 账户",
+            "placeholder": "选择 HubSpot 账户",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "companyId",
+            "type": "short-input",
+            "title": "公司 ID 或域名",
+            "placeholder": "数字 ID，或域名（需填写下方的 ID 属性）",
+            "required": true
+        },
+        {
+            "id": "idProperty",
+            "type": "short-input",
+            "title": "ID 属性",
+            "placeholder": "使用邮箱/域名时必填（例如 \"email\" 或 \"domain\"）"
+        },
+        {
+            "id": "propertiesToSet",
+            "type": "long-input",
+            "title": "属性",
+            "placeholder": "包含属性的 JSON 对象（例如 {\"email\": \"test@example.com\", \"firstname\": \"John\"}）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新公司（<code>hubspot_update_company</code>）</div>
+
+按 ID 或域名更新 HubSpot 中的现有公司
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `companyId` | string | 是 | 要更新的公司 ID 或域名 |
+| `idProperty` | string | 否 | 用作唯一标识的属性\(例如 "domain"\)。未指定时使用记录 ID |
+| `properties` | object | 是 | 要更新的公司属性，JSON 对象 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `company` | object | 更新后的 HubSpot 公司对象 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 搜索公司
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "search_companies",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "update_company",
+                    "label": "更新公司"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "搜索公司"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "获取交易"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "HubSpot 账户",
+            "placeholder": "选择 HubSpot 账户",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大结果数（列表：100，搜索：200）"
+        },
+        {
+            "id": "after",
+            "type": "short-input",
+            "title": "After（分页）",
+            "placeholder": "上一次响应中的分页游标"
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "placeholder": "搜索词（例如公司名称、联系人邮箱）"
+        },
+        {
+            "id": "filterGroups",
+            "type": "long-input",
+            "title": "筛选组",
+            "placeholder": "筛选组 JSON 数组（例如 [{\"filters\":[{\"propertyName\":\"email\",\"operator\":\"EQ\",\"value\":\"test@example.com\"}]}]）"
+        },
+        {
+            "id": "sorts",
+            "type": "long-input",
+            "title": "排序",
+            "placeholder": "排序对象 JSON 数组（例如 [{\"propertyName\":\"createdate\",\"direction\":\"DESCENDING\"}]）"
+        },
+        {
+            "id": "searchProperties",
+            "type": "long-input",
+            "title": "返回的属性",
+            "placeholder": "属性 JSON 数组（例如 [\"email\",\"firstname\",\"lastname\"]）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索公司 (<code>hubspot_search_companies</code>)</div>
+
+使用筛选、排序和查询在 HubSpot 中搜索公司
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `filterGroups` | array | 否 | 筛选组数组。每组包含带有 propertyName、operator 和 value 的筛选条件 |
+| `sorts` | array | 否 | 排序对象数组，包含 propertyName 和 direction \("ASCENDING" 或 "DESCENDING"\) |
+| `query` | string | 否 | 搜索查询字符串 |
+| `properties` | array | 否 | 要返回的属性名称数组 |
+| `limit` | number | 否 | 返回结果的最大数量 \(最多 100\) |
+| `after` | string | 否 | 下一页的分页游标 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `companies` | array | 匹配的 HubSpot 公司对象数组 |
+| `total` | number | 匹配公司的总数 |
+| `paging` | object | 分页信息 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+### 获取交易
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="HubSpot"
+    type="hubspot"
+    color="#FF7A59"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "get_deals",
+            "options": [
+                {
+                    "id": "get_users",
+                    "label": "获取用户"
+                },
+                {
+                    "id": "get_contacts",
+                    "label": "获取联系人"
+                },
+                {
+                    "id": "create_contact",
+                    "label": "创建联系人"
+                },
+                {
+                    "id": "update_contact",
+                    "label": "更新联系人"
+                },
+                {
+                    "id": "search_contacts",
+                    "label": "搜索联系人"
+                },
+                {
+                    "id": "get_companies",
+                    "label": "获取公司"
+                },
+                {
+                    "id": "create_company",
+                    "label": "创建公司"
+                },
+                {
+                    "id": "update_company",
+                    "label": "更新公司"
+                },
+                {
+                    "id": "search_companies",
+                    "label": "搜索公司"
+                },
+                {
+                    "id": "get_deals",
+                    "label": "获取交易"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "HubSpot 账户",
+            "placeholder": "选择 HubSpot 账户",
+            "provider": "hubspot",
+            "required": true
+        },
+        {
+            "id": "properties",
+            "type": "short-input",
+            "title": "返回的属性",
+            "placeholder": "逗号分隔列表（例如 \"email,firstname,lastname\"）"
+        },
+        {
+            "id": "associations",
+            "type": "short-input",
+            "title": "关联",
+            "placeholder": "逗号分隔的对象类型（例如 \"companies,deals\"）"
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "限制",
+            "placeholder": "最大结果数（列表：100，搜索：200）"
+        },
+        {
+            "id": "after",
+            "type": "short-input",
+            "title": "After（分页）",
+            "placeholder": "上一响应中的分页游标"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取交易 (<code>hubspot_list_deals</code>)</div>
+
+从 HubSpot 账户检索全部交易，支持分页
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `limit` | string | 否 | 每页结果的最大数量 \(最多 100，默认 100\) |
+| `after` | string | 否 | 用于获取下一页结果的分页游标 |
+| `properties` | string | 否 | 要返回的属性列表，以逗号分隔 |
+| `associations` | string | 否 | 要获取关联 ID 的对象类型列表，以逗号分隔 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `deals` | array | HubSpot 交易对象数组 |
+| `paging` | object | 分页信息 |
+| `metadata` | object | 操作元数据 |
+| `success` | boolean | 操作成功状态 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 HubSpot 集成到你的工作流。管理联系人、公司、交易、工单及其他 CRM 对象，并具备强大的自动化能力。可用于触发器模式，在联系人被创建、删除或更新时启动工作流。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`hubspot`

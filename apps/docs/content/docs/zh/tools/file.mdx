@@ -1,0 +1,143 @@
+---
+title: 文件
+description: 读取并解析多个文件
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="file"
+  color="#40916C"
+/>
+
+## 配置
+
+### 文件 URL
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="文件"
+    type="file"
+    color="#40916C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "选择输入方式",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "url",
+                    "label": "文件 URL"
+                },
+                {
+                    "id": "upload",
+                    "label": "已上传文件"
+                }
+            ],
+            "defaultValue": "url"
+        },
+        {
+            "id": "filePath",
+            "type": "short-input",
+            "title": "文件 URL",
+            "layout": "full",
+            "placeholder": "输入文件 URL（https://example.com/document.pdf）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">文件 URL（<code>file_parser</code>）</div>
+
+解析一个或多个已上传文件或来自 URL 的文件（文本、PDF、CSV、图片等）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | 是 | 文件路径。可以是单个路径、URL 或路径数组。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `files` | array | 已解析文件数组，包含内容和元数据 |
+| `combinedContent` | string | 所有已解析文件的合并内容 |
+| `processedFiles` | file[] | 供下游使用的 UserFile 对象数组 |
+
+</div>
+
+---
+
+### 已上传文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="文件"
+    type="file"
+    color="#40916C"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "inputMethod",
+            "type": "dropdown",
+            "title": "选择输入方式",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "url",
+                    "label": "文件 URL"
+                },
+                {
+                    "id": "upload",
+                    "label": "已上传文件"
+                }
+            ],
+            "defaultValue": "upload"
+        },
+        {
+            "id": "file",
+            "type": "file-upload",
+            "title": "处理文件",
+            "layout": "full"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">已上传文件（<code>file_parser</code>）</div>
+
+解析一个或多个已上传文件或来自 URL 的文件（文本、PDF、CSV、图片等）
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `filePath` | string | 是 | 文件路径。可以是单个路径、URL 或路径数组。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `files` | array | 已解析文件数组，包含内容和元数据 |
+| `combinedContent` | string | 所有已解析文件的合并内容 |
+| `processedFiles` | file[] | 供下游使用的 UserFile 对象数组 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 File 集成到工作流中。可手动上传文件，或插入文件 URL。
+
+## 说明
+
+- 分类：`tools`
+- 类型：`file`

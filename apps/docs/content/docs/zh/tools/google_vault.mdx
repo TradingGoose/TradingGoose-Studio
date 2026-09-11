@@ -1,0 +1,845 @@
+---
+title: Google Vault
+description: 搜索、导出并管理 Vault 事项的保留与导出
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="google_vault"
+  color=""
+/>
+
+## 配置
+
+### 创建导出
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "create_matters_export",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "创建导出"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "列出导出"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "下载导出文件"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "创建保留"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "列出保留"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "创建案件"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "列出案件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Vault 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Vault 账户",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "案件 ID",
+            "layout": "full",
+            "placeholder": "输入案件 ID"
+        },
+        {
+            "id": "exportName",
+            "type": "short-input",
+            "title": "导出名称",
+            "layout": "full",
+            "placeholder": "导出名称",
+            "required": true
+        },
+        {
+            "id": "corpus",
+            "type": "dropdown",
+            "title": "数据语料库",
+            "layout": "half",
+            "required": true,
+            "options": [
+                {
+                    "id": "MAIL",
+                    "label": "MAIL"
+                },
+                {
+                    "id": "DRIVE",
+                    "label": "DRIVE"
+                },
+                {
+                    "id": "GROUPS",
+                    "label": "GROUPS"
+                },
+                {
+                    "id": "HANGOUTS_CHAT",
+                    "label": "HANGOUTS_CHAT"
+                },
+                {
+                    "id": "VOICE",
+                    "label": "VOICE"
+                }
+            ]
+        },
+        {
+            "id": "accountEmails",
+            "type": "long-input",
+            "title": "账户电子邮件",
+            "layout": "full",
+            "placeholder": "以逗号分隔的电子邮件（组织单位的替代方案）"
+        },
+        {
+            "id": "orgUnitId",
+            "type": "short-input",
+            "title": "组织单位 ID",
+            "layout": "half",
+            "placeholder": "组织单位 ID（电子邮件的替代方案）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建导出 (<code>google_vault_create_matters_export</code>)</div>
+
+在事项中创建导出
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `matterId` | 字符串 | 是 | 将包含导出的 Vault 案件的 ID |
+| `exportName` | 字符串 | 是 | 新 Vault 导出的名称 |
+| `corpus` | 字符串 | 是 | 要导出的数据语料库 \(MAIL, DRIVE, GROUPS, HANGOUTS_CHAT, VOICE\) |
+| `accountEmails` | 字符串 | 否 | 用于限定导出范围的用户电子邮件列表，以逗号分隔 |
+| `orgUnitId` | 字符串 | 否 | 用于限定导出范围的组织单位 ID \(电子邮件的替代方案\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出(块级契约)</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API 响应数据 |
+| `file` | json | 从执行文件中下载的导出文件 \(UserFile\) |
+
+</div>
+
+---
+
+### 列出导出
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "list_matters_export",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "创建导出"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "列出导出"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "下载导出文件"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "创建保全"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "列出保全"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "创建事项"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "列出事项"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Vault 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Vault 账户",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "事项 ID",
+            "layout": "full",
+            "placeholder": "输入事项 ID"
+        },
+        {
+            "id": "exportId",
+            "type": "short-input",
+            "title": "导出 ID",
+            "layout": "full",
+            "placeholder": "输入导出 ID(可选,用于获取特定导出)"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "分页大小",
+            "layout": "half",
+            "placeholder": "返回的条目数"
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "分页令牌",
+            "layout": "half",
+            "placeholder": "分页令牌"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出导出（<code>google_vault_list_matters_export</code>）</div>
+
+列出某事项的导出
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `matterId` | string | 是 | 要读取其导出的 Vault 事项 ID |
+| `pageSize` | number | 否 | 要返回的最大导出数量 |
+| `exportId` | string | 否 | 可选的导出 ID,用于获取指定导出而非列出导出 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出（区块级契约）</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API 响应数据 |
+| `file` | json | 从执行文件中下载的导出文件 \(UserFile\) |
+
+</div>
+
+---
+
+### 下载导出文件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "download_export_file",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "创建导出"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "列出导出"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "下载导出文件"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "创建保留"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "列出保留"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "创建案件"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "列出案件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Vault 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Vault 账户",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "案件 ID",
+            "layout": "full",
+            "placeholder": "输入案件 ID"
+        },
+        {
+            "id": "bucketName",
+            "type": "short-input",
+            "title": "存储桶名称",
+            "layout": "full",
+            "placeholder": "Vault 导出存储桶（来自 cloudStorageSink.files.bucketName）",
+            "required": true
+        },
+        {
+            "id": "objectName",
+            "type": "long-input",
+            "title": "对象名称",
+            "layout": "full",
+            "placeholder": "Vault 导出对象（来自 cloudStorageSink.files.objectName）",
+            "required": true
+        },
+        {
+            "id": "fileName",
+            "type": "short-input",
+            "title": "文件名（可选）",
+            "layout": "full",
+            "placeholder": "覆盖用于存储/显示的文件名"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">下载导出文件（<code>google_vault_download_export_file</code>）</div>
+
+从 Google Vault 导出（GCS 对象）中下载单个文件
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `matterId` | string | 是 | 与导出关联的 Vault 案件 ID |
+| `bucketName` | string | 是 | 包含导出文件的 Cloud Storage 存储桶 |
+| `objectName` | string | 是 | 导出文件的 Cloud Storage 对象名称 |
+| `fileName` | string | 否 | 下载结果的可选文件名 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `file` | 文件 | 已下载的 Vault 导出文件，存储在执行文件中 |
+
+</div>
+
+---
+
+### 创建保留
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+          "id": "operation",
+          "type": "dropdown",
+          "title": "操作",
+          "layout": "full",
+          "defaultValue": "create_matters_holds",
+          "options": [
+              {
+                "id": "create_matters_export",
+                "label": "创建导出"
+              },
+              {
+                "id": "list_matters_export",
+                "label": "列出导出"
+              },
+              {
+                "id": "download_export_file",
+                "label": "下载导出文件"
+              },
+              {
+                "id": "create_matters_holds",
+                "label": "创建保留"
+              },
+              {
+                "id": "list_matters_holds",
+                "label": "列出保留"
+              },
+              {
+                "id": "create_matters",
+                "label": "创建事项"
+              },
+              {
+                "id": "list_matters",
+                "label": "列出事项"
+              }
+          ]
+        },
+        {
+          "id": "credential",
+          "type": "oauth-input",
+          "title": "Google Vault 账户",
+          "layout": "full",
+          "placeholder": "选择 Google Vault 账户",
+          "provider": "google-vault",
+          "required": true
+        },
+        {
+          "id": "matterId",
+          "type": "short-input",
+          "title": "事项 ID",
+          "layout": "full",
+          "placeholder": "输入事项 ID"
+        },
+        {
+          "id": "holdName",
+          "type": "short-input",
+          "title": "保留名称",
+          "layout": "full",
+          "placeholder": "保留名称",
+          "required": true
+        },
+        {
+          "id": "corpus",
+          "type": "dropdown",
+          "title": "数据源",
+          "layout": "half",
+          "required": true,
+          "options": [
+              {
+                "id": "MAIL",
+                "label": "MAIL"
+              },
+              {
+                "id": "DRIVE",
+                "label": "DRIVE"
+              },
+              {
+                "id": "GROUPS",
+                "label": "GROUPS"
+              },
+              {
+                "id": "HANGOUTS_CHAT",
+                "label": "HANGOUTS_CHAT"
+              },
+              {
+                "id": "VOICE",
+                "label": "VOICE"
+              }
+          ]
+        },
+        {
+          "id": "accountEmails",
+          "type": "long-input",
+          "title": "账户邮箱",
+          "layout": "full",
+          "placeholder": "逗号分隔的邮箱（替代组织部门）"
+        },
+        {
+          "id": "orgUnitId",
+          "type": "short-input",
+          "title": "组织部门 ID",
+          "layout": "half",
+          "placeholder": "组织部门 ID（替代邮箱）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建保全 (<code>google_vault_create_matters_holds</code>)</div>
+
+在调查事项中创建保全
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `matterId` | string | 是 | 将包含该保全的 Vault 调查事项 ID |
+| `holdName` | string | 是 | 新 Vault 保全的名称 |
+| `corpus` | string | 是 | 要保全的数据范围 \(MAIL, DRIVE, GROUPS, HANGOUTS_CHAT, VOICE\) |
+| `accountEmails` | string | 否 | 要保全的用户邮箱列表（以英文逗号分隔） |
+| `orgUnitId` | string | 否 | 要保全的组织部门 ID \(账号的替代方式\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出（区块级契约）</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API 响应数据 |
+| `file` | json | 从执行文件下载的导出文件 \(UserFile\) |
+
+</div>
+
+---
+
+### 列出保全
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "list_matters_holds",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "创建导出"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "列出导出"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "下载导出文件"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "创建保全"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "列出保全"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "创建调查事项"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "列出调查事项"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Vault 账号",
+            "layout": "full",
+            "placeholder": "选择 Google Vault 账号",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "调查事项 ID",
+            "layout": "full",
+            "placeholder": "输入调查事项 ID"
+        },
+        {
+            "id": "holdId",
+            "type": "short-input",
+            "title": "保全 ID",
+            "layout": "full",
+            "placeholder": "输入保全 ID（可选，用于获取特定保全）"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "分页大小",
+            "layout": "half",
+            "placeholder": "要返回的项目数量"
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "分页令牌",
+            "layout": "half",
+            "placeholder": "分页令牌"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出保留项（<code>google_vault_list_matters_holds</code>）</div>
+
+列出案件中的保留项
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `matterId` | string | 是 | 要读取其保留项的 Vault 案件 ID |
+| `pageSize` | number | 否 | 最多返回的保留项数量 |
+| `holdId` | string | 否 | 可选的保留项 ID，用于检索而非列出保留项 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出（块级契约）</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API 响应数据 |
+| `file` | json | 从执行文件下载的导出文件 \(UserFile\) |
+
+</div>
+
+---
+
+### 创建案件
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "create_matters",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "创建导出"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "列出导出"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "下载导出文件"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "创建保留项"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "列出保留项"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "创建案件"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "列出案件"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Vault 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Vault 账户",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "name",
+            "type": "short-input",
+            "title": "案件名称",
+            "layout": "full",
+            "placeholder": "输入案件名称",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "short-input",
+            "title": "描述",
+            "layout": "full",
+            "placeholder": "案件的选填描述"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建事项 (<code>google_vault_create_matters</code>)</div>
+
+在 Google Vault 中创建新事项
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `name` | string | 是 | 新 Vault 事项的名称 |
+| `description` | string | 否 | 新 Vault 事项的可选描述 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出（块级契约）</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API 响应数据 |
+| `file` | json | 从执行文件中下载的导出文件 \(UserFile\) |
+
+</div>
+
+---
+
+### 列出事项
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Google Vault"
+    type="google_vault"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "list_matters",
+            "options": [
+                {
+                    "id": "create_matters_export",
+                    "label": "创建导出"
+                },
+                {
+                    "id": "list_matters_export",
+                    "label": "列出导出"
+                },
+                {
+                    "id": "download_export_file",
+                    "label": "下载导出文件"
+                },
+                {
+                    "id": "create_matters_holds",
+                    "label": "创建保留"
+                },
+                {
+                    "id": "list_matters_holds",
+                    "label": "列出保留"
+                },
+                {
+                    "id": "create_matters",
+                    "label": "创建事项"
+                },
+                {
+                    "id": "list_matters",
+                    "label": "列出事项"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Google Vault 账户",
+            "layout": "full",
+            "placeholder": "选择 Google Vault 账户",
+            "provider": "google-vault",
+            "required": true
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "每页大小",
+            "layout": "half",
+            "placeholder": "返回的项目数量"
+        },
+        {
+            "id": "pageToken",
+            "type": "short-input",
+            "title": "分页令牌",
+            "layout": "half",
+            "placeholder": "分页令牌"
+        },
+        {
+            "id": "matterId",
+            "type": "short-input",
+            "title": "事项 ID",
+            "layout": "full",
+            "placeholder": "输入事项 ID（可选，用于获取特定事项）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出事项 (<code>google_vault_list_matters</code>)</div>
+
+列出事项，如果提供了 matterId，则获取特定事项
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 是否必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `pageSize` | number | 否 | 返回的最大事项数量 |
+| `matterId` | string | 否 | 可选的 matter ID，用于检索特定事项而不是列出事项 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出（块级契约）</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `output` | json | Vault API 响应数据 |
+| `file` | json | 从执行文件中下载的导出文件 \\(UserFile\\) |
+
+</div>
+
+---
+
+## 使用说明
+
+连接 Google Vault，以创建导出、列出导出并管理事项中的保留。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`google_vault`

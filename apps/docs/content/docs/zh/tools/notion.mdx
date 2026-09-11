@@ -1,0 +1,735 @@
+---
+title: Notion
+description: 管理 Notion 页面
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="notion"
+  color=""
+/>
+
+## 配置
+
+### 读取页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "notion_read",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "读取数据库"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "创建数据库"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "追加内容"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "查询数据库"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "搜索工作区"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Notion 账号",
+            "layout": "full",
+            "placeholder": "选择 Notion 账号",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "页面 ID",
+            "layout": "full",
+            "placeholder": "输入 Notion 页面 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取页面 (<code>notion_read</code>)</div>
+
+读取 Notion 页面的内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `pageId` | string | 是 | 要读取的 Notion 页面 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 页面内容（Markdown 格式，包含标题、段落、列表和待办事项） |
+| `metadata` | object | 页面元数据，包括标题、URL 和时间戳 |
+
+</div>
+
+---
+
+### 读取数据库
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "notion_read_database",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "读取数据库"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "创建数据库"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "追加内容"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "查询数据库"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "搜索工作区"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Notion 账户",
+            "layout": "full",
+            "placeholder": "选择 Notion 账户",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "databaseId",
+            "type": "short-input",
+            "title": "数据库 ID",
+            "layout": "full",
+            "placeholder": "输入 Notion 数据库 ID",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取数据库 (<code>notion_read_database</code>)</div>
+
+读取 Notion 数据库的信息和结构
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `databaseId` | string | 是 | 要读取的 Notion 数据库 ID |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 数据库信息，包括标题、属性架构和元数据 |
+| `metadata` | object | 数据库元数据，包括标题、ID、URL、时间戳和属性架构 |
+
+</div>
+
+---
+
+### 创建页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "notion_create_page",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "读取数据库"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "创建数据库"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "追加内容"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "查询数据库"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "搜索工作区"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Notion 账户",
+            "layout": "full",
+            "placeholder": "选择 Notion 账户",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "parentId",
+            "type": "short-input",
+            "title": "父页面 ID",
+            "layout": "full",
+            "placeholder": "父页面 ID",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "页面标题",
+            "layout": "full",
+            "placeholder": "新页面标题"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "内容",
+            "layout": "full",
+            "placeholder": "输入要添加到页面的内容",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建页面 (<code>notion_create_page</code>)</div>
+
+在 Notion 中创建新页面
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `parentId` | string | 是 | 父页面 ID |
+| `title` | string | 否 | 新页面标题 |
+| `content` | string | 否 | 创建时添加到页面的可选内容 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 确认页面已创建的成功消息 |
+| `metadata` | object | 页面元数据，包括标题、页面 ID、URL 和时间戳 |
+
+</div>
+
+---
+
+### 创建数据库
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "notion_create_database",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "读取数据库"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "创建数据库"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "追加内容"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "查询数据库"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "搜索工作区"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Notion 账号",
+            "layout": "full",
+            "placeholder": "选择 Notion 账号",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "parentId",
+            "type": "short-input",
+            "title": "父页面 ID",
+            "layout": "full",
+            "placeholder": "将在其中创建数据库的父页面 ID",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "数据库标题",
+            "layout": "full",
+            "placeholder": "新数据库的标题",
+            "required": true
+        },
+        {
+            "id": "properties",
+            "type": "long-input",
+            "title": "数据库属性（JSON）",
+            "layout": "full",
+            "placeholder": "以 JSON 对象形式输入数据库属性"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建数据库（<code>notion_create_database</code>）</div>
+
+在 Notion 中使用自定义属性创建新数据库
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `parentId` | string | 是 | 将在其中创建数据库的父页面 ID |
+| `title` | string | 是 | 新数据库的标题 |
+| `properties` | string | 否 | 数据库属性，JSON 对象 \(可选，为空时将创建默认的 "Name" 属性\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 包含数据库详情和属性列表的成功消息 |
+| `metadata` | object | 数据库元数据，包括 ID、标题、URL、创建时间和属性结构 |
+
+</div>
+
+---
+
+### 追加内容
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "notion_write",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "读取数据库"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "创建数据库"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "追加内容"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "查询数据库"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "搜索工作区"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Notion 账号",
+            "layout": "full",
+            "placeholder": "选择 Notion 账号",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "short-input",
+            "title": "页面 ID",
+            "layout": "full",
+            "placeholder": "输入 Notion 页面 ID",
+            "required": true
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "内容",
+            "layout": "full",
+            "placeholder": "输入要添加到页面的内容",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">追加内容 (<code>notion_write</code>)</div>
+
+向 Notion 页面追加内容
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `pageId` | string | 是 | 要追加内容的 Notion 页面 ID |
+| `content` | string | 是 | 要追加到页面的内容 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 确认内容已追加到页面的成功消息 |
+
+</div>
+
+---
+
+### 查询数据库
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "notion_query_database",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "读取数据库"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "创建数据库"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "追加内容"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "查询数据库"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "搜索工作区"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Notion 账户",
+            "layout": "full",
+            "placeholder": "选择 Notion 账户",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "databaseId",
+            "type": "short-input",
+            "title": "数据库 ID",
+            "layout": "full",
+            "placeholder": "输入 Notion 数据库 ID",
+            "required": true
+        },
+        {
+            "id": "filter",
+            "type": "long-input",
+            "title": "筛选条件（JSON）",
+            "layout": "full",
+            "placeholder": "以 JSON 输入筛选条件（可选）",
+            "required": true
+        },
+        {
+            "id": "sorts",
+            "type": "long-input",
+            "title": "排序条件（JSON）",
+            "layout": "full",
+            "placeholder": "以 JSON 数组输入排序条件（可选）"
+        },
+        {
+            "id": "pageSize",
+            "type": "short-input",
+            "title": "每页条数",
+            "layout": "full",
+            "placeholder": "结果数量（默认：100，最大：100）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">查询数据库 (<code>notion_query_database</code>)</div>
+
+查询并筛选 Notion 数据库条目，支持高级筛选
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `databaseId` | string | 是 | 要查询的数据库 ID |
+| `filter` | string | 否 | 筛选条件，JSON 格式 \(可选\) |
+| `sorts` | string | 否 | 排序条件，JSON 数组 \(可选\) |
+| `pageSize` | number | 否 | 返回结果数量 \(默认：100，最大：100\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 带属性的数据库条目格式化列表 |
+| `metadata` | object | 查询元数据，包含结果总数、分页信息和原始结果数组 |
+
+</div>
+
+---
+
+### 搜索工作区
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Notion"
+    type="notion"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "notion_search",
+            "options": [
+                {
+                    "id": "notion_read",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "notion_read_database",
+                    "label": "读取数据库"
+                },
+                {
+                    "id": "notion_create_page",
+                    "label": "创建页面"
+                },
+                {
+                    "id": "notion_create_database",
+                    "label": "创建数据库"
+                },
+                {
+                    "id": "notion_write",
+                    "label": "追加内容"
+                },
+                {
+                    "id": "notion_query_database",
+                    "label": "查询数据库"
+                },
+                {
+                    "id": "notion_search",
+                    "label": "搜索工作区"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Notion 账号",
+            "layout": "full",
+            "placeholder": "选择 Notion 账号",
+            "provider": "notion",
+            "required": true
+        },
+        {
+            "id": "query",
+            "type": "short-input",
+            "title": "搜索查询",
+            "layout": "full",
+            "placeholder": "输入搜索词（留空则返回所有页面）"
+        },
+        {
+            "id": "filterType",
+            "type": "dropdown",
+            "title": "筛选类型",
+            "layout": "full",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "全部"
+                },
+                {
+                    "id": "page",
+                    "label": "仅页面"
+                },
+                {
+                    "id": "database",
+                    "label": "仅数据库"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">搜索工作区（<code>notion_search</code>）</div>
+
+在 Notion 工作区中搜索所有页面和数据库
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `query` | string | 否 | 搜索词（留空可获取所有页面） |
+| `filterType` | string | 否 | 按对象类型筛选：page、database，或留空表示全部 |
+| `pageSize` | number | 否 | 返回结果数量（默认：100，最大：100） |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | string | 包含页面和数据库的格式化搜索结果列表 |
+| `metadata` | object | 搜索元数据，包括结果总数、分页信息和原始结果数组 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Notion 集成到工作流中。可读取页面、读取数据库、创建页面、创建数据库、追加内容、查询数据库以及搜索工作区。
+
+## 备注
+
+- 分类：`tools`
+- 类型：`notion`

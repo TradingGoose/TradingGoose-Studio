@@ -1,0 +1,102 @@
+---
+title: Resend
+description: Envía correos electrónicos con Resend.
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="resend"
+  color=""
+/>
+
+## Configuración
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Resend"
+    type="resend"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "fromAddress",
+            "type": "short-input",
+            "title": "Dirección de origen",
+            "layout": "full",
+            "placeholder": "sender@yourdomain.com",
+            "required": true
+        },
+        {
+            "id": "to",
+            "type": "short-input",
+            "title": "Para",
+            "layout": "full",
+            "placeholder": "recipient@example.com",
+            "required": true
+        },
+        {
+            "id": "subject",
+            "type": "short-input",
+            "title": "Asunto",
+            "layout": "full",
+            "placeholder": "Asunto del correo",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "Cuerpo",
+            "layout": "full",
+            "placeholder": "Contenido del cuerpo del correo",
+            "required": true
+        },
+        {
+            "id": "resendApiKey",
+            "type": "short-input",
+            "title": "Clave de API de Resend",
+            "layout": "full",
+            "placeholder": "Tu clave de API de Resend",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## Herramientas
+
+### `resend_send`
+
+Envía un correo electrónico con tu propia clave de API de Resend y dirección de origen
+
+#### Entrada
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `fromAddress` | string | Sí | Dirección de correo desde la que se envía |
+| `to` | string | Sí | Dirección de correo del destinatario |
+| `subject` | string | Sí | Asunto del correo |
+| `body` | string | Sí | Contenido del cuerpo del correo |
+| `contentType` | string | No | Tipo de contenido del cuerpo del correo \(text o html\) |
+| `resendApiKey` | string | Sí | Clave de API de Resend para enviar correos |
+
+#### Salida
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `success` | boolean | Indica si el correo se envió correctamente |
+| `to` | string | Dirección de correo del destinatario |
+| `subject` | string | Asunto del correo |
+| `body` | string | Contenido del cuerpo del correo |
+
+## Instrucciones de uso
+
+Integra Resend en el flujo de trabajo. Puede enviar correos electrónicos. Requiere clave de API.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `resend`

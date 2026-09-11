@@ -1,0 +1,217 @@
+---
+title: Confluence
+description: 与 Confluence 交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="confluence"
+  color="#2684FF"
+/>
+
+## 配置
+
+### 读取页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Confluence"
+    type="confluence"
+    color="#2684FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "read",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "update",
+                    "label": "更新页面"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "layout": "full",
+            "placeholder": "输入 Confluence 域名（例如 tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Confluence 账户",
+            "layout": "full",
+            "placeholder": "选择 Confluence 账户",
+            "provider": "confluence",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "file-selector",
+            "title": "选择页面",
+            "layout": "full",
+            "placeholder": "选择 Confluence 页面",
+            "provider": "confluence"
+        },
+        {
+            "id": "manualPageId",
+            "type": "short-input",
+            "title": "页面 ID",
+            "layout": "full",
+            "placeholder": "输入 Confluence 页面 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">读取页面 (<code>confluence_retrieve</code>)</div>
+
+使用 Confluence API 从 Confluence 页面获取内容。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 你的 Confluence 域名 \(例如 yourcompany.atlassian.net\) |
+| `pageId` | string | 是 | 要获取的 Confluence 页面 ID |
+| `cloudId` | string | 否 | 实例的 Confluence Cloud ID。如未提供，将使用域名获取。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `ts` | string | 获取时间戳 |
+| `pageId` | string | Confluence 页面 ID |
+| `content` | string | 去除 HTML 标签后的页面内容 |
+| `title` | string | 页面标题 |
+
+</div>
+
+---
+
+### 更新页面
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Confluence"
+    type="confluence"
+    color="#2684FF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "layout": "full",
+            "defaultValue": "update",
+            "options": [
+                {
+                    "id": "read",
+                    "label": "读取页面"
+                },
+                {
+                    "id": "update",
+                    "label": "更新页面"
+                }
+            ]
+        },
+        {
+            "id": "domain",
+            "type": "short-input",
+            "title": "域名",
+            "layout": "full",
+            "placeholder": "输入 Confluence 域名（例如：tradinggoose.atlassian.net）",
+            "required": true
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Confluence 账户",
+            "layout": "full",
+            "placeholder": "选择 Confluence 账户",
+            "provider": "confluence",
+            "required": true
+        },
+        {
+            "id": "pageId",
+            "type": "file-selector",
+            "title": "选择页面",
+            "layout": "full",
+            "placeholder": "选择 Confluence 页面",
+            "provider": "confluence"
+        },
+        {
+            "id": "manualPageId",
+            "type": "short-input",
+            "title": "页面 ID",
+            "layout": "full",
+            "placeholder": "输入 Confluence 页面 ID"
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "新标题",
+            "layout": "full",
+            "placeholder": "输入页面的新标题"
+        },
+        {
+            "id": "content",
+            "type": "long-input",
+            "title": "新内容",
+            "layout": "full",
+            "placeholder": "输入页面的新内容"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新页面 (<code>confluence_update</code>)</div>
+
+使用 Confluence API 更新 Confluence 页面。
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `domain` | string | 是 | 您的 Confluence 域名 \\(例如：yourcompany.atlassian.net\\) |
+| `pageId` | string | 是 | 要更新的 Confluence 页面 ID |
+| `title` | string | 否 | 页面的新标题 |
+| `content` | string | 否 | 以 Confluence 存储格式表示的页面新内容 |
+| `version` | number | 否 | 页面版本号 \\(用于防止冲突\\) |
+| `cloudId` | string | 否 | 实例的 Confluence Cloud ID。如果未提供，将使用域名获取。 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `ts` | 字符串 | 更新时间戳 |
+| `pageId` | 字符串 | Confluence 页面 ID |
+| `title` | 字符串 | 更新后的页面标题 |
+| `success` | 布尔值 | 更新操作是否成功 |
+
+</div>
+
+---
+
+## 使用说明
+
+将 Confluence 集成到工作流中。可读取和更新页面。
+
+## 说明
+
+- 分类：`tools`
+- 类型：`confluence`

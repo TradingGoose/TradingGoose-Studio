@@ -1,0 +1,2106 @@
+---
+title: GitLab
+description: 与 GitLab 项目、议题、合并请求和流水线交互
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="gitlab"
+  color="#E0E0E0"
+/>
+
+## 配置
+
+### 列出项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_list_projects",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加合并请求评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "每页结果数（默认：20，最大：100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "页码（默认：1）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出项目 (<code>gitlab_list_projects</code>)</div>
+
+列出已认证用户可访问的 GitLab 项目
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `owned` | boolean | 否 | 限制为当前用户拥有的项目 |
+| `membership` | boolean | 否 | 限制为当前用户是成员的项目 |
+| `search` | string | 否 | 按名称搜索项目 |
+| `visibility` | string | 否 | 按可见性筛选 \(公开、内部、私有\) |
+| `orderBy` | string | 否 | 按字段排序 \(id, name, path, created_at, updated_at, last_activity_at\) |
+| `sort` | string | 否 | 排序方向 \(asc, desc\) |
+| `perPage` | number | 否 | 每页结果数 \(默认 20，最大 100\) |
+| `page` | number | 否 | 分页页码 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `projects` | array | GitLab 项目列表 |
+| `total` | number | 项目总数 |
+
+</div>
+
+---
+
+### 获取项目
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_get_project",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加 MR 评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入您的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如 username/project）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取项目（<code>gitlab_get_project</code>）</div>
+
+获取特定 GitLab 项目的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 项目 ID 或 URL 编码的路径 \(例如，"namespace/project"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `project` | object | GitLab 项目详情 |
+
+</div>
+
+---
+
+### 列出议题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_list_issues",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加 MR 评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入您的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如：username/project）",
+            "required": true
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "输入标签（逗号分隔）"
+        },
+        {
+            "id": "issueState",
+            "type": "dropdown",
+            "title": "状态",
+            "defaultValue": "all",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "全部"
+                },
+                {
+                    "id": "opened",
+                    "label": "打开"
+                },
+                {
+                    "id": "closed",
+                    "label": "已关闭"
+                }
+            ]
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "每页结果数（默认：20，最大：100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "页码（默认：1）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出议题 (<code>gitlab_list_issues</code>)</div>
+
+列出 GitLab 项目中的议题
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必需 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | 字符串 | 是 | 项目 ID 或 URL 编码路径 |
+| `state` | 字符串 | 否 | 按状态筛选 \(opened, closed, all\) |
+| `labels` | 字符串 | 否 | 逗号分隔的标签名称列表 |
+| `assigneeId` | 数字 | 否 | 按分配用户 ID 筛选 |
+| `milestoneTitle` | 字符串 | 否 | 按里程碑标题筛选 |
+| `search` | 字符串 | 否 | 按标题和描述搜索议题 |
+| `orderBy` | 字符串 | 否 | 按字段排序 \(created_at, updated_at\) |
+| `sort` | 字符串 | 否 | 排序方向 \(asc, desc\) |
+| `perPage` | 数字 | 否 | 每页结果数 \(默认 20，最大 100\) |
+| `page` | 数字 | 否 | 分页页码 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `issues` | 数组 | GitLab 议题列表 |
+| `total` | 数字 | 议题总数 |
+
+</div>
+
+---
+
+### 获取议题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_get_issue",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加合并请求评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如 username/project）",
+            "required": true
+        },
+        {
+            "id": "issueIid",
+            "type": "short-input",
+            "title": "议题编号",
+            "placeholder": "输入议题编号（例如 1 表示议题 #1）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取议题 (<code>gitlab_get_issue</code>)</div>
+
+获取指定 GitLab 议题的详情
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | 字符串 | 是 | 项目 ID 或 URL 编码路径 |
+| `issueIid` | 数字 | 是 | 项目中的议题编号 \(GitLab UI 中显示的 #\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `issue` | 对象 | GitLab 议题详情 |
+
+</div>
+
+---
+
+### 创建议题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_create_issue",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加 MR 评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入您的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如 username/project）",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "输入标题",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "输入描述（支持 Markdown）"
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "输入标签（用逗号分隔）"
+        },
+        {
+            "id": "assigneeIds",
+            "type": "short-input",
+            "title": "负责人 ID",
+            "placeholder": "输入负责人用户 ID（用逗号分隔）"
+        },
+        {
+            "id": "milestoneId",
+            "type": "short-input",
+            "title": "里程碑 ID",
+            "placeholder": "输入里程碑 ID"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建议题（<code>gitlab_create_issue</code>）</div>
+
+在 GitLab 项目中创建新议题
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Yes | 项目 ID 或 URL 编码路径 |
+| `title` | string | Yes | 议题标题 |
+| `description` | string | No | 议题描述（支持 Markdown） |
+| `labels` | string | No | 逗号分隔的标签名称列表 |
+| `assigneeIds` | array | No | 要分配的用户 ID 数组 |
+| `milestoneId` | number | No | 要分配的里程碑 ID |
+| `dueDate` | string | No | 到期日期，格式为 YYYY-MM-DD |
+| `confidential` | boolean | No | 议题是否为保密 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `issue` | object | 创建的 GitLab 议题 |
+
+</div>
+
+---
+
+### 更新议题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_update_issue",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加 MR 评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如 username/project）",
+            "required": true
+        },
+        {
+            "id": "issueIid",
+            "type": "short-input",
+            "title": "议题编号",
+            "placeholder": "输入议题编号（例如，1 代表议题 #1）",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "输入描述（支持 Markdown）"
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "输入标签（逗号分隔）"
+        },
+        {
+            "id": "assigneeIds",
+            "type": "short-input",
+            "title": "分配人 ID",
+            "placeholder": "输入分配人用户 ID（逗号分隔）"
+        },
+        {
+            "id": "milestoneId",
+            "type": "short-input",
+            "title": "里程碑 ID",
+            "placeholder": "输入里程碑 ID"
+        },
+        {
+            "id": "stateEvent",
+            "type": "dropdown",
+            "title": "状态事件",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "无变更"
+                },
+                {
+                    "id": "close",
+                    "label": "关闭"
+                },
+                {
+                    "id": "reopen",
+                    "label": "重新打开"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新议题 (<code>gitlab_update_issue</code>)</div>
+
+更新 GitLab 项目中的现有议题
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 项目 ID 或 URL 编码路径 |
+| `issueIid` | number | 是 | 议题内部 ID \(IID\) |
+| `title` | string | 否 | 新议题标题 |
+| `description` | string | 否 | 新议题描述 \(支持 Markdown\) |
+| `stateEvent` | string | 否 | 状态事件 \(关闭或重新打开\) |
+| `labels` | string | 否 | 以逗号分隔的标签名称列表 |
+| `assigneeIds` | array | 否 | 要分配的用户 ID 数组 |
+| `milestoneId` | number | 否 | 要分配的里程碑 ID |
+| `dueDate` | string | 否 | 截止日期，格式为 YYYY-MM-DD |
+| `confidential` | boolean | 否 | 议题是否保密 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `issue` | object | 更新后的 GitLab 议题 |
+
+</div>
+
+---
+
+### 删除议题
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_delete_issue",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加合并请求评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入您的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如：用户名/项目）",
+            "required": true
+        },
+        {
+            "id": "issueIid",
+            "type": "short-input",
+            "title": "议题编号",
+            "placeholder": "输入议题编号（例如：1 表示议题 #1）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">删除议题 (<code>gitlab_delete_issue</code>)</div>
+
+从 GitLab 项目中删除议题
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 项目 ID 或 URL 编码路径 |
+| `issueIid` | number | 是 | 议题内部 ID \(IID\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `success` | boolean | 议题是否已成功删除 |
+
+</div>
+
+---
+
+### 添加议题评论
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_create_issue_note",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加 MR 评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入您的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如：用户名/项目）",
+            "required": true
+        },
+        {
+            "id": "issueIid",
+            "type": "short-input",
+            "title": "议题编号",
+            "placeholder": "输入议题编号（例如：1 表示议题 #1）",
+            "required": true
+        },
+        {
+            "id": "body",
+            "type": "long-input",
+            "title": "评论",
+            "placeholder": "输入评论内容（支持 Markdown）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">添加议题评论 (<code>gitlab_create_issue_note</code>)</div>
+
+为 GitLab 议题添加评论
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 项目 ID 或 URL 编码路径 |
+| `issueIid` | number | 是 | 议题内部 ID \(IID\) |
+| `body` | string | 是 | 评论内容 \(支持 Markdown\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `note` | object | 创建的评论 |
+
+</div>
+
+---
+
+### 列出合并请求
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_list_merge_requests",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加 MR 评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如 username/project）",
+            "required": true
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "输入标签（用逗号分隔）"
+        },
+        {
+            "id": "mrState",
+            "type": "dropdown",
+            "title": "状态",
+            "defaultValue": "all",
+            "options": [
+                {
+                    "id": "all",
+                    "label": "全部"
+                },
+                {
+                    "id": "opened",
+                    "label": "打开"
+                },
+                {
+                    "id": "closed",
+                    "label": "已关闭"
+                },
+                {
+                    "id": "merged",
+                    "label": "已合并"
+                }
+            ]
+        },
+        {
+            "id": "perPage",
+            "type": "short-input",
+            "title": "每页结果数",
+            "placeholder": "每页结果数量（默认：20，最大：100）"
+        },
+        {
+            "id": "page",
+            "type": "short-input",
+            "title": "页码",
+            "placeholder": "页码（默认：1）"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">列出合并请求（<code>gitlab_list_merge_requests</code>）</div>
+
+列出 GitLab 项目中的合并请求
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 项目 ID 或 URL 编码路径 |
+| `state` | string | 否 | 按状态筛选 \(opened, closed, merged, all\) |
+| `labels` | string | 否 | 以逗号分隔的标签名称列表 |
+| `sourceBranch` | string | 否 | 按源分支筛选 |
+| `targetBranch` | string | 否 | 按目标分支筛选 |
+| `orderBy` | string | 否 | 按字段排序 \(created_at, updated_at\) |
+| `sort` | string | 否 | 排序方向 \(asc, desc\) |
+| `perPage` | number | 否 | 每页结果数量 \(默认 20，最大 100\) |
+| `page` | number | 否 | 分页页码 |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `mergeRequests` | array | GitLab 合并请求列表 |
+| `total` | number | 合并请求总数 |
+
+</div>
+
+---
+
+### 获取合并请求
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_get_merge_request",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加 MR 评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如 username/project）",
+            "required": true
+        },
+        {
+            "id": "mergeRequestIid",
+            "type": "short-input",
+            "title": "MR 编号",
+            "placeholder": "输入 MR 编号（例如 !1 对应 1）",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">获取合并请求（<code>gitlab_get_merge_request</code>）</div>
+
+获取指定 GitLab 合并请求的详细信息
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 项目 ID 或 URL 编码路径 |
+| `mergeRequestIid` | number | 是 | 合并请求内部 ID \(IID\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `mergeRequest` | object | GitLab 合并请求详情 |
+
+</div>
+
+---
+
+### 创建合并请求
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_create_merge_request",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加 MR 评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如 username/project）",
+            "required": true
+        },
+        {
+            "id": "title",
+            "type": "short-input",
+            "title": "标题",
+            "placeholder": "输入标题",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "输入描述（支持 Markdown）"
+        },
+        {
+            "id": "sourceBranch",
+            "type": "short-input",
+            "title": "源分支",
+            "placeholder": "输入源分支名称",
+            "required": true
+        },
+        {
+            "id": "targetBranch",
+            "type": "short-input",
+            "title": "目标分支",
+            "placeholder": "输入目标分支名称（例如 main）",
+            "required": true
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "输入标签（以逗号分隔）"
+        },
+        {
+            "id": "assigneeIds",
+            "type": "short-input",
+            "title": "指派用户 ID",
+            "placeholder": "输入指派用户 ID（以逗号分隔）"
+        },
+        {
+            "id": "removeSourceBranch",
+            "type": "switch",
+            "title": "删除源分支"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">创建合并请求 (<code>gitlab_create_merge_request</code>)</div>
+
+在 GitLab 项目中创建新的合并请求
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 描述 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | 字符串 | 是 | 项目 ID 或 URL 编码路径 |
+| `sourceBranch` | 字符串 | 是 | 源分支名称 |
+| `targetBranch` | 字符串 | 是 | 目标分支名称 |
+| `title` | 字符串 | 是 | 合并请求标题 |
+| `description` | 字符串 | 否 | 合并请求描述 \\(支持 Markdown\\) |
+| `labels` | 字符串 | 否 | 以逗号分隔的标签名称列表 |
+| `assigneeIds` | 数组 | 否 | 要指派的用户 ID 数组 |
+| `milestoneId` | 数字 | 否 | 要指派的里程碑 ID |
+| `removeSourceBranch` | 布尔值 | 否 | 合并后删除源分支 |
+| `squash` | 布尔值 | 否 | 合并时压缩提交 |
+| `draft` | 布尔值 | 否 | 标记为草稿 \\(工作进行中\\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 描述 |
+| --------- | ---- | ----------- |
+| `mergeRequest` | 对象 | 创建的 GitLab 合并请求 |
+
+</div>
+
+---
+
+### 更新合并请求
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_update_merge_request",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加合并请求评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入您的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如：用户名/项目）",
+            "required": true
+        },
+        {
+            "id": "mergeRequestIid",
+            "type": "short-input",
+            "title": "MR 编号",
+            "placeholder": "输入 MR 编号（例如：1 表示 !1）",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "描述",
+            "placeholder": "输入描述（支持 Markdown）"
+        },
+        {
+            "id": "labels",
+            "type": "short-input",
+            "title": "标签",
+            "placeholder": "输入标签（以逗号分隔）"
+        },
+        {
+            "id": "assigneeIds",
+            "type": "short-input",
+            "title": "指派人 ID",
+            "placeholder": "输入指派人用户 ID（以逗号分隔）"
+        },
+        {
+            "id": "stateEvent",
+            "type": "dropdown",
+            "title": "状态事件",
+            "defaultValue": "",
+            "options": [
+                {
+                    "id": "",
+                    "label": "无更改"
+                },
+                {
+                    "id": "close",
+                    "label": "关闭"
+                },
+                {
+                    "id": "reopen",
+                    "label": "重新打开"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">更新合并请求（<code>gitlab_update_merge_request</code>）</div>
+
+更新 GitLab 项目中的现有合并请求
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输入</div>
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | 是 | 项目 ID 或 URL 编码路径 |
+| `mergeRequestIid` | number | 是 | 合并请求内部 ID \(IID\) |
+| `title` | string | 否 | 新的合并请求标题 |
+| `description` | string | 否 | 新的合并请求描述 |
+| `stateEvent` | string | 否 | 状态事件 \(close 或 reopen\) |
+| `labels` | string | 否 | 以逗号分隔的标签名称列表 |
+| `assigneeIds` | array | 否 | 要分配的用户 ID 数组 |
+| `milestoneId` | number | 否 | 要分配的里程碑 ID |
+| `targetBranch` | string | 否 | 新的目标分支 |
+| `removeSourceBranch` | boolean | 否 | 合并后删除源分支 |
+| `squash` | boolean | 否 | 合并时压缩提交 |
+| `draft` | boolean | 否 | 标记为草稿 \(工作进行中\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">输出</div>
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `mergeRequest` | object | 更新后的 GitLab 合并请求 |
+
+</div>
+
+---
+
+### 合并合并请求
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="GitLab"
+    type="gitlab"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "操作",
+            "defaultValue": "gitlab_merge_merge_request",
+            "options": [
+                {
+                    "id": "gitlab_list_projects",
+                    "label": "列出项目"
+                },
+                {
+                    "id": "gitlab_get_project",
+                    "label": "获取项目"
+                },
+                {
+                    "id": "gitlab_list_issues",
+                    "label": "列出议题"
+                },
+                {
+                    "id": "gitlab_get_issue",
+                    "label": "获取议题"
+                },
+                {
+                    "id": "gitlab_create_issue",
+                    "label": "创建议题"
+                },
+                {
+                    "id": "gitlab_update_issue",
+                    "label": "更新议题"
+                },
+                {
+                    "id": "gitlab_delete_issue",
+                    "label": "删除议题"
+                },
+                {
+                    "id": "gitlab_create_issue_note",
+                    "label": "添加议题评论"
+                },
+                {
+                    "id": "gitlab_list_merge_requests",
+                    "label": "列出合并请求"
+                },
+                {
+                    "id": "gitlab_get_merge_request",
+                    "label": "获取合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request",
+                    "label": "创建合并请求"
+                },
+                {
+                    "id": "gitlab_update_merge_request",
+                    "label": "更新合并请求"
+                },
+                {
+                    "id": "gitlab_merge_merge_request",
+                    "label": "合并合并请求"
+                },
+                {
+                    "id": "gitlab_create_merge_request_note",
+                    "label": "添加 MR 评论"
+                },
+                {
+                    "id": "gitlab_list_pipelines",
+                    "label": "列出流水线"
+                },
+                {
+                    "id": "gitlab_get_pipeline",
+                    "label": "获取流水线"
+                },
+                {
+                    "id": "gitlab_create_pipeline",
+                    "label": "创建流水线"
+                },
+                {
+                    "id": "gitlab_retry_pipeline",
+                    "label": "重试流水线"
+                },
+                {
+                    "id": "gitlab_cancel_pipeline",
+                    "label": "取消流水线"
+                }
+            ]
+        },
+        {
+            "id": "accessToken",
+            "type": "short-input",
+            "title": "个人访问令牌",
+            "placeholder": "输入你的 GitLab 个人访问令牌",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "项目 ID",
+            "placeholder": "输入项目 ID 或路径（例如 username/project）",
+            "required": true
+        },
+        {
+            "id": "mergeRequestIid",
+            "type": "short-input",
+            "title": "MR 编号",
+            "placeholder": "输入 MR 编号（例如 !1 对应 1）",
+            "required": true
+        },
+        {
+            "id": "removeSourceBranch",
+            "type": "switch",
+            "title": "删除源分支"
+        },
+        {
+            "id": "squash",
+            "type": "switch",
+            "title": "压缩提交"
+        },
+        {
+            "id": "mergeCommitMessage",
+            "type": "long-input",
+            "title": "合并提交信息",
+            "placeholder": "输入自定义合并提交信息（可选）"
+        }
+    ]}
+  />
+</ShowcaseCard>

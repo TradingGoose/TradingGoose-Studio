@@ -1,0 +1,73 @@
+---
+title: MCP 工具
+description: 执行来自 Model Context Protocol (MCP) 服务器的工具
+---
+
+import { BlockInfoCard } from "@/components/ui/block-info-card"
+import { BlockConfigPreview } from "@/components/ui/block-config-preview"
+import { ShowcaseCard } from "@/components/ui/showcase-card"
+
+<BlockInfoCard
+  type="mcp"
+  color=""
+/>
+
+## 配置
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="MCP 工具"
+    type="mcp"
+    color=""
+    hideHeader
+    subBlocks={[
+        {
+            "id": "server",
+            "type": "mcp-server-selector",
+            "title": "MCP 服务器",
+            "layout": "full",
+            "placeholder": "选择 MCP 服务器",
+            "description": "从工作区中已配置的 MCP 服务器里选择",
+            "required": true
+        },
+        {
+            "id": "tool",
+            "type": "mcp-tool-selector",
+            "title": "工具",
+            "layout": "full",
+            "placeholder": "选择工具",
+            "description": "所选 MCP 服务器上的可用工具。当 server 不为 '' 时显示。"
+        },
+        {
+            "id": "arguments",
+            "type": "mcp-dynamic-args",
+            "title": "",
+            "layout": "full",
+            "description": "当 tool 不为 '' 时显示。"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+## 输入
+
+| 参数 | 类型 | 必填 | 说明 |
+| --------- | ---- | -------- | ----------- |
+| `server` | string | 是 | 用于执行工具的 MCP 服务器 ID |
+| `tool` | string | 否 | 要执行的工具名称 |
+| `arguments` | json | 否 | 传递给工具的参数 |
+
+## 输出
+
+| 参数 | 类型 | 说明 |
+| --------- | ---- | ----------- |
+| `content` | array | 来自 MCP 工具响应的内容数组，即所有 MCP 工具的标准格式 |
+
+## 使用说明
+
+将 MCP 集成到工作流中。可执行工作区仪表盘小组件中已配置的 MCP 服务器上的工具。
+
+## 备注
+
+- 类别：`tools`
+- 类型：`mcp`

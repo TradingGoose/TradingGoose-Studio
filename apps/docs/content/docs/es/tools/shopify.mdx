@@ -3006,3 +3006,324 @@ Lista las ubicaciones de inventario de tu tienda Shopify. Úsalo para encontrar 
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Crear preparación (<code>shopify_create_fulfillment</code>)</div>
+
+Crea una preparación para marcar los artículos del pedido como enviados. Requiere un ID de pedido de preparación (obténlo en los detalles del pedido).
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | Dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `fulfillmentOrderId` | string | Sí | ID del pedido de preparación \(p. ej., gid://shopify/FulfillmentOrder/123456789\) |
+| `trackingNumber` | string | No | Número de seguimiento del envío |
+| `trackingCompany` | string | No | Nombre del transportista \(p. ej., UPS, FedEx, USPS, DHL\) |
+| `trackingUrl` | string | No | URL para rastrear el envío |
+| `notifyCustomer` | boolean | No | Si se envía un correo de confirmación de envío al cliente \(predeterminado: true\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `fulfillment` | object | La preparación creada con información de seguimiento y artículos preparados |
+
+</div>
+
+---
+
+### Listar colecciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "shopify_list_collections",
+            "options": [
+                {
+                    "id": "shopify_create_product",
+                    "label": "Crear producto"
+                },
+                {
+                    "id": "shopify_get_product",
+                    "label": "Obtener producto"
+                },
+                {
+                    "id": "shopify_list_products",
+                    "label": "Listar productos"
+                },
+                {
+                    "id": "shopify_update_product",
+                    "label": "Actualizar producto"
+                },
+                {
+                    "id": "shopify_delete_product",
+                    "label": "Eliminar producto"
+                },
+                {
+                    "id": "shopify_get_order",
+                    "label": "Obtener pedido"
+                },
+                {
+                    "id": "shopify_list_orders",
+                    "label": "Listar pedidos"
+                },
+                {
+                    "id": "shopify_update_order",
+                    "label": "Actualizar pedido"
+                },
+                {
+                    "id": "shopify_cancel_order",
+                    "label": "Cancelar pedido"
+                },
+                {
+                    "id": "shopify_create_customer",
+                    "label": "Crear cliente"
+                },
+                {
+                    "id": "shopify_get_customer",
+                    "label": "Obtener cliente"
+                },
+                {
+                    "id": "shopify_list_customers",
+                    "label": "Listar clientes"
+                },
+                {
+                    "id": "shopify_update_customer",
+                    "label": "Actualizar cliente"
+                },
+                {
+                    "id": "shopify_delete_customer",
+                    "label": "Eliminar cliente"
+                },
+                {
+                    "id": "shopify_list_inventory_items",
+                    "label": "Listar artículos de inventario"
+                },
+                {
+                    "id": "shopify_get_inventory_level",
+                    "label": "Obtener nivel de inventario"
+                },
+                {
+                    "id": "shopify_adjust_inventory",
+                    "label": "Ajustar inventario"
+                },
+                {
+                    "id": "shopify_list_locations",
+                    "label": "Listar ubicaciones"
+                },
+                {
+                    "id": "shopify_create_fulfillment",
+                    "label": "Crear preparación"
+                },
+                {
+                    "id": "shopify_list_collections",
+                    "label": "Listar colecciones"
+                },
+                {
+                    "id": "shopify_get_collection",
+                    "label": "Obtener colección"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "collectionQuery",
+            "type": "short-input",
+            "title": "Consulta de búsqueda",
+            "placeholder": "p. ej., title:Summer OR collection_type:smart"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar colecciones (<code>shopify_list_collections</code>)</div>
+
+Lista las colecciones de productos de tu tienda Shopify. Filtra por título, tipo (personalizada/inteligente) o handle.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | Dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `first` | number | No | Número de colecciones que se devolverán \(valor predeterminado: 50, máx.: 250\) |
+| `query` | string | No | Consulta de búsqueda para filtrar colecciones \(p. ej., "title:Summer" o "collection_type:smart"\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `collections` | array | Lista de colecciones con sus ID, títulos y número de productos |
+| `pageInfo` | object | Información de paginación |
+
+</div>
+
+---
+
+### Obtener colección
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="Shopify"
+    type="shopify"
+    color="#FFFFFF"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "shopify_get_collection",
+            "options": [
+                {
+                    "id": "shopify_create_product",
+                    "label": "Crear producto"
+                },
+                {
+                    "id": "shopify_get_product",
+                    "label": "Obtener producto"
+                },
+                {
+                    "id": "shopify_list_products",
+                    "label": "Listar productos"
+                },
+                {
+                    "id": "shopify_update_product",
+                    "label": "Actualizar producto"
+                },
+                {
+                    "id": "shopify_delete_product",
+                    "label": "Eliminar producto"
+                },
+                {
+                    "id": "shopify_get_order",
+                    "label": "Obtener pedido"
+                },
+                {
+                    "id": "shopify_list_orders",
+                    "label": "Listar pedidos"
+                },
+                {
+                    "id": "shopify_update_order",
+                    "label": "Actualizar pedido"
+                },
+                {
+                    "id": "shopify_cancel_order",
+                    "label": "Cancelar pedido"
+                },
+                {
+                    "id": "shopify_create_customer",
+                    "label": "Crear cliente"
+                },
+                {
+                    "id": "shopify_get_customer",
+                    "label": "Obtener cliente"
+                },
+                {
+                    "id": "shopify_list_customers",
+                    "label": "Listar clientes"
+                },
+                {
+                    "id": "shopify_update_customer",
+                    "label": "Actualizar cliente"
+                },
+                {
+                    "id": "shopify_delete_customer",
+                    "label": "Eliminar cliente"
+                },
+                {
+                    "id": "shopify_list_inventory_items",
+                    "label": "Listar artículos de inventario"
+                },
+                {
+                    "id": "shopify_get_inventory_level",
+                    "label": "Obtener nivel de inventario"
+                },
+                {
+                    "id": "shopify_adjust_inventory",
+                    "label": "Ajustar inventario"
+                },
+                {
+                    "id": "shopify_list_locations",
+                    "label": "Listar ubicaciones"
+                },
+                {
+                    "id": "shopify_create_fulfillment",
+                    "label": "Crear fulfillment"
+                },
+                {
+                    "id": "shopify_list_collections",
+                    "label": "Listar colecciones"
+                },
+                {
+                    "id": "shopify_get_collection",
+                    "label": "Obtener colección"
+                }
+            ]
+        },
+        {
+            "id": "credential",
+            "type": "oauth-input",
+            "title": "Cuenta de Shopify",
+            "placeholder": "Seleccionar cuenta de Shopify",
+            "provider": "shopify",
+            "required": true
+        },
+        {
+            "id": "collectionId",
+            "type": "short-input",
+            "title": "ID de colección",
+            "placeholder": "gid://shopify/Collection/123456789",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener colección (<code>shopify_get_collection</code>)</div>
+
+Obtiene una colección específica por ID, incluidos sus productos. Úsalo para recuperar los productos de una colección.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `shopDomain` | string | Sí | Dominio de tu tienda Shopify \(p. ej., mystore.myshopify.com\) |
+| `collectionId` | string | Sí | El ID de la colección \(p. ej., gid://shopify/Collection/123456789\) |
+| `productsFirst` | number | No | Número de productos a devolver de esta colección \(predeterminado: 50, máx.: 250\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `collection` | object | Los detalles de la colección, incluidos sus productos |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra Shopify en tu flujo de trabajo. Gestiona productos, pedidos, clientes e inventario. Crea, lee, actualiza y elimina productos. Lista y gestiona pedidos. Gestiona los datos de clientes y ajusta los niveles de inventario.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `shopify`

@@ -9863,3 +9863,1883 @@ Obtiene los detalles de una definición de evento específica en PostHog. Devuel
     ]}
   />
 </ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar definición de evento (<code>posthog_update_event_definition</code>)</div>
+
+Actualiza una definición de evento en PostHog. Permite modificar la descripción, las etiquetas y el estado de verificación para mantener esquemas de eventos limpios.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto de PostHog |
+| `eventDefinitionId` | string | Sí | ID de la definición de evento que se va a actualizar |
+| `region` | string | Sí | Región de la nube de PostHog: us o eu |
+| `apiKey` | string | Sí | Clave de API personal de PostHog |
+| `description` | string | No | Descripción actualizada del evento |
+| `tags` | string | No | Lista de etiquetas separadas por comas para asociar al evento |
+| `verified` | boolean | No | Indica si se debe marcar el evento como verificado |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | Identificador único de la definición de evento |
+| `name` | string | Nombre del evento |
+| `description` | string | Descripción actualizada del evento |
+| `tags` | array | Etiquetas actualizadas asociadas al evento |
+| `volume_30_day` | number | Número de eventos recibidos en los últimos 30 días |
+| `query_usage_30_day` | number | Número de veces que se consultó este evento en los últimos 30 días |
+| `created_at` | string | Marca de tiempo ISO de creación del evento |
+| `last_seen_at` | string | Marca de tiempo ISO de la última vez que se vio el evento |
+| `updated_at` | string | Marca de tiempo ISO de actualización del evento |
+| `updated_by` | object | Usuario que actualizó el evento por última vez |
+| `verified` | boolean | Indica si el evento ha sido verificado |
+| `verified_at` | string | Marca de tiempo ISO de verificación del evento |
+| `verified_by` | string | Usuario que verificó el evento |
+
+</div>
+
+---
+
+### Listar definiciones de propiedades
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostHog"
+    type="posthog"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "posthog_list_property_definitions",
+            "options": [
+                {
+                    "id": "posthog_capture_event",
+                    "label": "Capturar evento"
+                },
+                {
+                    "id": "posthog_batch_events",
+                    "label": "Eventos por lotes"
+                },
+                {
+                    "id": "posthog_list_persons",
+                    "label": "Listar personas"
+                },
+                {
+                    "id": "posthog_get_person",
+                    "label": "Obtener persona"
+                },
+                {
+                    "id": "posthog_delete_person",
+                    "label": "Eliminar persona"
+                },
+                {
+                    "id": "posthog_query",
+                    "label": "Ejecutar consulta (HogQL)"
+                },
+                {
+                    "id": "posthog_list_insights",
+                    "label": "Listar insights"
+                },
+                {
+                    "id": "posthog_get_insight",
+                    "label": "Obtener insight"
+                },
+                {
+                    "id": "posthog_create_insight",
+                    "label": "Crear insight"
+                },
+                {
+                    "id": "posthog_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "posthog_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "posthog_list_actions",
+                    "label": "Listar acciones"
+                },
+                {
+                    "id": "posthog_list_cohorts",
+                    "label": "Listar cohortes"
+                },
+                {
+                    "id": "posthog_get_cohort",
+                    "label": "Obtener cohorte"
+                },
+                {
+                    "id": "posthog_create_cohort",
+                    "label": "Crear cohorte"
+                },
+                {
+                    "id": "posthog_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "posthog_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "posthog_list_feature_flags",
+                    "label": "Listar feature flags"
+                },
+                {
+                    "id": "posthog_get_feature_flag",
+                    "label": "Obtener feature flag"
+                },
+                {
+                    "id": "posthog_create_feature_flag",
+                    "label": "Crear feature flag"
+                },
+                {
+                    "id": "posthog_update_feature_flag",
+                    "label": "Actualizar feature flag"
+                },
+                {
+                    "id": "posthog_delete_feature_flag",
+                    "label": "Eliminar feature flag"
+                },
+                {
+                    "id": "posthog_evaluate_flags",
+                    "label": "Evaluar flags"
+                },
+                {
+                    "id": "posthog_list_experiments",
+                    "label": "Listar experimentos"
+                },
+                {
+                    "id": "posthog_get_experiment",
+                    "label": "Obtener experimento"
+                },
+                {
+                    "id": "posthog_create_experiment",
+                    "label": "Crear experimento"
+                },
+                {
+                    "id": "posthog_list_surveys",
+                    "label": "Listar encuestas"
+                },
+                {
+                    "id": "posthog_get_survey",
+                    "label": "Obtener encuesta"
+                },
+                {
+                    "id": "posthog_create_survey",
+                    "label": "Crear encuesta"
+                },
+                {
+                    "id": "posthog_update_survey",
+                    "label": "Actualizar encuesta"
+                },
+                {
+                    "id": "posthog_list_session_recordings",
+                    "label": "Listar grabaciones de sesión"
+                },
+                {
+                    "id": "posthog_get_session_recording",
+                    "label": "Obtener grabación de sesión"
+                },
+                {
+                    "id": "posthog_list_recording_playlists",
+                    "label": "Listar listas de grabaciones"
+                },
+                {
+                    "id": "posthog_list_event_definitions",
+                    "label": "Listar definiciones de eventos"
+                },
+                {
+                    "id": "posthog_get_event_definition",
+                    "label": "Obtener definición de evento"
+                },
+                {
+                    "id": "posthog_update_event_definition",
+                    "label": "Actualizar definición de evento"
+                },
+                {
+                    "id": "posthog_list_property_definitions",
+                    "label": "Listar definiciones de propiedades"
+                },
+                {
+                    "id": "posthog_get_property_definition",
+                    "label": "Obtener definición de propiedad"
+                },
+                {
+                    "id": "posthog_update_property_definition",
+                    "label": "Actualizar definición de propiedad"
+                },
+                {
+                    "id": "posthog_list_projects",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "posthog_get_project",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "posthog_list_organizations",
+                    "label": "Listar organizaciones"
+                },
+                {
+                    "id": "posthog_get_organization",
+                    "label": "Obtener organización"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "dropdown",
+            "title": "Región",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "Nube US"
+                },
+                {
+                    "id": "eu",
+                    "label": "Nube EU"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "personalApiKey",
+            "type": "short-input",
+            "title": "Clave API personal",
+            "placeholder": "Introduce tu clave API personal de PostHog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID de proyecto",
+            "placeholder": "Introduce el ID de proyecto de PostHog",
+            "required": true
+        },
+        {
+            "id": "limit",
+            "type": "short-input",
+            "title": "Límite",
+            "placeholder": "100"
+        },
+        {
+            "id": "offset",
+            "type": "short-input",
+            "title": "Desplazamiento",
+            "placeholder": "0"
+        },
+        {
+            "id": "search",
+            "type": "short-input",
+            "title": "Búsqueda",
+            "placeholder": "Consulta de búsqueda"
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar definiciones de propiedades (<code>posthog_list_property_definitions</code>)</div>
+
+Lista todas las definiciones de propiedades de un proyecto de PostHog. Las definiciones de propiedades representan propiedades rastreadas con metadatos como descripciones, etiquetas, tipos y estadísticas de uso.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto de PostHog |
+| `region` | string | Sí | Región de la nube de PostHog: us o eu |
+| `apiKey` | string | Sí | Clave API personal de PostHog |
+| `limit` | number | No | Número de resultados que se devolverán por página \(valor predeterminado: 100\) |
+| `offset` | number | No | Índice inicial desde el que devolver los resultados |
+| `search` | string | No | Término de búsqueda para filtrar las definiciones de propiedades por nombre |
+| `type` | string | No | Filtrar por tipo de propiedad: event, person o group |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `count` | number | Número total de definiciones de propiedades |
+| `next` | string | URL de la página siguiente de resultados |
+| `previous` | string | URL de la página anterior de resultados |
+| `results` | array | Lista de definiciones de propiedades |
+
+</div>
+
+---
+
+### Obtener definición de propiedad
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostHog"
+    type="posthog"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "posthog_get_property_definition",
+            "options": [
+                {
+                    "id": "posthog_capture_event",
+                    "label": "Capturar evento"
+                },
+                {
+                    "id": "posthog_batch_events",
+                    "label": "Eventos por lotes"
+                },
+                {
+                    "id": "posthog_list_persons",
+                    "label": "Listar personas"
+                },
+                {
+                    "id": "posthog_get_person",
+                    "label": "Obtener persona"
+                },
+                {
+                    "id": "posthog_delete_person",
+                    "label": "Eliminar persona"
+                },
+                {
+                    "id": "posthog_query",
+                    "label": "Ejecutar consulta (HogQL)"
+                },
+                {
+                    "id": "posthog_list_insights",
+                    "label": "Listar insights"
+                },
+                {
+                    "id": "posthog_get_insight",
+                    "label": "Obtener insight"
+                },
+                {
+                    "id": "posthog_create_insight",
+                    "label": "Crear insight"
+                },
+                {
+                    "id": "posthog_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "posthog_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "posthog_list_actions",
+                    "label": "Listar acciones"
+                },
+                {
+                    "id": "posthog_list_cohorts",
+                    "label": "Listar cohortes"
+                },
+                {
+                    "id": "posthog_get_cohort",
+                    "label": "Obtener cohorte"
+                },
+                {
+                    "id": "posthog_create_cohort",
+                    "label": "Crear cohorte"
+                },
+                {
+                    "id": "posthog_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "posthog_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "posthog_list_feature_flags",
+                    "label": "Listar feature flags"
+                },
+                {
+                    "id": "posthog_get_feature_flag",
+                    "label": "Obtener feature flag"
+                },
+                {
+                    "id": "posthog_create_feature_flag",
+                    "label": "Crear feature flag"
+                },
+                {
+                    "id": "posthog_update_feature_flag",
+                    "label": "Actualizar feature flag"
+                },
+                {
+                    "id": "posthog_delete_feature_flag",
+                    "label": "Eliminar feature flag"
+                },
+                {
+                    "id": "posthog_evaluate_flags",
+                    "label": "Evaluar flags"
+                },
+                {
+                    "id": "posthog_list_experiments",
+                    "label": "Listar experimentos"
+                },
+                {
+                    "id": "posthog_get_experiment",
+                    "label": "Obtener experimento"
+                },
+                {
+                    "id": "posthog_create_experiment",
+                    "label": "Crear experimento"
+                },
+                {
+                    "id": "posthog_list_surveys",
+                    "label": "Listar encuestas"
+                },
+                {
+                    "id": "posthog_get_survey",
+                    "label": "Obtener encuesta"
+                },
+                {
+                    "id": "posthog_create_survey",
+                    "label": "Crear encuesta"
+                },
+                {
+                    "id": "posthog_update_survey",
+                    "label": "Actualizar encuesta"
+                },
+                {
+                    "id": "posthog_list_session_recordings",
+                    "label": "Listar grabaciones de sesión"
+                },
+                {
+                    "id": "posthog_get_session_recording",
+                    "label": "Obtener grabación de sesión"
+                },
+                {
+                    "id": "posthog_list_recording_playlists",
+                    "label": "Listar listas de reproducción de grabaciones"
+                },
+                {
+                    "id": "posthog_list_event_definitions",
+                    "label": "Listar definiciones de eventos"
+                },
+                {
+                    "id": "posthog_get_event_definition",
+                    "label": "Obtener definición de evento"
+                },
+                {
+                    "id": "posthog_update_event_definition",
+                    "label": "Actualizar definición de evento"
+                },
+                {
+                    "id": "posthog_list_property_definitions",
+                    "label": "Listar definiciones de propiedades"
+                },
+                {
+                    "id": "posthog_get_property_definition",
+                    "label": "Obtener definición de propiedad"
+                },
+                {
+                    "id": "posthog_update_property_definition",
+                    "label": "Actualizar definición de propiedad"
+                },
+                {
+                    "id": "posthog_list_projects",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "posthog_get_project",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "posthog_list_organizations",
+                    "label": "Listar organizaciones"
+                },
+                {
+                    "id": "posthog_get_organization",
+                    "label": "Obtener organización"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "dropdown",
+            "title": "Región",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "Nube US"
+                },
+                {
+                    "id": "eu",
+                    "label": "Nube EU"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "personalApiKey",
+            "type": "short-input",
+            "title": "Clave API personal",
+            "placeholder": "Introduce tu clave API personal de PostHog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID del proyecto",
+            "placeholder": "Introduce el ID de tu proyecto de PostHog",
+            "required": true
+        },
+        {
+            "id": "propertyDefinitionId",
+            "type": "short-input",
+            "title": "ID de definición de propiedad",
+            "placeholder": "ID de definición de propiedad",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener definición de propiedad (<code>posthog_get_property_definition</code>)</div>
+
+Obtiene los detalles de una definición de propiedad específica en PostHog. Devuelve información completa sobre la propiedad, incluidos metadatos, tipo, estadísticas de uso y estado de verificación.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto de PostHog |
+| `propertyDefinitionId` | string | Sí | ID de la definición de propiedad que se va a recuperar |
+| `region` | string | Sí | Región de la nube de PostHog: us o eu |
+| `apiKey` | string | Sí | Clave de API personal de PostHog |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | Identificador único de la definición de propiedad |
+| `name` | string | Nombre de la propiedad |
+| `description` | string | Descripción de la propiedad |
+| `tags` | array | Etiquetas asociadas a la propiedad |
+| `is_numerical` | boolean | Si la propiedad es numérica |
+| `is_seen_on_filtered_events` | boolean | Si la propiedad aparece en eventos filtrados |
+| `property_type` | string | Tipo de datos de la propiedad |
+| `type` | string | Tipo de propiedad: event, person o group |
+| `volume_30_day` | number | Número de veces que se vio la propiedad en los últimos 30 días |
+| `query_usage_30_day` | number | Número de veces que se consultó esta propiedad en los últimos 30 días |
+| `created_at` | string | Marca de tiempo ISO de creación de la propiedad |
+| `updated_at` | string | Marca de tiempo ISO de actualización de la propiedad |
+| `updated_by` | object | Usuario que actualizó la propiedad por última vez |
+| `verified` | boolean | Si la propiedad se ha verificado |
+| `verified_at` | string | Marca de tiempo ISO de verificación de la propiedad |
+| `verified_by` | string | Usuario que verificó la propiedad |
+| `example` | string | Valor de ejemplo de la propiedad |
+
+</div>
+
+---
+
+### Actualizar definición de propiedad
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostHog"
+    type="posthog"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "posthog_update_property_definition",
+            "options": [
+                {
+                    "id": "posthog_capture_event",
+                    "label": "Capturar evento"
+                },
+                {
+                    "id": "posthog_batch_events",
+                    "label": "Eventos en lote"
+                },
+                {
+                    "id": "posthog_list_persons",
+                    "label": "Listar personas"
+                },
+                {
+                    "id": "posthog_get_person",
+                    "label": "Obtener persona"
+                },
+                {
+                    "id": "posthog_delete_person",
+                    "label": "Eliminar persona"
+                },
+                {
+                    "id": "posthog_query",
+                    "label": "Ejecutar consulta (HogQL)"
+                },
+                {
+                    "id": "posthog_list_insights",
+                    "label": "Listar insights"
+                },
+                {
+                    "id": "posthog_get_insight",
+                    "label": "Obtener insight"
+                },
+                {
+                    "id": "posthog_create_insight",
+                    "label": "Crear insight"
+                },
+                {
+                    "id": "posthog_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "posthog_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "posthog_list_actions",
+                    "label": "Listar acciones"
+                },
+                {
+                    "id": "posthog_list_cohorts",
+                    "label": "Listar cohortes"
+                },
+                {
+                    "id": "posthog_get_cohort",
+                    "label": "Obtener cohorte"
+                },
+                {
+                    "id": "posthog_create_cohort",
+                    "label": "Crear cohorte"
+                },
+                {
+                    "id": "posthog_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "posthog_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "posthog_list_feature_flags",
+                    "label": "Listar indicadores de funciones"
+                },
+                {
+                    "id": "posthog_get_feature_flag",
+                    "label": "Obtener indicador de funciones"
+                },
+                {
+                    "id": "posthog_create_feature_flag",
+                    "label": "Crear indicador de funciones"
+                },
+                {
+                    "id": "posthog_update_feature_flag",
+                    "label": "Actualizar indicador de funciones"
+                },
+                {
+                    "id": "posthog_delete_feature_flag",
+                    "label": "Eliminar indicador de funciones"
+                },
+                {
+                    "id": "posthog_evaluate_flags",
+                    "label": "Evaluar indicadores"
+                },
+                {
+                    "id": "posthog_list_experiments",
+                    "label": "Listar experimentos"
+                },
+                {
+                    "id": "posthog_get_experiment",
+                    "label": "Obtener experimento"
+                },
+                {
+                    "id": "posthog_create_experiment",
+                    "label": "Crear experimento"
+                },
+                {
+                    "id": "posthog_list_surveys",
+                    "label": "Listar encuestas"
+                },
+                {
+                    "id": "posthog_get_survey",
+                    "label": "Obtener encuesta"
+                },
+                {
+                    "id": "posthog_create_survey",
+                    "label": "Crear encuesta"
+                },
+                {
+                    "id": "posthog_update_survey",
+                    "label": "Actualizar encuesta"
+                },
+                {
+                    "id": "posthog_list_session_recordings",
+                    "label": "Listar grabaciones de sesión"
+                },
+                {
+                    "id": "posthog_get_session_recording",
+                    "label": "Obtener grabación de sesión"
+                },
+                {
+                    "id": "posthog_list_recording_playlists",
+                    "label": "Listar listas de grabaciones"
+                },
+                {
+                    "id": "posthog_list_event_definitions",
+                    "label": "Listar definiciones de eventos"
+                },
+                {
+                    "id": "posthog_get_event_definition",
+                    "label": "Obtener definición de evento"
+                },
+                {
+                    "id": "posthog_update_event_definition",
+                    "label": "Actualizar definición de evento"
+                },
+                {
+                    "id": "posthog_list_property_definitions",
+                    "label": "Listar definiciones de propiedades"
+                },
+                {
+                    "id": "posthog_get_property_definition",
+                    "label": "Obtener definición de propiedad"
+                },
+                {
+                    "id": "posthog_update_property_definition",
+                    "label": "Actualizar definición de propiedad"
+                },
+                {
+                    "id": "posthog_list_projects",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "posthog_get_project",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "posthog_list_organizations",
+                    "label": "Listar organizaciones"
+                },
+                {
+                    "id": "posthog_get_organization",
+                    "label": "Obtener organización"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "dropdown",
+            "title": "Región",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "Nube de EE. UU."
+                },
+                {
+                    "id": "eu",
+                    "label": "Nube de la UE"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "personalApiKey",
+            "type": "short-input",
+            "title": "Clave de API personal",
+            "placeholder": "Introduce tu clave de API personal de PostHog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectId",
+            "type": "short-input",
+            "title": "ID de proyecto",
+            "placeholder": "Introduce el ID de proyecto de PostHog",
+            "required": true
+        },
+        {
+            "id": "propertyDefinitionId",
+            "type": "short-input",
+            "title": "ID de definición de propiedad",
+            "placeholder": "ID de definición de propiedad",
+            "required": true
+        },
+        {
+            "id": "description",
+            "type": "long-input",
+            "title": "Descripción",
+            "placeholder": "Introduce una descripción"
+        },
+        {
+            "id": "tags",
+            "type": "short-input",
+            "title": "Etiquetas (separadas por comas)",
+            "placeholder": "tag1, tag2, tag3"
+        },
+        {
+            "id": "propertyType",
+            "type": "dropdown",
+            "title": "Tipo de propiedad",
+            "options": [
+                {
+                    "id": "DateTime",
+                    "label": "DateTime"
+                },
+                {
+                    "id": "String",
+                    "label": "String"
+                },
+                {
+                    "id": "Numeric",
+                    "label": "Numeric"
+                },
+                {
+                    "id": "Boolean",
+                    "label": "Boolean"
+                }
+            ]
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Actualizar definición de propiedad (<code>posthog_update_property_definition</code>)</div>
+
+Actualiza una definición de propiedad en PostHog. Permite modificar la descripción, las etiquetas, el tipo de propiedad y el estado de verificación para mantener esquemas de propiedades limpios.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto de PostHog |
+| `propertyDefinitionId` | string | Sí | ID de la definición de propiedad a actualizar |
+| `region` | string | Sí | Región de la nube de PostHog: us o eu |
+| `apiKey` | string | Sí | Clave de API personal de PostHog |
+| `description` | string | No | Descripción actualizada de la propiedad |
+| `tags` | string | No | Lista de etiquetas separadas por comas para asociar con la propiedad |
+| `verified` | boolean | No | Si se debe marcar la propiedad como verificada |
+| `property_type` | string | No | El tipo de datos de la propiedad \(p. ej., String, Numeric, Boolean, DateTime, etc.\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `id` | string | Identificador único de la definición de propiedad |
+| `name` | string | Nombre de la propiedad |
+| `description` | string | Descripción actualizada de la propiedad |
+| `tags` | array | Etiquetas actualizadas asociadas con la propiedad |
+| `is_numerical` | boolean | Si la propiedad es numérica |
+| `is_seen_on_filtered_events` | boolean | Si la propiedad se observa en eventos filtrados |
+| `property_type` | string | El tipo de datos de la propiedad |
+| `type` | string | Tipo de propiedad: event, person o group |
+| `volume_30_day` | number | Número de veces que se observó la propiedad en los últimos 30 días |
+| `query_usage_30_day` | number | Número de veces que se consultó esta propiedad en los últimos 30 días |
+| `created_at` | string | Marca de tiempo ISO de creación de la propiedad |
+| `updated_at` | string | Marca de tiempo ISO de actualización de la propiedad |
+| `updated_by` | object | Usuario que actualizó la propiedad por última vez |
+| `verified` | boolean | Si la propiedad ha sido verificada |
+| `verified_at` | string | Marca de tiempo ISO de verificación de la propiedad |
+| `verified_by` | string | Usuario que verificó la propiedad |
+| `example` | string | Valor de ejemplo de la propiedad |
+
+</div>
+
+---
+
+### Listar proyectos
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostHog"
+    type="posthog"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "posthog_list_projects",
+            "options": [
+                {
+                    "id": "posthog_capture_event",
+                    "label": "Capturar evento"
+                },
+                {
+                    "id": "posthog_batch_events",
+                    "label": "Eventos por lotes"
+                },
+                {
+                    "id": "posthog_list_persons",
+                    "label": "Listar personas"
+                },
+                {
+                    "id": "posthog_get_person",
+                    "label": "Obtener persona"
+                },
+                {
+                    "id": "posthog_delete_person",
+                    "label": "Eliminar persona"
+                },
+                {
+                    "id": "posthog_query",
+                    "label": "Ejecutar consulta (HogQL)"
+                },
+                {
+                    "id": "posthog_list_insights",
+                    "label": "Listar insights"
+                },
+                {
+                    "id": "posthog_get_insight",
+                    "label": "Obtener insight"
+                },
+                {
+                    "id": "posthog_create_insight",
+                    "label": "Crear insight"
+                },
+                {
+                    "id": "posthog_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "posthog_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "posthog_list_actions",
+                    "label": "Listar acciones"
+                },
+                {
+                    "id": "posthog_list_cohorts",
+                    "label": "Listar cohortes"
+                },
+                {
+                    "id": "posthog_get_cohort",
+                    "label": "Obtener cohorte"
+                },
+                {
+                    "id": "posthog_create_cohort",
+                    "label": "Crear cohorte"
+                },
+                {
+                    "id": "posthog_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "posthog_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "posthog_list_feature_flags",
+                    "label": "Listar feature flags"
+                },
+                {
+                    "id": "posthog_get_feature_flag",
+                    "label": "Obtener feature flag"
+                },
+                {
+                    "id": "posthog_create_feature_flag",
+                    "label": "Crear feature flag"
+                },
+                {
+                    "id": "posthog_update_feature_flag",
+                    "label": "Actualizar feature flag"
+                },
+                {
+                    "id": "posthog_delete_feature_flag",
+                    "label": "Eliminar feature flag"
+                },
+                {
+                    "id": "posthog_evaluate_flags",
+                    "label": "Evaluar flags"
+                },
+                {
+                    "id": "posthog_list_experiments",
+                    "label": "Listar experimentos"
+                },
+                {
+                    "id": "posthog_get_experiment",
+                    "label": "Obtener experimento"
+                },
+                {
+                    "id": "posthog_create_experiment",
+                    "label": "Crear experimento"
+                },
+                {
+                    "id": "posthog_list_surveys",
+                    "label": "Listar encuestas"
+                },
+                {
+                    "id": "posthog_get_survey",
+                    "label": "Obtener encuesta"
+                },
+                {
+                    "id": "posthog_create_survey",
+                    "label": "Crear encuesta"
+                },
+                {
+                    "id": "posthog_update_survey",
+                    "label": "Actualizar encuesta"
+                },
+                {
+                    "id": "posthog_list_session_recordings",
+                    "label": "Listar grabaciones de sesión"
+                },
+                {
+                    "id": "posthog_get_session_recording",
+                    "label": "Obtener grabación de sesión"
+                },
+                {
+                    "id": "posthog_list_recording_playlists",
+                    "label": "Listar listas de grabaciones"
+                },
+                {
+                    "id": "posthog_list_event_definitions",
+                    "label": "Listar definiciones de eventos"
+                },
+                {
+                    "id": "posthog_get_event_definition",
+                    "label": "Obtener definición de evento"
+                },
+                {
+                    "id": "posthog_update_event_definition",
+                    "label": "Actualizar definición de evento"
+                },
+                {
+                    "id": "posthog_list_property_definitions",
+                    "label": "Listar definiciones de propiedades"
+                },
+                {
+                    "id": "posthog_get_property_definition",
+                    "label": "Obtener definición de propiedad"
+                },
+                {
+                    "id": "posthog_update_property_definition",
+                    "label": "Actualizar definición de propiedad"
+                },
+                {
+                    "id": "posthog_list_projects",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "posthog_get_project",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "posthog_list_organizations",
+                    "label": "Listar organizaciones"
+                },
+                {
+                    "id": "posthog_get_organization",
+                    "label": "Obtener organización"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "dropdown",
+            "title": "Región",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "Nube US"
+                },
+                {
+                    "id": "eu",
+                    "label": "Nube EU"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "personalApiKey",
+            "type": "short-input",
+            "title": "Clave de API personal",
+            "placeholder": "Introduce tu clave de API personal de PostHog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar proyectos (<code>posthog_list_projects</code>)</div>
+
+Lista todos los proyectos de la organización. Devuelve los detalles de los proyectos, incluidos IDs, nombres, tokens de API y configuración. Útil para obtener los IDs de proyecto que necesitan otros endpoints.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave de API personal de PostHog |
+| `region` | string | No | Región de la nube: us o eu \(predeterminado: us\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `projects` | array | Lista de proyectos con su configuración y ajustes |
+
+</div>
+
+---
+
+### Obtener proyecto
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostHog"
+    type="posthog"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "posthog_get_project",
+            "options": [
+                {
+                    "id": "posthog_capture_event",
+                    "label": "Capturar evento"
+                },
+                {
+                    "id": "posthog_batch_events",
+                    "label": "Eventos en lote"
+                },
+                {
+                    "id": "posthog_list_persons",
+                    "label": "Listar personas"
+                },
+                {
+                    "id": "posthog_get_person",
+                    "label": "Obtener persona"
+                },
+                {
+                    "id": "posthog_delete_person",
+                    "label": "Eliminar persona"
+                },
+                {
+                    "id": "posthog_query",
+                    "label": "Ejecutar consulta (HogQL)"
+                },
+                {
+                    "id": "posthog_list_insights",
+                    "label": "Listar insights"
+                },
+                {
+                    "id": "posthog_get_insight",
+                    "label": "Obtener insight"
+                },
+                {
+                    "id": "posthog_create_insight",
+                    "label": "Crear insight"
+                },
+                {
+                    "id": "posthog_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "posthog_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "posthog_list_actions",
+                    "label": "Listar acciones"
+                },
+                {
+                    "id": "posthog_list_cohorts",
+                    "label": "Listar cohortes"
+                },
+                {
+                    "id": "posthog_get_cohort",
+                    "label": "Obtener cohorte"
+                },
+                {
+                    "id": "posthog_create_cohort",
+                    "label": "Crear cohorte"
+                },
+                {
+                    "id": "posthog_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "posthog_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "posthog_list_feature_flags",
+                    "label": "Listar feature flags"
+                },
+                {
+                    "id": "posthog_get_feature_flag",
+                    "label": "Obtener feature flag"
+                },
+                {
+                    "id": "posthog_create_feature_flag",
+                    "label": "Crear feature flag"
+                },
+                {
+                    "id": "posthog_update_feature_flag",
+                    "label": "Actualizar feature flag"
+                },
+                {
+                    "id": "posthog_delete_feature_flag",
+                    "label": "Eliminar feature flag"
+                },
+                {
+                    "id": "posthog_evaluate_flags",
+                    "label": "Evaluar flags"
+                },
+                {
+                    "id": "posthog_list_experiments",
+                    "label": "Listar experimentos"
+                },
+                {
+                    "id": "posthog_get_experiment",
+                    "label": "Obtener experimento"
+                },
+                {
+                    "id": "posthog_create_experiment",
+                    "label": "Crear experimento"
+                },
+                {
+                    "id": "posthog_list_surveys",
+                    "label": "Listar encuestas"
+                },
+                {
+                    "id": "posthog_get_survey",
+                    "label": "Obtener encuesta"
+                },
+                {
+                    "id": "posthog_create_survey",
+                    "label": "Crear encuesta"
+                },
+                {
+                    "id": "posthog_update_survey",
+                    "label": "Actualizar encuesta"
+                },
+                {
+                    "id": "posthog_list_session_recordings",
+                    "label": "Listar grabaciones de sesión"
+                },
+                {
+                    "id": "posthog_get_session_recording",
+                    "label": "Obtener grabación de sesión"
+                },
+                {
+                    "id": "posthog_list_recording_playlists",
+                    "label": "Listar listas de reproducción de grabaciones"
+                },
+                {
+                    "id": "posthog_list_event_definitions",
+                    "label": "Listar definiciones de eventos"
+                },
+                {
+                    "id": "posthog_get_event_definition",
+                    "label": "Obtener definición de evento"
+                },
+                {
+                    "id": "posthog_update_event_definition",
+                    "label": "Actualizar definición de evento"
+                },
+                {
+                    "id": "posthog_list_property_definitions",
+                    "label": "Listar definiciones de propiedades"
+                },
+                {
+                    "id": "posthog_get_property_definition",
+                    "label": "Obtener definición de propiedad"
+                },
+                {
+                    "id": "posthog_update_property_definition",
+                    "label": "Actualizar definición de propiedad"
+                },
+                {
+                    "id": "posthog_list_projects",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "posthog_get_project",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "posthog_list_organizations",
+                    "label": "Listar organizaciones"
+                },
+                {
+                    "id": "posthog_get_organization",
+                    "label": "Obtener organización"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "dropdown",
+            "title": "Región",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "Nube US"
+                },
+                {
+                    "id": "eu",
+                    "label": "Nube EU"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "personalApiKey",
+            "type": "short-input",
+            "title": "Clave de API personal",
+            "placeholder": "Introduce tu clave de API personal de PostHog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "projectIdParam",
+            "type": "short-input",
+            "title": "ID del proyecto",
+            "placeholder": "ID del proyecto",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener proyecto (<code>posthog_get_project</code>)</div>
+
+Obtiene información detallada de un proyecto específico por ID. Devuelve la configuración, los ajustes y los feature flags del proyecto.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `projectId` | string | Sí | ID del proyecto \(ID numérico o UUID\) |
+| `apiKey` | string | Sí | Clave API personal de PostHog |
+| `region` | string | No | Región de la nube: us o eu \(predeterminado: us\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `project` | object | Información detallada del proyecto con todos los ajustes de configuración |
+
+</div>
+
+---
+
+### Listar organizaciones
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostHog"
+    type="posthog"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "posthog_list_organizations",
+            "options": [
+                {
+                    "id": "posthog_capture_event",
+                    "label": "Capturar evento"
+                },
+                {
+                    "id": "posthog_batch_events",
+                    "label": "Eventos en lote"
+                },
+                {
+                    "id": "posthog_list_persons",
+                    "label": "Listar personas"
+                },
+                {
+                    "id": "posthog_get_person",
+                    "label": "Obtener persona"
+                },
+                {
+                    "id": "posthog_delete_person",
+                    "label": "Eliminar persona"
+                },
+                {
+                    "id": "posthog_query",
+                    "label": "Ejecutar consulta (HogQL)"
+                },
+                {
+                    "id": "posthog_list_insights",
+                    "label": "Listar insights"
+                },
+                {
+                    "id": "posthog_get_insight",
+                    "label": "Obtener insight"
+                },
+                {
+                    "id": "posthog_create_insight",
+                    "label": "Crear insight"
+                },
+                {
+                    "id": "posthog_list_dashboards",
+                    "label": "Listar dashboards"
+                },
+                {
+                    "id": "posthog_get_dashboard",
+                    "label": "Obtener dashboard"
+                },
+                {
+                    "id": "posthog_list_actions",
+                    "label": "Listar acciones"
+                },
+                {
+                    "id": "posthog_list_cohorts",
+                    "label": "Listar cohortes"
+                },
+                {
+                    "id": "posthog_get_cohort",
+                    "label": "Obtener cohorte"
+                },
+                {
+                    "id": "posthog_create_cohort",
+                    "label": "Crear cohorte"
+                },
+                {
+                    "id": "posthog_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "posthog_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "posthog_list_feature_flags",
+                    "label": "Listar feature flags"
+                },
+                {
+                    "id": "posthog_get_feature_flag",
+                    "label": "Obtener feature flag"
+                },
+                {
+                    "id": "posthog_create_feature_flag",
+                    "label": "Crear feature flag"
+                },
+                {
+                    "id": "posthog_update_feature_flag",
+                    "label": "Actualizar feature flag"
+                },
+                {
+                    "id": "posthog_delete_feature_flag",
+                    "label": "Eliminar feature flag"
+                },
+                {
+                    "id": "posthog_evaluate_flags",
+                    "label": "Evaluar flags"
+                },
+                {
+                    "id": "posthog_list_experiments",
+                    "label": "Listar experimentos"
+                },
+                {
+                    "id": "posthog_get_experiment",
+                    "label": "Obtener experimento"
+                },
+                {
+                    "id": "posthog_create_experiment",
+                    "label": "Crear experimento"
+                },
+                {
+                    "id": "posthog_list_surveys",
+                    "label": "Listar encuestas"
+                },
+                {
+                    "id": "posthog_get_survey",
+                    "label": "Obtener encuesta"
+                },
+                {
+                    "id": "posthog_create_survey",
+                    "label": "Crear encuesta"
+                },
+                {
+                    "id": "posthog_update_survey",
+                    "label": "Actualizar encuesta"
+                },
+                {
+                    "id": "posthog_list_session_recordings",
+                    "label": "Listar grabaciones de sesión"
+                },
+                {
+                    "id": "posthog_get_session_recording",
+                    "label": "Obtener grabación de sesión"
+                },
+                {
+                    "id": "posthog_list_recording_playlists",
+                    "label": "Listar listas de grabación"
+                },
+                {
+                    "id": "posthog_list_event_definitions",
+                    "label": "Listar definiciones de eventos"
+                },
+                {
+                    "id": "posthog_get_event_definition",
+                    "label": "Obtener definición de evento"
+                },
+                {
+                    "id": "posthog_update_event_definition",
+                    "label": "Actualizar definición de evento"
+                },
+                {
+                    "id": "posthog_list_property_definitions",
+                    "label": "Listar definiciones de propiedades"
+                },
+                {
+                    "id": "posthog_get_property_definition",
+                    "label": "Obtener definición de propiedad"
+                },
+                {
+                    "id": "posthog_update_property_definition",
+                    "label": "Actualizar definición de propiedad"
+                },
+                {
+                    "id": "posthog_list_projects",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "posthog_get_project",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "posthog_list_organizations",
+                    "label": "Listar organizaciones"
+                },
+                {
+                    "id": "posthog_get_organization",
+                    "label": "Obtener organización"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "dropdown",
+            "title": "Región",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "Nube US"
+                },
+                {
+                    "id": "eu",
+                    "label": "Nube EU"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "personalApiKey",
+            "type": "short-input",
+            "title": "Clave API personal",
+            "placeholder": "Introduce tu clave API personal de PostHog",
+            "password": true,
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Listar organizaciones (<code>posthog_list_organizations</code>)</div>
+
+Lista todas las organizaciones a las que el usuario tiene acceso. Devuelve los detalles de la organización, incluidos el nombre, el slug, el nivel de membresía y las funciones de producto disponibles.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `apiKey` | string | Sí | Clave API personal de PostHog |
+| `region` | string | No | Región de la nube: us o eu \(predeterminado: us\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `organizations` | array | Lista de organizaciones con su configuración y funciones |
+
+</div>
+
+---
+
+### Obtener organización
+
+<ShowcaseCard>
+  <BlockConfigPreview
+    name="PostHog"
+    type="posthog"
+    color="#E0E0E0"
+    hideHeader
+    subBlocks={[
+        {
+            "id": "operation",
+            "type": "dropdown",
+            "title": "Operación",
+            "defaultValue": "posthog_get_organization",
+            "options": [
+                {
+                    "id": "posthog_capture_event",
+                    "label": "Capturar evento"
+                },
+                {
+                    "id": "posthog_batch_events",
+                    "label": "Eventos por lotes"
+                },
+                {
+                    "id": "posthog_list_persons",
+                    "label": "Listar personas"
+                },
+                {
+                    "id": "posthog_get_person",
+                    "label": "Obtener persona"
+                },
+                {
+                    "id": "posthog_delete_person",
+                    "label": "Eliminar persona"
+                },
+                {
+                    "id": "posthog_query",
+                    "label": "Ejecutar consulta (HogQL)"
+                },
+                {
+                    "id": "posthog_list_insights",
+                    "label": "Listar insights"
+                },
+                {
+                    "id": "posthog_get_insight",
+                    "label": "Obtener insight"
+                },
+                {
+                    "id": "posthog_create_insight",
+                    "label": "Crear insight"
+                },
+                {
+                    "id": "posthog_list_dashboards",
+                    "label": "Listar paneles"
+                },
+                {
+                    "id": "posthog_get_dashboard",
+                    "label": "Obtener panel"
+                },
+                {
+                    "id": "posthog_list_actions",
+                    "label": "Listar acciones"
+                },
+                {
+                    "id": "posthog_list_cohorts",
+                    "label": "Listar cohortes"
+                },
+                {
+                    "id": "posthog_get_cohort",
+                    "label": "Obtener cohorte"
+                },
+                {
+                    "id": "posthog_create_cohort",
+                    "label": "Crear cohorte"
+                },
+                {
+                    "id": "posthog_list_annotations",
+                    "label": "Listar anotaciones"
+                },
+                {
+                    "id": "posthog_create_annotation",
+                    "label": "Crear anotación"
+                },
+                {
+                    "id": "posthog_list_feature_flags",
+                    "label": "Listar flags de funciones"
+                },
+                {
+                    "id": "posthog_get_feature_flag",
+                    "label": "Obtener flag de función"
+                },
+                {
+                    "id": "posthog_create_feature_flag",
+                    "label": "Crear flag de función"
+                },
+                {
+                    "id": "posthog_update_feature_flag",
+                    "label": "Actualizar flag de función"
+                },
+                {
+                    "id": "posthog_delete_feature_flag",
+                    "label": "Eliminar flag de función"
+                },
+                {
+                    "id": "posthog_evaluate_flags",
+                    "label": "Evaluar flags"
+                },
+                {
+                    "id": "posthog_list_experiments",
+                    "label": "Listar experimentos"
+                },
+                {
+                    "id": "posthog_get_experiment",
+                    "label": "Obtener experimento"
+                },
+                {
+                    "id": "posthog_create_experiment",
+                    "label": "Crear experimento"
+                },
+                {
+                    "id": "posthog_list_surveys",
+                    "label": "Listar encuestas"
+                },
+                {
+                    "id": "posthog_get_survey",
+                    "label": "Obtener encuesta"
+                },
+                {
+                    "id": "posthog_create_survey",
+                    "label": "Crear encuesta"
+                },
+                {
+                    "id": "posthog_update_survey",
+                    "label": "Actualizar encuesta"
+                },
+                {
+                    "id": "posthog_list_session_recordings",
+                    "label": "Listar grabaciones de sesión"
+                },
+                {
+                    "id": "posthog_get_session_recording",
+                    "label": "Obtener grabación de sesión"
+                },
+                {
+                    "id": "posthog_list_recording_playlists",
+                    "label": "Listar listas de grabación"
+                },
+                {
+                    "id": "posthog_list_event_definitions",
+                    "label": "Listar definiciones de evento"
+                },
+                {
+                    "id": "posthog_get_event_definition",
+                    "label": "Obtener definición de evento"
+                },
+                {
+                    "id": "posthog_update_event_definition",
+                    "label": "Actualizar definición de evento"
+                },
+                {
+                    "id": "posthog_list_property_definitions",
+                    "label": "Listar definiciones de propiedad"
+                },
+                {
+                    "id": "posthog_get_property_definition",
+                    "label": "Obtener definición de propiedad"
+                },
+                {
+                    "id": "posthog_update_property_definition",
+                    "label": "Actualizar definición de propiedad"
+                },
+                {
+                    "id": "posthog_list_projects",
+                    "label": "Listar proyectos"
+                },
+                {
+                    "id": "posthog_get_project",
+                    "label": "Obtener proyecto"
+                },
+                {
+                    "id": "posthog_list_organizations",
+                    "label": "Listar organizaciones"
+                },
+                {
+                    "id": "posthog_get_organization",
+                    "label": "Obtener organización"
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "type": "dropdown",
+            "title": "Región",
+            "defaultValue": "us",
+            "options": [
+                {
+                    "id": "us",
+                    "label": "Nube US"
+                },
+                {
+                    "id": "eu",
+                    "label": "Nube EU"
+                }
+            ],
+            "required": true
+        },
+        {
+            "id": "personalApiKey",
+            "type": "short-input",
+            "title": "Clave API personal",
+            "placeholder": "Introduce tu clave API personal de PostHog",
+            "password": true,
+            "required": true
+        },
+        {
+            "id": "organizationId",
+            "type": "short-input",
+            "title": "ID de organización",
+            "placeholder": "ID de organización",
+            "required": true
+        }
+    ]}
+  />
+</ShowcaseCard>
+
+<div className="mt-6 border-t border-fd-border pt-4">
+<div className="text-base font-semibold mb-2">Obtener organización (<code>posthog_get_organization</code>)</div>
+
+Obtiene información detallada de una organización específica por ID. Devuelve de forma completa la configuración, las funciones, el uso y la información de los equipos de la organización.
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Entrada</div>
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --------- | ---- | -------- | ----------- |
+| `organizationId` | string | Sí | ID de organización \(UUID\) |
+| `apiKey` | string | Sí | Clave de API personal de PostHog |
+| `region` | string | No | Región de la nube: us o eu \(predeterminado: us\) |
+
+<div className="text-sm font-medium text-fd-muted-foreground mt-4 mb-2">Salida</div>
+
+| Parámetro | Tipo | Descripción |
+| --------- | ---- | ----------- |
+| `organization` | object | Información detallada de la organización con configuración y funciones |
+
+</div>
+
+---
+
+## Instrucciones de uso
+
+Integra PostHog en tu flujo de trabajo. Registra eventos, gestiona feature flags, analiza el comportamiento de los usuarios, ejecuta experimentos, crea encuestas y accede a las grabaciones de sesión.
+
+## Notas
+
+- Categoría: `tools`
+- Tipo: `posthog`
