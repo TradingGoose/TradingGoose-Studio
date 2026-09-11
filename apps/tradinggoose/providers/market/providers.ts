@@ -14,10 +14,12 @@ import {
   YahooIcon,
 } from '@/components/icons/provider-icons'
 import type { ListingIdentity } from '@/lib/listing/identity'
+import type { OAuthService } from '@/lib/oauth/oauth'
 import type { WorkflowProviderParamType } from '@/lib/workflows/value-types'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
+import { robinhoodProviderConfig } from '@/providers/market/robinhood/config'
 import type {
   AssetClass,
   MarketDataAvailability,
@@ -177,6 +179,7 @@ export interface MarketProviderDefinition {
   description: string
   config: MarketProviderConfig
   icon?: React.ComponentType<{ className?: string }>
+  oauth?: { provider: OAuthService }
 }
 
 export type MarketProviderOption = {
@@ -186,6 +189,13 @@ export type MarketProviderOption = {
 }
 
 export const MARKET_PROVIDER_DEFINITIONS: Record<string, MarketProviderDefinition> = {
+  robinhood: {
+    id: 'robinhood',
+    name: 'Robinhood',
+    description: 'Robinhood stock and ETF market data.',
+    config: robinhoodProviderConfig,
+    oauth: { provider: 'robinhood' },
+  },
   'alpha-vantage': {
     id: 'alpha-vantage',
     name: 'Alpha Vantage',

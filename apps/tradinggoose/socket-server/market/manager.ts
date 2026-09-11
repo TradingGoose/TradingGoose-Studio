@@ -17,6 +17,7 @@ import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import {
   getMarketProviderConfig,
+  getMarketProviderDefinition,
   getMarketProviderPollingIntervalMs,
 } from '@/providers/market/providers'
 import type {
@@ -400,6 +401,25 @@ export class MarketStreamManager {
       throw new Error(`Market provider not found: ${payload.provider}`)
     }
 
+    const oauth = getMarketProviderDefinition(payload.provider)?.oauth
+    if (oauth) {
+      const { refreshAccessTokenIfNeeded } = await import('@/lib/oauth/tokens')
+      const credentialId = payload.providerParams?.credentialId
+      const hasConnection = typeof credentialId === 'string' && credentialId.trim().length > 0
+      const accessToken =
+        socket.userId && hasConnection
+          ? await refreshAccessTokenIfNeeded(
+              credentialId.trim(),
+              socket.userId,
+              randomUUID(),
+              oauth.provider
+            )
+          : null
+      if (!accessToken) {
+        throw new Error('Select or reconnect your market provider connection')
+      }
+    }
+
     const context = await resolveListingContext(listing)
     const market = resolveMarket(payload, context.assetClass)
     const symbol = normalizeSymbol(resolveProviderSymbol(providerConfig, context))
@@ -410,6 +430,7 @@ export class MarketStreamManager {
     const streamKey = buildPollingStreamKey({
       provider: payload.provider,
       workspaceId: payload.workspaceId,
+      userId: oauth ? socket.userId : undefined,
       auth: payload.auth,
       providerParams: payload.providerParams,
     })
@@ -825,6 +846,7 @@ export class MarketStreamManager {
                   listing: next.record.listing as ListingIdentity,
                   auth: streamState.auth,
                   providerParams: streamState.providerParams,
+                  context: { userId: next.record.socket.userId },
                 })
                 streamState.quoteSnapshotCache.set(next.symbol, snapshot)
                 this.emitQuoteSnapshotToSymbolSubscribers(streamState, next.symbol, snapshot)
@@ -865,17 +887,21 @@ export class MarketStreamManager {
     interval: string,
     record: MarketSubscriptionRecord
   ) {
-    const response = await executeProviderRequest(record.provider, {
-      kind: 'series',
-      listing: record.listing as ListingIdentity,
-      interval,
-      auth: streamState.auth,
-      providerParams: {
-        ...(streamState.providerParams ?? {}),
-        allowEmpty: true,
+    const response = await executeProviderRequest(
+      record.provider,
+      {
+        kind: 'series',
+        listing: record.listing as ListingIdentity,
+        interval,
+        auth: streamState.auth,
+        providerParams: {
+          ...(streamState.providerParams ?? {}),
+          allowEmpty: true,
+        },
+        windows: [{ mode: 'bars', barCount: 1 }],
       },
-      windows: [{ mode: 'bars', barCount: 1 }],
-    })
+      { userId: record.socket.userId }
+    )
     const series = response as MarketSeries
     const bar = series.bars[series.bars.length - 1]
     if (!bar) return
@@ -1111,12 +1137,14 @@ function buildFinnhubStreamKey(config: {
 function buildPollingStreamKey(config: {
   provider: PollingMarketProviderId
   workspaceId?: string
+  userId?: string
   auth?: MarketProviderAuth
   providerParams?: MarketProviderParams
 }): string {
   const base = [
     config.provider,
     config.workspaceId ?? '',
+    config.userId ?? '',
     stableStringifyJsonValue(config.auth ?? null),
     stableStringifyJsonValue(config.providerParams ?? null),
   ].join('|')

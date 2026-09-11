@@ -10,6 +10,7 @@ import {
   handleMarketProviderRequest,
   type MarketProviderRouteBody,
 } from '@/app/api/providers/market/handler'
+import { getMarketProviderDefinition } from '@/providers/market/providers'
 
 const logger = createLogger('ProvidersAPI')
 
@@ -68,11 +69,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (namespace === 'market') {
+      const auth = getMarketProviderDefinition(providerId.split('/')[0])?.oauth
+        ? await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+        : null
+      if (auth && (!auth.success || !auth.userId)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
       return handleMarketProviderRequest({
         body: body as MarketProviderRouteBody,
         providerId,
         requestId,
         startTime,
+        authUserId: auth?.userId,
       })
     }
 

@@ -720,17 +720,21 @@ export class IndicatorMonitorRuntime {
     monitor: MonitorRuntimeConfig,
     auth: { apiKey?: string; apiSecret?: string }
   ): Promise<BarMs[]> {
-    const result = await executeProviderRequest(monitor.providerId, {
-      kind: 'series',
-      listing: monitor.listing,
-      interval: monitor.interval,
-      auth,
-      providerParams: {
-        ...(monitor.providerParams ?? {}),
-        allowEmpty: true,
+    const result = await executeProviderRequest(
+      monitor.providerId,
+      {
+        kind: 'series',
+        listing: monitor.listing,
+        interval: monitor.interval,
+        auth,
+        providerParams: {
+          ...(monitor.providerParams ?? {}),
+          allowEmpty: true,
+        },
+        windows: [{ mode: 'bars', barCount: MONITOR_WINDOW_BARS }],
       },
-      windows: [{ mode: 'bars', barCount: MONITOR_WINDOW_BARS }],
-    })
+      { userId: monitor.userId }
+    )
 
     const marketSeries = result as MarketSeries
     return normalizeBarsMs(

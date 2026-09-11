@@ -69,6 +69,14 @@ import {
   REGISTRATION_DISABLED_REASON,
   REGISTRATION_WAITLIST_REASON,
 } from '@/lib/registration/shared'
+import { getRobinhoodUserInfo } from '@/lib/robinhood/client'
+import {
+  getRobinhoodRedirectUri,
+  ROBINHOOD_AUTHORIZATION_URL,
+  ROBINHOOD_MCP_URL,
+  ROBINHOOD_PROVIDER_ID,
+  ROBINHOOD_TOKEN_URL,
+} from '@/lib/robinhood/constants'
 import {
   createStripeClientProxy,
   getStripeServiceConfig,
@@ -734,6 +742,22 @@ export const auth = betterAuth({
     }),
     genericOAuth({
       config: toSystemManagedGenericOAuthConfigs([
+        {
+          providerId: ROBINHOOD_PROVIDER_ID,
+          authorizationUrl: ROBINHOOD_AUTHORIZATION_URL,
+          tokenUrl: ROBINHOOD_TOKEN_URL,
+          authorizationUrlParams: { resource: ROBINHOOD_MCP_URL },
+          tokenUrlParams: { resource: ROBINHOOD_MCP_URL },
+          authentication: 'post',
+          pkce: true,
+          scopes: getCanonicalScopesForProvider(ROBINHOOD_PROVIDER_ID),
+          redirectURI: getRobinhoodRedirectUri(getBaseUrl()),
+          disableSignUp: true,
+          getUserInfo: async (tokens) => {
+            if (!tokens.accessToken) throw new Error('Robinhood access token is required')
+            return getRobinhoodUserInfo(tokens.accessToken)
+          },
+        },
         createAlpacaOAuthConfig('alpaca-live', 'live'),
         createAlpacaOAuthConfig('alpaca-paper', 'paper'),
         createTradierOAuthConfig(),

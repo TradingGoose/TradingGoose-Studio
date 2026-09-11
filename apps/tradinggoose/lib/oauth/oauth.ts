@@ -167,6 +167,34 @@ export const HUBSPOT_OAUTH_SCOPES = [
 ]
 
 export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
+  robinhood: {
+    id: 'robinhood',
+    name: 'Robinhood',
+    icon: (props) => DollarIcon(props),
+    credentialFields: [
+      {
+        key: 'client_id',
+        label: 'Client ID',
+        note: 'Registered automatically when connecting Robinhood',
+        placeholder: 'Automatically registered',
+        isSensitive: false,
+        required: false,
+        oauthProperty: 'clientId',
+      },
+    ],
+    services: {
+      robinhood: {
+        id: 'robinhood',
+        name: 'Robinhood',
+        description: 'Connect on desktop to access Robinhood market data.',
+        providerId: 'robinhood',
+        icon: (props) => DollarIcon(props),
+        baseProviderIcon: (props) => DollarIcon(props),
+        scopes: ['internal'],
+      },
+    },
+    defaultService: 'robinhood',
+  },
   alpaca: {
     id: 'alpaca',
     name: 'Alpaca',
