@@ -10,6 +10,9 @@ const logger = createLogger('CopilotTitle')
  * Generates a short title for a chat based on the first message
  * @returns A short title or null if the request fails
  */
+import { isCopilotLocalRuntimeModel } from '@/lib/copilot/local-runtime/runtime-models'
+import { requestLocalCopilotTitle } from '@/lib/copilot/local-runtime/title'
+
 export async function requestCopilotTitle({
   message,
   userId,
@@ -19,6 +22,18 @@ export async function requestCopilotTitle({
   userId: string
   model: CopilotRuntimeModel
 }): Promise<string | null> {
+  if (isCopilotLocalRuntimeModel(model)) {
+    return requestLocalCopilotTitle({ message, userId, model })
+  }
+
+  if (isCopilotLocalRuntimeModel(model)) {
+    return requestLocalCopilotTitle({ message, userId, model })
+  }
+
+  if (isCopilotLocalRuntimeModel(model)) {
+    return requestLocalCopilotTitle({ message, userId, model })
+  }
+
   try {
     const response = await proxyCopilotCompletionRequest({
       body: {

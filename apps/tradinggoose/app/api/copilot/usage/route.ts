@@ -19,7 +19,7 @@ const logger = createLogger('CopilotUsageAPI')
 const ContextUsageRequestSchema = z.object({
   kind: z.literal('context'),
   conversationId: z.string(),
-  model: z.enum(COPILOT_RUNTIME_MODELS),
+  model: z.string(),
   workflowId: z.string().optional(),
   workspaceId: z.string().optional(),
 })

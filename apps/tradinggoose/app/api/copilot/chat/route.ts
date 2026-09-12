@@ -41,6 +41,14 @@ import {
   type CopilotRuntimeModel,
   DEFAULT_COPILOT_RUNTIME_MODEL,
 } from '@/lib/copilot/runtime-models'
+
+import { isCopilotLocalRuntimeModel as isLocalCopilotModel } from '@/lib/copilot/local-runtime/runtime-models'
+import {
+  isLocalWorkingItem,
+  loadLocalWorkingMessages,
+} from '@/lib/copilot/local-runtime/persistence'
+import { handleLocalCopilotChat } from '@/lib/copilot/local-runtime/chat-handler'
+
 import {
   COPILOT_RUNTIME_CONFIG_PLACEHOLDER,
   COPILOT_SESSION_KIND,
@@ -718,7 +726,7 @@ const ChatMessageSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   userMessageId: z.string().optional(), // ID from frontend for the user message
   reviewSessionId: z.string().optional(),
-  model: z.enum(COPILOT_RUNTIME_MODELS).optional().default(DEFAULT_COPILOT_RUNTIME_MODEL),
+  model: z.string().optional().default(DEFAULT_COPILOT_RUNTIME_MODEL),
   stream: z.boolean().optional().default(true),
   fileAttachments: z.array(FileAttachmentSchema).optional(),
   conversationId: z.string().optional(),
@@ -820,7 +828,9 @@ export async function POST(req: NextRequest) {
         )
         .orderBy(asc(copilotReviewItems.sequence))
 
-      conversationHistory = existingMessages.map(mapReviewItemToApi)
+      conversationHistory = existingMessages
+        .filter((item) => !isLocalWorkingItem(item))
+        .map(mapReviewItemToApi)
     }
 
     let agentContexts: Array<{ type: string; tag?: string; content: string }> = []
@@ -906,6 +916,25 @@ export async function POST(req: NextRequest) {
         messageLength: modelMessage.length,
       })
     } catch {}
+
+    if (isLocalCopilotModel(model)) {
+      return handleLocalCopilotChat({
+        model,
+        message,
+        modelMessage,
+        userMessageId: userMessageIdToUse,
+        reviewSessionId: actualReviewSessionId!,
+        conversationId: effectiveConversationId,
+        workspaceId: activeWorkspaceId,
+        userId: authenticatedUserId,
+        contexts: agentContexts,
+        fileContents: processedFileContents,
+        fileAttachments,
+        contextsInput: contexts,
+        requestId: tracker.requestId,
+        sessionCreatedThisRequest,
+      })
+    }
 
     const copilotResponse = await proxyCopilotRequest({
       endpoint: '/api/copilot',

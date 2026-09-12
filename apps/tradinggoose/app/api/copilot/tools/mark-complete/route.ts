@@ -11,6 +11,15 @@ import { mirrorLocalCopilotCompletionUsageReports } from '@/lib/copilot/completi
 import { createLogger } from '@/lib/logs/console/logger'
 import { encodeSSE, SSE_HEADERS } from '@/lib/utils'
 import { getCopilotApiUrl, proxyCopilotRequest } from '@/app/api/copilot/proxy'
+import {
+  persistLocalContinuation,
+  readLocalSessionModelFromMessage,
+} from '@/lib/copilot/local-runtime/persistence'
+import { isCopilotLocalRuntimeModel } from '@/lib/copilot/local-runtime/runtime-models'
+import { handleLocalCopilotContinuation } from '@/lib/copilot/local-runtime/chat-handler'
+import { db } from '@tradinggoose/db'
+import { copilotReviewItems } from '@tradinggoose/db'
+import { eq } from 'drizzle-orm'
 
 const logger = createLogger('CopilotMarkToolCompleteAPI')
 const DATA_PREFIX = 'data: '
@@ -163,6 +172,53 @@ export async function POST(req: NextRequest) {
       agentUrl: await getCopilotApiUrl('/api/tools/mark-complete'),
     })
 
+    if (!parsed.data?.local) {
+      // Hosted runtime: unchanged proxy behaviour.
+    } else {
+      logger.info(`[${tracker.requestId}] Local runtime mark-complete`, {
+        toolCallId: parsed.id,
+        toolName: parsed.name,
+        status: parsed.status,
+      })
+
+      const reviewSessionId =
+        typeof parsed.data?.reviewSessionId === 'string' ? parsed.data.reviewSessionId : undefined
+
+      const sessionModel =
+        reviewSessionId && (await isLocalReviewSession(reviewSessionId))
+          ? await readLocalSessionModel(reviewSessionId)
+          : null
+
+      if (reviewSessionId && sessionModel && isCopilotLocalRuntimeModel(sessionModel)) {
+        await persistLocalContinuation({
+          reviewSessionId,
+          toolCallId: parsed.id,
+          toolName: parsed.name,
+          status: parsed.status,
+          message: parsed.message,
+          data: parsed.data,
+        })
+
+        const stream = await handleLocalCopilotContinuation({
+          model: sessionModel,
+          reviewSessionId,
+          userId,
+          requestId: tracker.requestId,
+          continuation: {
+            toolCallId: parsed.id,
+            toolName: parsed.name,
+            status: parsed.status,
+            message: parsed.message,
+            data: parsed.data,
+          },
+        })
+
+        return new NextResponse(stream, {
+          headers: { ...SSE_HEADERS, 'Cache-Control': 'no-cache, no-transform' },
+        })
+      }
+    }
+
     const agentRes = await proxyCopilotRequest({
       endpoint: '/api/tools/mark-complete',
       body: parsed,
@@ -239,4 +295,23 @@ export async function POST(req: NextRequest) {
   } finally {
     req.signal.removeEventListener('abort', abortUpstream)
   }
+}
+
+
+/** True when the session belongs to the local runtime (working-state rows exist). */
+async function isLocalReviewSession(reviewSessionId: string): Promise<boolean> {
+  const rows = await db
+    .select({ itemId: copilotReviewItems.itemId })
+    .from(copilotReviewItems)
+    .where(eq(copilotReviewItems.sessionId, reviewSessionId))
+    .limit(200)
+  return rows.some((row) => typeof row.itemId === 'string' && row.itemId.startsWith('local_'))
+}
+
+/**
+ * Recovers the model for the conversation. The client does not send a model on
+ * mark-complete, so the value persisted for the session is used.
+ */
+async function readLocalSessionModel(reviewSessionId: string): Promise<string | null> {
+  return readLocalSessionModelFromMessage(reviewSessionId)
 }
