@@ -26,6 +26,7 @@ interface Handlers {
   authStatus?: () => Response
   tickle?: () => Response
   accounts?: () => Response
+  reauthenticate?: () => Response
 }
 
 const handlers: Handlers = {}
@@ -42,6 +43,13 @@ beforeEach(() => {
     const url = String(input)
     if (url.includes('/iserver/auth/status')) {
       return (handlers.authStatus ?? (() => jsonResponse({ authenticated: true })))()
+    }
+    if (url.includes('/iserver/reauthenticate')) {
+      // Default: the gateway refuses, which is what happens when no browser
+      // login exists to build on.
+      return (
+        handlers.reauthenticate ?? (() => jsonResponse({ error: 'not authenticated' }, 401))
+      )()
     }
     if (url.includes('/tickle')) {
       return (handlers.tickle ?? (() => jsonResponse({})))()
@@ -85,6 +93,67 @@ describe('ensureIbkrSession', () => {
     // behind a portproxy); a hardcoded URL once sent the operator to a port that
     // was not listening.
     expect(IBKR_GATEWAY_SESSION_EXPIRED_MESSAGE).not.toMatch(/localhost|https?:\/\//)
+  })
+
+  it('asks the gateway to rebuild the brokerage session before failing', async () => {
+    // Observed live: a browser login establishes only the SSO half of the
+    // session. The brokerage half completes when the gateway is asked to
+    // reauthenticate, so a 401 here is recoverable without the operator.
+    let primed = false
+    handlers.accounts = () =>
+      primed
+        ? jsonResponse({ accounts: ['DU123456'] })
+        : jsonResponse({ error: 'not authenticated' }, 401)
+    handlers.reauthenticate = () => {
+      primed = true
+      return jsonResponse({ authenticated: true })
+    }
+
+    await expect(ensureIbkrSession()).resolves.toBeUndefined()
+
+    expect(callCount('/iserver/reauthenticate')).toBe(1)
+    // A restored session still needs its priming call, or the data request that
+    // follows would be rejected for the same reason.
+    expect(callCount('/iserver/accounts')).toBe(2)
+  })
+
+  it('restores a session that auth/status reports as unauthenticated', async () => {
+    let authenticated = false
+    handlers.authStatus = () => jsonResponse({ authenticated })
+    handlers.reauthenticate = () => {
+      authenticated = true
+      return jsonResponse({ authenticated: true })
+    }
+
+    await expect(ensureIbkrSession()).resolves.toBeUndefined()
+
+    expect(callCount('/iserver/reauthenticate')).toBe(1)
+    // Recovery must not skip the keepalive and priming that follow it.
+    expect(callCount('/tickle')).toBe(1)
+    expect(callCount('/iserver/accounts')).toBe(1)
+  })
+
+  it('still instructs the operator when the gateway cannot rebuild the session', async () => {
+    handlers.accounts = () => jsonResponse({ error: 'not authenticated' }, 401)
+    handlers.reauthenticate = () => jsonResponse({ error: 'not authenticated' }, 401)
+
+    await expect(ensureIbkrSession()).rejects.toThrow(IBKR_GATEWAY_SESSION_EXPIRED_MESSAGE)
+  })
+
+  it('calls the recovery route the gateway names, as a POST', async () => {
+    // The gateway logs `ssodh failed, retry with /iserver/reauthenticate`; a
+    // divergent path or verb would 404 and look like a dead session.
+    handlers.authStatus = () => jsonResponse({ authenticated: false })
+    handlers.reauthenticate = () => jsonResponse({ authenticated: true })
+
+    await ensureIbkrSession()
+
+    const call = fetchMock.mock.calls.find(([input]) =>
+      String(input).includes('/iserver/reauthenticate')
+    )
+    expect(call).toBeDefined()
+    expect(String(call?.[0])).toMatch(/\/iserver\/reauthenticate$/)
+    expect((call?.[1] as RequestInit | undefined)?.method).toBe('POST')
   })
 
   it('re-primes on the next attempt after the session was rejected', async () => {
