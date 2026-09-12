@@ -1,5 +1,5 @@
 import type { AssetClass } from '@/providers/market/types'
-import { buildIbkrAuthHeaders } from '@/providers/trading/ibkr/auth'
+import { buildIbkrAuthHeaders, isIbkrHostedApi } from '@/providers/trading/ibkr/auth'
 import {
   buildIbkrApiUrl,
   cacheIbkrConid,
@@ -27,9 +27,23 @@ export const resolveIbkrConidSpec = (assetClass?: AssetClass | null): string =>
 export const buildIbkrConidCacheKey = (symbol: string, assetClass?: AssetClass | null): string =>
   `${resolveIbkrConidSpec(assetClass)}:${symbol.trim().toUpperCase()}`
 
+interface SecDefSection {
+  secType?: string
+  exchange?: string
+  conid?: string | number
+}
+
+/**
+ * A row of POST /iserver/secdef/search. The endpoint returns a BARE ARRAY of
+ * these (not an object) and nests the available security types under
+ * `sections`, with the conid delivered as a string.
+ */
 interface SecDefResponseItem {
   conid?: number | string
+  symbol?: string | null
+  description?: string | null
   secType?: string
+  sections?: SecDefSection[]
 }
 
 /**
@@ -58,8 +72,12 @@ export async function resolveIbkrConidFromApi({
     return { conid: cachedConid, conidSpec }
   }
 
-  if (!accessToken) {
-    throw new Error('IBKR access token is required to resolve contracts')
+  // The local Client Portal Gateway carries auth in its browser session, so no
+  // token is involved; only the hosted API needs one here. Requiring it
+  // unconditionally is what made gateway market data fail before the request
+  // was even sent.
+  if (isIbkrHostedApi() && !accessToken) {
+    throw new Error('IBKR hosted API requires an access token to resolve contracts')
   }
 
   const searchParams = new URLSearchParams({ symbol: normalizedSymbol })
@@ -67,7 +85,9 @@ export async function resolveIbkrConidFromApi({
     searchParams.set('secType', conidSpec)
   }
 
-  const response = await fetchBrokerJson<{ contracts?: SecDefResponseItem[] }>({
+  const response = await fetchBrokerJson<
+    SecDefResponseItem[] | { contracts?: SecDefResponseItem[] }
+  >({
     providerId: 'ibkr',
     url: `${buildIbkrApiUrl('/iserver/secdef/search')}?${searchParams.toString()}`,
     init: {
@@ -80,10 +100,21 @@ export async function resolveIbkrConidFromApi({
     },
   })
 
-  const contract = response?.contracts?.find((candidate) => {
-    if (conidSpec === 'STK') return true
-    return (candidate?.secType ?? '').toUpperCase() === conidSpec
-  })
+  // The live endpoint answers with a bare array; accept the wrapped shape too
+  // so a future/edge response cannot silently resolve to nothing.
+  const rows = Array.isArray(response) ? response : (response?.contracts ?? [])
+
+  // Sec types live under `sections` on the real payload; the flat `secType`
+  // field is kept for older shapes. A row matching no section is skipped.
+  const matchesRequestedSpec = (row: SecDefResponseItem): boolean => {
+    const sections = Array.isArray(row?.sections) ? row.sections : []
+    if (sections.length === 0) {
+      return (row?.secType ?? '').toUpperCase() === conidSpec
+    }
+    return sections.some((section) => (section?.secType ?? '').toUpperCase() === conidSpec)
+  }
+
+  const contract = rows.find(matchesRequestedSpec)
 
   const rawConid = contract?.conid
   const conid = typeof rawConid === 'string' ? Number(rawConid) : rawConid

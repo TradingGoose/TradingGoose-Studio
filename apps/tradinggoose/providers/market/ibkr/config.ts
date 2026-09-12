@@ -90,7 +90,8 @@ export const ibkrMarketProviderConfig: MarketProviderConfig = {
     live: {
       channels: ['quote-snapshots'],
       supportsInterval: false,
-      pollingIntervalMs: 5_000,
+      // IBKR enforces hard pacing limits; 5s per widget invites a block.
+      pollingIntervalMs: 15_000,
     },
   },
   rulePrecedence: {

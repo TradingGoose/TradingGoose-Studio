@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cacheIbkrConid, clearIbkrConidCache } from '@/providers/trading/ibkr/client'
 import { buildIbkrOrderRequest } from '@/providers/trading/ibkr/orders'
 
@@ -24,15 +24,21 @@ describe('buildIbkrOrderRequest', () => {
     cacheIbkrConid('STK:AAPL', 265598)
   })
 
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('builds a market order request', () => {
     const request = buildIbkrOrderRequest(baseParams)
 
     expect(request.url).toBe('http://127.0.0.1:5000/v1/api/portfolio/DU123456/orders')
     expect(request.method).toBe('POST')
     expect(request.headers).toMatchObject({
-      Authorization: 'Bearer test-token',
+      Accept: 'application/json',
       'Content-Type': 'application/json',
     })
+    // Gateway mode authenticates with the browser session, so no bearer token.
+    expect(request.headers).not.toHaveProperty('Authorization')
     expect(request.body).toMatchObject({
       conid: 265598,
       conidSpec: 'STK',
@@ -171,6 +177,19 @@ describe('buildIbkrOrderRequest', () => {
     expect(request.body).toMatchObject({
       side: 'SELL',
       quantity: '5',
+    })
+  })
+
+  it('sends a bearer token and the originating ip against the hosted API', () => {
+    vi.stubEnv('IBKR_API_BASE_URL', 'https://api.ibkr.com/v1/api')
+
+    const request = buildIbkrOrderRequest(baseParams)
+
+    expect(request.headers).toMatchObject({
+      Accept: 'application/json',
+      Authorization: 'Bearer test-token',
+      ip: '127.0.0.1',
+      'Content-Type': 'application/json',
     })
   })
 })
