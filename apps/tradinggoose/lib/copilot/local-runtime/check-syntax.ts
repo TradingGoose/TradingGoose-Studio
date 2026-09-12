@@ -24,6 +24,7 @@ const PATCHED_FILES = [
   'app/api/copilot/chat/route.ts',
   'app/api/copilot/usage/route.ts',
   'app/api/copilot/tools/mark-complete/route.ts',
+  'lib/copilot/components/user-input/components/model-selector.tsx',
 ]
 
 function listTs(dir: string): string[] {
@@ -36,13 +37,13 @@ function listTs(dir: string): string[] {
   return entries.flatMap((entry) => {
     const full = join(dir, entry)
     if (statSync(full).isDirectory()) return listTs(full)
-    return full.endsWith('.ts') && !full.endsWith('.test.ts') ? [full] : []
+    const isSource = full.endsWith('.ts') || full.endsWith('.tsx')
+    return isSource && !full.endsWith('.test.ts') && !full.endsWith('.test.tsx') ? [full] : []
   })
 }
 
 const targets = [...listTs(join(appDir, RUNTIME_DIR)), ...PATCHED_FILES.map((f) => join(appDir, f))]
 
-const transpiler = new Bun.Transpiler({ loader: 'ts' })
 let failed = 0
 
 for (const file of targets) {
@@ -55,6 +56,7 @@ for (const file of targets) {
     continue
   }
   try {
+    const transpiler = new Bun.Transpiler({ loader: file.endsWith('.tsx') ? 'tsx' : 'ts' })
     transpiler.transformSync(source)
     console.log(`ok   ${file.slice(appDir.length + 1)}`)
   } catch (error) {

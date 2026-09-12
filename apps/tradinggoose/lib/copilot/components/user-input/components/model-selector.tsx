@@ -10,6 +10,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui'
 import { COPILOT_RUNTIME_MODELS } from '@/lib/copilot/runtime-models'
+import { isCopilotLocalRuntimeModel } from '@/lib/copilot/local-runtime/runtime-models'
+import { useProviderModels } from '@/hooks/queries/providers'
 import { cn } from '@/lib/utils'
 import { getProviderIcon } from '@/providers/ai/models'
 import { useCopilotStore } from '@/stores/copilot/store'
@@ -43,6 +45,14 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
     }))
   )
 
+  // Self-hosted models are discovered from the vLLM provider at runtime, so a
+  // newly deployed model shows up without an app rebuild. The endpoint already
+  // returns `vllm/<name>` ids, but normalise in case it ever returns bare names.
+  const { data: vllmModels } = useProviderModels('vllm')
+  const localModels = (vllmModels ?? [])
+    .map((model) => (isCopilotLocalRuntimeModel(model) ? model : `vllm/${model}`))
+    .filter((model) => model !== selectedModel)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -61,7 +71,7 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start' side={isNearTop ? 'bottom' : 'top'} className='p-0'>
         <div className='w-[160px] p-1'>
-          {COPILOT_RUNTIME_MODELS.map((model) => (
+          {[...COPILOT_RUNTIME_MODELS, ...localModels].map((model) => (
             <DropdownMenuItem
               key={model}
               onClick={() => void setSelectedModel(model)}
