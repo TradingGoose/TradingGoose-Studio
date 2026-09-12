@@ -290,13 +290,13 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   },
   {
     id: 'vllm',
-    displayName: 'vLLM',
-    description: 'Base URL and optional bearer token for the OpenAI-compatible vLLM service.',
+    displayName: 'Self-hosted / custom OpenAI-compatible endpoint',
+    description: 'Point the app at any OpenAI-compatible host: vLLM, llama.cpp, LM Studio, or a local gateway. Models are discovered from /v1/models and offered in the Copilot model picker as vllm/<model>.',
     credentialFields: [
       {
         key: 'apiKey',
         label: 'API Key',
-        description: 'Optional bearer token for the vLLM endpoint.',
+        description: 'Optional bearer token for the endpoint, if it requires one.',
         required: false,
       },
     ],
@@ -304,7 +304,7 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
       {
         key: 'baseUrl',
         label: 'Base URL',
-        description: 'Base URL for the OpenAI-compatible vLLM host.',
+        description: 'Base URL of the OpenAI-compatible host, e.g. http://host:8080. Do not include a trailing /v1; the app appends it.',
         type: 'url',
         required: false,
       },
