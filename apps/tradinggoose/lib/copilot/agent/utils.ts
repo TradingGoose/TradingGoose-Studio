@@ -26,42 +26,6 @@ export async function requestCopilotTitle({
     return requestLocalCopilotTitle({ message, userId, model })
   }
 
-  if (isCopilotLocalRuntimeModel(model)) {
-    return requestLocalCopilotTitle({ message, userId, model })
-  }
-
-  if (isCopilotLocalRuntimeModel(model)) {
-    return requestLocalCopilotTitle({ message, userId, model })
-  }
-
-  if (isCopilotLocalRuntimeModel(model)) {
-    return requestLocalCopilotTitle({ message, userId, model })
-  }
-
-  if (isCopilotLocalRuntimeModel(model)) {
-    return requestLocalCopilotTitle({ message, userId, model })
-  }
-
-  if (isCopilotLocalRuntimeModel(model)) {
-    return requestLocalCopilotTitle({ message, userId, model })
-  }
-
-  if (isCopilotLocalRuntimeModel(model)) {
-    return requestLocalCopilotTitle({ message, userId, model })
-  }
-
-  if (isCopilotLocalRuntimeModel(model)) {
-    return requestLocalCopilotTitle({ message, userId, model })
-  }
-
-  if (isCopilotLocalRuntimeModel(model)) {
-    return requestLocalCopilotTitle({ message, userId, model })
-  }
-
-  if (isCopilotLocalRuntimeModel(model)) {
-    return requestLocalCopilotTitle({ message, userId, model })
-  }
-
   try {
     const response = await proxyCopilotCompletionRequest({
       body: {
