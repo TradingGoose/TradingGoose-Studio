@@ -27,15 +27,25 @@ export const resetIbkrSessionState = (): void => {
 }
 
 /**
- * The gateway reports an unauthenticated or lapsed session as 401 (403 on some
- * builds). The app cannot re-authenticate the gateway by itself - that requires
- * a browser login at the gateway's own URL - so this case must be reported as
- * the actionable instruction it is, not as a bare "Broker request failed with
- * status 401" that reads like a bug in the provider.
+ * An unauthenticated or lapsed gateway session surfaces two ways: as
+ * `authenticated: false` on /iserver/auth/status, and as 401 on the data
+ * endpoints. Both are the same condition for the operator, so both report this
+ * one message.
+ *
+ * The app cannot re-authenticate the gateway by itself - only a browser login at
+ * the gateway's own URL can - so this must read as the instruction it is rather
+ * than a bare "Broker request failed with status 401" that looks like a
+ * provider bug.
+ *
+ * It deliberately names no URL: the gateway's scheme and port are
+ * deployment-specific (this deployment listens on plain HTTP behind a
+ * portproxy), and naming the wrong one sends the operator to a port that is not
+ * listening.
  */
 export const IBKR_GATEWAY_SESSION_EXPIRED_MESSAGE =
   'IBKR Client Portal Gateway session is not authenticated. Log in at the gateway URL ' +
-  '(default https://localhost:5001) and retry; the app cannot re-authenticate the gateway.'
+  'in a browser on the host that runs it, then retry; the app cannot ' +
+  're-authenticate the gateway.'
 
 const readBrokerStatus = (error: unknown): number | undefined => {
   if (typeof error !== 'object' || error === null) return undefined
@@ -61,10 +71,10 @@ export async function ensureIbkrSession(params: { accessToken?: string } = {}): 
     })
 
     if (status && status.authenticated === false) {
-      throw new Error(
-        'IBKR Gateway session is not authenticated. Log in at the gateway URL ' +
-          '(default https://localhost:5000) and retry.'
-      )
+      // The same condition the data endpoints report as 401, so it gets the
+      // same message and the same cache reset as the priming path below.
+      resetIbkrSessionState()
+      throw new Error(IBKR_GATEWAY_SESSION_EXPIRED_MESSAGE)
     }
 
     await fetchBrokerJson<unknown>({

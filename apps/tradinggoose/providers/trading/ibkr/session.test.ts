@@ -71,6 +71,22 @@ describe('ensureIbkrSession', () => {
     await expect(ensureIbkrSession()).rejects.toThrow(IBKR_GATEWAY_SESSION_EXPIRED_MESSAGE)
   })
 
+  it('reports an unauthenticated auth-status check with the same instruction', async () => {
+    // The path an operator actually hits: auth/status answers 200 with
+    // authenticated:false. It shares one message with the 401 path.
+    handlers.authStatus = () =>
+      jsonResponse({ authenticated: false, established: false, connected: false })
+
+    await expect(ensureIbkrSession()).rejects.toThrow(IBKR_GATEWAY_SESSION_EXPIRED_MESSAGE)
+  })
+
+  it('names no deployment-specific URL in the session message', async () => {
+    // The gateway's scheme and port vary by deployment (this one is plain HTTP
+    // behind a portproxy); a hardcoded URL once sent the operator to a port that
+    // was not listening.
+    expect(IBKR_GATEWAY_SESSION_EXPIRED_MESSAGE).not.toMatch(/localhost|https?:\/\//)
+  })
+
   it('re-primes on the next attempt after the session was rejected', async () => {
     handlers.accounts = () => jsonResponse({ error: 'not authenticated' }, 401)
 
