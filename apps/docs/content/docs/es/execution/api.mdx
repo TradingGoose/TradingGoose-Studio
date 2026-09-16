@@ -429,18 +429,42 @@ Cada solicitud de webhook incluye estos encabezados:
 - `tradinggoose-signature`: Firma HMAC-SHA256 para la verificación (si se configuró un secreto)
 - `Idempotency-Key`: Igual que el ID de entrega para la detección de duplicados
 
-### Verificación de firma
+### Verificación de firma y gestión de entregas duplicadas
 
-Si configuras un secreto de webhook, verifica la firma para asegurarte de que el webhook proviene de TradingGoose:
+Configura un secreto de webhook y verifica la firma antes de registrar o procesar una entrega. Los reintentos conservan el mismo `Idempotency-Key` y `tradinggoose-delivery-id`, pero generan un nuevo `id` del payload, una nueva marca de tiempo y una nueva firma. No dedupliques mediante `event.id` ni un hash del cuerpo. Devuelve `200` para una entrega ya completada sin repetir sus efectos.
+
+Estos ejemplos usan una base de datos SQLite persistente y una inserción atómica para reclamar cada entrega. Aplica los efectos en la base de datos dentro de la misma transacción que el registro de recepción: si se produce un error, ambos se revierten y el reintento puede volver a procesarse. La restricción de unicidad también abarca el tipo de evento, el ID del flujo de trabajo y el ID de ejecución firmados, porque los encabezados de entrega no están incluidos en la firma. Así, cada finalización de flujo de trabajo se trata como un único evento de negocio por receptor; usa una base de datos o un ámbito de consumidor independiente para las suscripciones que necesiten procesarse por separado.
+
+Sustituye el comentario indicado por escrituras síncronas en la base de datos usando el `db` de esa transacción; no inicies trabajo sin esperar a que finalice.
+
+El ejemplo de Node.js requiere Node.js 24+ con [`node:sqlite`](https://nodejs.org/docs/latest-v24.x/api/sqlite.html) integrado; Python usa su módulo integrado [`sqlite3`](https://docs.python.org/3/library/sqlite3.html). Instala Express o Flask, respectivamente, y configura `WEBHOOK_SECRET`. Establece `WEBHOOK_DB_PATH` en un archivo de base de datos persistente (predeterminado: `webhooks.sqlite`). Monta esta ruta antes de cualquier middleware JSON para que la verificación de firma reciba el cuerpo original de la solicitud.
+
+<Callout type="warn">
+  Todos los procesos del receptor deben usar el mismo almacén duradero de registros de recepción. Para réplicas en distintos hosts, usa una base de datos transaccional compartida en lugar de archivos SQLite separados. Conserva los registros durante el período de retención de reintentos y repeticiones. Los efectos externos, como pagos o correos electrónicos, no pueden revertirse mediante esta transacción de base de datos: usa el mecanismo de idempotencia del servicio de destino o una bandeja de salida transaccional antes de confirmar la entrega.
+</Callout>
 
 <Tabs items={['Node.js', 'Python']}>
   <Tab value="Node.js">
-
     ```javascript
     import crypto from 'crypto';
+    import { DatabaseSync } from 'node:sqlite';
     import express from 'express';
 
     const app = express();
+    const db = new DatabaseSync(process.env.WEBHOOK_DB_PATH || 'webhooks.sqlite', { timeout: 5000 });
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS webhook_receipts (
+        delivery_id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        workflow_id TEXT NOT NULL,
+        execution_id TEXT NOT NULL,
+        UNIQUE (event_type, workflow_id, execution_id)
+      )
+    `);
+    const claimDelivery = db.prepare(`
+      INSERT INTO webhook_receipts (delivery_id, event_type, workflow_id, execution_id)
+      VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING
+    `);
 
     function verifyWebhookSignature(rawBody, signature, secret) {
       if (!signature || !secret) return false;
@@ -467,22 +491,64 @@ Si configuras un secreto de webhook, verifica la firma para asegurarte de que el
         return res.status(401).send('Invalid signature');
       }
 
-      const event = JSON.parse(rawBody);
-      // Process event, then acknowledge it.
+      const deliveryHeader = req.headers['tradinggoose-delivery-id'];
+      const deliveryId = req.headers['idempotency-key'] || deliveryHeader;
+      if (typeof deliveryId !== 'string' || !deliveryId.trim() ||
+          (deliveryHeader && deliveryHeader !== deliveryId)) {
+        return res.status(400).send('Missing or inconsistent delivery ID');
+      }
+
+      let event;
+      try {
+        event = JSON.parse(rawBody);
+      } catch {
+        return res.status(400).send('Invalid JSON');
+      }
+      if (event?.type !== 'workflow.execution.completed' ||
+          typeof event.data?.workflowId !== 'string' || !event.data.workflowId ||
+          typeof event.data?.executionId !== 'string' || !event.data.executionId) {
+        return res.status(400).send('Invalid event');
+      }
+
+      try {
+        db.exec('BEGIN IMMEDIATE');
+        const receipt = claimDelivery.run(deliveryId, event.type, event.data.workflowId, event.data.executionId);
+        if (receipt.changes === 0) {
+          db.exec('COMMIT');
+          return res.sendStatus(200);
+        }
+        // Apply your database side effects here using db, inside this transaction.
+        db.exec('COMMIT');
+      } catch (error) {
+        if (db.isTransaction) db.exec('ROLLBACK');
+        console.error('Webhook processing failed', error);
+        return res.sendStatus(500);
+      }
       res.sendStatus(200);
     });
     ```
-
   </Tab>
   <Tab value="Python">
-
     ```python
     import hmac
     import hashlib
     import os
+    import sqlite3
+    from contextlib import closing
     from flask import Flask, request
 
     app = Flask(__name__)
+    database_path = os.environ.get('WEBHOOK_DB_PATH', 'webhooks.sqlite')
+    with closing(sqlite3.connect(database_path)) as db, db:
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS webhook_receipts (
+                delivery_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                workflow_id TEXT NOT NULL,
+                execution_id TEXT NOT NULL,
+                UNIQUE (event_type, workflow_id, execution_id)
+            )
+        ''')
 
     def verify_webhook_signature(raw_body: str, signature: str, secret: str) -> bool:
         if not signature or not secret:
@@ -511,10 +577,34 @@ Si configuras un secreto de webhook, verifica la firma para asegurarte de que el
             return 'Invalid signature', 401
 
         event = request.get_json()
-        # Process event, then acknowledge it.
+        delivery_header = request.headers.get('tradinggoose-delivery-id')
+        delivery_id = request.headers.get('Idempotency-Key') or delivery_header
+        if not delivery_id or not delivery_id.strip() or (
+            delivery_header and delivery_header != delivery_id
+        ):
+            return 'Missing or inconsistent delivery ID', 400
+        data = event.get('data') if isinstance(event, dict) else None
+        if not isinstance(data, dict) or event.get('type') != 'workflow.execution.completed' or any(
+            not isinstance(data.get(key), str) or not data[key]
+            for key in ('workflowId', 'executionId')
+        ):
+            return 'Invalid event', 400
+
+        try:
+            with closing(sqlite3.connect(database_path, timeout=5)) as db, db:
+                db.execute('BEGIN IMMEDIATE')
+                receipt = db.execute('''
+                    INSERT INTO webhook_receipts (delivery_id, event_type, workflow_id, execution_id)
+                    VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING
+                ''', (delivery_id, event['type'], data['workflowId'], data['executionId']))
+                if receipt.rowcount == 0:
+                    return '', 200
+                # Apply your database side effects here using db, inside this transaction.
+        except Exception:
+            app.logger.exception('Webhook processing failed')
+            return '', 500
         return '', 200
     ```
-
   </Tab>
 </Tabs>
 
@@ -537,7 +627,7 @@ Las entregas de webhook que se pueden reintentar realizan hasta cinco intentos e
 
 2. **Seguridad del webhook**: Configura siempre un secreto de webhook y verifica las firmas para asegurarte de que las solicitudes provienen de TradingGoose.
 
-3. **Idempotencia**: Usa el encabezado `Idempotency-Key` para detectar y gestionar entregas de webhook duplicadas.
+3. **Idempotencia**: Registra atómicamente el ID de entrega y los efectos en la base de datos dentro de la misma transacción duradera. Confirma los duplicados ya completados con `200`; revierte el procesamiento fallido para que los reintentos puedan completarse. Usa idempotencia en el servicio de destino o una bandeja de salida transaccional para los efectos externos.
 
 4. **Privacidad**: De forma predeterminada, `finalOutput` e `traceSpans` se excluyen de las respuestas. Actívalos solo si necesitas los datos y entiendes las implicaciones para la privacidad.
 

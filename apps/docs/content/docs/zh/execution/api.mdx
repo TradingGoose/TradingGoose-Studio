@@ -429,18 +429,42 @@ Webhook 订阅管理不属于 API 密钥日志 API 的一部分。应用程序�
 - `tradinggoose-signature`：用于验证的 HMAC-SHA256 签名（若已配置密钥）
 - `Idempotency-Key`：与投递 ID 相同，用于重复检测
 
-### 签名验证
+### 签名验证与重复投递处理
 
-如果你配置了 webhook 密钥，请验证签名，以确保 webhook 来自 TradingGoose：
+配置 webhook 密钥，并在记录或处理投递前验证签名。重试会保留相同的 `Idempotency-Key` 和 `tradinggoose-delivery-id`，但会生成新的负载 `id`、时间戳和签名。不要使用 `event.id` 或请求体哈希去重。对于已处理完成的投递，返回 `200`，不要重复执行其副作用。
+
+这些示例使用持久化 SQLite 数据库，通过原子插入来认领每次投递。将数据库副作用与接收记录放在同一事务中：处理失败时两者一并回滚，重试即可再次处理。唯一约束还涵盖已签名的事件类型、工作流 ID 和执行 ID，因为投递请求头不在签名范围内。因此，对每个接收方而言，一次工作流完成只作为一个业务事件处理；需要独立处理的订阅应使用独立的数据库或消费者作用域。
+
+将标记的注释替换为使用该事务 `db` 的同步数据库写入；不要启动未等待完成的任务。
+
+Node.js 示例要求 Node.js 24+，并使用内置的 [`node:sqlite`](https://nodejs.org/docs/latest-v24.x/api/sqlite.html)；Python 使用内置的 [`sqlite3`](https://docs.python.org/3/library/sqlite3.html) 模块。分别安装 Express 或 Flask，并设置 `WEBHOOK_SECRET`。将 `WEBHOOK_DB_PATH` 指向持久化数据库文件（默认：`webhooks.sqlite`）。请在任何 JSON 中间件之前挂载此路由，以确保签名验证获取原始请求体。
+
+<Callout type="warn">
+  接收方的所有工作进程必须使用同一个持久化接收记录存储。对于不同主机上的副本，请使用共享事务数据库，而不是各自独立的 SQLite 文件。请在重试及重放保留期内保留接收记录。支付或发送邮件等外部副作用无法通过此数据库事务回滚：在确认投递之前，应使用下游服务的幂等机制或事务性发件箱。
+</Callout>
 
 <Tabs items={['Node.js', 'Python']}>
   <Tab value="Node.js">
-
     ```javascript
     import crypto from 'crypto';
+    import { DatabaseSync } from 'node:sqlite';
     import express from 'express';
 
     const app = express();
+    const db = new DatabaseSync(process.env.WEBHOOK_DB_PATH || 'webhooks.sqlite', { timeout: 5000 });
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS webhook_receipts (
+        delivery_id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        workflow_id TEXT NOT NULL,
+        execution_id TEXT NOT NULL,
+        UNIQUE (event_type, workflow_id, execution_id)
+      )
+    `);
+    const claimDelivery = db.prepare(`
+      INSERT INTO webhook_receipts (delivery_id, event_type, workflow_id, execution_id)
+      VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING
+    `);
 
     function verifyWebhookSignature(rawBody, signature, secret) {
       if (!signature || !secret) return false;
@@ -467,22 +491,64 @@ Webhook 订阅管理不属于 API 密钥日志 API 的一部分。应用程序�
         return res.status(401).send('Invalid signature');
       }
 
-      const event = JSON.parse(rawBody);
-      // Process event, then acknowledge it.
+      const deliveryHeader = req.headers['tradinggoose-delivery-id'];
+      const deliveryId = req.headers['idempotency-key'] || deliveryHeader;
+      if (typeof deliveryId !== 'string' || !deliveryId.trim() ||
+          (deliveryHeader && deliveryHeader !== deliveryId)) {
+        return res.status(400).send('Missing or inconsistent delivery ID');
+      }
+
+      let event;
+      try {
+        event = JSON.parse(rawBody);
+      } catch {
+        return res.status(400).send('Invalid JSON');
+      }
+      if (event?.type !== 'workflow.execution.completed' ||
+          typeof event.data?.workflowId !== 'string' || !event.data.workflowId ||
+          typeof event.data?.executionId !== 'string' || !event.data.executionId) {
+        return res.status(400).send('Invalid event');
+      }
+
+      try {
+        db.exec('BEGIN IMMEDIATE');
+        const receipt = claimDelivery.run(deliveryId, event.type, event.data.workflowId, event.data.executionId);
+        if (receipt.changes === 0) {
+          db.exec('COMMIT');
+          return res.sendStatus(200);
+        }
+        // Apply your database side effects here using db, inside this transaction.
+        db.exec('COMMIT');
+      } catch (error) {
+        if (db.isTransaction) db.exec('ROLLBACK');
+        console.error('Webhook processing failed', error);
+        return res.sendStatus(500);
+      }
       res.sendStatus(200);
     });
     ```
-
   </Tab>
   <Tab value="Python">
-
     ```python
     import hmac
     import hashlib
     import os
+    import sqlite3
+    from contextlib import closing
     from flask import Flask, request
 
     app = Flask(__name__)
+    database_path = os.environ.get('WEBHOOK_DB_PATH', 'webhooks.sqlite')
+    with closing(sqlite3.connect(database_path)) as db, db:
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS webhook_receipts (
+                delivery_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                workflow_id TEXT NOT NULL,
+                execution_id TEXT NOT NULL,
+                UNIQUE (event_type, workflow_id, execution_id)
+            )
+        ''')
 
     def verify_webhook_signature(raw_body: str, signature: str, secret: str) -> bool:
         if not signature or not secret:
@@ -511,10 +577,34 @@ Webhook 订阅管理不属于 API 密钥日志 API 的一部分。应用程序�
             return 'Invalid signature', 401
 
         event = request.get_json()
-        # Process event, then acknowledge it.
+        delivery_header = request.headers.get('tradinggoose-delivery-id')
+        delivery_id = request.headers.get('Idempotency-Key') or delivery_header
+        if not delivery_id or not delivery_id.strip() or (
+            delivery_header and delivery_header != delivery_id
+        ):
+            return 'Missing or inconsistent delivery ID', 400
+        data = event.get('data') if isinstance(event, dict) else None
+        if not isinstance(data, dict) or event.get('type') != 'workflow.execution.completed' or any(
+            not isinstance(data.get(key), str) or not data[key]
+            for key in ('workflowId', 'executionId')
+        ):
+            return 'Invalid event', 400
+
+        try:
+            with closing(sqlite3.connect(database_path, timeout=5)) as db, db:
+                db.execute('BEGIN IMMEDIATE')
+                receipt = db.execute('''
+                    INSERT INTO webhook_receipts (delivery_id, event_type, workflow_id, execution_id)
+                    VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING
+                ''', (delivery_id, event['type'], data['workflowId'], data['executionId']))
+                if receipt.rowcount == 0:
+                    return '', 200
+                # Apply your database side effects here using db, inside this transaction.
+        except Exception:
+            app.logger.exception('Webhook processing failed')
+            return '', 500
         return '', 200
     ```
-
   </Tab>
 </Tabs>
 
@@ -537,7 +627,7 @@ Webhook 订阅管理不属于 API 密钥日志 API 的一部分。应用程序�
 
 2. **webhook 安全**：始终配置 webhook 密钥并验证签名，以确保请求来自 TradingGoose。
 
-3. **幂等性**：使用 `Idempotency-Key` 请求头检测并处理重复的 webhook 投递。
+3. **幂等性**：在同一个持久化事务中原子记录投递 ID 并执行数据库副作用。对已完成的重复投递返回 `200`；处理失败时回滚，以便重试能够成功。对于外部副作用，使用下游幂等机制或事务性发件箱。
 
 4. **隐私**：默认情况下，响应中会排除 `finalOutput` 和 `traceSpans`。仅在你需要这些数据并了解其隐私影响时才启用。
 

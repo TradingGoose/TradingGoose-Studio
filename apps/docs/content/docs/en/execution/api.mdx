@@ -418,17 +418,42 @@ Each webhook request includes these headers:
 - `tradinggoose-signature`: HMAC-SHA256 signature for verification (if secret configured)
 - `Idempotency-Key`: Same as delivery ID for duplicate detection
 
-### Signature Verification
+### Signature Verification and Duplicate Delivery Handling
 
-If you configure a webhook secret, verify the signature to ensure the webhook is from TradingGoose:
+Configure a webhook secret and verify the signature before recording or processing a delivery. Retries keep the same `Idempotency-Key` and `tradinggoose-delivery-id`, but generate a new payload `id`, timestamp, and signature. Do not deduplicate using `event.id` or a body hash. Return `200` for an already completed delivery without repeating its effects.
+
+These examples use a persistent SQLite database and an atomic insert to claim each delivery. Apply database side effects in the same transaction as the receipt: a failure rolls back both, and a retry can try again. The unique constraint also covers the signed event type, workflow ID, and execution ID, because the delivery headers are not included in the signature. This treats each workflow completion as one business event per receiver; use a separate database or consumer scope for subscriptions that need independent processing.
+
+Replace the marked comment with synchronous database writes using that transaction's `db`; do not start unawaited work.
+
+The Node.js example requires Node.js 24+ with built-in [`node:sqlite`](https://nodejs.org/docs/latest-v24.x/api/sqlite.html); Python uses its built-in [`sqlite3`](https://docs.python.org/3/library/sqlite3.html) module. Install Express or Flask respectively, and set `WEBHOOK_SECRET`. Set `WEBHOOK_DB_PATH` to a persistent database file (default: `webhooks.sqlite`). Mount this route before any JSON middleware so signature verification receives the original request body.
+
+<Callout type="warn">
+  All receiver workers must use the same durable receipt store. For replicas on different hosts, use a shared transactional database rather than separate SQLite files. Keep receipts for your retry and replay retention period. External effects such as payments or email cannot be rolled back by this database transaction: use the downstream service's idempotency mechanism or a transactional outbox before acknowledging the delivery.
+</Callout>
 
 <Tabs items={['Node.js', 'Python']}>
   <Tab value="Node.js">
     ```javascript
     import crypto from 'crypto';
+    import { DatabaseSync } from 'node:sqlite';
     import express from 'express';
 
     const app = express();
+    const db = new DatabaseSync(process.env.WEBHOOK_DB_PATH || 'webhooks.sqlite', { timeout: 5000 });
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS webhook_receipts (
+        delivery_id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        workflow_id TEXT NOT NULL,
+        execution_id TEXT NOT NULL,
+        UNIQUE (event_type, workflow_id, execution_id)
+      )
+    `);
+    const claimDelivery = db.prepare(`
+      INSERT INTO webhook_receipts (delivery_id, event_type, workflow_id, execution_id)
+      VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING
+    `);
 
     function verifyWebhookSignature(rawBody, signature, secret) {
       if (!signature || !secret) return false;
@@ -455,8 +480,39 @@ If you configure a webhook secret, verify the signature to ensure the webhook is
         return res.status(401).send('Invalid signature');
       }
 
-      const event = JSON.parse(rawBody);
-      // Process event, then acknowledge it.
+      const deliveryHeader = req.headers['tradinggoose-delivery-id'];
+      const deliveryId = req.headers['idempotency-key'] || deliveryHeader;
+      if (typeof deliveryId !== 'string' || !deliveryId.trim() ||
+          (deliveryHeader && deliveryHeader !== deliveryId)) {
+        return res.status(400).send('Missing or inconsistent delivery ID');
+      }
+
+      let event;
+      try {
+        event = JSON.parse(rawBody);
+      } catch {
+        return res.status(400).send('Invalid JSON');
+      }
+      if (event?.type !== 'workflow.execution.completed' ||
+          typeof event.data?.workflowId !== 'string' || !event.data.workflowId ||
+          typeof event.data?.executionId !== 'string' || !event.data.executionId) {
+        return res.status(400).send('Invalid event');
+      }
+
+      try {
+        db.exec('BEGIN IMMEDIATE');
+        const receipt = claimDelivery.run(deliveryId, event.type, event.data.workflowId, event.data.executionId);
+        if (receipt.changes === 0) {
+          db.exec('COMMIT');
+          return res.sendStatus(200);
+        }
+        // Apply your database side effects here using db, inside this transaction.
+        db.exec('COMMIT');
+      } catch (error) {
+        if (db.isTransaction) db.exec('ROLLBACK');
+        console.error('Webhook processing failed', error);
+        return res.sendStatus(500);
+      }
       res.sendStatus(200);
     });
     ```
@@ -466,9 +522,22 @@ If you configure a webhook secret, verify the signature to ensure the webhook is
     import hmac
     import hashlib
     import os
+    import sqlite3
+    from contextlib import closing
     from flask import Flask, request
 
     app = Flask(__name__)
+    database_path = os.environ.get('WEBHOOK_DB_PATH', 'webhooks.sqlite')
+    with closing(sqlite3.connect(database_path)) as db, db:
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS webhook_receipts (
+                delivery_id TEXT PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                workflow_id TEXT NOT NULL,
+                execution_id TEXT NOT NULL,
+                UNIQUE (event_type, workflow_id, execution_id)
+            )
+        ''')
 
     def verify_webhook_signature(raw_body: str, signature: str, secret: str) -> bool:
         if not signature or not secret:
@@ -497,7 +566,32 @@ If you configure a webhook secret, verify the signature to ensure the webhook is
             return 'Invalid signature', 401
 
         event = request.get_json()
-        # Process event, then acknowledge it.
+        delivery_header = request.headers.get('tradinggoose-delivery-id')
+        delivery_id = request.headers.get('Idempotency-Key') or delivery_header
+        if not delivery_id or not delivery_id.strip() or (
+            delivery_header and delivery_header != delivery_id
+        ):
+            return 'Missing or inconsistent delivery ID', 400
+        data = event.get('data') if isinstance(event, dict) else None
+        if not isinstance(data, dict) or event.get('type') != 'workflow.execution.completed' or any(
+            not isinstance(data.get(key), str) or not data[key]
+            for key in ('workflowId', 'executionId')
+        ):
+            return 'Invalid event', 400
+
+        try:
+            with closing(sqlite3.connect(database_path, timeout=5)) as db, db:
+                db.execute('BEGIN IMMEDIATE')
+                receipt = db.execute('''
+                    INSERT INTO webhook_receipts (delivery_id, event_type, workflow_id, execution_id)
+                    VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING
+                ''', (delivery_id, event['type'], data['workflowId'], data['executionId']))
+                if receipt.rowcount == 0:
+                    return '', 200
+                # Apply your database side effects here using db, inside this transaction.
+        except Exception:
+            app.logger.exception('Webhook processing failed')
+            return '', 500
         return '', 200
     ```
   </Tab>
@@ -522,7 +616,7 @@ Retryable webhook deliveries make up to five total attempts: the initial request
 
 2. **Webhook Security**: Always configure a webhook secret and verify signatures to ensure requests are from TradingGoose.
 
-3. **Idempotency**: Use the `Idempotency-Key` header to detect and handle duplicate webhook deliveries.
+3. **Idempotency**: Atomically record the delivery ID and database effects in the same durable transaction. Acknowledge completed duplicates with `200`; roll back failed processing so retries can succeed. Use downstream idempotency or an outbox for external effects.
 
 4. **Privacy**: By default, `finalOutput` and `traceSpans` are excluded from responses. Only enable these if you need the data and understand the privacy implications.
 
