@@ -47,7 +47,7 @@ export function LayoutBody({ sidebar, navbar, children, className, ...props }: L
     >
       {sidebar}
       <div
-        className='flex min-h-screen flex-1 flex-col'
+        className='flex min-h-screen min-w-0 flex-1 flex-col'
         style={{
           marginInlineStart: 'var(--fd-sidebar-width)',
         }}
